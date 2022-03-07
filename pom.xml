@@ -175,11 +175,7 @@
 			<version>2.6.1</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-bigquery -->
-		<dependency>
-			<groupId>com.google.cloud</groupId>
-			<artifactId>google-cloud-bigquery</artifactId>
-			<version>2.4.0</version>
-		</dependency>
+		
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
