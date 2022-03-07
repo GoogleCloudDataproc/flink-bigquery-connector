@@ -34,10 +34,11 @@ public class ReadRows {
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}
-			for (int i=0;i<numOfRows;i++) {
-				ctx.collect((RowData) outputCollector.get(i));
-			}
+			}			
+		}
+		
+		for (int i=0;i<outputCollector.size();i++) {
+			ctx.collect((RowData) outputCollector.get(i));
 		}
 	}
 	
