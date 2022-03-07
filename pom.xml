@@ -52,12 +52,15 @@
         <avro.version>1.8.2</avro.version>
         <arrow.version>6.0.1</arrow.version>
         <bigquery-connector-common.version>0.23.2</bigquery-connector-common.version>
-        <flink.version>1.12.0</flink.version>
+        <flink.version>1.13.1</flink.version>
         <google-cloud-dataproc.version>2.3.1</google-cloud-dataproc.version>
         <google-cloud-storage.version>2.3.0</google-cloud-storage.version>
         <google-truth.version>1.1.3</google-truth.version>
         <guava.version>30.1.1-jre</guava.version>
         <slf4j.version>1.7.15</slf4j.version>
+		<scala.version>2.12</scala.version>
+		<maven.compiler.source>8</maven.compiler.source>
+		<maven.compiler.target>8</maven.compiler.target>
 
         <!-- checkstyle
         <checkstyle.header.file>${reactor.project.basedir}/java.header</checkstyle.header.file>
@@ -90,6 +93,18 @@
             <version>${flink.version}</version>
             <scope>provided</scope>
         </dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-api-java-bridge_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-planner-blink_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+			<scope>provided</scope>
+		</dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -122,6 +137,49 @@
             <version>${flink.version}</version>
             <scope>test</scope>
         </dependency>
+		<dependency>
+			<groupId>org.apache.arrow</groupId>
+			<artifactId>arrow-vector</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.arrow</groupId>
+			<artifactId>arrow-memory</artifactId>
+			<version>1.0.1</version>
+			<type>pom</type>
+		</dependency>
+		<dependency>
+		    <groupId>org.apache.arrow</groupId>
+		    <artifactId>arrow-memory-netty</artifactId>
+		    <version>1.0.1</version>
+		    <scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-clients_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-python_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-avro</artifactId>
+			<version>${flink.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.cloud</groupId>
+			<artifactId>google-cloud-bigquerystorage</artifactId>
+			<version>2.6.1</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-bigquery -->
+		<dependency>
+			<groupId>com.google.cloud</groupId>
+			<artifactId>google-cloud-bigquery</artifactId>
+			<version>2.4.0</version>
+		</dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -379,7 +437,7 @@
                     </archive>
                 </configuration>
             </plugin>
-            <plugin>
+            <!--<plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
                 <configuration>
@@ -411,7 +469,7 @@
                         <phase>compile</phase>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin>-->
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>

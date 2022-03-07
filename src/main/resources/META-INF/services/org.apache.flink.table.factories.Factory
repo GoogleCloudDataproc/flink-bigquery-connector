@@ -1,0 +1,2 @@
+com.flink.connector.BigQueryDynamicTableFactory
+com.flink.connector.ArrowFormatFactory
