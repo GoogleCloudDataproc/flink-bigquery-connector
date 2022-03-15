@@ -150,7 +150,7 @@
 		<dependency>
 			<groupId>org.apache.arrow</groupId>
 			<artifactId>arrow-vector</artifactId>
-			<version>1.0.1</version>
+			<version>${arrow.vector.version}</version>
 		</dependency>		
 		<dependency>
 		    <groupId>org.apache.arrow</groupId>
