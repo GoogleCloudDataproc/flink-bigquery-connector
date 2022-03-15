@@ -16,14 +16,12 @@
 package com.google.cloud.flink.bigquery;
 
 import java.io.IOException;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
@@ -84,7 +82,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
 		final String configStr = options.get(CONFIGOPTIONS);
 		for (String pair : Arrays.asList(configStr.split("#"))) {
 			String[] entry = pair.split("=");
-			configOption.put(entry[0].trim(), entry[1].trim());
+			configOption.put(entry[0].trim(), entry.length == 2 ? entry[1].trim():"");
 		}
 
 		final String table = configOption.get("table");

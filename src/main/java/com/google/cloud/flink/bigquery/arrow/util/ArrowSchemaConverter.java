@@ -15,7 +15,6 @@
  */
 package com.google.cloud.flink.bigquery.arrow.util;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -45,7 +44,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-
 import org.apache.flink.table.data.vector.ColumnVector;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -61,12 +59,9 @@ import org.apache.flink.table.types.logical.RowType;
  * runtime classes {@link AvroRowDeserializationSchema} and
  * {@link AvroRowSerializationSchema}.
  */
-public class ArrowSchemaConverter implements Serializable {
+public class ArrowSchemaConverter {	
 
-	private static final long serialVersionUID = 1L;
-	private static Schema schema;
-
-	public ArrowSchemaConverter() {
+	private ArrowSchemaConverter() {
 
 	}
 

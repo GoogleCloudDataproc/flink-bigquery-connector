@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
@@ -68,11 +69,12 @@ public class BigQueryReadSession {
 		ReadSessionCreator readSessionCreator = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient,
 				bigQueryReadClientFactory);
 		TableId tableId = TableId.of(dataset, table);
-
-		ImmutableList<String> cols = ImmutableList.of("word", "word_count");
-		Optional<String> filter = Optional.of("word_count > 500");
 		
-		ReadSessionResponse response = readSessionCreator.create(tableId, cols, filter);
+		ImmutableList<String> selectedFields =
+        ImmutableList.copyOf(Arrays.asList(configOption.get("selectedfields").split(",")));
+        Optional<String> filter = Optional.of(configOption.get("filter"));
+		
+		ReadSessionResponse response = readSessionCreator.create(tableId, selectedFields, filter);
 		return response.getReadSession();
 	}
 }
