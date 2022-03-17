@@ -43,15 +43,14 @@ public class BigQueryReadSession {
 	public static com.google.cloud.bigquery.storage.v1.ReadSession getReadsession(String projectId, String table,
 			String dataset, Map<String, String> configOption) throws FileNotFoundException, IOException {
 
-		GoogleCredentials credentials = GoogleCredentials
-				.fromStream(new FileInputStream(configOption.get("credentialKeyFile")));
-		Optional<String> credentialkey_file = Optional.of(configOption.get("credentialKeyFile"));
-
+		String credentialKeyFile =configOption.get("credentialKeyFile");
+		GoogleCredentials credentials = GoogleCredentials.fromStream(new FileInputStream(credentialKeyFile));
+		Optional<String> credentialkey_file = Optional.of(credentialKeyFile);
 		BigQueryCredentialsSupplier bigQueryCredentialsSupplier = new BigQueryCredentialsSupplier(Optional.empty(),
 				Optional.empty(), credentialkey_file, Optional.empty(), Optional.empty(), Optional.empty());
 
-		int DEFAULT_PARALLELISM = Integer.parseInt(configOption.get("DEFAULT_PARALLELISM"));
-		String FLINK_VERSION = (String) configOption.get("FLINK_VERSION");
+		int DEFAULT_PARALLELISM = Integer.parseInt(configOption.get("defaultParallelism"));
+		String FLINK_VERSION = configOption.get("flinkVersion");
 
 		Configuration hadoopConfiguration = new Configuration();
 
@@ -69,11 +68,10 @@ public class BigQueryReadSession {
 		ReadSessionCreator readSessionCreator = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient,
 				bigQueryReadClientFactory);
 		TableId tableId = TableId.of(dataset, table);
-		
+
 		ImmutableList<String> selectedFields =
-        ImmutableList.copyOf(Arrays.asList(configOption.get("selectedfields").split(",")));
-        Optional<String> filter = Optional.of(configOption.get("filter"));
-		
+                ImmutableList.copyOf(Arrays.asList((configOption.get("selectedfields")).split(",")));
+		Optional<String> filter = Optional.of(configOption.get("filter"));
 		ReadSessionResponse response = readSessionCreator.create(tableId, selectedFields, filter);
 		return response.getReadSession();
 	}

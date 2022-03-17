@@ -59,11 +59,9 @@
         <guava.version>30.1.1-jre</guava.version>
         <slf4j.version>1.7.15</slf4j.version>
 		<scala.version>2.12</scala.version>
-		<arrow.vector.version>1.0.1</arrow.vector.version>
-		<hadoop.core.version>0.20.2</hadoop.core.version>
-		<lombok.version>1.18.20</lombok.version>
-		<junit.version>4.13.1</junit.version>
-		<maven.compiler.source>8</maven.compiler.source>
+        <hadoop.core.version>0.20.2</hadoop.core.version>
+        <junit.version>4.13.1</junit.version>
+        <maven.compiler.source>8</maven.compiler.source>
 		<maven.compiler.target>8</maven.compiler.target>
 
         <!-- checkstyle
@@ -77,10 +75,10 @@
                 <artifactId>bigquery-connector-common</artifactId>
                 <version>${bigquery-connector-common.version}</version>
             </dependency>
-			<dependency>
+            <dependency>
 				<groupId>org.apache.arrow</groupId>
 				<artifactId>arrow-memory</artifactId>
-				<version>${arrow.vector.version}</version>
+				<version>${arrow.version}</version>
 				<type>pom</type>
 		</dependency>
         </dependencies>
@@ -103,18 +101,6 @@
             <version>${flink.version}</version>
             <scope>provided</scope>
         </dependency>
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-table-api-java-bridge_${scala.version}</artifactId>
-			<version>${flink.version}</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-table-planner-blink_${scala.version}</artifactId>
-			<version>${flink.version}</version>
-			<scope>provided</scope>
-		</dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -147,15 +133,22 @@
             <version>${flink.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-api-java-bridge_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+			<scope>provided</scope>
+		</dependency>
 		<dependency>
-			<groupId>org.apache.arrow</groupId>
-			<artifactId>arrow-vector</artifactId>
-			<version>${arrow.vector.version}</version>
-		</dependency>		
-		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-planner-blink_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+			<scope>provided</scope>
+		</dependency>
+        <dependency>
 		    <groupId>org.apache.arrow</groupId>
 		    <artifactId>arrow-memory-netty</artifactId>
-		    <version>${arrow.vector.version}</version>
+		    <version>${arrow.version}</version>
 		    <scope>runtime</scope>
 		</dependency>
 		<dependency>
@@ -172,9 +165,7 @@
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-bigquerystorage</artifactId>
 			<version>${google-cloud-storage.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-bigquery -->
-		
+		</dependency>	
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-core</artifactId>
@@ -184,13 +175,7 @@
 		  <groupId>com.google.guava</groupId>
 		  <artifactId>guava</artifactId>
 		  <version>${guava.version}</version>
-		</dependency> 
-		 <dependency>
-		        <groupId>org.projectlombok</groupId>
-		        <artifactId>lombok</artifactId>
-		        <version>${lombok.version}</version>
-		        <scope>provided</scope>
-		    </dependency> 
+		</dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -448,7 +433,7 @@
                     </archive>
                 </configuration>
             </plugin>
-            <!--<plugin>
+            <!--plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
                 <configuration>
@@ -480,7 +465,7 @@
                         <phase>compile</phase>
                     </execution>
                 </executions>
-            </plugin>-->
+            </plugin-->
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>

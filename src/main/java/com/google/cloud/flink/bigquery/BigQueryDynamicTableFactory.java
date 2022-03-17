@@ -16,9 +16,11 @@
 package com.google.cloud.flink.bigquery;
 
 import java.io.IOException;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -26,6 +28,8 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
@@ -81,18 +85,24 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
 		final ReadableConfig options = helper.getOptions();
 		final String configStr = options.get(CONFIGOPTIONS);
 		for (String pair : Arrays.asList(configStr.split("#"))) {
-			String[] entry = pair.split("=");
-			configOption.put(entry[0].trim(), entry.length == 2 ? entry[1].trim():"");
+			String[] entry = pair.split("::");
+			configOption.put(entry[0].trim(),entry.length == 2 ? entry[1].trim():"");
 		}
 
 		final String table = configOption.get("table");
 		final String dataset = configOption.get("dataset");
 		final String projectId = configOption.get("projectId");
 
-		log.info("Config Options  :: " + configOption);
+		log.info("Config Options -> " + configOption);
 		DataType producedDataType = null;
 		try {
-			
+//			List<DataType> datatypeList = context.getCatalogTable().getResolvedSchema().getColumnDataTypes();
+//			List<String> columnNameList = context.getCatalogTable().getResolvedSchema().getColumnNames();
+//			if (datatypeList.indexOf(DataTypes.INT())>-1 ) {
+//				datatypeList.set(datatypeList.indexOf(DataTypes.INT()),DataTypes.BIGINT());
+//			}
+//			
+//			context.getCatalogTable().getResolvedSchema();
 			producedDataType = context.getCatalogTable().getResolvedSchema().toPhysicalRowDataType();
 			readSession = BigQueryReadSession.getReadsession(projectId, table, dataset, configOption);
 		} catch (IOException ex) {
