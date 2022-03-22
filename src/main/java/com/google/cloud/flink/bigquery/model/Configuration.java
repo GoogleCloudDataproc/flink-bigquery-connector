@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class Configuration {
 
-	private static String project_id = "";
+	private static String projectId = "";
 	private static String dataset = "";
 	private static String bigQueryReadTable = "";
 	private static String filter = "";
@@ -62,11 +62,11 @@ public class Configuration {
 	}
 
 	public String getProjectId() {
-		return project_id;
+		return projectId;
 	}
 
-	public void setProjectId(String project_id) {
-		this.project_id = project_id;
+	public void setProjectId(String projectId) {
+		this.projectId = projectId;
 	}
 
 	public String getDataset() {
@@ -172,7 +172,7 @@ public class Configuration {
 	public String getConfigMap() {
 		this.configString = this.configString + "targetBigQueryTable::" + bigQueryWriteTable + "#";
 		this.configString = this.configString + "snapshotMillis::" + String.valueOf(snapshotMillis) + "#";
-		this.configString = this.configString + "project_id::" + project_id + "#";
+		this.configString = this.configString + "projectId::" + projectId + "#";
 		this.configString = this.configString + "dataset::" + dataset + "#";
 		this.configString = this.configString + "table::" + bigQueryReadTable + "#";
 		this.configString = this.configString + "filter::" + filter + "#";
