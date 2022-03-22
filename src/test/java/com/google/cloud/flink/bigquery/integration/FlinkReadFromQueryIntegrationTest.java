@@ -20,10 +20,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.types.Row;
+import org.apache.flink.util.CloseableIterator;
+import org.junit.Ignore;
 import org.junit.Test;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
@@ -102,4 +106,38 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
 			throw new FlinkBigQueryException("Column not found");
 		});
 	}
+	
+	//We are passing all the configuration values and setting filter in flink and tableAPI both together.
+    @Ignore@Test
+    public void testReadFromQueryInternal1() {
+    		config.setFilter("word_count > 100");
+            config.setProjectId("q-gcp-6750-pso-gs-flink-22-01");
+            config.setDataset("wordcount_dataset");
+            config.setBigQueryReadTable("wordcount_output");
+            config.setSelectedFields("word,word_count");
+            //config.setParallelism(10);
+            String projectName = config.getProjectId() + "." + config.getDataset() + "." + config.getBigQueryReadTable();
+            String query = "SELECT word, word_count FROM " + projectName + " WHERE " + config.getFilter();
+            config.setQuery(query);
+
+            String srcQueryString = "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
+            flinkTableEnv.executeSql(srcQueryString + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
+                            + "  'format' = 'arrow',\n" + "  'configOptions' = '" + config.getConfigMap() + "'\n" + ")");
+            Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+            Table datatable = result.where($("word_count").isGreaterOrEqual(100)).select($("word"), $("word_count"));
+            DataStream<Row> ds = flinkTableEnv.toDataStream(datatable);
+            
+            int count = 0;
+            try {
+                    CloseableIterator<Row> itr = ds.executeAndCollect();
+                    while (itr.hasNext()) {
+                            Row it = itr.next();
+                            count += 1;
+                    } 
+            } catch (Exception e) {
+                    e.printStackTrace();
+            }
+            System.out.print(count);
+            assertEquals(count, 16);
+    }
 }
