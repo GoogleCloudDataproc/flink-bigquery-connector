@@ -16,11 +16,9 @@
 package com.google.cloud.flink.bigquery;
 
 import java.io.IOException;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,8 +26,6 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.table.api.DataTypes;
-import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
