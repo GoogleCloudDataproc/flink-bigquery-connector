@@ -15,22 +15,17 @@
  */
 package com.google.cloud.flink.bigquery.model;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class Configuration {
 
 	private static String projectId = "";
 	private static String dataset = "";
 	private static String bigQueryReadTable = "";
 	private static String filter = "";
-	private static String credentialKeyFile = "";
-	private static String credentialKeys = "";
+	private static String credentialKeyFile = "";	
 	private static String selectedfields = "";
 	private static int defaultParallelism = 5;
 	private static String flinkVersion = "";
-	private static int snapshotMillis = 0;
-	private static Map<String, String> configMap = new HashMap<>();
+	private static int snapshotMillis = 0;	
 	private static String bigQueryWriteTable = "";
 	private static String configString = "";
 	private static String partitionRequired = ""; // 0 = true, 1 = false
@@ -54,11 +49,11 @@ public class Configuration {
 	}
 
 	public void setBigQueryWriteTable(String targetBigQueryTable) {
-		this.bigQueryWriteTable = targetBigQueryTable;
+		Configuration.bigQueryWriteTable = targetBigQueryTable;
 	}
 
 	public void setSnapshotMillis(int snapshotMillis) {
-		this.snapshotMillis = snapshotMillis;
+		Configuration.snapshotMillis = snapshotMillis;
 	}
 
 	public String getProjectId() {
@@ -66,7 +61,7 @@ public class Configuration {
 	}
 
 	public void setProjectId(String projectId) {
-		this.projectId = projectId;
+		Configuration.projectId = projectId;
 	}
 
 	public String getDataset() {
@@ -74,7 +69,7 @@ public class Configuration {
 	}
 
 	public void setDataset(String dataset) {
-		this.dataset = dataset;
+		Configuration.dataset = dataset;
 	}
 
 	public String getBigQueryReadTable() {
@@ -82,23 +77,19 @@ public class Configuration {
 	}
 
 	public void setBigQueryReadTable(String bigQueryTable) {
-		this.bigQueryReadTable = bigQueryTable;
+		Configuration.bigQueryReadTable = bigQueryTable;
 	}
 
 	public String getFilter() {
 		return filter;
-	}
-
-	public void setFilter(String filter) {
-		this.filter = filter;
-	}
+	}	
 
 	public String getGcpCredentialKeyFile() {
 		return credentialKeyFile;
 	}
 
 	public void setGcpCredentialKeyFile(String credentialKFile) {
-		this.credentialKeyFile = credentialKFile;
+		Configuration.credentialKeyFile = credentialKFile;
 	}
 
 	public String getSelectedFields() {
@@ -106,7 +97,7 @@ public class Configuration {
 	}
 
 	public void setSelectedFields(String fields) {
-		this.selectedfields = fields;
+		Configuration.selectedfields = fields;
 	}
 
 	public int getDefaultParallelism() {
@@ -114,7 +105,7 @@ public class Configuration {
 	}
 
 	public void setDefaultParallelism(int defaultParallelism) {
-		this.defaultParallelism = defaultParallelism;
+		Configuration.defaultParallelism = defaultParallelism;
 	}
 
 	public String getFlinkVersion() {
@@ -122,7 +113,7 @@ public class Configuration {
 	}
 
 	public void setFlinkVersion(String flinkVersion) {
-		this.flinkVersion = flinkVersion;
+		Configuration.flinkVersion = flinkVersion;
 	}
 
 	public int getSnapshotMillis() {
@@ -134,7 +125,7 @@ public class Configuration {
 	}
 
 	public void setPartitionRequired(String partitionRequired) {
-		this.partitionRequired = partitionRequired;
+		Configuration.partitionRequired = partitionRequired;
 	}
 
 	public String getPartitionField() {
@@ -142,7 +133,7 @@ public class Configuration {
 	}
 
 	public void setPartitionField(String partitionField) {
-		this.partitionField = partitionField;
+		Configuration.partitionField = partitionField;
 	}
 
 	public String getBqEncodedCreateReadSessionRequest() {
@@ -150,7 +141,7 @@ public class Configuration {
 	}
 
 	public void setBqEncodedCreateReadSessionRequest(String bqEncodedCreateReadSessionRequest) {
-		this.bqEncodedCreateReadSessionRequest = bqEncodedCreateReadSessionRequest;
+		Configuration.bqEncodedCreateReadSessionRequest = bqEncodedCreateReadSessionRequest;
 	}
 
 	public int getBqBackgroundThreadsPerStream() {
@@ -158,7 +149,7 @@ public class Configuration {
 	}
 
 	public void setBqBackgroundThreadsPerStream(int bqBackgroundThreadsPerStream) {
-		this.bqBackgroundThreadsPerStream = bqBackgroundThreadsPerStream;
+		Configuration.bqBackgroundThreadsPerStream = bqBackgroundThreadsPerStream;
 	}
 
 	public String getQuery() {
@@ -166,27 +157,33 @@ public class Configuration {
 	}
 
 	public void setQuery(String query) {
-		this.query = query;
+		Configuration.query = query;
+	}
+	
+	public void setFilter(String filter) {		
+		Configuration.filter = filter;		
 	}
 
 	public String getConfigMap() {
-		this.configString = this.configString + "targetBigQueryTable::" + bigQueryWriteTable + "#";
-		this.configString = this.configString + "snapshotMillis::" + String.valueOf(snapshotMillis) + "#";
-		this.configString = this.configString + "projectId::" + projectId + "#";
-		this.configString = this.configString + "dataset::" + dataset + "#";
-		this.configString = this.configString + "table::" + bigQueryReadTable + "#";
-		this.configString = this.configString + "filter::" + filter + "#";
-		this.configString = this.configString + "credentialKeyFile::" + credentialKeyFile + "#";
-		this.configString = this.configString + "selectedfields::" + selectedfields + "#";
-		this.configString = this.configString + "defaultParallelism::" + String.valueOf(defaultParallelism) + "#";
-		this.configString = this.configString + "flinkVersion::" + flinkVersion + "#";
-		this.configString = this.configString + "partitionRequired::" + partitionRequired + "#";
-		this.configString = this.configString + "partitionField::" + partitionField + "#";
-		this.configString = this.configString + "bqBackgroundThreadsPerStream::" + bqBackgroundThreadsPerStream + "#";
-		this.configString = this.configString + "bqEncodedCreateReadSessionRequest::"
+		configString = configString + "targetBigQueryTable::" + bigQueryWriteTable + "#";
+		configString = configString + "snapshotMillis::" + String.valueOf(snapshotMillis) + "#";
+		configString = configString + "projectId::" + projectId + "#";
+		configString = configString + "dataset::" + dataset + "#";
+		configString = configString + "table::" + bigQueryReadTable + "#";
+		configString = configString + "filter::" + filter + "#";
+		configString = configString + "credentialKeyFile::" + credentialKeyFile + "#";
+		configString = configString + "selectedfields::" + selectedfields + "#";
+		configString = configString + "defaultParallelism::" + String.valueOf(defaultParallelism) + "#";
+		configString = configString + "flinkVersion::" + flinkVersion + "#";
+		configString = configString + "partitionRequired::" + partitionRequired + "#";
+		configString = configString + "partitionField::" + partitionField + "#";
+		configString = configString + "bqBackgroundThreadsPerStream::" + bqBackgroundThreadsPerStream + "#";
+		configString = configString + "bqEncodedCreateReadSessionRequest::"
 				+ bqEncodedCreateReadSessionRequest + "#";
-		this.configString = this.configString + "query::" + query + "#";
-		this.configString = this.configString + "path::" + path + "#";
-		return this.configString.substring(0, this.configString.length() - 1);
+		configString = configString + "query::" + query + "#";
+		configString = configString + "path::" + path + "#";
+		return configString.substring(0, configString.length() - 1);
 	}
+
+	
 }
