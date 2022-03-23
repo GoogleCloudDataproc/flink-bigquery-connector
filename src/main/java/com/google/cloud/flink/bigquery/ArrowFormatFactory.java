@@ -17,7 +17,6 @@ package com.google.cloud.flink.bigquery;
 
 import java.util.Collections;
 import java.util.Set;
-
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -35,49 +34,51 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
-public class ArrowFormatFactory implements DeserializationFormatFactory, SerializationFormatFactory {
+public class ArrowFormatFactory
+    implements DeserializationFormatFactory, SerializationFormatFactory {
 
-	public static final String IDENTIFIER = "arrow";
+  public static final String IDENTIFIER = "arrow";
 
-	@Override
-	public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(Context context,
-			ReadableConfig formatOptions) {
-		FactoryUtil.validateFactoryOptions(this, formatOptions);
+  @Override
+  public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(
+      Context context, ReadableConfig formatOptions) {
+    FactoryUtil.validateFactoryOptions(this, formatOptions);
 
-		return new DecodingFormat<DeserializationSchema<RowData>>() {
-			@Override
-			public DeserializationSchema<RowData> createRuntimeDecoder(DynamicTableSource.Context context,
-					DataType producedDataType) {
-				final RowType rowType = (RowType) producedDataType.getLogicalType();
-				final TypeInformation<RowData> rowDataTypeInfo = context.createTypeInformation(producedDataType);
-				return new ArrowRowDataDeserializationSchema(rowType, rowDataTypeInfo);
-			}
+    return new DecodingFormat<DeserializationSchema<RowData>>() {
+      @Override
+      public DeserializationSchema<RowData> createRuntimeDecoder(
+          DynamicTableSource.Context context, DataType producedDataType) {
+        final RowType rowType = (RowType) producedDataType.getLogicalType();
+        final TypeInformation<RowData> rowDataTypeInfo =
+            context.createTypeInformation(producedDataType);
+        return new ArrowRowDataDeserializationSchema(rowType, rowDataTypeInfo);
+      }
 
-			@Override
-			public ChangelogMode getChangelogMode() {
-				return ChangelogMode.insertOnly();
-			}
-		};
-	}
+      @Override
+      public ChangelogMode getChangelogMode() {
+        return ChangelogMode.insertOnly();
+      }
+    };
+  }
 
-	@Override
-	public String factoryIdentifier() {
-		return IDENTIFIER;
-	}
+  @Override
+  public String factoryIdentifier() {
+    return IDENTIFIER;
+  }
 
-	@Override
-	public Set<ConfigOption<?>> requiredOptions() {
-		return Collections.emptySet();
-	}
+  @Override
+  public Set<ConfigOption<?>> requiredOptions() {
+    return Collections.emptySet();
+  }
 
-	@Override
-	public Set<ConfigOption<?>> optionalOptions() {
-		return Collections.emptySet();
-	}
+  @Override
+  public Set<ConfigOption<?>> optionalOptions() {
+    return Collections.emptySet();
+  }
 
-	@Override
-	public EncodingFormat<SerializationSchema<RowData>> createEncodingFormat(Context context,
-			ReadableConfig formatOptions) {
-		return null;
-	}
+  @Override
+  public EncodingFormat<SerializationSchema<RowData>> createEncodingFormat(
+      Context context, ReadableConfig formatOptions) {
+    return null;
+  }
 }

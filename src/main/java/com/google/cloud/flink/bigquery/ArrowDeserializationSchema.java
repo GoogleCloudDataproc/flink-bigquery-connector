@@ -20,7 +20,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -38,88 +37,89 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.Preconditions;
 
 public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, Serializable {
-	
-	private static final long serialVersionUID = 1L;
 
-	private BufferAllocator allocator;
-	private final TypeInformation<RowData> typeInfo;
-	ArrowRecordBatch deserializedBatch;
+  private static final long serialVersionUID = 1L;
 
-	public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(Schema schema,
-			TypeInformation<RowData> typeInfo) {
-		return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schema, typeInfo);
-	}
+  private BufferAllocator allocator;
+  private final TypeInformation<RowData> typeInfo;
+  ArrowRecordBatch deserializedBatch;
 
-	private static VectorSchemaRoot root;
-	private VectorLoader loader;
-	List<FieldVector> vectors = new ArrayList<>();
-	private Schema schema;
-	private final Class<T> recordClazz;
+  public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
+      Schema schema, TypeInformation<RowData> typeInfo) {
+    return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schema, typeInfo);
+  }
 
-	ArrowDeserializationSchema(Class<T> recordClazz, Schema schema, TypeInformation<RowData> typeInfo) {
-		Preconditions.checkNotNull(recordClazz, "Arrow record class must not be null.");
-		this.typeInfo = typeInfo;
-		this.recordClazz = recordClazz;
-	}
+  private static VectorSchemaRoot root;
+  private VectorLoader loader;
+  List<FieldVector> vectors = new ArrayList<>();
+  private Schema schema;
+  private final Class<T> recordClazz;
 
-	@SuppressWarnings("unchecked")
-	@Override
-	public T deserialize(byte[] message) throws IOException {
-		if (schema == null) {
-			this.schema = ArrowRowDataDeserializationSchema.getArrowSchema();
-		}
-		checkArrowInitialized();
-		deserializedBatch = MessageSerializer
-				.deserializeRecordBatch(new ReadChannel(new ByteArrayReadableSeekableByteChannel(message)), allocator);
-		loader.load(deserializedBatch);
-		deserializedBatch.close();
-		return (T) root;
-	}
+  ArrowDeserializationSchema(
+      Class<T> recordClazz, Schema schema, TypeInformation<RowData> typeInfo) {
+    Preconditions.checkNotNull(recordClazz, "Arrow record class must not be null.");
+    this.typeInfo = typeInfo;
+    this.recordClazz = recordClazz;
+  }
 
-	void checkArrowInitialized() {
-		Preconditions.checkNotNull(schema);
-		if (root != null) {
-			return;
-		}
-		if (allocator == null) {
-			this.allocator = new RootAllocator(Long.MAX_VALUE);
-		}
-		for (Field field : schema.getFields()) {
-			vectors.add(field.createVector(allocator));
-		}
-		root = new VectorSchemaRoot(vectors);
-		this.loader = new VectorLoader(root);
-	}
+  @SuppressWarnings("unchecked")
+  @Override
+  public T deserialize(byte[] message) throws IOException {
+    if (schema == null) {
+      this.schema = ArrowRowDataDeserializationSchema.getArrowSchema();
+    }
+    checkArrowInitialized();
+    deserializedBatch =
+        MessageSerializer.deserializeRecordBatch(
+            new ReadChannel(new ByteArrayReadableSeekableByteChannel(message)), allocator);
+    loader.load(deserializedBatch);
+    deserializedBatch.close();
+    return (T) root;
+  }
 
-	@Override
-	public boolean isEndOfStream(T nextElement) {		
-		if(nextElement == null) {
-			return Boolean.TRUE;
-		}		
-		return Boolean.FALSE;
-	}
+  void checkArrowInitialized() {
+    Preconditions.checkNotNull(schema);
+    if (root != null) {
+      return;
+    }
+    if (allocator == null) {
+      this.allocator = new RootAllocator(Long.MAX_VALUE);
+    }
+    for (Field field : schema.getFields()) {
+      vectors.add(field.createVector(allocator));
+    }
+    root = new VectorSchemaRoot(vectors);
+    this.loader = new VectorLoader(root);
+  }
 
-	@Override
-	@SuppressWarnings({ "unchecked" })
-	public TypeInformation<T> getProducedType() {
-		return (TypeInformation<T>) typeInfo;
-	}
+  @Override
+  public boolean isEndOfStream(T nextElement) {
+    if (nextElement == null) {
+      return Boolean.TRUE;
+    }
+    return Boolean.FALSE;
+  }
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		}
-		if (o == null || getClass() != o.getClass()) {
-			return false;
-		}
-		ArrowDeserializationSchema<?> that = (ArrowDeserializationSchema<?>) o;
-		return recordClazz.equals(that.recordClazz) && Objects.equals(schema, that.schema);
-	}
+  @Override
+  @SuppressWarnings({"unchecked"})
+  public TypeInformation<T> getProducedType() {
+    return (TypeInformation<T>) typeInfo;
+  }
 
-	@Override
-	public int hashCode() {
-		return Objects.hash(recordClazz, schema);
-	}
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    ArrowDeserializationSchema<?> that = (ArrowDeserializationSchema<?>) o;
+    return recordClazz.equals(that.recordClazz) && Objects.equals(schema, that.schema);
+  }
 
+  @Override
+  public int hashCode() {
+    return Objects.hash(recordClazz, schema);
+  }
 }

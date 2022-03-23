@@ -25,51 +25,82 @@ import org.junit.Test;
 
 public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
 
-	protected String dataFormat;
+  protected String dataFormat;
 
-	public FlinkReadByFormatIntegrationTest() {
-		super();		
-	}
+  public FlinkReadByFormatIntegrationTest() {
+    super();
+  }
 
-	@Test
-	public void testOutOfOrderColumns() {
+  @Test
+  public void testOutOfOrderColumns() {
 
-		config.setSelectedFields("word_count,word");
+    config.setSelectedFields("word_count,word");
 
-		String srcQueryString = "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
-		flinkTableEnv.executeSql(srcQueryString + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config.getConfigMap() + "'\n" + ")");
+    String srcQueryString =
+        "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
+    flinkTableEnv.executeSql(
+        srcQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'format' = 'arrow',\n"
+            + "  'configOptions' = '"
+            + config.getConfigMap()
+            + "'\n"
+            + ")");
 
-		Table result = flinkTableEnv.from(config.getBigQueryReadTable());		
-		assertThat(result.getResolvedSchema().getColumnDataTypes().get(0)).isEqualTo(DataTypes.STRING());
-		assertThat(result.getResolvedSchema().getColumnDataTypes().get(1)).isEqualTo(DataTypes.BIGINT());
-	}
+    Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+    assertThat(result.getResolvedSchema().getColumnDataTypes().get(0))
+        .isEqualTo(DataTypes.STRING());
+    assertThat(result.getResolvedSchema().getColumnDataTypes().get(1))
+        .isEqualTo(DataTypes.BIGINT());
+  }
 
-	@Test
-	public void testDefaultNumberOfPartitions() {
+  @Test
+  public void testDefaultNumberOfPartitions() {
 
-		config.setSelectedFields("word_count,word");
-		String srcQueryString = "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
-		flinkTableEnv.executeSql(srcQueryString + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config.getConfigMap() + "'\n" + ")");
+    config.setSelectedFields("word_count,word");
+    String srcQueryString =
+        "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
+    flinkTableEnv.executeSql(
+        srcQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'format' = 'arrow',\n"
+            + "  'configOptions' = '"
+            + config.getConfigMap()
+            + "'\n"
+            + ")");
 
-		Table result = flinkTableEnv.from(config.getBigQueryReadTable());
-		DataStream<Row> ds = flinkTableEnv.toDataStream(result);		
-		assertThat(ds.getParallelism()).isEqualTo(1);
-	}
+    Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+    DataStream<Row> ds = flinkTableEnv.toDataStream(result);
+    assertThat(ds.getParallelism()).isEqualTo(1);
+  }
 
-	@Test
-	public void testSelectAllColumnsFromATable() {
+  @Test
+  public void testSelectAllColumnsFromATable() {
 
-		config.setSelectedFields("word_count,word");
+    config.setSelectedFields("word_count,word");
 
-		String srcQueryString = "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
-		flinkTableEnv.executeSql(srcQueryString + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config.getConfigMap() + "'\n" + ")");
+    String srcQueryString =
+        "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
+    flinkTableEnv.executeSql(
+        srcQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'format' = 'arrow',\n"
+            + "  'configOptions' = '"
+            + config.getConfigMap()
+            + "'\n"
+            + ")");
 
-		Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+    Table result = flinkTableEnv.from(config.getBigQueryReadTable());
 
-		assertThat(result.getResolvedSchema().getColumnDataTypes().get(0)).isEqualTo(DataTypes.STRING());
-		assertThat(result.getResolvedSchema().getColumnDataTypes().get(1)).isEqualTo(DataTypes.BIGINT());
-	}
+    assertThat(result.getResolvedSchema().getColumnDataTypes().get(0))
+        .isEqualTo(DataTypes.STRING());
+    assertThat(result.getResolvedSchema().getColumnDataTypes().get(1))
+        .isEqualTo(DataTypes.BIGINT());
+  }
 }

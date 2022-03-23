@@ -15,13 +15,14 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.cloud.bigquery.storage.v1.ReadSession;
+import com.google.cloud.flink.bigquery.model.Configuration;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
@@ -37,76 +38,73 @@ import org.apache.flink.table.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.cloud.bigquery.storage.v1.ReadSession;
-import com.google.cloud.flink.bigquery.model.Configuration;
+public final class BigQueryDynamicTableFactory
+    implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 
-public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory, DynamicTableSinkFactory {
+  private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
+  Configuration config = new Configuration();
 
-	private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
-	Configuration config = new Configuration();
+  public static final ConfigOption<String> CONFIGOPTIONS =
+      ConfigOptions.key("configOptions").stringType().noDefaultValue();
+  public static ReadSession readSession;
 
-	public static final ConfigOption<String> CONFIGOPTIONS = ConfigOptions.key("configOptions").stringType()
-			.noDefaultValue();
-	public static ReadSession readSession;
+  @Override
+  public String factoryIdentifier() {
+    return "bigquery";
+  }
 
-	@Override
-	public String factoryIdentifier() {
-		return "bigquery";
-	}
+  @Override
+  public Set<ConfigOption<?>> requiredOptions() {
+    final Set<ConfigOption<?>> options = new HashSet<>();
+    options.add(FactoryUtil.FORMAT);
+    options.add(CONFIGOPTIONS);
+    return options;
+  }
 
-	@Override
-	public Set<ConfigOption<?>> requiredOptions() {
-		final Set<ConfigOption<?>> options = new HashSet<>();
-		options.add(FactoryUtil.FORMAT);
-		options.add(CONFIGOPTIONS);
-		return options;
-	}
+  @Override
+  public Set<ConfigOption<?>> optionalOptions() {
+    final Set<ConfigOption<?>> options = new HashSet<>();
+    return options;
+  }
 
-	@Override
-	public Set<ConfigOption<?>> optionalOptions() {
-		final Set<ConfigOption<?>> options = new HashSet<>();
-		return options;
-	}
+  @Override
+  public DynamicTableSource createDynamicTableSource(Context context) {
 
-	@Override
-	public DynamicTableSource createDynamicTableSource(Context context) {
+    final FactoryUtil.TableFactoryHelper helper =
+        FactoryUtil.createTableFactoryHelper(this, context);
 
-		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
+    final DecodingFormat<DeserializationSchema<RowData>> decodingFormat =
+        helper.discoverDecodingFormat(ArrowFormatFactory.class, FactoryUtil.FORMAT);
 
-		final DecodingFormat<DeserializationSchema<RowData>> decodingFormat = helper
-				.discoverDecodingFormat(ArrowFormatFactory.class, FactoryUtil.FORMAT);
+    helper.validate();
+    Map<String, String> configOption = new HashMap<>();
+    final ReadableConfig options = helper.getOptions();
+    final String configStr = options.get(CONFIGOPTIONS);
+    for (String pair : Arrays.asList(configStr.split("#"))) {
+      String[] entry = pair.split("::");
+      configOption.put(entry[0].trim(), entry.length == 2 ? entry[1].trim() : "");
+    }
 
-		helper.validate();
-		Map<String, String> configOption = new HashMap<>();
-		final ReadableConfig options = helper.getOptions();
-		final String configStr = options.get(CONFIGOPTIONS);
-		for (String pair : Arrays.asList(configStr.split("#"))) {
-			String[] entry = pair.split("::");
-			configOption.put(entry[0].trim(),entry.length == 2 ? entry[1].trim():"");
-		}
+    final String table = configOption.get("table");
+    final String dataset = configOption.get("dataset");
+    final String projectId = configOption.get("projectId");
 
-		final String table = configOption.get("table");
-		final String dataset = configOption.get("dataset");
-		final String projectId = configOption.get("projectId");
+    log.info("Config Options -> " + configOption);
+    DataType producedDataType = null;
 
-		log.info("Config Options -> " + configOption);
-		DataType producedDataType = null;
-		
-		try {
-			producedDataType = context.getCatalogTable().getResolvedSchema().toPhysicalRowDataType();
-			readSession = BigQueryReadSession.getReadsession(projectId, table, dataset, configOption);
-		} catch (IOException ex) {
-			log.error("Error while reading big query session", ex);
-			throw new FlinkBigQueryException("Error while reading big query session", ex);
+    try {
+      producedDataType = context.getCatalogTable().getResolvedSchema().toPhysicalRowDataType();
+      readSession = BigQueryReadSession.getReadsession(projectId, table, dataset, configOption);
+    } catch (IOException ex) {
+      log.error("Error while reading big query session", ex);
+      throw new FlinkBigQueryException("Error while reading big query session", ex);
+    }
+    return new BigQueryDynamicTableSource(decodingFormat, producedDataType);
+  }
 
-		}
-		return new BigQueryDynamicTableSource(decodingFormat, producedDataType);
-	}
-	
-	
-	@Override
-	public DynamicTableSink createDynamicTableSink(Context context) {
-		// TODO: implement write logic
-		return null;
-	}
+  @Override
+  public DynamicTableSink createDynamicTableSink(Context context) {
+    // TODO: implement write logic
+    return null;
+  }
 }

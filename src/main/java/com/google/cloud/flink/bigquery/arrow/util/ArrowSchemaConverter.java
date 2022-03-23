@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -29,41 +28,43 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
 /**
- * Converts an Avro schema into Flink's type information. It uses
- * {@link RowTypeInfo} for representing objects and converts Avro types into
- * types that are compatible with Flink's Table & SQL API.
+ * Converts an Avro schema into Flink's type information. It uses {@link RowTypeInfo} for
+ * representing objects and converts Avro types into types that are compatible with Flink's Table &
+ * SQL API.
  *
- * <p>
- * Note: Changes in this class need to be kept in sync with the corresponding
- * runtime classes {@link AvroRowDeserializationSchema} and
- * {@link AvroRowSerializationSchema}.
+ * <p>Note: Changes in this class need to be kept in sync with the corresponding runtime classes
+ * {@link AvroRowDeserializationSchema} and {@link AvroRowSerializationSchema}.
  */
-public class ArrowSchemaConverter {	
+public class ArrowSchemaConverter {
 
-	private ArrowSchemaConverter() {
+  private ArrowSchemaConverter() {}
 
-	}
+  public static Schema convertToSchema(RowType rowType) {
+    Collection<Field> fields =
+        rowType.getFields().stream()
+            .map(f -> convertToSchema(f.getName(), f.getType()))
+            .collect(Collectors.toCollection(ArrayList::new));
+    return new Schema(fields);
+  }
 
-	public static Schema convertToSchema(RowType rowType) {
-		Collection<Field> fields = rowType.getFields().stream().map(f -> convertToSchema(f.getName(), f.getType()))
-				.collect(Collectors.toCollection(ArrayList::new));
-		return new Schema(fields);
-	}
-
-	public static Field convertToSchema(String fieldName, LogicalType logicalType) {
-		FieldType fieldType = new FieldType(logicalType.isNullable(),
-				logicalType.accept(LogicalTypeToArrowTypeConverter.INSTANCE), null);
-		List<Field> children = null;
-		if (logicalType instanceof ArrayType) {
-			children = Collections
-					.singletonList(convertToSchema("element", ((ArrayType) logicalType).getElementType()));
-		} else if (logicalType instanceof RowType) {
-			RowType rowType = (RowType) logicalType;
-			children = new ArrayList<>(rowType.getFieldCount());
-			for (RowType.RowField field : rowType.getFields()) {
-				children.add(convertToSchema(field.getName(), field.getType()));
-			}
-		}
-		return new Field(fieldName, fieldType, children);
-	}	
+  public static Field convertToSchema(String fieldName, LogicalType logicalType) {
+    FieldType fieldType =
+        new FieldType(
+            logicalType.isNullable(),
+            logicalType.accept(LogicalTypeToArrowTypeConverter.INSTANCE),
+            null);
+    List<Field> children = null;
+    if (logicalType instanceof ArrayType) {
+      children =
+          Collections.singletonList(
+              convertToSchema("element", ((ArrayType) logicalType).getElementType()));
+    } else if (logicalType instanceof RowType) {
+      RowType rowType = (RowType) logicalType;
+      children = new ArrayList<>(rowType.getFieldCount());
+      for (RowType.RowField field : rowType.getFields()) {
+        children.add(convertToSchema(field.getName(), field.getType()));
+      }
+    }
+    return new Field(fieldName, fieldType, children);
+  }
 }
