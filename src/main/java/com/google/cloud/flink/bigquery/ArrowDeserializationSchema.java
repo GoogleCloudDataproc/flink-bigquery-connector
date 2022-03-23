@@ -38,6 +38,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.Preconditions;
 
 public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, Serializable {
+	
 	private static final long serialVersionUID = 1L;
 
 	private BufferAllocator allocator;
@@ -90,8 +91,11 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 	}
 
 	@Override
-	public boolean isEndOfStream(T nextElement) {
-		return false;
+	public boolean isEndOfStream(T nextElement) {		
+		if(nextElement == null) {
+			return Boolean.TRUE;
+		}		
+		return Boolean.FALSE;
 	}
 
 	@Override

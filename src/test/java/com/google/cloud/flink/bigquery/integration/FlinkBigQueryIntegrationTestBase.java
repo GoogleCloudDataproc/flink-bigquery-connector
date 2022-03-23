@@ -25,9 +25,9 @@ import com.google.cloud.flink.bigquery.model.Configuration;
 public class FlinkBigQueryIntegrationTestBase {
 
 	@SuppressWarnings("unused")
-	private BigQuery bq;
-	public static StreamTableEnvironment flinkTableEnv;
-	public static Configuration config = new Configuration();
+	protected BigQuery bq;
+	protected StreamTableEnvironment flinkTableEnv;
+	protected Configuration config;
 
 	@SuppressWarnings("static-access")
 	public FlinkBigQueryIntegrationTestBase() {
@@ -36,7 +36,9 @@ public class FlinkBigQueryIntegrationTestBase {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		this.flinkTableEnv = StreamTableEnvironment.create(env);
 		this.config = new Configuration();
-		// TODO: change accordingly
-		//this.config.setGcpCredentialKeyFile("C:\\Users\\Sahil Kumar\\Documents\\Flink Connector\\Key\\q-gcp-6750-pso-gs-flink-22-01-1231782c49d3.json");
+		config.setGcpCredentialKeyFile(System.getenv("GOOGLE_APPLICATION_CREDENTIALS"));
+		config.setProjectId(System.getenv("GOOGLE_CLOUD_PROJECT"));
+		config.setDataset(System.getenv("GOOGLE_CLOUD_DATASET"));
+		config.setBigQueryReadTable(System.getenv("GOOGLE_CLOUD_TABLE"));
 	}
 }

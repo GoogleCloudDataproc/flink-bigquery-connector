@@ -91,14 +91,8 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
 
 		log.info("Config Options -> " + configOption);
 		DataType producedDataType = null;
+		
 		try {
-//			List<DataType> datatypeList = context.getCatalogTable().getResolvedSchema().getColumnDataTypes();
-//			List<String> columnNameList = context.getCatalogTable().getResolvedSchema().getColumnNames();
-//			if (datatypeList.indexOf(DataTypes.INT())>-1 ) {
-//				datatypeList.set(datatypeList.indexOf(DataTypes.INT()),DataTypes.BIGINT());
-//			}
-//			
-//			context.getCatalogTable().getResolvedSchema();
 			producedDataType = context.getCatalogTable().getResolvedSchema().toPhysicalRowDataType();
 			readSession = BigQueryReadSession.getReadsession(projectId, table, dataset, configOption);
 		} catch (IOException ex) {
@@ -108,9 +102,11 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
 		}
 		return new BigQueryDynamicTableSource(decodingFormat, producedDataType);
 	}
-
+	
+	
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
+		// TODO: implement write logic
 		return null;
 	}
 }

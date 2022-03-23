@@ -67,7 +67,7 @@ public class BigQueryReadSession {
 		ReadSessionCreatorConfig readSessionCreatorConfig = bqconfig.toReadSessionCreatorConfig();
 		ReadSessionCreator readSessionCreator = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient,
 				bigQueryReadClientFactory);
-		TableId tableId = TableId.of(dataset, table);
+		TableId tableId = TableId.of(projectId,dataset, table);
 
 		ImmutableList<String> selectedFields =
                 ImmutableList.copyOf(Arrays.asList((configOption.get("selectedfields")).split(",")));

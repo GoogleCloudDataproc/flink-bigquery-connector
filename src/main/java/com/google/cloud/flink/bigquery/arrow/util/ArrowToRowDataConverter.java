@@ -37,10 +37,6 @@ public interface ArrowToRowDataConverter extends Serializable {
 
 	Object convert(Object object);
 
-// -------------------------------------------------------------------------------------
-// Runtime Converters
-// -------------------------------------------------------------------------------------
-
 	public static ArrowToRowDataConverter createRowConverter(RowType rowType) {
 		final ArrowToRowDataConverter[] fieldConverters = rowType.getFields().stream().map(RowType.RowField::getType)
 				.map(ArrowToRowDataConverter::createNullableConverter).toArray(ArrowToRowDataConverter[]::new);

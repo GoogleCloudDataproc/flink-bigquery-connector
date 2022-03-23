@@ -37,8 +37,7 @@ import com.google.cloud.flink.bigquery.arrow.util.ArrowToRowDataConverter;
 public class ArrowRowDataDeserializationSchema implements DeserializationSchema<RowData>, Serializable {
 
 	public static final long serialVersionUID = 1L;
-	public TypeInformation<RowData> typeInfo;
-	@SuppressWarnings("rawtypes")
+	public TypeInformation<RowData> typeInfo;	
 	public DeserializationSchema<VectorSchemaRoot> nestedSchema;
 	public ArrowToRowDataConverter runtimeConverter;
 	List<GenericRowData> rowDataList;

@@ -65,7 +65,5 @@ public class ArrowSchemaConverter {
 			}
 		}
 		return new Field(fieldName, fieldType, children);
-	}
-
-	
+	}	
 }
