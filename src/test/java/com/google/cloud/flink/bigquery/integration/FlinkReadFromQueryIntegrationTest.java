@@ -52,26 +52,6 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
 	}
 
 	@Test
-	public void testReadFromQueryInternal() {
-		config.setFilter("word_count > 500");
-		config.setProjectId("q-gcp-6750-pso-gs-flink-22-01");
-		config.setDataset("wordcount_dataset");
-		config.setBigQueryReadTable("wordcount_output");
-		String projectName = config.getProjectId() + "." + config.getDataset() + "." + config.getBigQueryReadTable();
-		String query = "SELECT word, word_count FROM " + projectName + " WHERE " + config.getFilter();
-		config.setQuery(query);
-
-		String srcQueryString = "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
-		flinkTableEnv.executeSql(srcQueryString + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config.getConfigMap() + "'\n" + ")");
-		Table result = flinkTableEnv.from(config.getBigQueryReadTable());
-		Table datatable = result.where($("word_count").isGreaterOrEqual(100)).select($("word"), $("word_count"));
-		TableResult tableapi = datatable.execute();
-		assertNotNull(tableapi);
-		assertEquals(2, tableapi.getTableSchema().getFieldCount());
-	}
-
-	@Test
 	public void testReadFromQuery() {
 
 		config.setQuery(
@@ -108,9 +88,9 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
 	}
 	
 	//We are passing all the configuration values and setting filter in flink and tableAPI both together.
-    @Ignore@Test
+    @Test
     public void testReadFromQueryInternal1() {
-    		config.setFilter("word_count > 100");
+    		config.setFilter("word_count > 500 and word=\"I\"");
             config.setProjectId("q-gcp-6750-pso-gs-flink-22-01");
             config.setDataset("wordcount_dataset");
             config.setBigQueryReadTable("wordcount_output");

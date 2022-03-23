@@ -31,7 +31,7 @@ public class Constants {
 	static final String dataset = "wordcount_dataset";
 	static final int snapshotMillis = 0;
 	static final long SHAKESPEARE_TABLE_NUM_ROWS = 164656L;
-	static final String NON_EXISTENT_TABLE = "non-existent.non-existent.non-existent";
+	static final String NON_EXISTENT_TABLE = "nonexistent";
 
 	static final String LARGE_TABLE_FIELD = "is_male";
 	static final String LARGE_TABLE_PROJECT_ID = "bigquery-public-data";
@@ -44,4 +44,7 @@ public class Constants {
 			.field("string_datatype", DataTypes.STRING()).field("bytes_datatype", DataTypes.BYTES())
 			.field("integer_datatype", DataTypes.INT()).field("float_datatype", DataTypes.FLOAT())
 			.field("boolean_datatype", DataTypes.BOOLEAN()).build();
+	
+	static final TableSchema LARGE_TABLE_SCHEMA = new TableSchema.Builder()
+			.field("is_male", DataTypes.BOOLEAN()).build();
 }
