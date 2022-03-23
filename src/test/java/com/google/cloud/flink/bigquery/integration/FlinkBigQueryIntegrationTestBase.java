@@ -24,10 +24,12 @@ import com.google.cloud.flink.bigquery.model.Configuration;
 
 public class FlinkBigQueryIntegrationTestBase {
 
+	@SuppressWarnings("unused")
 	private BigQuery bq;
 	public static StreamTableEnvironment flinkTableEnv;
 	public static Configuration config = new Configuration();
 
+	@SuppressWarnings("static-access")
 	public FlinkBigQueryIntegrationTestBase() {
 
 		this.bq = BigQueryOptions.getDefaultInstance().getService();
@@ -35,6 +37,6 @@ public class FlinkBigQueryIntegrationTestBase {
 		this.flinkTableEnv = StreamTableEnvironment.create(env);
 		this.config = new Configuration();
 		// TODO: change accordingly
-		this.config.setGcpCredentialKeyFile("C:\\sridhar\\GS\\q-gcp-6750-pso-gs-flink-22-01-1231782c49d3.json");
+		//this.config.setGcpCredentialKeyFile("C:\\Users\\Sahil Kumar\\Documents\\Flink Connector\\Key\\q-gcp-6750-pso-gs-flink-22-01-1231782c49d3.json");
 	}
 }

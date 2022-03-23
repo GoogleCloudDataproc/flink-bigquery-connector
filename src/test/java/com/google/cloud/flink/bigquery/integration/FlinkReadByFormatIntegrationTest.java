@@ -19,39 +19,122 @@ import static com.google.common.truth.Truth.assertThat;
 
 import java.util.Optional;
 
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.types.Row;
 import org.junit.Test;
 
-import com.google.cloud.flink.bigquery.model.Configuration;
 
 public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
+	
+	 protected String dataFormat;
 
-	Configuration config = new Configuration();
+    public FlinkReadByFormatIntegrationTest() {
+		  super();
+		  config.setGcpCredentialKeyFile(System.getenv("GOOGLE_APPLICATION_CREDENTIALS"));
+		  config.setProjectId(System.getenv("FLINK_BIGQUERY_CONNECTOR_PROJECT"));
+		  config.setDataset(System.getenv("FLINK_BIGQUERY_CONNECTOR_DATASET"));
+		  config.setBigQueryReadTable(System.getenv("FLINK_BIGQUERY_CONNECTOR_TABLE"));
+	  }
+    
+    @Test
+    public void testOutOfOrderColumns() {
+		 
+		 config.setSelectedFields("word_count,word");
+		 
+		 String srcQueryString = "CREATE TABLE "+config.getBigQueryReadTable()+" (word STRING , word_count BIGINT)";
+		 flinkTableEnv.executeSql(srcQueryString+"\n" 
+                 + "WITH (\n"
+                 + "  'connector' = 'bigquery',\n" 
+                 + "  'format' = 'arrow',\n"
+                 + "  'configOptions' = '"+config.getConfigMap()+"'\n"
+                 + ")");
+		 
+	  Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+      
+	assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
+	assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
+      //assertThat(row.get(1)).isInstanceOf(String.class);
+    }
+    
+    @Test
+    public void testDefaultNumberOfPartitions() {
+    	
+    	config.setSelectedFields("word_count,word");
+            String srcQueryString = "CREATE TABLE "+config.getBigQueryReadTable()+" (word STRING , word_count BIGINT)";
+                 flinkTableEnv.executeSql(srcQueryString+"\n" 
+                + "WITH (\n"
+                + "  'connector' = 'bigquery',\n" 
+                + "  'format' = 'arrow',\n"
+                + "  'configOptions' = '"+config.getConfigMap()+"'\n"
+                + ")");
+                 
+          Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+          DataStream<Row> ds = flinkTableEnv.toDataStream(result);
+          System.out.println(ds.getParallelism());
+          assertThat(ds.getParallelism()).isEqualTo(1);
+    }
+    
+    @Test
+    public void testSelectAllColumnsFromATable() {
+    	
+    	config.setSelectedFields("word_count,word");
+		 
+		 String srcQueryString = "CREATE TABLE "+config.getBigQueryReadTable()+" (word STRING , word_count BIGINT)";
+		 flinkTableEnv.executeSql(srcQueryString+"\n" 
+                + "WITH (\n"
+                + "  'connector' = 'bigquery',\n" 
+                + "  'format' = 'arrow',\n"
+                + "  'configOptions' = '"+config.getConfigMap()+"'\n"
+                + ")");
+		 
+	  Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+     
+	assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
+	assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
+    }
+    
+//    @Test
+//    public void testKeepingFiltersBehaviour() {
+//    	
+//    	config.setSelectedFields("word_count,word");
+//		 
+//		 String srcQueryString = "CREATE TABLE "+config.getTable()+" (word STRING , word_count BIGINT)";
+//		 flinkTableEnv.executeSql(srcQueryString+"\n" 
+//                + "WITH (\n"
+//                + "  'connector' = 'bigquery',\n" 
+//                + "  'format' = 'arrow',\n"
+//                + "  'configOptions' = '"+config.getConfigMap()+"'\n"
+//                + ")");
+//		 
+//	  Table result = flinkTableEnv.from(config.getTable());
+//	  
+//     
+//      Set<String> newBehaviourWords =
+//          extractWords(
+//              spark
+//                  .read()
+//                  .format("bigquery")
+//                  .option("table", "bigquery-public-data.samples.shakespeare")
+//                  .option("filter", "length(word) = 1")
+//                  .option("combinePushedDownFilters", "true")
+//                  .option("readDataFormat", dataFormat)
+//                  .load());
+//
+//      Set<String> oldBehaviourWords =
+//          extractWords(
+//              spark
+//                  .read()
+//                  .format("bigquery")
+//                  .option("table", "bigquery-public-data.samples.shakespeare")
+//                  .option("filter", "length(word) = 1")
+//                  .option("combinePushedDownFilters", "false")
+//                  .option("readDataFormat", dataFormat)
+//                  .load());
+//
+//      assertThat(newBehaviourWords).isEqualTo(oldBehaviourWords);
+//    }
+    
 
-	public FlinkReadByFormatIntegrationTest() {
-		super();
-		config.setGcpCredentialKeyFile(System.getenv("GOOGLE_APPLICATION_CREDENTIALS"));
-		config.setProjectId("bigquery-public-data");
-		config.setDataset("samples");
-		config.setBigQueryReadTable("shakespeare");
-	}
-
-	@Test
-	public void testOutOfOrderColumns() {
-
-		config.setSelectedFields("word_count,word");
-
-		String srcQueryString = "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
-		flinkTableEnv.executeSql(srcQueryString + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config.getConfigMap() + "'\n" + ")");
-
-		Table result = flinkTableEnv.from(config.getBigQueryReadTable());
-
-		System.out.println(result.getSchema().getFieldDataType(1));
-		System.out.println(result.getResolvedSchema());
-
-		assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
-		assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
-	}
 }
