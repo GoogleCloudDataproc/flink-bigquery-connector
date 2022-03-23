@@ -43,7 +43,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 
 	private BufferAllocator allocator;
 	private final TypeInformation<RowData> typeInfo;
-	static ArrowRecordBatch deserializedBatch;
+	ArrowRecordBatch deserializedBatch;
 
 	public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(Schema schema,
 			TypeInformation<RowData> typeInfo) {
@@ -72,6 +72,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 		deserializedBatch = MessageSerializer
 				.deserializeRecordBatch(new ReadChannel(new ByteArrayReadableSeekableByteChannel(message)), allocator);
 		loader.load(deserializedBatch);
+		deserializedBatch.close();
 		return (T) root;
 	}
 
@@ -121,8 +122,4 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 		return Objects.hash(recordClazz, schema);
 	}
 
-	public static void close() {
-		deserializedBatch.close();
-		root.clear();
-	}
 }

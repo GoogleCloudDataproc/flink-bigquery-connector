@@ -37,7 +37,7 @@ import com.google.cloud.flink.bigquery.arrow.util.ArrowToRowDataConverter;
 public class ArrowRowDataDeserializationSchema implements DeserializationSchema<RowData>, Serializable {
 
 	public static final long serialVersionUID = 1L;
-	public TypeInformation<RowData> typeInfo;	
+	public TypeInformation<RowData> typeInfo;
 	public DeserializationSchema<VectorSchemaRoot> nestedSchema;
 	public ArrowToRowDataConverter runtimeConverter;
 	List<GenericRowData> rowDataList;
@@ -67,15 +67,19 @@ public class ArrowRowDataDeserializationSchema implements DeserializationSchema<
 		if (message == null) {
 			throw new FlinkBigQueryException("Deserializing message is empty");
 		}
+		VectorSchemaRoot root = null;
 		try {
-			VectorSchemaRoot root = nestedSchema.deserialize(message);
+			root = nestedSchema.deserialize(message);
 			List<GenericRowData> rowdatalist = (List<GenericRowData>) runtimeConverter.convert(root);
 			for (int i = 0; i < rowdatalist.size(); i++) {
 				out.collect(rowdatalist.get(i));
 			}
-			ArrowDeserializationSchema.close();
 		} catch (Exception ex) {
 			throw new FlinkBigQueryException("Error while deserializing Arrow type", ex);
+		} finally {
+			if (root != null) {
+				root.close();
+			}
 		}
 	}
 
