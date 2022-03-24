@@ -15,6 +15,8 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadSession;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.RuntimeContextInitializationContextAdapters;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -25,41 +27,39 @@ import org.apache.flink.table.data.RowData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
-import com.google.cloud.bigquery.storage.v1.ReadSession;
+public final class BigQuerySourceFunction extends RichSourceFunction<RowData>
+    implements ResultTypeQueryable<RowData> {
 
-public final class BigQuerySourceFunction extends RichSourceFunction<RowData> implements ResultTypeQueryable<RowData> {
+  private static final long serialVersionUID = 1;
+  private static final Logger log = LoggerFactory.getLogger(BigQuerySourceFunction.class);
 
-	private static final long serialVersionUID = 1;
-	private static final Logger log = LoggerFactory.getLogger(BigQuerySourceFunction.class);	
+  private final DeserializationSchema<RowData> deserializer;
 
-	private final DeserializationSchema<RowData> deserializer;
+  public BigQuerySourceFunction(DeserializationSchema<RowData> deserializer) {
+    this.deserializer = deserializer;
+  }
 
-	public BigQuerySourceFunction(DeserializationSchema<RowData> deserializer) {
-		this.deserializer = deserializer;
-	}
+  @Override
+  public TypeInformation<RowData> getProducedType() {
+    return deserializer.getProducedType();
+  }
 
-	@Override
-	public TypeInformation<RowData> getProducedType() {
-		return deserializer.getProducedType();
-	}
+  @Override
+  public void open(Configuration parameters) throws Exception {
+    deserializer.open(
+        RuntimeContextInitializationContextAdapters.deserializationAdapter(getRuntimeContext()));
+  }
 
-	@Override
-	public void open(Configuration parameters) throws Exception {
-		deserializer.open(RuntimeContextInitializationContextAdapters.deserializationAdapter(getRuntimeContext()));
-	}
+  @Override
+  public void run(SourceContext<RowData> ctx) throws Exception {
 
-	@Override
-	public void run(SourceContext<RowData> ctx) throws Exception {
+    BigQueryReadClient client = BigQueryReadClient.create();
+    ReadSession readSession = BigQueryDynamicTableFactory.readSession;
+    String streamName = readSession.getStreams(0).getName();
+    ReadRows readRows = new ReadRows();
+    readRows.createReadRowRequest(deserializer, streamName, client, ctx);
+  }
 
-		BigQueryReadClient client = BigQueryReadClient.create();
-		ReadSession readSession = BigQueryDynamicTableFactory.readSession;
-		String streamName = readSession.getStreams(0).getName();
-		ReadRows readRows = new ReadRows();
-		readRows.createReadRowRequest(deserializer, streamName, client, ctx);
-	}
-
-	@Override
-	public void cancel() {
-	}
+  @Override
+  public void cancel() {}
 }

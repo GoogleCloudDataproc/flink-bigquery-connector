@@ -27,40 +27,40 @@ import org.apache.flink.table.types.DataType;
 
 public final class BigQueryDynamicTableSource implements ScanTableSource {
 
-	private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
-	private final DataType producedDataType;
+  private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
+  private final DataType producedDataType;
 
-	public BigQueryDynamicTableSource(DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
-			DataType producedDataType) {
+  public BigQueryDynamicTableSource(
+      DecodingFormat<DeserializationSchema<RowData>> decodingFormat, DataType producedDataType) {
 
-		this.decodingFormat = decodingFormat;
-		this.producedDataType = producedDataType;
-	}
+    this.decodingFormat = decodingFormat;
+    this.producedDataType = producedDataType;
+  }
 
-	@Override
-	public ChangelogMode getChangelogMode() {
+  @Override
+  public ChangelogMode getChangelogMode() {
 
-		return decodingFormat.getChangelogMode();
-	}
+    return decodingFormat.getChangelogMode();
+  }
 
-	@Override
-	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
+  @Override
+  public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
 
-		// create runtime classes that are shipped to the cluster
-		final DeserializationSchema<RowData> deserializer = decodingFormat.createRuntimeDecoder(runtimeProviderContext,
-				producedDataType);
-		final SourceFunction<RowData> sourceFunction = new BigQuerySourceFunction(deserializer);
-		return SourceFunctionProvider.of(sourceFunction, false);
-	}
+    // create runtime classes that are shipped to the cluster
+    final DeserializationSchema<RowData> deserializer =
+        decodingFormat.createRuntimeDecoder(runtimeProviderContext, producedDataType);
+    final SourceFunction<RowData> sourceFunction = new BigQuerySourceFunction(deserializer);
+    return SourceFunctionProvider.of(sourceFunction, false);
+  }
 
-	@Override
-	public DynamicTableSource copy() {
+  @Override
+  public DynamicTableSource copy() {
 
-		return new BigQueryDynamicTableSource(decodingFormat, producedDataType);
-	}
+    return new BigQueryDynamicTableSource(decodingFormat, producedDataType);
+  }
 
-	@Override
-	public String asSummaryString() {
-		return "BigQuery Table Source";
-	}
+  @Override
+  public String asSummaryString() {
+    return "BigQuery Table Source";
+  }
 }
