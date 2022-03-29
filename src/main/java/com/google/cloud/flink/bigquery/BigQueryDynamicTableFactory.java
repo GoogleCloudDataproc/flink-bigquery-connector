@@ -86,8 +86,7 @@ public final class BigQueryDynamicTableFactory
       ConfigOptions.key("bQEncodedCreaterReadSessionRequest").stringType().noDefaultValue();
   public static final ConfigOption<String> BQBACKGROUNDTHREADSPERSTREAM =
       ConfigOptions.key("bQBackgroundThreadsPerStream").stringType().noDefaultValue();
-
-  public ReadSession readSession;
+  
 
   @Override
   public String factoryIdentifier() {
@@ -187,7 +186,7 @@ public final class BigQueryDynamicTableFactory
           new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
 
       // Create read session
-      readSession =
+      ReadSession readSession =
           BigQueryReadSession.getReadsession(
               credentials, bqconfig, table, bigQueryReadClientFactory, configOption);
       List<ReadStream> readsessionList = readSession.getStreamsList();
