@@ -15,6 +15,8 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
+import java.util.List;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -29,12 +31,19 @@ public final class BigQueryDynamicTableSource implements ScanTableSource {
 
   private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
   private final DataType producedDataType;
+  private List<String> readSessionStreamList;
+  private BigQueryClientFactory bigQueryReadClientFactory;
 
   public BigQueryDynamicTableSource(
-      DecodingFormat<DeserializationSchema<RowData>> decodingFormat, DataType producedDataType) {
+      DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
+      DataType producedDataType,
+      List<String> readSessionStreamList,
+      BigQueryClientFactory bigQueryReadClientFactory) {
+    this.bigQueryReadClientFactory = bigQueryReadClientFactory;
 
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
+    this.readSessionStreamList = readSessionStreamList;
   }
 
   @Override
@@ -49,14 +58,16 @@ public final class BigQueryDynamicTableSource implements ScanTableSource {
     // create runtime classes that are shipped to the cluster
     final DeserializationSchema<RowData> deserializer =
         decodingFormat.createRuntimeDecoder(runtimeProviderContext, producedDataType);
-    final SourceFunction<RowData> sourceFunction = new BigQuerySourceFunction(deserializer);
+    final SourceFunction<RowData> sourceFunction =
+        new BigQuerySourceFunction(deserializer, readSessionStreamList, bigQueryReadClientFactory);
     return SourceFunctionProvider.of(sourceFunction, false);
   }
 
   @Override
   public DynamicTableSource copy() {
 
-    return new BigQueryDynamicTableSource(decodingFormat, producedDataType);
+    return new BigQueryDynamicTableSource(
+        decodingFormat, producedDataType, readSessionStreamList, bigQueryReadClientFactory);
   }
 
   @Override

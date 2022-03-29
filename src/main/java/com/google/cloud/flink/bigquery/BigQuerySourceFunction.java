@@ -15,8 +15,17 @@
  */
 package com.google.cloud.flink.bigquery;
 
-import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
-import com.google.cloud.bigquery.storage.v1.ReadSession;
+import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
+import com.google.cloud.bigquery.connector.common.ReadRowsHelper;
+import com.google.cloud.bigquery.connector.common.ReadRowsHelper.Options;
+import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.RuntimeContextInitializationContextAdapters;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -24,6 +33,8 @@ import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.util.Collector;
+import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,9 +45,16 @@ public final class BigQuerySourceFunction extends RichSourceFunction<RowData>
   private static final Logger log = LoggerFactory.getLogger(BigQuerySourceFunction.class);
 
   private final DeserializationSchema<RowData> deserializer;
+  private List<String> readSessionStreamList;
+  private BigQueryClientFactory bigQueryReadClientFactory;
 
-  public BigQuerySourceFunction(DeserializationSchema<RowData> deserializer) {
+  public BigQuerySourceFunction(
+      DeserializationSchema<RowData> deserializer,
+      List<String> readSessionStreamList,
+      BigQueryClientFactory bigQueryReadClientFactory) {
     this.deserializer = deserializer;
+    this.readSessionStreamList = readSessionStreamList;
+    this.bigQueryReadClientFactory = bigQueryReadClientFactory;
   }
 
   @Override
@@ -53,11 +71,44 @@ public final class BigQuerySourceFunction extends RichSourceFunction<RowData>
   @Override
   public void run(SourceContext<RowData> ctx) throws Exception {
 
-    BigQueryReadClient client = BigQueryReadClient.create();
-    ReadSession readSession = BigQueryDynamicTableFactory.readSession;
-    String streamName = readSession.getStreams(0).getName();
-    ReadRows readRows = new ReadRows();
-    readRows.createReadRowRequest(deserializer, streamName, client, ctx);
+    List<RowData> outputCollector = new ArrayList<>();
+    ListCollector<RowData> listCollector = new ListCollector<>(outputCollector);
+    Options options =
+        new ReadRowsHelper.Options(
+            /* maxRetries= */ 5,
+            Optional.of("endpoint"),
+            /* backgroundParsingThreads= */ 5,
+            /* prebufferResponses= */ 1);
+
+    for (String streamName : readSessionStreamList) {
+
+      ReadRowsRequest.Builder readRowsRequest =
+          ReadRowsRequest.newBuilder().setReadStream(streamName);
+
+      ReadRowsHelper readRowsHelper =
+          new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options);
+      Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
+
+      while (readRows.hasNext()) {
+
+        ReadRowsResponse response = readRows.next();
+
+        Preconditions.checkState(response.hasArrowRecordBatch());
+        try {
+          deserializer.deserialize(
+              response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray(),
+              (Collector<RowData>) listCollector);
+        } catch (IOException ex) {
+          log.error("Error while deserialization");
+          throw new FlinkBigQueryException("Error while deserialization:", ex);
+        }
+      }
+      readRowsHelper.close();
+    }
+
+    for (int i = 0; i < outputCollector.size(); i++) {
+      ctx.collect((RowData) outputCollector.get(i));
+    }
   }
 
   @Override

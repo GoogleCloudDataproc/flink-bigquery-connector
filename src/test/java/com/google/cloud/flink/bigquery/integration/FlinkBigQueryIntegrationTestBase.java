@@ -17,17 +17,15 @@ package com.google.cloud.flink.bigquery.integration;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.flink.bigquery.model.Configuration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
 public class FlinkBigQueryIntegrationTestBase {
 
   @SuppressWarnings("unused")
-  protected BigQuery bq;
+  private BigQuery bq;
 
-  protected StreamTableEnvironment flinkTableEnv;
-  protected Configuration config;
+  public static StreamTableEnvironment flinkTableEnv;
 
   @SuppressWarnings("static-access")
   public FlinkBigQueryIntegrationTestBase() {
@@ -35,10 +33,5 @@ public class FlinkBigQueryIntegrationTestBase {
     this.bq = BigQueryOptions.getDefaultInstance().getService();
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     this.flinkTableEnv = StreamTableEnvironment.create(env);
-    this.config = new Configuration();
-    config.setGcpCredentialKeyFile(System.getenv("GOOGLE_APPLICATION_CREDENTIALS"));
-    config.setProjectId(System.getenv("GOOGLE_CLOUD_PROJECT"));
-    config.setDataset(System.getenv("GOOGLE_CLOUD_DATASET"));
-    config.setBigQueryReadTable(System.getenv("GOOGLE_CLOUD_TABLE"));
   }
 }

@@ -49,7 +49,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schema, typeInfo);
   }
 
-  private static VectorSchemaRoot root;
+  private VectorSchemaRoot root;
   private VectorLoader loader;
   List<FieldVector> vectors = new ArrayList<>();
   private Schema schema;
@@ -94,10 +94,8 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 
   @Override
   public boolean isEndOfStream(T nextElement) {
-    if (nextElement == null) {
-      return Boolean.TRUE;
-    }
-    return Boolean.FALSE;
+
+    return nextElement == null ? Boolean.TRUE : Boolean.FALSE;
   }
 
   @Override

@@ -15,78 +15,49 @@
  */
 package com.google.cloud.flink.bigquery;
 
-import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.Credentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.connector.common.BigQueryClient;
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
-import com.google.cloud.bigquery.connector.common.BigQueryCredentialsSupplier;
 import com.google.cloud.bigquery.connector.common.ReadSessionCreator;
 import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfig;
 import com.google.cloud.bigquery.connector.common.ReadSessionResponse;
-import com.google.cloud.flink.bigquery.common.UserAgentHeaderProvider;
+import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.hadoop.conf.Configuration;
 
 public class BigQueryReadSession {
 
-  public static com.google.cloud.bigquery.storage.v1.ReadSession getReadsession(
-      String projectId, String table, String dataset, Map<String, String> configOption)
+  public static ReadSession getReadsession(
+      Credentials credentials,
+      FlinkBigQueryConfig bqconfig,
+      String table,
+      BigQueryClientFactory bigQueryReadClientFactory,
+      Map<String, String> configOption)
       throws FileNotFoundException, IOException {
 
-    String credentialKeyFile = configOption.get("credentialKeyFile");
-    GoogleCredentials credentials =
-        GoogleCredentials.fromStream(new FileInputStream(credentialKeyFile));
-    Optional<String> credentialkey_file = Optional.of(credentialKeyFile);
-    BigQueryCredentialsSupplier bigQueryCredentialsSupplier =
-        new BigQueryCredentialsSupplier(
-            Optional.empty(),
-            Optional.empty(),
-            credentialkey_file,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty());
-
-    int DEFAULT_PARALLELISM = Integer.parseInt(configOption.get("defaultParallelism"));
-    String FLINK_VERSION = configOption.get("flinkVersion");
-
-    Configuration hadoopConfiguration = new Configuration();
-
-    ImmutableMap<String, String> defaultOptions =
-        ImmutableMap.of("table", projectId + "." + dataset + "." + table);
-
-    FlinkBigQueryConfig bqconfig =
-        FlinkBigQueryConfig.from(
-            defaultOptions,
-            defaultOptions, // ImmutableMap.of(),
-            hadoopConfiguration,
-            DEFAULT_PARALLELISM,
-            new org.apache.flink.configuration.Configuration(),
-            FLINK_VERSION,
-            Optional.empty());
-    final UserAgentHeaderProvider userAgentHeaderProvider =
-        new UserAgentHeaderProvider("test-agent");
-    BigQueryClientFactory bigQueryReadClientFactory =
-        new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
     final BigQuery bigquery =
         BigQueryOptions.newBuilder().setCredentials(credentials).build().getService();
     BigQueryClient bigQueryClient = new BigQueryClient(bigquery, null, null);
     ReadSessionCreatorConfig readSessionCreatorConfig = bqconfig.toReadSessionCreatorConfig();
     ReadSessionCreator readSessionCreator =
         new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryReadClientFactory);
-    TableId tableId = TableId.of(projectId, dataset, table);
+    TableId tableId =
+        TableId.of(table.split("\\.")[0], table.split("\\.")[1], table.split("\\.")[2]);
 
     ImmutableList<String> selectedFields =
-        ImmutableList.copyOf(Arrays.asList((configOption.get("selectedfields")).split(",")));
-    Optional<String> filter = Optional.of(configOption.get("filter"));
+        ImmutableList.copyOf(Arrays.asList((configOption.get("selectedFields")).split(",")));
+
+    Optional<String> filter =
+        configOption.get("filter") != null
+            ? Optional.of(configOption.get("filter"))
+            : Optional.empty();
     ReadSessionResponse response = readSessionCreator.create(tableId, selectedFields, filter);
     return response.getReadSession();
   }
