@@ -86,7 +86,6 @@ public final class BigQueryDynamicTableFactory
       ConfigOptions.key("bQEncodedCreaterReadSessionRequest").stringType().noDefaultValue();
   public static final ConfigOption<String> BQBACKGROUNDTHREADSPERSTREAM =
       ConfigOptions.key("bQBackgroundThreadsPerStream").stringType().noDefaultValue();
-  
 
   @Override
   public String factoryIdentifier() {
@@ -150,24 +149,16 @@ public final class BigQueryDynamicTableFactory
       // Create client factory
       String table = options.get(TABLE);
 
-      ImmutableMap<String, String> defaultOptions =
-          ImmutableMap.of(
-              "table",
-              table.split("\\.")[0] + "." + table.split("\\.")[1] + "." + table.split("\\.")[2]);
-
-      int defaultParallelism =
-          configOption.get("defaultParallelism") != null
-              ? Integer.parseInt(configOption.get("defaultParallelism"))
-              : 1;
+      ImmutableMap<String, String> defaultOptions = ImmutableMap.of("table", table);
 
       FlinkBigQueryConfig bqconfig =
           FlinkBigQueryConfig.from(
               configOption,
-              defaultOptions, // ImmutableMap.of(),
+              defaultOptions,
               new org.apache.hadoop.conf.Configuration(),
-              defaultParallelism,
+              options.get(DEFAULTPARALLELISM),
               new org.apache.flink.configuration.Configuration(),
-              configOption.get("FLINK_VERSION"),
+              options.get(FLINKVERSION),
               Optional.empty());
 
       Credentials credentials = bqconfig.createCredentials();
