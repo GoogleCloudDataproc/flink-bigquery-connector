@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
-import org.apache.flink.api.common.serialization.RuntimeContextInitializationContextAdapters;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
@@ -63,10 +62,7 @@ public final class BigQuerySourceFunction extends RichSourceFunction<RowData>
   }
 
   @Override
-  public void open(Configuration parameters) throws Exception {
-    deserializer.open(
-        RuntimeContextInitializationContextAdapters.deserializationAdapter(getRuntimeContext()));
-  }
+  public void open(Configuration parameters) throws Exception {}
 
   @Override
   public void run(SourceContext<RowData> ctx) throws Exception {

@@ -50,7 +50,7 @@ public class ArrowFormatFactory
           DynamicTableSource.Context context, DataType producedDataType) {
         final RowType rowType = (RowType) producedDataType.getLogicalType();
         final TypeInformation<RowData> rowDataTypeInfo =
-            context.createTypeInformation(producedDataType);
+            (TypeInformation<RowData>) context.createTypeInformation(producedDataType);
         return new ArrowRowDataDeserializationSchema(rowType, rowDataTypeInfo);
       }
 

@@ -23,7 +23,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.flink.bigquery.FlinkBigQueryException;
-import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
@@ -111,7 +110,7 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
   // We are passing all the configuration values and setting filter in flink and tableAPI both
   // together.
   @Test
-  public void testReadFromQueryInternal() {
+  public void testReadFromQueryInternal() throws Exception {
     String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
     String flinkSrcTable = "FlinkSrcTable";
     String filter = "word_count > 500 and word=\"I\"";
@@ -136,17 +135,13 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
     Table result = flinkTableEnv.from(flinkSrcTable);
     Table datatable =
         result.where($("word_count").isGreaterOrEqual(100)).select($("word"), $("word_count"));
-    DataStream<Row> ds = flinkTableEnv.toDataStream(datatable);
-
     int count = 0;
-    try {
-      CloseableIterator<Row> itr = ds.executeAndCollect();
-      while (itr.hasNext()) {
-        itr.next();
+    TableResult tableResult = datatable.execute();
+    try (CloseableIterator<Row> it = tableResult.collect()) {
+      while (it.hasNext()) {
+        it.next();
         count += 1;
       }
-    } catch (Exception e) {
-      e.printStackTrace();
     }
     assertEquals(count, 16);
   }

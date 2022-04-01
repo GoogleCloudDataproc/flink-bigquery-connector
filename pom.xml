@@ -52,7 +52,8 @@
         <avro.version>1.8.2</avro.version>
         <arrow.version>6.0.1</arrow.version>
         <bigquery-connector-common.version>0.23.2</bigquery-connector-common.version>
-        <flink.version>1.13.1</flink.version>
+        <flink.version>1.11.0</flink.version>
+        <flink.connector.test.version>1.12.0</flink.connector.test.version>
         <google-cloud-dataproc.version>2.3.1</google-cloud-dataproc.version>
         <google-cloud-storage.version>2.6.1</google-cloud-storage.version>
         <google-truth.version>1.1.3</google-truth.version>
@@ -60,6 +61,7 @@
         <slf4j.version>1.7.15</slf4j.version>
 		<scala.version>2.12</scala.version>
         <hadoop.core.version>0.20.2</hadoop.core.version>
+        <jsqlparser.version>3.1</jsqlparser.version>
         <junit.version>4.13.1</junit.version>
         <maven.compiler.source>8</maven.compiler.source>
 		<maven.compiler.target>8</maven.compiler.target>
@@ -102,6 +104,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+           <groupId>io.grpc</groupId>
+           <artifactId>grpc-core</artifactId>
+           <version>${flink.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
@@ -127,11 +134,11 @@
             <version>${flink.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-test-utils</artifactId>
-            <version>${flink.version}</version>
-            <scope>test</scope>
+       <dependency>
+           <groupId>org.apache.flink</groupId>
+           <artifactId>flink-connector-test-utils</artifactId>
+           <version>${flink.connector.test.version}</version>
+           <scope>test</scope>
         </dependency>
         <dependency>
 			<groupId>org.apache.flink</groupId>
@@ -145,6 +152,11 @@
 			<version>${flink.version}</version>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-python_2.12</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
         <dependency>
 		    <groupId>org.apache.arrow</groupId>
 		    <artifactId>arrow-memory-netty</artifactId>
@@ -155,12 +167,7 @@
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-clients_${scala.version}</artifactId>
 			<version>${flink.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-python_${scala.version}</artifactId>
-			<version>${flink.version}</version>
-		</dependency>		
+		</dependency>	
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-bigquerystorage</artifactId>
@@ -181,6 +188,11 @@
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+           <groupId>com.github.jsqlparser</groupId>
+           <artifactId>jsqlparser</artifactId>
+           <version>${jsqlparser.version}</version>
         </dependency>
     </dependencies>
     <build>

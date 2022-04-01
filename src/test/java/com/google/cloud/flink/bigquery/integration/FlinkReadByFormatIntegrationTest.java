@@ -57,7 +57,6 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
 
     assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
     assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
-    // assertThat(row.get(1)).isInstanceOf(String.class);
   }
 
   @Test
@@ -81,8 +80,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
             + "  'selectedFields' = 'word,word_count' \n"
             + ")");
     Table result = flinkTableEnv.from(flinkSrcTable);
-    DataStream<Row> ds = flinkTableEnv.toDataStream(result);
-    System.out.println(ds.getParallelism());
+    DataStream<Row> ds = flinkTableEnv.toAppendStream(result, Row.class);
     assertThat(ds.getParallelism()).isEqualTo(1);
   }
 
@@ -112,47 +110,4 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
     assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
     assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
   }
-
-  //    @Test
-  //    public void testKeepingFiltersBehaviour() {
-  //
-  //    	config.setSelectedFields("word_count,word");
-  //
-  //		 String srcQueryString = "CREATE TABLE "+config.getTable()+" (word STRING , word_count
-  // BIGINT)";
-  //		 flinkTableEnv.executeSql(srcQueryString+"\n"
-  //                + "WITH (\n"
-  //                + "  'connector' = 'bigquery',\n"
-  //                + "  'format' = 'arrow',\n"
-  //                + "  'configOptions' = '"+config.getConfigMap()+"'\n"
-  //                + ")");
-  //
-  //	  Table result = flinkTableEnv.from(config.getTable());
-  //
-  //
-  //      Set<String> newBehaviourWords =
-  //          extractWords(
-  //              spark
-  //                  .read()
-  //                  .format("bigquery")
-  //                  .option("table", "bigquery-public-data.samples.shakespeare")
-  //                  .option("filter", "length(word) = 1")
-  //                  .option("combinePushedDownFilters", "true")
-  //                  .option("readDataFormat", dataFormat)
-  //                  .load());
-  //
-  //      Set<String> oldBehaviourWords =
-  //          extractWords(
-  //              spark
-  //                  .read()
-  //                  .format("bigquery")
-  //                  .option("table", "bigquery-public-data.samples.shakespeare")
-  //                  .option("filter", "length(word) = 1")
-  //                  .option("combinePushedDownFilters", "false")
-  //                  .option("readDataFormat", dataFormat)
-  //                  .load());
-  //
-  //      assertThat(newBehaviourWords).isEqualTo(oldBehaviourWords);
-  //    }
-
 }

@@ -20,7 +20,6 @@ import static org.apache.flink.table.api.Expressions.$;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
-import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.ValidationException;
@@ -73,7 +72,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   // We are passing filter in table API (Filter will work at flink level)
   @Test
-  public void testReadWithFilterInTableAPI() {
+  public void testReadWithFilterInTableAPI() throws Exception {
     String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -93,23 +92,20 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     Table result = flinkTableEnv.from(flinkSrcTable);
     Table datatable =
         result.where($("word_count").isGreaterOrEqual(500)).select($("word"), $("word_count"));
-    DataStream<Row> ds = flinkTableEnv.toDataStream(datatable);
     int count = 0;
-    try {
-      CloseableIterator<Row> itr = ds.executeAndCollect();
-      while (itr.hasNext()) {
-        Row it = itr.next();
+    TableResult tableResult = datatable.execute();
+    try (CloseableIterator<Row> it = tableResult.collect()) {
+      while (it.hasNext()) {
+        Row row = it.next();
         count += 1;
       }
-    } catch (Exception e) {
     }
-    datatable.execute();
     assertEquals(count, 72);
   }
 
   // We are passing filter as an option (Filter will work at Storage API level)
   @Test
-  public void testReadWithFilter() {
+  public void testReadWithFilter() throws Exception {
     String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
     String filter = "word_count > 500 and word=\"I\"";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
@@ -132,16 +128,13 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + ")");
     Table result = flinkTableEnv.from(flinkSrcTable);
     Table datatable = result.select($("word"), $("word_count"));
-    DataStream<Row> ds = flinkTableEnv.toDataStream(datatable);
     int count = 0;
-    try {
-      CloseableIterator<Row> itr = ds.executeAndCollect();
-      while (itr.hasNext()) {
-        Row it = itr.next();
+    TableResult tableResult = datatable.execute();
+    try (CloseableIterator<Row> it = tableResult.collect()) {
+      while (it.hasNext()) {
+        Row row = it.next();
         count += 1;
       }
-    } catch (Exception e) {
-      e.printStackTrace();
     }
     assertThat(count).isEqualTo(16);
   }
@@ -321,63 +314,4 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
           TableResult tableapi = result.execute();
         });
   }
-
-  //	@Test
-  //	public void testKeepingFiltersBehaviour() {
-  //		Configuration config1 = new Configuration();
-  //		config1.setCombinePushedDownFilters(false);
-  //		config1.setFilter("word_count > 500 and word=\"I\"");
-  //		config1.setProjectId("q-gcp-6750-pso-gs-flink-22-01");
-  //		config1.setDataset("wordcount_dataset");
-  //		config1.setBigQueryReadTable("wordcount_output");
-  //		config1.setSelectedFields("word,word_count");
-  //		String srcQueryString1 = "CREATE TABLE " + config1.getBigQueryReadTable()
-  //				+ " (word STRING , word_count BIGINT)";
-  //		flinkTableEnv.executeSql(srcQueryString1 + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-  //				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config1.getConfigMap() + "'\n" +
-  // ")");
-  //
-  //		Table result1 = flinkTableEnv.from(config1.getBigQueryReadTable());
-  //		Table datatable1 = result1.select($("word"), $("word_count"));
-  //		DataStream<Row> ds1 = flinkTableEnv.toDataStream(datatable1);
-  //		int count1 = 0;
-  //		try {
-  //			CloseableIterator<Row> itr = ds1.executeAndCollect();
-  //			while (itr.hasNext()) {
-  //				Row it = itr.next();
-  //				count1 += 1;
-  //			}
-  //		} catch (Exception e) {
-  //			e.printStackTrace();
-  //		}
-  //
-  //
-  //		Configuration config2 = new Configuration();
-  //		config2.setCombinePushedDownFilters(true);
-  //		config2.setFilter("word_count > 500 and word=\"I\"");
-  //		config2.setProjectId("q-gcp-6750-pso-gs-flink-22-01");
-  //		config2.setDataset("wordcount_dataset");
-  //		config2.setBigQueryReadTable("wordcount_output");
-  //		config2.setSelectedFields("word,word_count");
-  //		String srcQueryString2 = "CREATE TABLE " + config2.getBigQueryReadTable()
-  //				+ " (word STRING , word_count BIGINT)";
-  //		flinkTableEnv.executeSql(srcQueryString2 + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-  //				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config2.getConfigMap() + "'\n" +
-  // ")");
-  //
-  //		Table result2 = flinkTableEnv.from(config2.getBigQueryReadTable());
-  //		Table datatable2 = result2.select($("word"), $("word_count"));
-  //		DataStream<Row> ds2 = flinkTableEnv.toDataStream(datatable2);
-  //		int count2 = 0;
-  //		try {
-  //			CloseableIterator<Row> itr = ds2.executeAndCollect();
-  //			while (itr.hasNext()) {
-  //				Row it = itr.next();
-  //				count2 += 1;
-  //			}
-  //		} catch (Exception e) {
-  //			e.printStackTrace();
-  //		}
-  //		assertThat(count1).isEqualTo(count2);
-  //	}
 }
