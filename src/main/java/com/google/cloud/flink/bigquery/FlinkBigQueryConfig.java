@@ -106,9 +106,9 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
       CompressionCodec.COMPRESSION_UNSPECIFIED;
 
   static final String GCS_CONFIG_CREDENTIALS_FILE_PROPERTY =
-      "google.cloud.auth.service.account.json.keyfile";
+      System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
+  // TODO: Read projectId from json filepath
   static final String GCS_CONFIG_PROJECT_ID_PROPERTY = "q-gcp-6750-pso-gs-flink-22-01";
-  private static final String READ_DATA_FORMAT_OPTION = DataFormat.ARROW.toString();
   private static final ImmutableList<String> PERMITTED_READ_DATA_FORMATS =
       ImmutableList.of(DataFormat.ARROW.toString(), DataFormat.AVRO.toString());
   private static final Supplier<com.google.common.base.Optional<String>> DEFAULT_FALLBACK =
