@@ -119,6 +119,6 @@ public class ArrowRowDataDeserializationSchema
 
   @Override
   public boolean isEndOfStream(RowData nextElement) {
-    return false;
+    return nextElement != null ? false : true;
   }
 }

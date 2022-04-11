@@ -192,7 +192,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + "  'table' = '"
             + bigqueryReadTable
             + "',\n"
-            + "  'bQEncodedCreaterReadSessionRequest' = 'EgZCBBoCEAI',\n"
+            + "  'bqEncodedCreateReadSessionRequest' = 'EgZCBBoCEAI',\n"
             + "  'selectedFields' = 'word,word_count',\n"
             + "  'credentialsFile' = '"
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -218,8 +218,8 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + bigqueryReadTable
             + "',\n"
             + "  'selectedFields' = 'word,word_count',\n"
-            + "  'bQEncodedCreaterReadSessionRequest' = 'EgZCBBoCEAI',\n"
-            + "  'bQBackgroundThreadsPerStream' = '1',\n"
+            + "  'bqEncodedCreateReadSessionRequest' = 'EgZCBBoCEAI',\n"
+            + "  'bqBackgroundThreadsPerStream' = '1',\n"
             + "  'credentialsFile' = '"
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             + "' \n"
@@ -243,8 +243,8 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + bigqueryReadTable
             + "',\n"
             + "  'selectedFields' = 'word,word_count',\n"
-            + "  'bQEncodedCreaterReadSessionRequest' = 'EgZCBBoCEAI',\n"
-            + "  'bQBackgroundThreadsPerStream' = '4',\n"
+            + "  'bqEncodedCreateReadSessionRequest' = 'EgZCBBoCEAI',\n"
+            + "  'bqBackgroundThreadsPerStream' = '4',\n"
             + "  'credentialsFile' = '"
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             + "' \n"
@@ -278,7 +278,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + "  'selectedFields' = '"
             + Constants.LARGE_TABLE_FIELD
             + "',\n"
-            + "  'BqBackgroundThreadsPerStream' = '4',\n"
+            + "  'bqBackgroundThreadsPerStream' = '4',\n"
             + "  'credentialsFile' = '"
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             + "' \n"

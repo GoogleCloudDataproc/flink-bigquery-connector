@@ -15,8 +15,8 @@
  */
 package com.google.cloud.flink.bigquery;
 
-import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
-import java.util.List;
+import java.util.LinkedList;
+
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -27,23 +27,25 @@ import org.apache.flink.table.connector.source.SourceFunctionProvider;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 
+import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
+
 public final class BigQueryDynamicTableSource implements ScanTableSource {
 
   private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
   private final DataType producedDataType;
-  private List<String> readSessionStreamList;
+  private LinkedList<String> readStreamNames;
   private BigQueryClientFactory bigQueryReadClientFactory;
 
   public BigQueryDynamicTableSource(
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
       DataType producedDataType,
-      List<String> readSessionStreamList,
+      LinkedList<String> readStreamNames,
       BigQueryClientFactory bigQueryReadClientFactory) {
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
 
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
-    this.readSessionStreamList = readSessionStreamList;
+    this.readStreamNames = readStreamNames;
   }
 
   @Override
@@ -59,7 +61,7 @@ public final class BigQueryDynamicTableSource implements ScanTableSource {
     final DeserializationSchema<RowData> deserializer =
         decodingFormat.createRuntimeDecoder(runtimeProviderContext, producedDataType);
     final SourceFunction<RowData> sourceFunction =
-        new BigQuerySourceFunction(deserializer, readSessionStreamList, bigQueryReadClientFactory);
+        new BigQuerySourceFunction(deserializer, readStreamNames, bigQueryReadClientFactory);
     return SourceFunctionProvider.of(sourceFunction, false);
   }
 
@@ -67,7 +69,7 @@ public final class BigQueryDynamicTableSource implements ScanTableSource {
   public DynamicTableSource copy() {
 
     return new BigQueryDynamicTableSource(
-        decodingFormat, producedDataType, readSessionStreamList, bigQueryReadClientFactory);
+        decodingFormat, producedDataType, readStreamNames, bigQueryReadClientFactory);
   }
 
   @Override
