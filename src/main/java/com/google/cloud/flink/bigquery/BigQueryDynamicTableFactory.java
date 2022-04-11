@@ -47,188 +47,212 @@ import org.apache.flink.table.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory, DynamicTableSinkFactory {
+public final class BigQueryDynamicTableFactory
+    implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 
-	private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
-	static FlinkBigQueryConfig bqconfig;
-	private BigQueryClientFactory bigQueryReadClientFactory;
-	public static final ConfigOption<String> TABLE = ConfigOptions.key("table").stringType().noDefaultValue();
-	public static final ConfigOption<String> QUERY = ConfigOptions.key("query").stringType().noDefaultValue();
-	public static final ConfigOption<String> FILTER = ConfigOptions.key("filter").stringType().defaultValue("");
-	public static final ConfigOption<String> PARTITION_FIELD = ConfigOptions.key("partitionField").stringType()
-			.defaultValue("");
-	public static final ConfigOption<String> PARTITION_TYPE = ConfigOptions.key("partitionType").stringType()
-			.defaultValue("");
-	public static final ConfigOption<String> PARTITION_EXPIRATION_MS = ConfigOptions.key("partitionExpirationMs")
-			.stringType().defaultValue("");
-	public static final ConfigOption<String> PARTITION_REQUIRE_FILTER = ConfigOptions.key("partitionRequireFilter")
-			.stringType().defaultValue("");
-	public static final ConfigOption<String> FLINK_VERSION = ConfigOptions.key("flinkVersion").stringType()
-			.defaultValue("1.11");
-	public static final ConfigOption<Integer> PARALLELISM = ConfigOptions.key("parallelism").intType().defaultValue(1);
-	public static final ConfigOption<Integer> MAX_PARALLELISM = ConfigOptions.key("maxParallelism").intType()
-			.defaultValue(1);
-	public static final ConfigOption<String> SELECTED_FIELDS = ConfigOptions.key("selectedFields").stringType()
-			.noDefaultValue();
-	public static final ConfigOption<Integer> DEFAULT_PARALLELISM = ConfigOptions.key("defaultParallelism").intType()
-			.defaultValue(1);
-	public static final ConfigOption<String> CREDENTIAL_KEY_FILE = ConfigOptions.key("credentialsFile").stringType()
-			.noDefaultValue();
-	public static final ConfigOption<String> ACCESS_TOKEN = ConfigOptions.key("gcpAccessToken").stringType()
-			.defaultValue("");
-	public static final ConfigOption<String> CREDENTIALS_KEY = ConfigOptions.key("credentials").stringType()
-			.defaultValue("");
-	public static final ConfigOption<String> PROXY_URI = ConfigOptions.key("proxyUri").stringType().defaultValue("");
-	public static final ConfigOption<String> PROXY_USERNAME = ConfigOptions.key("proxyUsername").stringType()
-			.defaultValue("");
-	public static final ConfigOption<String> PROXY_PASSWORD = ConfigOptions.key("proxyPassword").stringType()
-			.defaultValue("");
-	public static final ConfigOption<String> BQ_ENCODED_CREATER_READSESSION_REQUEST = ConfigOptions
-			.key("bqEncodedCreateReadSessionRequest").stringType().noDefaultValue();
-	public static final ConfigOption<String> BQ_BACKGROUND_THREADS_PER_STREAM = ConfigOptions
-			.key("bqBackgroundThreadsPerStream").stringType().noDefaultValue();
-	public static final ConfigOption<String> MATERIALIZATION_PROJECT = ConfigOptions.key("materializationProject")
-			.stringType().noDefaultValue();
-	public static final ConfigOption<String> MATERIALIZATION_DATASET = ConfigOptions.key("materializationDataset")
-			.stringType().noDefaultValue();
+  private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
+  static FlinkBigQueryConfig bqconfig;
+  private BigQueryClientFactory bigQueryReadClientFactory;
+  public static final ConfigOption<String> TABLE =
+      ConfigOptions.key("table").stringType().noDefaultValue();
+  public static final ConfigOption<String> QUERY =
+      ConfigOptions.key("query").stringType().noDefaultValue();
+  public static final ConfigOption<String> FILTER =
+      ConfigOptions.key("filter").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_FIELD =
+      ConfigOptions.key("partitionField").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_TYPE =
+      ConfigOptions.key("partitionType").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_EXPIRATION_MS =
+      ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
+      ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
+  public static final ConfigOption<String> FLINK_VERSION =
+      ConfigOptions.key("flinkVersion").stringType().defaultValue("1.11");
+  public static final ConfigOption<Integer> PARALLELISM =
+      ConfigOptions.key("parallelism").intType().defaultValue(1);
+  public static final ConfigOption<Integer> MAX_PARALLELISM =
+      ConfigOptions.key("maxParallelism").intType().defaultValue(1);
+  public static final ConfigOption<String> SELECTED_FIELDS =
+      ConfigOptions.key("selectedFields").stringType().noDefaultValue();
+  public static final ConfigOption<Integer> DEFAULT_PARALLELISM =
+      ConfigOptions.key("defaultParallelism").intType().defaultValue(1);
+  public static final ConfigOption<String> CREDENTIAL_KEY_FILE =
+      ConfigOptions.key("credentialsFile").stringType().noDefaultValue();
+  public static final ConfigOption<String> ACCESS_TOKEN =
+      ConfigOptions.key("gcpAccessToken").stringType().defaultValue("");
+  public static final ConfigOption<String> CREDENTIALS_KEY =
+      ConfigOptions.key("credentials").stringType().defaultValue("");
+  public static final ConfigOption<String> PROXY_URI =
+      ConfigOptions.key("proxyUri").stringType().defaultValue("");
+  public static final ConfigOption<String> PROXY_USERNAME =
+      ConfigOptions.key("proxyUsername").stringType().defaultValue("");
+  public static final ConfigOption<String> PROXY_PASSWORD =
+      ConfigOptions.key("proxyPassword").stringType().defaultValue("");
+  public static final ConfigOption<String> BQ_ENCODED_CREATER_READSESSION_REQUEST =
+      ConfigOptions.key("bqEncodedCreateReadSessionRequest").stringType().noDefaultValue();
+  public static final ConfigOption<String> BQ_BACKGROUND_THREADS_PER_STREAM =
+      ConfigOptions.key("bqBackgroundThreadsPerStream").stringType().noDefaultValue();
+  public static final ConfigOption<String> MATERIALIZATION_PROJECT =
+      ConfigOptions.key("materializationProject").stringType().noDefaultValue();
+  public static final ConfigOption<String> MATERIALIZATION_DATASET =
+      ConfigOptions.key("materializationDataset").stringType().noDefaultValue();
 
-	@Override
-	public String factoryIdentifier() {
-		return "bigquery";
-	}
+  @Override
+  public String factoryIdentifier() {
+    return "bigquery";
+  }
 
-	@Override
-	public Set<ConfigOption<?>> requiredOptions() {
-		final Set<ConfigOption<?>> options = new HashSet<>();
-		options.add(TABLE);
-		return options;
-	}
+  @Override
+  public Set<ConfigOption<?>> requiredOptions() {
+    final Set<ConfigOption<?>> options = new HashSet<>();
+    options.add(TABLE);
+    return options;
+  }
 
-	@Override
-	public Set<ConfigOption<?>> optionalOptions() {
-		final Set<ConfigOption<?>> options = new HashSet<>();
-		options.add(FactoryUtil.FORMAT);
-		options.add(CREDENTIAL_KEY_FILE);
-		options.add(ACCESS_TOKEN);
-		options.add(CREDENTIALS_KEY);
-		options.add(FILTER);
-		options.add(SELECTED_FIELDS);
-		options.add(QUERY);
-		options.add(MATERIALIZATION_PROJECT);
-		options.add(MATERIALIZATION_DATASET);
-		options.add(FLINK_VERSION);
-		options.add(PARTITION_FIELD);
-		options.add(PARTITION_TYPE);
-		options.add(PARTITION_EXPIRATION_MS);
-		options.add(PARTITION_REQUIRE_FILTER);
-		options.add(DEFAULT_PARALLELISM);
-		options.add(PROXY_URI);
-		options.add(PROXY_USERNAME);
-		options.add(PROXY_PASSWORD);
-		options.add(BQ_ENCODED_CREATER_READSESSION_REQUEST);
-		options.add(BQ_BACKGROUND_THREADS_PER_STREAM);
-		options.add(PARALLELISM);
-		options.add(MAX_PARALLELISM);
-		return options;
-	}
+  @Override
+  public Set<ConfigOption<?>> optionalOptions() {
+    final Set<ConfigOption<?>> options = new HashSet<>();
+    options.add(FactoryUtil.FORMAT);
+    options.add(CREDENTIAL_KEY_FILE);
+    options.add(ACCESS_TOKEN);
+    options.add(CREDENTIALS_KEY);
+    options.add(FILTER);
+    options.add(SELECTED_FIELDS);
+    options.add(QUERY);
+    options.add(MATERIALIZATION_PROJECT);
+    options.add(MATERIALIZATION_DATASET);
+    options.add(FLINK_VERSION);
+    options.add(PARTITION_FIELD);
+    options.add(PARTITION_TYPE);
+    options.add(PARTITION_EXPIRATION_MS);
+    options.add(PARTITION_REQUIRE_FILTER);
+    options.add(DEFAULT_PARALLELISM);
+    options.add(PROXY_URI);
+    options.add(PROXY_USERNAME);
+    options.add(PROXY_PASSWORD);
+    options.add(BQ_ENCODED_CREATER_READSESSION_REQUEST);
+    options.add(BQ_BACKGROUND_THREADS_PER_STREAM);
+    options.add(PARALLELISM);
+    options.add(MAX_PARALLELISM);
+    return options;
+  }
 
-	DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
+  DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
 
-	@Override
-	public DynamicTableSource createDynamicTableSource(Context context) {
-		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
+  @Override
+  public DynamicTableSource createDynamicTableSource(Context context) {
+    final FactoryUtil.TableFactoryHelper helper =
+        FactoryUtil.createTableFactoryHelper(this, context);
 
-		final ReadableConfig options = helper.getOptions();
-		try {
-			helper.validate();
-		} catch (Exception ex) {
-			String exceptionString = ensureExpectedException(ex.toString(), options);
-			if (exceptionString != null) {
-				throw new IllegalArgumentException(exceptionString);
-			}
-		}
+    final ReadableConfig options = helper.getOptions();
+    try {
+      helper.validate();
+    } catch (Exception ex) {
+      String exceptionString = ensureExpectedException(ex.toString(), options);
+      if (exceptionString != null) {
+        throw new IllegalArgumentException(exceptionString);
+      }
+    }
 
-		decodingFormat = helper.discoverDecodingFormat(ArrowFormatFactory.class, FactoryUtil.FORMAT);
+    decodingFormat = helper.discoverDecodingFormat(ArrowFormatFactory.class, FactoryUtil.FORMAT);
 
-		final DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
-		return new BigQueryDynamicTableSource(decodingFormat, producedDataType, getReadStreamNames(options),
-				bigQueryReadClientFactory);
-	}
+    final DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
+    return new BigQueryDynamicTableSource(
+        decodingFormat, producedDataType, getReadStreamNames(options), bigQueryReadClientFactory);
+  }
 
-	@Override
-	public DynamicTableSink createDynamicTableSink(Context context) {
-		return null;
-	}
+  @Override
+  public DynamicTableSink createDynamicTableSink(Context context) {
+    return null;
+  }
 
-	private LinkedList<String> getReadStreamNames(ReadableConfig options) {
-		bigQueryReadClientFactory = null;
-		UserAgentHeaderProvider userAgentHeaderProvider;
-		BigQueryCredentialsSupplier bigQueryCredentialsSupplier;
-		LinkedList<String> readStreamNames = new LinkedList<String>();
-		try {
-			// Create client factory
-			ImmutableMap<String, String> defaultOptions = ImmutableMap.of("credentialsFile",
-					options.get(CREDENTIAL_KEY_FILE));
+  private LinkedList<String> getReadStreamNames(ReadableConfig options) {
+    bigQueryReadClientFactory = null;
+    UserAgentHeaderProvider userAgentHeaderProvider;
+    BigQueryCredentialsSupplier bigQueryCredentialsSupplier;
+    LinkedList<String> readStreamNames = new LinkedList<String>();
+    try {
+      // Create client factory
+      ImmutableMap<String, String> defaultOptions =
+          ImmutableMap.of("credentialsFile", options.get(CREDENTIAL_KEY_FILE));
 
-			bqconfig = FlinkBigQueryConfig.from(requiredOptions(), optionalOptions(), options, defaultOptions,
-					new org.apache.hadoop.conf.Configuration(), options.get(DEFAULT_PARALLELISM),
-					new org.apache.flink.configuration.Configuration(), options.get(FLINK_VERSION), Optional.empty());
+      bqconfig =
+          FlinkBigQueryConfig.from(
+              requiredOptions(),
+              optionalOptions(),
+              options,
+              defaultOptions,
+              new org.apache.hadoop.conf.Configuration(),
+              options.get(DEFAULT_PARALLELISM),
+              new org.apache.flink.configuration.Configuration(),
+              options.get(FLINK_VERSION),
+              Optional.empty());
 
-			Credentials credentials = bqconfig.createCredentials();
-			bigQueryCredentialsSupplier = new BigQueryCredentialsSupplier(bqconfig.getAccessToken(),
-					bqconfig.getCredentialsKey(), bqconfig.getCredentialsFile(), Optional.empty(), Optional.empty(),
-					Optional.empty());
+      Credentials credentials = bqconfig.createCredentials();
+      bigQueryCredentialsSupplier =
+          new BigQueryCredentialsSupplier(
+              bqconfig.getAccessToken(),
+              bqconfig.getCredentialsKey(),
+              bqconfig.getCredentialsFile(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty());
 
-			userAgentHeaderProvider = new UserAgentHeaderProvider("test-agent");
-			bigQueryReadClientFactory = new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider,
-					bqconfig);
+      userAgentHeaderProvider = new UserAgentHeaderProvider("test-agent");
+      bigQueryReadClientFactory =
+          new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
 
-			// Create read session
-			ReadSession readSession = BigQueryReadSession.getReadsession(credentials, bqconfig,
-					bigQueryReadClientFactory);
-			List<ReadStream> readsessionList = readSession.getStreamsList();
+      // Create read session
+      ReadSession readSession =
+          BigQueryReadSession.getReadsession(credentials, bqconfig, bigQueryReadClientFactory);
+      List<ReadStream> readsessionList = readSession.getStreamsList();
 
-			// Iterate over read stream
-			for (ReadStream stream : readsessionList) {
-				readStreamNames.add(stream.getName());
-			}
-		} catch (JSQLParserException | IOException ex) {
-			log.error("Error while reading big query session", ex);
-		}
-		return readStreamNames;
-	}
+      // Iterate over read stream
+      for (ReadStream stream : readsessionList) {
+        readStreamNames.add(stream.getName());
+      }
+    } catch (JSQLParserException | IOException ex) {
+      log.error("Error while reading big query session", ex);
+    }
+    return readStreamNames;
+  }
 
-	private String ensureExpectedException(String exceptionString, ReadableConfig options) {
-		String errorString = null;
-		String stringToCheck = "Missing required options are:";
-		String exceptionHead = exceptionString.substring(0,
-				exceptionString.lastIndexOf(stringToCheck) + stringToCheck.length());
-		ArrayList<String> missingArgs = new ArrayList<>(
-				Arrays.asList(StringUtils.substringAfterLast(exceptionString, stringToCheck).trim().split("\n")));
-		if (options.get(TABLE) != null) {
-			missingArgs.remove("query");
-			missingArgs.remove("materializationProject");
-			missingArgs.remove("materializationDataset");
-		} else if (options.get(QUERY) != null) {
-			missingArgs.remove("table");
-			missingArgs.remove("selectedFields");
-		}
-		if (options.get(CREDENTIAL_KEY_FILE) != null || options.get(ACCESS_TOKEN) != null
-				|| options.get(CREDENTIALS_KEY) != null) {
-			missingArgs.remove("credentialsFile");
-			missingArgs.remove("gcpAccessToken");
-			missingArgs.remove("credentials");
-		} else if (options.get(QUERY) != null) {
-			missingArgs.remove("table");
-			missingArgs.remove("selectedFields");
-		}
-		if (!missingArgs.isEmpty()) {
-			errorString = errorString + exceptionHead + "\n\n" + String.join("\n", missingArgs);
-		}
-		return errorString;
-	}
+  private String ensureExpectedException(String exceptionString, ReadableConfig options) {
+    String errorString = null;
+    String stringToCheck = "Missing required options are:";
+    String exceptionHead =
+        exceptionString.substring(
+            0, exceptionString.lastIndexOf(stringToCheck) + stringToCheck.length());
+    ArrayList<String> missingArgs =
+        new ArrayList<>(
+            Arrays.asList(
+                StringUtils.substringAfterLast(exceptionString, stringToCheck).trim().split("\n")));
+    if (options.get(TABLE) != null) {
+      missingArgs.remove("query");
+      missingArgs.remove("materializationProject");
+      missingArgs.remove("materializationDataset");
+    } else if (options.get(QUERY) != null) {
+      missingArgs.remove("table");
+      missingArgs.remove("selectedFields");
+    }
+    if (options.get(CREDENTIAL_KEY_FILE) != null
+        || options.get(ACCESS_TOKEN) != null
+        || options.get(CREDENTIALS_KEY) != null) {
+      missingArgs.remove("credentialsFile");
+      missingArgs.remove("gcpAccessToken");
+      missingArgs.remove("credentials");
+    } else if (options.get(QUERY) != null) {
+      missingArgs.remove("table");
+      missingArgs.remove("selectedFields");
+    }
+    if (!missingArgs.isEmpty()) {
+      errorString = errorString + exceptionHead + "\n\n" + String.join("\n", missingArgs);
+    }
+    return errorString;
+  }
 
-	public static FlinkBigQueryConfig getBqConfig() {
-		return bqconfig;
-	}
+  public static FlinkBigQueryConfig getBqConfig() {
+    return bqconfig;
+  }
 }
