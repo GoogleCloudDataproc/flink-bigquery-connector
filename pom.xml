@@ -52,12 +52,19 @@
         <avro.version>1.8.2</avro.version>
         <arrow.version>6.0.1</arrow.version>
         <bigquery-connector-common.version>0.23.2</bigquery-connector-common.version>
-        <flink.version>1.12.0</flink.version>
+        <flink.version>1.11.0</flink.version>
+        <flink.connector.test.version>1.12.0</flink.connector.test.version>
         <google-cloud-dataproc.version>2.3.1</google-cloud-dataproc.version>
-        <google-cloud-storage.version>2.3.0</google-cloud-storage.version>
+        <google-cloud-storage.version>2.6.1</google-cloud-storage.version>
         <google-truth.version>1.1.3</google-truth.version>
         <guava.version>30.1.1-jre</guava.version>
         <slf4j.version>1.7.15</slf4j.version>
+		<scala.version>2.12</scala.version>
+        <hadoop.core.version>1.2.1</hadoop.core.version>
+        <jsqlparser.version>3.1</jsqlparser.version>
+        <junit.version>4.13.1</junit.version>
+        <maven.compiler.source>8</maven.compiler.source>
+		<maven.compiler.target>8</maven.compiler.target>
 
         <!-- checkstyle
         <checkstyle.header.file>${reactor.project.basedir}/java.header</checkstyle.header.file>
@@ -70,6 +77,12 @@
                 <artifactId>bigquery-connector-common</artifactId>
                 <version>${bigquery-connector-common.version}</version>
             </dependency>
+            <dependency>
+				<groupId>org.apache.arrow</groupId>
+				<artifactId>arrow-memory</artifactId>
+				<version>${arrow.version}</version>
+				<type>pom</type>
+		</dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -89,6 +102,11 @@
             <artifactId>flink-table-common</artifactId>
             <version>${flink.version}</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+           <groupId>io.grpc</groupId>
+           <artifactId>grpc-core</artifactId>
+           <version>${flink.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -116,17 +134,65 @@
             <version>${flink.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-test-utils</artifactId>
-            <version>${flink.version}</version>
-            <scope>test</scope>
+       <dependency>
+           <groupId>org.apache.flink</groupId>
+           <artifactId>flink-connector-test-utils</artifactId>
+           <version>${flink.connector.test.version}</version>
+           <scope>test</scope>
         </dependency>
+        <dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-api-java-bridge_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-planner-blink_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-python_2.12</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+		    <groupId>org.apache.arrow</groupId>
+		    <artifactId>arrow-memory-netty</artifactId>
+		    <version>${arrow.version}</version>
+		    <scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-clients_${scala.version}</artifactId>
+			<version>${flink.version}</version>
+		</dependency>	
+		<dependency>
+			<groupId>com.google.cloud</groupId>
+			<artifactId>google-cloud-bigquerystorage</artifactId>
+			<version>${google-cloud-storage.version}</version>
+		</dependency>	
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-core</artifactId>
+			<version>${hadoop.core.version}</version>
+		</dependency>
+		<dependency>
+		  <groupId>com.google.guava</groupId>
+		  <artifactId>guava</artifactId>
+		  <version>${guava.version}</version>
+		</dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+           <groupId>com.github.jsqlparser</groupId>
+           <artifactId>jsqlparser</artifactId>
+           <version>${jsqlparser.version}</version>
         </dependency>
     </dependencies>
     <build>
