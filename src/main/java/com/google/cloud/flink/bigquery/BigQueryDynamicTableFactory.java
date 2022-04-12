@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import com.google.cloud.bigquery.connector.common.BigQueryCredentialsSupplier;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.ReadStream;
+import com.google.cloud.flink.bigquery.common.FlinkBigQueryConnectorUserAgentProvider;
 import com.google.cloud.flink.bigquery.common.UserAgentHeaderProvider;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -199,7 +200,9 @@ public final class BigQueryDynamicTableFactory
               Optional.empty(),
               Optional.empty());
 
-      userAgentHeaderProvider = new UserAgentHeaderProvider("test-agent");
+      FlinkBigQueryConnectorUserAgentProvider agentProvider =
+          new FlinkBigQueryConnectorUserAgentProvider(options.get(FLINK_VERSION));
+      userAgentHeaderProvider = new UserAgentHeaderProvider(agentProvider.getUserAgent());
       bigQueryReadClientFactory =
           new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
 

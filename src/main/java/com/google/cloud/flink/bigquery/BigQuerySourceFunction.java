@@ -41,17 +41,16 @@ import org.slf4j.LoggerFactory;
 public final class BigQuerySourceFunction extends RichParallelSourceFunction<RowData>
     implements ResultTypeQueryable<RowData> {
 
-  boolean running = true;
+  Boolean running = true;
   private static final long serialVersionUID = 1;
   private static final Logger log = LoggerFactory.getLogger(BigQuerySourceFunction.class);
-  int limit;
-  int executerCount;
+  private int numOfStreams;
+  private int numOfExecutors;
+  private int executorIndex;
   private DeserializationSchema<RowData> deserializer;
   private LinkedList<String> readSessionStreamList = new LinkedList<>();
-
+  private List<String> streamNames = new ArrayList<String>();
   private BigQueryClientFactory bigQueryReadClientFactory;
-  private String streamName;
-  private int maxParallelism;
 
   public BigQuerySourceFunction(
       DeserializationSchema<RowData> deserializer,
@@ -59,8 +58,6 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
       BigQueryClientFactory bigQueryReadClientFactory) {
     this.deserializer = deserializer;
     this.readSessionStreamList = readSessionStreams;
-    this.limit = readSessionStreamList.size();
-    this.streamName = readSessionStreams.get(0);
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
   }
 
@@ -72,14 +69,13 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
   @Override
   public void open(Configuration parameters) throws Exception {
 
-    this.executerCount = getRuntimeContext().getIndexOfThisSubtask();
-    this.maxParallelism = getRuntimeContext().getMaxNumberOfParallelSubtasks();
-    this.limit = readSessionStreamList.size();
-    if (running && executerCount < limit) {
-      this.streamName = readSessionStreamList.get(executerCount);
-
-    } else {
-      this.streamName = null;
+    this.executorIndex = getRuntimeContext().getIndexOfThisSubtask();
+    this.numOfExecutors = getRuntimeContext().getNumberOfParallelSubtasks();
+    this.numOfStreams = readSessionStreamList.size();
+    for (int i = executorIndex; i < numOfStreams; i += numOfExecutors) {
+      if (running) {
+        this.streamNames.add(readSessionStreamList.get(i));
+      }
     }
   }
 
@@ -95,27 +91,36 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
             /* backgroundParsingThreads= */ 5,
             /* prebufferResponses= */ 1);
 
-    if (streamName != null) {
-      ReadRowsRequest.Builder readRowsRequest =
-          ReadRowsRequest.newBuilder().setReadStream(streamName);
-      ReadRowsHelper readRowsHelper =
-          new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options);
-      Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
-      while (readRows.hasNext()) {
-        ReadRowsResponse response = readRows.next();
-        try {
+    if (!streamNames.isEmpty()) {
+      for (String streamName : streamNames) {
+        ReadRowsRequest.Builder readRowsRequest =
+            ReadRowsRequest.newBuilder().setReadStream(streamName);
+        ReadRowsHelper readRowsHelper =
+            new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options);
+        Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
+        while (readRows.hasNext()) {
+          ReadRowsResponse response = readRows.next();
+          try {
+            if (response.hasArrowRecordBatch()) {
+              Preconditions.checkState(response.hasArrowRecordBatch());
+              deserializer.deserialize(
+                  response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray(),
+                  (Collector<RowData>) listCollector);
+            } else if (response.hasAvroRows()) {
+              Preconditions.checkState(response.hasAvroRows());
+              deserializer.deserialize(
+                  response.getAvroRows().getSerializedBinaryRows().toByteArray(),
+                  (Collector<RowData>) listCollector);
+              break;
+            }
 
-          Preconditions.checkState(response.hasArrowRecordBatch());
-          deserializer.deserialize(
-              response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray(),
-              (Collector<RowData>) listCollector);
-
-        } catch (IOException ex) {
-          log.error("Error while deserialization");
-          throw new FlinkBigQueryException("Error while deserialization:", ex);
+          } catch (IOException ex) {
+            log.error("Error while deserialization");
+            throw new FlinkBigQueryException("Error while deserialization:", ex);
+          }
         }
+        readRowsHelper.close();
       }
-      readRowsHelper.close();
     }
     for (int i = 0; i < outputCollector.size(); i++) {
       ctx.collect((RowData) outputCollector.get(i));
