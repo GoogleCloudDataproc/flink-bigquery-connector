@@ -16,7 +16,6 @@
 package com.google.cloud.flink.bigquery.arrow.util;
 
 import java.math.BigDecimal;
-
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -43,121 +42,127 @@ import org.apache.flink.table.types.logical.utils.LogicalTypeDefaultVisitor;
 
 public class LogicalTypeToArrowTypeConverter extends LogicalTypeDefaultVisitor<ArrowType> {
 
-	@Override
-	protected ArrowType defaultMethod(LogicalType logicalType) {
-		if (logicalType instanceof LegacyTypeInformationType) {
-			Class<?> typeClass = ((LegacyTypeInformationType) logicalType).getTypeInformation().getTypeClass();
-			if (typeClass == BigDecimal.class) {
-				return new ArrowType.Decimal(38, 18);
-			}
-		}
-		throw new UnsupportedOperationException(String.format(
-				"Python vectorized UDF doesn't support logical type %s currently.", logicalType.asSummaryString()));
-	}
+  @Override
+  protected ArrowType defaultMethod(LogicalType logicalType) {
+    if (logicalType instanceof LegacyTypeInformationType) {
+      Class<?> typeClass =
+          ((LegacyTypeInformationType) logicalType).getTypeInformation().getTypeClass();
+      if (typeClass == BigDecimal.class) {
+        return new ArrowType.Decimal(38, 18);
+      }
+    }
+    throw new UnsupportedOperationException(
+        String.format(
+            "Python vectorized UDF doesn't support logical type %s currently.",
+            logicalType.asSummaryString()));
+  }
 
-	public static final LogicalTypeToArrowTypeConverter INSTANCE = new LogicalTypeToArrowTypeConverter();
+  public static final LogicalTypeToArrowTypeConverter INSTANCE =
+      new LogicalTypeToArrowTypeConverter();
 
-	@Override
-	public ArrowType visit(TinyIntType tinyIntType) {
-		return new ArrowType.Int(8, true);
-	}
+  @Override
+  public ArrowType visit(TinyIntType tinyIntType) {
+    return new ArrowType.Int(8, true);
+  }
 
-	@Override
-	public ArrowType visit(SmallIntType smallIntType) {
-		return new ArrowType.Int(2 * 8, true);
-	}
+  @Override
+  public ArrowType visit(SmallIntType smallIntType) {
+    return new ArrowType.Int(2 * 8, true);
+  }
 
-	@Override
-	public ArrowType visit(IntType intType) {
-		return new ArrowType.Int(4 * 8, true);
-	}
+  @Override
+  public ArrowType visit(IntType intType) {
+    return new ArrowType.Int(4 * 8, true);
+  }
 
-	@Override
-	public ArrowType visit(BigIntType bigIntType) {
-		return new ArrowType.Int(8 * 8, true);
-	}
+  @Override
+  public ArrowType visit(BigIntType bigIntType) {
+    return new ArrowType.Int(8 * 8, true);
+  }
 
-	@Override
-	public ArrowType visit(BooleanType booleanType) {
-		return ArrowType.Bool.INSTANCE;
-	}
+  @Override
+  public ArrowType visit(BooleanType booleanType) {
+    return ArrowType.Bool.INSTANCE;
+  }
 
-	@Override
-	public ArrowType visit(FloatType floatType) {
-		return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
-	}
+  @Override
+  public ArrowType visit(FloatType floatType) {
+    return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
+  }
 
-	@Override
-	public ArrowType visit(DoubleType doubleType) {
-		return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
-	}
+  @Override
+  public ArrowType visit(DoubleType doubleType) {
+    return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+  }
 
-	@Override
-	public ArrowType visit(VarCharType varCharType) {
-		return ArrowType.Utf8.INSTANCE;
-	}
+  @Override
+  public ArrowType visit(VarCharType varCharType) {
+    return ArrowType.Utf8.INSTANCE;
+  }
 
-	@Override
-	public ArrowType visit(VarBinaryType varCharType) {
-		return ArrowType.Binary.INSTANCE;
-	}
+  @Override
+  public ArrowType visit(VarBinaryType varCharType) {
+    return ArrowType.Binary.INSTANCE;
+  }
 
-	@Override
-	public ArrowType visit(DecimalType decimalType) {
-		return new ArrowType.Decimal(decimalType.getPrecision(), decimalType.getScale());
-	}
+  @Override
+  public ArrowType visit(DecimalType decimalType) {
+    return new ArrowType.Decimal(decimalType.getPrecision(), decimalType.getScale());
+  }
 
-	@Override
-	public ArrowType visit(DateType dateType) {
-		return new ArrowType.Date(DateUnit.DAY);
-	}
+  @Override
+  public ArrowType visit(DateType dateType) {
+    return new ArrowType.Date(DateUnit.DAY);
+  }
 
-	@Override
-	public ArrowType visit(TimeType timeType) {
-		if (timeType.getPrecision() == 0) {
-			return new ArrowType.Time(TimeUnit.SECOND, 32);
-		} else if (timeType.getPrecision() >= 1 && timeType.getPrecision() <= 3) {
-			return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
-		} else if (timeType.getPrecision() >= 4 && timeType.getPrecision() <= 6) {
-			return new ArrowType.Time(TimeUnit.MICROSECOND, 64);
-		} else {
-			return new ArrowType.Time(TimeUnit.NANOSECOND, 64);
-		}
-	}
+  @Override
+  public ArrowType visit(TimeType timeType) {
+    if (timeType.getPrecision() == 0) {
+      return new ArrowType.Time(TimeUnit.SECOND, 32);
+    } else if (timeType.getPrecision() >= 1 && timeType.getPrecision() <= 3) {
+      return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
+    } else if (timeType.getPrecision() >= 4 && timeType.getPrecision() <= 6) {
+      return new ArrowType.Time(TimeUnit.MICROSECOND, 64);
+    } else {
+      return new ArrowType.Time(TimeUnit.NANOSECOND, 64);
+    }
+  }
 
-	@Override
-	public ArrowType visit(LocalZonedTimestampType localZonedTimestampType) {
-		if (localZonedTimestampType.getPrecision() == 0) {
-			return new ArrowType.Timestamp(TimeUnit.SECOND, null);
-		} else if (localZonedTimestampType.getPrecision() >= 1 && localZonedTimestampType.getPrecision() <= 3) {
-			return new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
-		} else if (localZonedTimestampType.getPrecision() >= 4 && localZonedTimestampType.getPrecision() <= 6) {
-			return new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
-		} else {
-			return new ArrowType.Timestamp(TimeUnit.NANOSECOND, null);
-		}
-	}
+  @Override
+  public ArrowType visit(LocalZonedTimestampType localZonedTimestampType) {
+    if (localZonedTimestampType.getPrecision() == 0) {
+      return new ArrowType.Timestamp(TimeUnit.SECOND, null);
+    } else if (localZonedTimestampType.getPrecision() >= 1
+        && localZonedTimestampType.getPrecision() <= 3) {
+      return new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
+    } else if (localZonedTimestampType.getPrecision() >= 4
+        && localZonedTimestampType.getPrecision() <= 6) {
+      return new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
+    } else {
+      return new ArrowType.Timestamp(TimeUnit.NANOSECOND, null);
+    }
+  }
 
-	@Override
-	public ArrowType visit(TimestampType timestampType) {
-		if (timestampType.getPrecision() == 0) {
-			return new ArrowType.Timestamp(TimeUnit.SECOND, null);
-		} else if (timestampType.getPrecision() >= 1 && timestampType.getPrecision() <= 3) {
-			return new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
-		} else if (timestampType.getPrecision() >= 4 && timestampType.getPrecision() <= 6) {
-			return new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
-		} else {
-			return new ArrowType.Timestamp(TimeUnit.NANOSECOND, null);
-		}
-	}
+  @Override
+  public ArrowType visit(TimestampType timestampType) {
+    if (timestampType.getPrecision() == 0) {
+      return new ArrowType.Timestamp(TimeUnit.SECOND, null);
+    } else if (timestampType.getPrecision() >= 1 && timestampType.getPrecision() <= 3) {
+      return new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
+    } else if (timestampType.getPrecision() >= 4 && timestampType.getPrecision() <= 6) {
+      return new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
+    } else {
+      return new ArrowType.Timestamp(TimeUnit.NANOSECOND, null);
+    }
+  }
 
-	@Override
-	public ArrowType visit(ArrayType arrayType) {
-		return ArrowType.List.INSTANCE;
-	}
+  @Override
+  public ArrowType visit(ArrayType arrayType) {
+    return ArrowType.List.INSTANCE;
+  }
 
-	@Override
-	public ArrowType visit(RowType rowType) {
-		return ArrowType.Struct.INSTANCE;
-	}
+  @Override
+  public ArrowType visit(RowType rowType) {
+    return ArrowType.Struct.INSTANCE;
+  }
 }

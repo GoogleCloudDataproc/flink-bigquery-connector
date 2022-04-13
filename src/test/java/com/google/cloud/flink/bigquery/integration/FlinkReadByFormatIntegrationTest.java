@@ -18,40 +18,96 @@ package com.google.cloud.flink.bigquery.integration;
 import static com.google.common.truth.Truth.assertThat;
 
 import java.util.Optional;
-
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.types.Row;
 import org.junit.Test;
-
-import com.google.cloud.flink.bigquery.model.Configuration;
 
 public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
 
-	Configuration config = new Configuration();
+  protected String dataFormat;
 
-	public FlinkReadByFormatIntegrationTest() {
-		super();
-		config.setGcpCredentialKeyFile(System.getenv("GOOGLE_APPLICATION_CREDENTIALS"));
-		config.setProjectId("bigquery-public-data");
-		config.setDataset("samples");
-		config.setBigQueryReadTable("shakespeare");
-	}
+  public FlinkReadByFormatIntegrationTest() {
+    super();
+  }
 
-	@Test
-	public void testOutOfOrderColumns() {
+  @Test
+  public void testOutOfOrderColumns() {
 
-		config.setSelectedFields("word_count,word");
+    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String flinkSrcTable = "FlinkSrcTable";
+    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    flinkTableEnv.executeSql(
+        srcQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'format' = 'arrow',\n"
+            + "  'table' = '"
+            + bigqueryReadTable
+            + "',\n"
+            + "  'filter' = 'word_count > 500',\n"
+            + "  'credentialsFile' = '"
+            + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            + "' ,\n"
+            + "  'selectedFields' = 'word,word_count' \n"
+            + ")");
+    Table result = flinkTableEnv.from(flinkSrcTable);
 
-		String srcQueryString = "CREATE TABLE " + config.getBigQueryReadTable() + " (word STRING , word_count BIGINT)";
-		flinkTableEnv.executeSql(srcQueryString + "\n" + "WITH (\n" + "  'connector' = 'bigquery',\n"
-				+ "  'format' = 'arrow',\n" + "  'configOptions' = '" + config.getConfigMap() + "'\n" + ")");
+    assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
+    assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
+  }
 
-		Table result = flinkTableEnv.from(config.getBigQueryReadTable());
+  @Test
+  public void testDefaultNumberOfPartitions() {
+    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String flinkSrcTable = "FlinkSrcTable";
+    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    flinkTableEnv.executeSql(
+        srcQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'format' = 'arrow',\n"
+            + "  'table' = '"
+            + bigqueryReadTable
+            + "',\n"
+            + "  'filter' = 'word_count > 500',\n"
+            + "  'credentialsFile' = '"
+            + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            + "' ,\n"
+            + "  'selectedFields' = 'word,word_count' \n"
+            + ")");
+    Table result = flinkTableEnv.from(flinkSrcTable);
+    DataStream<Row> ds = flinkTableEnv.toAppendStream(result, Row.class);
+    assertThat(ds.getParallelism()).isEqualTo(1);
+  }
 
-		System.out.println(result.getSchema().getFieldDataType(1));
-		System.out.println(result.getResolvedSchema());
+  @Test
+  public void testSelectAllColumnsFromATable() {
 
-		assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
-		assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
-	}
+    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String flinkSrcTable = "FlinkSrcTable";
+    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    flinkTableEnv.executeSql(
+        srcQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'format' = 'arrow',\n"
+            + "  'table' = '"
+            + bigqueryReadTable
+            + "',\n"
+            + "  'filter' = 'word_count > 500',\n"
+            + "  'credentialsFile' = '"
+            + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            + "' ,\n"
+            + "  'selectedFields' = 'word,word_count' \n"
+            + ")");
+    Table result = flinkTableEnv.from(flinkSrcTable);
+
+    assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
+    assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
+  }
 }

@@ -15,26 +15,23 @@
  */
 package com.google.cloud.flink.bigquery.integration;
 
+import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.flink.bigquery.model.Configuration;
-
 public class FlinkBigQueryIntegrationTestBase {
 
-	private BigQuery bq;
-	public static StreamTableEnvironment flinkTableEnv;
-	public static Configuration config = new Configuration();
+  @SuppressWarnings("unused")
+  private BigQuery bq;
 
-	public FlinkBigQueryIntegrationTestBase() {
+  public static StreamTableEnvironment flinkTableEnv;
 
-		this.bq = BigQueryOptions.getDefaultInstance().getService();
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		this.flinkTableEnv = StreamTableEnvironment.create(env);
-		this.config = new Configuration();
-		// TODO: change accordingly
-		this.config.setGcpCredentialKeyFile("C:\\sridhar\\GS\\q-gcp-6750-pso-gs-flink-22-01-1231782c49d3.json");
-	}
+  @SuppressWarnings("static-access")
+  public FlinkBigQueryIntegrationTestBase() {
+
+    this.bq = BigQueryOptions.getDefaultInstance().getService();
+    StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    this.flinkTableEnv = StreamTableEnvironment.create(env);
+  }
 }

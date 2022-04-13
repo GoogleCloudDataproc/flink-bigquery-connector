@@ -23,32 +23,32 @@ import java.util.Map;
 
 public class UserAgentHeaderProvider implements HeaderProvider, Serializable {
 
-	private static final long serialVersionUID = 1L;
-	private final String userAgent;
+  private static final long serialVersionUID = 1L;
+  private final String userAgent;
 
-	public UserAgentHeaderProvider(String userAgent) {
-		this.userAgent = userAgent;
-	}
+  public UserAgentHeaderProvider(String userAgent) {
+    this.userAgent = userAgent;
+  }
 
-	@Override
-	public Map<String, String> getHeaders() {
-		return ImmutableMap.of("user-agent", userAgent);
-	}
+  @Override
+  public Map<String, String> getHeaders() {
+    return ImmutableMap.of("user-agent", userAgent);
+  }
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		}
-		if (!(o instanceof UserAgentHeaderProvider)) {
-			return false;
-		}
-		UserAgentHeaderProvider that = (UserAgentHeaderProvider) o;
-		return Objects.equal(userAgent, that.userAgent);
-	}
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof UserAgentHeaderProvider)) {
+      return false;
+    }
+    UserAgentHeaderProvider that = (UserAgentHeaderProvider) o;
+    return Objects.equal(userAgent, that.userAgent);
+  }
 
-	@Override
-	public int hashCode() {
-		return Objects.hashCode(userAgent);
-	}
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(userAgent);
+  }
 }
