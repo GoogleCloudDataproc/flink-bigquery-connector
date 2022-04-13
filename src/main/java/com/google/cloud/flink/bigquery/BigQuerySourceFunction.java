@@ -26,7 +26,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
@@ -80,10 +79,8 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
   }
 
   @Override
-  public void run(SourceContext<RowData> ctx) throws Exception {
-
-    List<RowData> outputCollector = new ArrayList<>();
-    ListCollector<RowData> listCollector = new ListCollector<>(outputCollector);
+  public void run(final SourceContext<RowData> ctx) throws Exception {
+    Collector<RowData> collector = new SourceContextCollector<RowData>(ctx);
     Options options =
         new ReadRowsHelper.Options(
             /* maxRetries= */ 5,
@@ -91,12 +88,11 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
             /* backgroundParsingThreads= */ 5,
             /* prebufferResponses= */ 1);
 
-    if (!streamNames.isEmpty()) {
-      for (String streamName : streamNames) {
-        ReadRowsRequest.Builder readRowsRequest =
-            ReadRowsRequest.newBuilder().setReadStream(streamName);
-        ReadRowsHelper readRowsHelper =
-            new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options);
+    for (String streamName : streamNames) {
+      ReadRowsRequest.Builder readRowsRequest =
+          ReadRowsRequest.newBuilder().setReadStream(streamName);
+      try (ReadRowsHelper readRowsHelper =
+          new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options)) {
         Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
         while (readRows.hasNext()) {
           ReadRowsResponse response = readRows.next();
@@ -105,25 +101,19 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
               Preconditions.checkState(response.hasArrowRecordBatch());
               deserializer.deserialize(
                   response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray(),
-                  (Collector<RowData>) listCollector);
+                  collector);
             } else if (response.hasAvroRows()) {
               Preconditions.checkState(response.hasAvroRows());
               deserializer.deserialize(
-                  response.getAvroRows().getSerializedBinaryRows().toByteArray(),
-                  (Collector<RowData>) listCollector);
+                  response.getAvroRows().getSerializedBinaryRows().toByteArray(), collector);
               break;
             }
-
           } catch (IOException ex) {
-            log.error("Error while deserialization");
+            log.error("Error while deserialization", ex);
             throw new FlinkBigQueryException("Error while deserialization:", ex);
           }
         }
-        readRowsHelper.close();
       }
-    }
-    for (int i = 0; i < outputCollector.size(); i++) {
-      ctx.collect((RowData) outputCollector.get(i));
     }
   }
 
@@ -131,4 +121,23 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
   public void cancel() {
     running = false;
   }
+
+  static class SourceContextCollector<T> implements Collector<T> {
+
+    private SourceContext<T> context;
+
+    public SourceContextCollector(SourceContext<T> context) {
+      this.context = context;
+    }
+
+    @Override
+    public void collect(T t) {
+      context.collect(t);
+    }
+
+    @Override
+    public void close() {
+      // no op as we don't want to close ctx
+    }
+  };
 }
