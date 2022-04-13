@@ -107,7 +107,8 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
         });
   }
 
-  // We are passing all the configuration values and setting filter in flink and tableAPI both
+  // We are passing all the configuration values and setting filter in flink and
+  // tableAPI both
   // together.
   @Test
   public void testReadFromQueryInternal() throws Exception {

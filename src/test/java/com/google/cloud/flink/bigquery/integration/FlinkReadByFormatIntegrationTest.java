@@ -81,7 +81,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
             + ")");
     Table result = flinkTableEnv.from(flinkSrcTable);
     DataStream<Row> ds = flinkTableEnv.toAppendStream(result, Row.class);
-    assertThat(ds.getParallelism()).isEqualTo(1);
+    assertThat(ds.getExecutionConfig().getParallelism()).isEqualTo(1);
   }
 
   @Test
@@ -109,5 +109,31 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
 
     assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
     assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
+  }
+
+  @Test
+  public void testViewWithDifferentColumnsForSelectAndFilter() {
+    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    String filter = "word_count > 500";
+    flinkTableEnv.executeSql(
+        srcQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'format' = 'arrow',\n"
+            + "  'table' = '"
+            + bigqueryReadTable
+            + "',\n"
+            + "  'filter' = '"
+            + filter
+            + "',\n"
+            + "  'selectedFields' = 'word',\n"
+            + "  'credentialsFile' = '"
+            + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            + "' \n"
+            + ")");
+    Table result = flinkTableEnv.from(flinkSrcTable);
+    assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
   }
 }

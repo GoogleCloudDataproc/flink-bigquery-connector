@@ -63,8 +63,10 @@
         <hadoop.core.version>1.2.1</hadoop.core.version>
         <jsqlparser.version>3.1</jsqlparser.version>
         <junit.version>4.13.1</junit.version>
-        <maven.compiler.source>8</maven.compiler.source>
-		<maven.compiler.target>8</maven.compiler.target>
+        <joda.version>2.10</joda.version>
+        <jackson.version>2.13.0</jackson.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
 
         <!-- checkstyle
         <checkstyle.header.file>${reactor.project.basedir}/java.header</checkstyle.header.file>
@@ -193,6 +195,16 @@
            <groupId>com.github.jsqlparser</groupId>
            <artifactId>jsqlparser</artifactId>
            <version>${jsqlparser.version}</version>
+        </dependency>
+         <dependency>
+           <groupId>joda-time</groupId>
+           <artifactId>joda-time</artifactId>
+           <version>${joda.version}</version>
+        </dependency>
+        <dependency>
+           <groupId>com.fasterxml.jackson.core</groupId>
+           <artifactId>jackson-databind</artifactId>
+           <version>${jackson.version}</version>
         </dependency>
     </dependencies>
     <build>

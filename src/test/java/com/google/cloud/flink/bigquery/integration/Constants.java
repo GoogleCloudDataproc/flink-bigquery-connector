@@ -45,11 +45,16 @@ public class Constants {
 
   static final TableSchema FLINK_TEST_TABLE_SCHEMA =
       new TableSchema.Builder()
+          .field("numeric_datatype", DataTypes.DECIMAL(38, 9))
           .field("string_datatype", DataTypes.STRING())
           .field("bytes_datatype", DataTypes.BYTES())
-          .field("integer_datatype", DataTypes.INT())
-          .field("float_datatype", DataTypes.FLOAT())
+          .field("integer_datatype", DataTypes.BIGINT())
+          .field("float_datatype", DataTypes.DOUBLE())
           .field("boolean_datatype", DataTypes.BOOLEAN())
+          .field("timestamp_datatype", DataTypes.TIMESTAMP())
+          .field("date_datatype", DataTypes.DATE())
+          .field("datetime_datatype", DataTypes.TIMESTAMP())
+          .field("geography_datatype", DataTypes.STRING())
           .build();
 
   static final TableSchema LARGE_TABLE_SCHEMA =
