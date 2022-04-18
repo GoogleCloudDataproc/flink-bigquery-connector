@@ -26,9 +26,11 @@ import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericArrayData;
 import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.ArrayType;
@@ -38,11 +40,20 @@ import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeFieldType;
+import org.joda.time.format.ISODateTimeFormat;
 
-@FunctionalInterface
-public interface ArrowToRowDataConverter extends Serializable {
+/** Tool class used to convert from Arrow {@link GenericRecord} to {@link RowData}. * */
+@Internal
+public class ArrowToRowDataConverters {
 
-  Object convert(Object object);
+  /**
+   * Runtime converter that converts Arrow data structures into objects of Flink Table & SQL
+   * internal data structures.
+   */
+  @FunctionalInterface
+  public interface ArrowToRowDataConverter extends Serializable {
+    Object convert(Object object);
+  }
 
   // -------------------------------------------------------------------------------------
   // Runtime Converters
@@ -52,10 +63,9 @@ public interface ArrowToRowDataConverter extends Serializable {
     final ArrowToRowDataConverter[] fieldConverters =
         rowType.getFields().stream()
             .map(RowType.RowField::getType)
-            .map(ArrowToRowDataConverter::createNullableConverter)
+            .map(ArrowToRowDataConverters::createNullableConverter)
             .toArray(ArrowToRowDataConverter[]::new);
     final int arity = rowType.getFieldCount();
-
     return arrowObject -> {
       VectorSchemaRoot record = (VectorSchemaRoot) arrowObject;
       int numOfRows = record.getRowCount();
@@ -73,7 +83,7 @@ public interface ArrowToRowDataConverter extends Serializable {
   }
 
   /** Creates a runtime converter which is null safe. */
-  static ArrowToRowDataConverter createNullableConverter(LogicalType type) {
+  private static ArrowToRowDataConverter createNullableConverter(LogicalType type) {
     final ArrowToRowDataConverter converter = createConverter(type);
     return arrowObject -> {
       if (arrowObject == null) {
@@ -84,23 +94,22 @@ public interface ArrowToRowDataConverter extends Serializable {
   }
 
   /** Creates a runtime converter which assuming input object is not null. */
-  static ArrowToRowDataConverter createConverter(LogicalType type) {
+  private static ArrowToRowDataConverter createConverter(LogicalType type) {
     ArrowToRowDataConverter value;
     switch (type.getTypeRoot()) {
       case NULL:
         return arrowObject -> null;
       case TINYINT:
-        return arrowObject -> ((Integer) arrowObject).byteValue();
+        return arrowObject -> arrowObject;
       case SMALLINT:
         return arrowObject -> ((Integer) arrowObject).shortValue();
-      case DATE: // ########
-        return ArrowToRowDataConverter::convertToDate;
-      case TIME_WITHOUT_TIME_ZONE: // #####
-        return ArrowToRowDataConverter::convertToTime;
+      case DATE:
+        return ArrowToRowDataConverters::convertToDate;
+      case TIME_WITHOUT_TIME_ZONE:
+        return ArrowToRowDataConverters::convertToTime;
       case TIMESTAMP_WITHOUT_TIME_ZONE:
-        //			return ArrowToRowDataConverter::convertToTimestamp;//##########
-      case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // ###########
-        return ArrowToRowDataConverter::convertToTimestamp;
+      case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+        return ArrowToRowDataConverters::convertToTimestamp;
       case BOOLEAN: // boolean
       case INTEGER: // int
       case INTERVAL_YEAR_MONTH: // long
@@ -114,7 +123,7 @@ public interface ArrowToRowDataConverter extends Serializable {
         return arrowObject -> StringData.fromString(arrowObject.toString());
       case BINARY:
       case VARBINARY:
-        return ArrowToRowDataConverter::convertToBytes;
+        return ArrowToRowDataConverters::convertToBytes;
       case DECIMAL:
         value = createDecimalConverter((DecimalType) type);
         return value;
@@ -129,7 +138,7 @@ public interface ArrowToRowDataConverter extends Serializable {
     }
   }
 
-  public static TimestampData convertToTimestamp(Object object) {
+  private static TimestampData convertToTimestamp(Object object) {
     final long millis;
     if (object instanceof Long) {
       millis = (Long) object;
@@ -147,7 +156,7 @@ public interface ArrowToRowDataConverter extends Serializable {
     return TimestampData.fromEpochMillis(millis);
   }
 
-  public static int convertToDate(Object object) {
+  private static int convertToDate(Object object) {
     if (object instanceof Integer) {
       return (Integer) object;
     } else if (object instanceof LocalDate) {
@@ -163,13 +172,10 @@ public interface ArrowToRowDataConverter extends Serializable {
     }
   }
 
-  static int convertToTime(Object object) {
+  private static int convertToTime(Object object) {
     final int millis;
-    boolean neg = false;
     if (object instanceof Integer) {
-      int objectMillis = Integer.parseInt(object.toString());
-      java.sql.Time sqlTime = new java.sql.Time(objectMillis);
-      millis = 0;
+      millis = (Integer) object;
     } else if (object instanceof LocalTime) {
       millis = ((LocalTime) object).get(ChronoField.MILLI_OF_DAY);
     } else {
@@ -184,10 +190,9 @@ public interface ArrowToRowDataConverter extends Serializable {
     return millis;
   }
 
-  static ArrowToRowDataConverter createDecimalConverter(DecimalType decimalType) {
+  private static ArrowToRowDataConverter createDecimalConverter(DecimalType decimalType) {
     final int precision = decimalType.getPrecision();
     final int scale = decimalType.getScale();
-
     return arrowObject -> {
       final byte[] bytes;
       if (arrowObject instanceof ByteBuffer) {
@@ -195,16 +200,18 @@ public interface ArrowToRowDataConverter extends Serializable {
         bytes = new byte[byteBuffer.remaining()];
         byteBuffer.get(bytes);
       } else if (arrowObject instanceof BigDecimal) {
-        DecimalData bdValue = DecimalData.fromBigDecimal((BigDecimal) arrowObject, 38, 0);
+        DecimalData bdValue =
+            DecimalData.fromBigDecimal((BigDecimal) arrowObject, precision, scale);
+
         return bdValue;
       } else {
         bytes = (byte[]) arrowObject;
       }
-      return DecimalData.fromUnscaledBytes(bytes, 38, 0);
+      return DecimalData.fromUnscaledBytes(bytes, precision, scale);
     };
   }
 
-  static ArrowToRowDataConverter createArrayConverter(ArrayType arrayType) {
+  private static ArrowToRowDataConverter createArrayConverter(ArrayType arrayType) {
     final ArrowToRowDataConverter elementConverter =
         createNullableConverter(arrayType.getElementType());
     final Class<?> elementClass =
@@ -221,7 +228,7 @@ public interface ArrowToRowDataConverter extends Serializable {
     };
   }
 
-  public static byte[] convertToBytes(Object object) {
+  private static byte[] convertToBytes(Object object) {
     if (object instanceof ByteBuffer) {
       ByteBuffer byteBuffer = (ByteBuffer) object;
       byte[] bytes = new byte[byteBuffer.remaining()];
@@ -232,7 +239,7 @@ public interface ArrowToRowDataConverter extends Serializable {
     }
   }
 
-  static class JodaConverter {
+  private static class JodaConverter {
 
     private static JodaConverter instance;
     private static boolean instantiated = false;
@@ -264,8 +271,20 @@ public interface ArrowToRowDataConverter extends Serializable {
     }
 
     public long convertTimestamp(Object object) {
-      final DateTime value = DateTime.parse(object.toString());
-      return value.toDate().getTime();
+      long dateTime = 0;
+      if (!(object.toString().length() == 26)) {
+        final DateTime value =
+            DateTime.parse(object.toString(), ISODateTimeFormat.dateTimeParser().withZoneUTC());
+
+        dateTime = value.toDate().getTime();
+      } else if (object.toString().length() == 26) {
+        DateTime value =
+            DateTime.parse(object.toString(), ISODateTimeFormat.dateTimeParser().withZoneUTC());
+        value = value.toDateTime();
+        dateTime = value.toDate().getTime();
+      }
+
+      return dateTime;
     }
 
     private JodaConverter() {}

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery.integration;
+package com.google.cloud.flink.bigquery.integration.write;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.apache.flink.table.api.Expressions.$;
@@ -22,27 +22,24 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.StandardTableDefinition;
-import com.google.cloud.flink.bigquery.BigQueryTableSink;
 import com.google.cloud.flink.bigquery.FlinkBigQueryConfig;
+import com.google.cloud.flink.bigquery.integration.FlinkBigQueryIntegrationTestBase;
+import com.google.cloud.flink.bigquery.write.BigQueryTableSink;
 import java.io.IOException;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.table.connector.sink.abilities.SupportsOverwrite;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
 import org.junit.Test;
 
-public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBase
-    implements SupportsOverwrite {
+public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBase {
   final FlinkBigQueryConfig.WriteMethod writeMethod = null;
 
-  boolean overwrite = false;
-
   @Test
-  public void testWriteToBigQueryAppendSaveMode() throws Exception {
+  public void testWriteToBigQuerySupportsOverwrite() throws Exception {
     String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
     String bigqueryWriteTable = "q-gcp-6750-pso-gs-flink-22-01.test.sink_sample_test_sink_output6";
     testWriteToBigQuery(bigqueryReadTable, bigqueryWriteTable);
@@ -56,7 +53,6 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     env.setParallelism(1); // source only supports parallelism of 1
     final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
     String flinkSrcTable = "FlinkSrcTable";
-
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     tEnv.executeSql(
         srcQueryString
@@ -114,8 +110,10 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     Table sourceResultTable =
         sourceTable.where($("word_count").isGreaterOrEqual(500)).select($("word"), $("word_count"));
     BigQueryTableSink tableSink = new BigQueryTableSink(sourceResultTable, bigqueryWriteTable);
+
     tEnv.registerTableSink(flinkSinkTable, tableSink);
-    TableResult sinkResult = sourceResultTable.executeInsert(flinkSinkTable);
+
+    TableResult sinkResult = sourceResultTable.executeInsert(flinkSinkTable, true);
     JobExecutionResult jobExecutionResult =
         sinkResult
             .getJobClient()
@@ -125,11 +123,11 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
   }
 
   @Test
-  public void testPartitioHourly() throws Exception {
+  public void testPartitionHourly() throws Exception {
     String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions";
     String bigqueryWriteTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.sinkWriteLatest1";
     testPartition("HOUR", bigqueryReadTable, bigqueryWriteTable);
-    Thread.sleep(120 * 1000); // so that writing part complete successfully
+    Thread.sleep(120 * 1000);
     int count = bqReadTableForPartiton(bigqueryWriteTable);
     assertThat(count).isEqualTo(10000);
   }
@@ -137,7 +135,7 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
   @Test
   public void testPartitionDaily() throws Exception {
     String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions";
-    String bigqueryWriteTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.sinkWriteLatest2";
+    String bigqueryWriteTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.sinkWriteLatest24";
     testPartition("DAY", bigqueryReadTable, bigqueryWriteTable);
     Thread.sleep(120 * 1000);
     int count = bqReadTableForPartiton(bigqueryWriteTable);
@@ -157,7 +155,7 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
   @Test
   public void testPartitionYearly() throws Exception {
     String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions";
-    String bigqueryWriteTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.sinkWriteLatest6";
+    String bigqueryWriteTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.sinkWriteLatest4";
     testPartition("YEAR", bigqueryReadTable, bigqueryWriteTable);
     Thread.sleep(120 * 1000);
     int count = bqReadTableForPartiton(bigqueryWriteTable);
@@ -280,17 +278,9 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     Table sourceResultTable = sourceTable.select($("tags"), $("title"), $("creation_date"));
     BigQueryTableSink tableSink = new BigQueryTableSink(sourceResultTable, bigqueryWriteTable);
     tEnv.registerTableSink(flinkSinkTable, tableSink);
-    TableResult sinkResult = sourceResultTable.executeInsert(flinkSinkTable);
-    JobExecutionResult jobExecutionResult =
-        sinkResult
-            .getJobClient()
-            .get()
-            .getJobExecutionResult(Thread.currentThread().getContextClassLoader())
-            .get();
     StandardTableDefinition tableDefinition =
         testPartitionedTableDefinition("wordcount_dataset", "partition1");
     assertThat(tableDefinition.getTimePartitioning().getField()).isEqualTo("creation_date");
-    ;
   }
 
   public StandardTableDefinition testPartitionedTableDefinition(String dataset, String table)
@@ -299,17 +289,6 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     final BigQuery bigquery =
         BigQueryOptions.newBuilder().setCredentials(credentials).build().getService();
     return bigquery.getTable(dataset, table).getDefinition();
-  }
-
-  @Test
-  public void testWriteToBigQuerySimplifiedApi() throws Exception {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
-    String bigqueryWriteTable = "q-gcp-6750-pso-gs-flink-22-01.test.sink_sample_test_sink1234sk";
-    String tempGcsBucket = "tempGcsBucket";
-    testWriteToBigQuery(bigqueryReadTable, bigqueryWriteTable, tempGcsBucket);
-    Thread.sleep(120 * 1000);
-    int count = bqReadTable(bigqueryWriteTable);
-    assertThat(count).isEqualTo(72);
   }
 
   @SuppressWarnings({"unused", "deprecation"})
@@ -351,11 +330,5 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
             .get()
             .getJobExecutionResult(Thread.currentThread().getContextClassLoader())
             .get();
-  }
-
-  @Override
-  public void applyOverwrite(boolean overwrite) {
-
-    this.overwrite = overwrite;
   }
 }

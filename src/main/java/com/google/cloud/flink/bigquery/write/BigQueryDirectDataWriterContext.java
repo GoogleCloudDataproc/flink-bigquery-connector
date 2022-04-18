@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.write;
 
-import static com.google.cloud.flink.bigquery.ProtobufUtils.buildSingleRowMessage;
-import static com.google.cloud.flink.bigquery.ProtobufUtils.toDescriptor;
+import static com.google.cloud.flink.bigquery.write.ProtobufUtils.buildSingleRowMessage;
+import static com.google.cloud.flink.bigquery.write.ProtobufUtils.toDescriptor;
 
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.retrying.RetrySettings.Builder;
@@ -37,6 +37,8 @@ import com.google.cloud.bigquery.connector.common.BigQueryConfig;
 import com.google.cloud.bigquery.connector.common.BigQueryConnectorException;
 import com.google.cloud.bigquery.connector.common.BigQueryCredentialsSupplier;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
+import com.google.cloud.flink.bigquery.BigQueryDynamicTableFactory;
+import com.google.cloud.flink.bigquery.FlinkBigQueryConfig;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectDataWriterHelper;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
 import com.google.cloud.flink.bigquery.common.DataWriterContext;
@@ -149,8 +151,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
               elem ->
                   listOfFileds.add(
                       Field.newBuilder(
-                              elem.getName(),
-                              StandardSQLTypeHandler.handle(elem.getType().toString()))
+                              elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
                           .setMode(Mode.NULLABLE)
                           .build()));
 

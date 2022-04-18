@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.write;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -21,16 +21,18 @@ import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.sinks.AppendStreamTableSink;
+import org.apache.flink.table.sinks.OverwritableTableSink;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 
-public class BigQueryTableSink implements AppendStreamTableSink<Row> {
+public class BigQueryTableSink implements AppendStreamTableSink<Row>, OverwritableTableSink {
   private Table srcTable;
   private String table;
   private String[] fieldNames;
   private DataType[] fieldTypes;
+  private boolean overwrite;
 
   public BigQueryTableSink(Table srcTable, String table) {
     this.srcTable = srcTable;
@@ -42,7 +44,7 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row> {
   @Override
   public DataStreamSink<Row> consumeDataStream(DataStream<Row> dataStream) {
     BigQuerySinkFunction bigQuerySinkFunction = new BigQuerySinkFunction(srcTable, table);
-    DataStreamSink<Row> sink = dataStream.addSink(bigQuerySinkFunction);
+    DataStreamSink<Row> sink = dataStream.addSink(bigQuerySinkFunction).setParallelism(1);
     sink.name(TableConnectorUtils.generateRuntimeName(BigQueryTableSink.class, fieldNames));
     return sink;
   }
@@ -60,5 +62,10 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row> {
   @Override
   public TableSchema getTableSchema() {
     return TableSchema.builder().fields(fieldNames, fieldTypes).build();
+  }
+
+  @Override
+  public void setOverwrite(boolean overwrite) {
+    this.overwrite = overwrite;
   }
 }

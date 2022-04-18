@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.write;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -32,14 +32,13 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.TimeZone;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.fnexecution.v1.FlinkFnApi;
 import org.apache.flink.table.data.ArrayData;
-import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.BinaryType;
@@ -55,6 +54,7 @@ import org.apache.flink.table.types.logical.LocalZonedTimestampType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.table.types.logical.SmallIntType;
 import org.apache.flink.table.types.logical.StructuredType;
 import org.apache.flink.table.types.logical.StructuredType.StructuredAttribute;
@@ -77,12 +77,6 @@ public final class ProtobufUtils {
   private static final String EMPTY_STRING = "";
   private static final String RESERVED_NESTED_TYPE_NAME = "STRUCT";
 
-  /** The local time zone. */
-  private static final TimeZone LOCAL_TZ = TimeZone.getDefault();
-
-  /** The number of milliseconds in a day. */
-  private static final long MILLIS_PER_DAY = 86400000L; // = 24 * 60 * 60 * 1000
-
   private static final ImmutableMap<Field.Mode, DescriptorProtos.FieldDescriptorProto.Label>
       BigQueryModeToProtoFieldLabel =
           new ImmutableMap.Builder<Field.Mode, DescriptorProtos.FieldDescriptorProto.Label>()
@@ -98,7 +92,9 @@ public final class ProtobufUtils {
               .put(LegacySQLTypeName.INTEGER, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
               .put(LegacySQLTypeName.BOOLEAN, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BOOL)
               .put(LegacySQLTypeName.FLOAT, DescriptorProtos.FieldDescriptorProto.Type.TYPE_DOUBLE)
-              .put(LegacySQLTypeName.NUMERIC, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+              .put(
+                  LegacySQLTypeName.NUMERIC,
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // TYPE_INT64
               .put(
                   LegacySQLTypeName.BIGNUMERIC,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
@@ -106,18 +102,14 @@ public final class ProtobufUtils {
               .put(
                   LegacySQLTypeName.TIMESTAMP,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
-              .put(
-                  LegacySQLTypeName.DATE,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64) // ########
+              .put(LegacySQLTypeName.DATE, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
               .put(
                   LegacySQLTypeName.DATETIME,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
               .put(
                   LegacySQLTypeName.GEOGRAPHY,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-              .put(
-                  LegacySQLTypeName.TIME,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
+              .put(LegacySQLTypeName.TIME, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
               .build();
 
   public static FlinkFnApi.Schema.FieldType toProtoType(LogicalType logicalType) {
@@ -153,6 +145,26 @@ public final class ProtobufUtils {
         new IllegalArgumentException("Unexpected type: " + bqType.name()));
   }
 
+  public static Descriptors.Descriptor toDescriptor(RowType schema)
+      throws Descriptors.DescriptorValidationException {
+    DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
+        DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
+    ArrayList<Field> listOfFileds = new ArrayList<Field>();
+    Iterator<RowField> streamdata = schema.getFields().iterator();
+    while (streamdata.hasNext()) {
+      RowField elem = streamdata.next();
+      listOfFileds.add(
+          Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
+              .setMode(Mode.NULLABLE)
+              .build());
+    }
+    int initialDepth = 0;
+    DescriptorProtos.DescriptorProto descriptorProto =
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFileds), initialDepth);
+
+    return createDescriptorFromProto(descriptorProto);
+  }
+
   public static Descriptors.Descriptor toDescriptor(StructuredType schema)
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
@@ -163,11 +175,10 @@ public final class ProtobufUtils {
       StructuredAttribute elem = streamdata.next();
 
       listOfFileds.add(
-          Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType().toString()))
+          Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
               .setMode(Mode.NULLABLE)
               .build());
     }
-
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
         buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFileds), initialDepth);
@@ -269,9 +280,7 @@ public final class ProtobufUtils {
 
     for (int fieldIndex = 0; fieldIndex < schemaDescriptor.getFields().size(); fieldIndex++) {
       int protoFieldNumber = fieldIndex + 1;
-      // Field sparkField = schema.getFields().get(fieldIndex);
-      StructuredAttribute flinkField =
-          schema.getAttributes().get(fieldIndex); // .fields()[fieldIndex];
+      StructuredAttribute flinkField = schema.getAttributes().get(fieldIndex);
       LogicalType flinkType = flinkField.getType();
       Object flinkValue = row.getField(fieldIndex);
       boolean nullable = flinkType.isNullable();
@@ -306,9 +315,8 @@ public final class ProtobufUtils {
     if (flinkType instanceof ArrayType) {
       ArrayType arrayType = (ArrayType) flinkType;
       LogicalType elementType = arrayType.getElementType();
-      byte[] flinkArrayData = ((ArrayData) flinkValue).toByteArray(); // ((ArrayData)
-      // flinkValue).toObjectArray(elementType);
-      boolean containsNull = arrayType.isNullable(); // .containsNull();
+      byte[] flinkArrayData = ((ArrayData) flinkValue).toByteArray();
+      boolean containsNull = arrayType.isNullable();
       List<Object> protoValue = new ArrayList<>();
       for (Object flinkElement : flinkArrayData) {
         Object converted =
@@ -330,28 +338,27 @@ public final class ProtobufUtils {
     if (flinkType instanceof TinyIntType
         || flinkType instanceof SmallIntType
         || flinkType instanceof IntType
-        || flinkType instanceof BigIntType) { // || flinkType instanceof TimestampType) {
+        || flinkType instanceof BigIntType) {
       return ((Number) flinkValue).longValue();
     } // TODO: CalendarInterval
     if (flinkType instanceof TimestampType) {
-      // return ((Number) flinkValue).longValue();
-      return flinkValue.toString(); // #############
+
+      return flinkValue.toString();
     }
-    if (flinkType instanceof DateType) { // ###########
+    if (flinkType instanceof DateType) {
       return ((LocalDate) flinkValue).toEpochDay();
     }
+    if (flinkType instanceof TimeType) {
 
+      return ((LocalTime) flinkValue);
+    }
     if (flinkType instanceof FloatType || flinkType instanceof DoubleType) {
       return ((Number) flinkValue).doubleValue();
     }
 
     if (flinkType instanceof DecimalType) {
-      return convertDecimalToString((DecimalData) flinkValue);
+      return convertDecimalToString(flinkValue);
     }
-
-    // if (flinkType instanceof BigNumericUDT) {
-    // return new String(((UTF8String) flinkValue).getBytes(), UTF_8);
-    // }
 
     if (flinkType instanceof BooleanType) {
       return flinkValue;
@@ -376,8 +383,8 @@ public final class ProtobufUtils {
     throw new IllegalStateException("Unexpected type: " + flinkType);
   }
 
-  private static String convertDecimalToString(DecimalData decimal) {
-    BigDecimal bigDecimal = decimal.toBigDecimal();
+  private static String convertDecimalToString(Object flinkValue) {
+    BigDecimal bigDecimal = (BigDecimal) flinkValue;
     return bigDecimal.toPlainString();
   }
 

@@ -32,6 +32,7 @@ public class FlinkBigQueryIntegrationTestBase {
 
     this.bq = BigQueryOptions.getDefaultInstance().getService();
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    env.setParallelism(1);
     this.flinkTableEnv = StreamTableEnvironment.create(env);
   }
 }

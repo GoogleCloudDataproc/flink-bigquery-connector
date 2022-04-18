@@ -139,22 +139,23 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     assertThat(count).isEqualTo(16);
   }
 
-  // TODO: Few data types rae not supported by Flink , custom data types research is under progress.
+  // TODO: Few data types rae not supported by Flink , custom data types research
+  // is under progress.
   @SuppressWarnings("deprecation")
-  @Ignore
   @Test
   public void testReadForDifferentDataTypes() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.test.data_types_test";
     String selectedFields =
-        "string_datatype,bytes_datatype,integer_datatype,"
+        "numeric_datatype,string_datatype,bytes_datatype,integer_datatype,"
             + "float_datatype,boolean_datatype,timestamp_datatype,"
             + "date_datatype,datetime_datatype,geography_datatype"
             + "";
     String srcQueryString =
         "CREATE TABLE "
             + flinkSrcTable
-            + " (string_datatype STRING , bytes_datatype BYTES, integer_datatype INTEGER,"
-            + " float_datatype FLOAT,boolean_datatype BOOLEAN, timestamp_datatype TIMESTAMP,"
+            + " (numeric_datatype DECIMAL(38,9),"
+            + "string_datatype STRING , bytes_datatype BYTES, integer_datatype BIGINT,"
+            + " float_datatype DOUBLE,boolean_datatype BOOLEAN, timestamp_datatype TIMESTAMP,"
             + "  date_datatype DATE,datetime_datatype TIMESTAMP, geography_datatype STRING"
             + ")";
     flinkTableEnv.executeSql(
@@ -175,7 +176,6 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + ")");
     Table result = flinkTableEnv.from(flinkSrcTable);
     TableResult tableapi = result.execute();
-    tableapi.print();
     assertThat(tableapi.getTableSchema()).isEqualTo(Constants.FLINK_TEST_TABLE_SCHEMA);
   }
 
@@ -254,7 +254,8 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     testWordCount(tableapi);
   }
 
-  // TODO : Code is executed in 15 sec , thought it is not working as expected with timeout.
+  // TODO : Code is executed in 15 sec , thought it is not working as expected
+  // with timeout.
   @Ignore
   @Test(timeout = 50000) // throwing null pointer exception when use timeout
   public void testHeadDoesNotTimeoutAndOOM() {
@@ -311,7 +312,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
                   + "' \n"
                   + ")");
           Table result = flinkTableEnv.from(flinkSrcTable);
-          TableResult tableapi = result.execute();
+          result.execute();
         });
   }
 }

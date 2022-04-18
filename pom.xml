@@ -60,6 +60,7 @@
         <grpc.version>1.45.1</grpc.version>
         <guava.version>31.1-jre</guava.version>
         <jackson.version>2.13.2</jackson.version>
+        <joda.version>2.10</joda.version>
         <hadoop.version>2.10.0</hadoop.version>
         <jsqlparser.version>3.1</jsqlparser.version>
         <junit.version>4.13.1</junit.version>
@@ -235,6 +236,16 @@
             <groupId>com.github.jsqlparser</groupId>
             <artifactId>jsqlparser</artifactId>
             <version>${jsqlparser.version}</version>
+        </dependency>
+        <dependency>
+           <groupId>joda-time</groupId>
+           <artifactId>joda-time</artifactId>
+           <version>${joda.version}</version>
+        </dependency>
+        <dependency>
+           <groupId>com.fasterxml.jackson.core</groupId>
+           <artifactId>jackson-databind</artifactId>
+           <version>${jackson.version}</version>
         </dependency>
     </dependencies>
     <build>

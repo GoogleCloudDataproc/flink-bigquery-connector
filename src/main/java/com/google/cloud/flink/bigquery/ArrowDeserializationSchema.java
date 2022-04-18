@@ -45,8 +45,8 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   ArrowRecordBatch deserializedBatch;
 
   public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
-      Schema schema, TypeInformation<RowData> typeInfo) {
-    return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schema, typeInfo);
+      String schemaJsonString, TypeInformation<RowData> typeInfo) {
+    return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
   }
 
   private VectorSchemaRoot root;
@@ -55,19 +55,20 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   private Schema schema;
   private final Class<T> recordClazz;
 
+  private String schemaJsonString;
+
   ArrowDeserializationSchema(
-      Class<T> recordClazz, Schema schema, TypeInformation<RowData> typeInfo) {
+      Class<T> recordClazz, String schemaJsonString, TypeInformation<RowData> typeInfo) {
     Preconditions.checkNotNull(recordClazz, "Arrow record class must not be null.");
     this.typeInfo = typeInfo;
     this.recordClazz = recordClazz;
+    this.schemaJsonString = schemaJsonString;
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public T deserialize(byte[] message) throws IOException {
-    if (schema == null) {
-      this.schema = ArrowRowDataDeserializationSchema.getArrowSchema();
-    }
+    this.schema = Schema.fromJSON(schemaJsonString);
     checkArrowInitialized();
     deserializedBatch =
         MessageSerializer.deserializeRecordBatch(
@@ -94,7 +95,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 
   @Override
   public boolean isEndOfStream(T nextElement) {
-
     return nextElement == null ? Boolean.TRUE : Boolean.FALSE;
   }
 

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http:www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,45 +13,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.write;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import org.apache.flink.table.types.logical.LogicalType;
 
 public class StandardSQLTypeHandler {
 
-  public static StandardSQLTypeName handle(String sqlType) {
+  public static StandardSQLTypeName handle(LogicalType sqlType) {
     StandardSQLTypeName type = null;
-    switch (sqlType) {
+    switch (sqlType.getTypeRoot().toString()) {
       case "BOOLEAN":
       case "BOOL":
         type = StandardSQLTypeName.BOOL;
         break;
+      case "TINYINT":
+      case "SMALLINT":
       case "INT64":
+      case "INT32":
+      case "INT16":
+      case "BIGINT":
         type = StandardSQLTypeName.INT64;
         break;
       case "FLOAT":
       case "FLOAT64":
+      case "DOUBLE":
         type = StandardSQLTypeName.FLOAT64;
         break;
       case "BIGNUMERIC":
-        type = StandardSQLTypeName.NUMERIC;
+        type = StandardSQLTypeName.BIGNUMERIC;
         break;
       case "INT":
-        type = StandardSQLTypeName.BIGNUMERIC;
-        break;
-      case "BIGINT":
-      case "INTEGER":
-      case "DECIMAL(10, 0)":
         type = StandardSQLTypeName.NUMERIC;
         break;
+      case "INTEGER":
+      case "DECIMAL":
       case "NUMERIC":
-      case "DECIMAL(38, 9)":
-        type = StandardSQLTypeName.BIGNUMERIC;
+        type = StandardSQLTypeName.NUMERIC;
         break;
       case "STRING":
+      case "VARCHAR":
         type = StandardSQLTypeName.STRING;
         break;
       case "BYTES":
+      case "VARBINARY":
         type = StandardSQLTypeName.BYTES;
         break;
       case "STRUCT":
@@ -61,15 +66,13 @@ public class StandardSQLTypeHandler {
         type = StandardSQLTypeName.ARRAY;
         break;
       case "TIMESTAMP":
-      case "TIMESTAMP(6)":
+      case "TIMESTAMP_WITHOUT_TIME_ZONE":
         type = StandardSQLTypeName.TIMESTAMP;
         break;
       case "DATE":
         type = StandardSQLTypeName.DATE;
         break;
       case "TIME":
-      case "TIME(0)":
-      case "TIME(0,32)":
         type = StandardSQLTypeName.TIME;
         break;
       case "DATETIME":

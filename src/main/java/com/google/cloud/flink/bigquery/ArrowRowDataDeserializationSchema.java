@@ -16,7 +16,7 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.flink.bigquery.arrow.util.ArrowSchemaConverter;
-import com.google.cloud.flink.bigquery.arrow.util.ArrowToRowDataConverter;
+import com.google.cloud.flink.bigquery.arrow.util.ArrowToRowDataConverters;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
@@ -37,16 +37,19 @@ public class ArrowRowDataDeserializationSchema
   public static final long serialVersionUID = 1L;
   public TypeInformation<RowData> typeInfo;
   public DeserializationSchema<VectorSchemaRoot> nestedSchema;
-  public ArrowToRowDataConverter runtimeConverter;
+  public ArrowToRowDataConverters.ArrowToRowDataConverter runtimeConverter;
   List<GenericRowData> rowDataList;
 
   public static Schema arrowSchema;
 
+  public ArrowRowDataDeserializationSchema() {}
+
   public ArrowRowDataDeserializationSchema(RowType rowType, TypeInformation<RowData> typeInfo) {
     this.typeInfo = typeInfo;
     arrowSchema = ArrowSchemaConverter.convertToSchema(rowType);
-    this.nestedSchema = ArrowDeserializationSchema.forGeneric(arrowSchema, typeInfo);
-    this.runtimeConverter = ArrowToRowDataConverter.createRowConverter(rowType);
+    this.nestedSchema =
+        ArrowDeserializationSchema.forGeneric(arrowSchema.toJson().toString(), typeInfo);
+    this.runtimeConverter = ArrowToRowDataConverters.createRowConverter(rowType);
   }
 
   @Override
@@ -119,6 +122,6 @@ public class ArrowRowDataDeserializationSchema
 
   @Override
   public boolean isEndOfStream(RowData nextElement) {
-    return nextElement != null ? false : true;
+    return nextElement == null ? Boolean.TRUE : Boolean.FALSE;
   }
 }
