@@ -46,7 +46,7 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
 
   @Test
   public void testReadFromQuery() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -76,8 +76,7 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
     assertThrows(
         RuntimeException.class,
         () -> {
-          String bigqueryReadTable =
-              "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+          String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
           String flinkSrcTable = "FlinkSrcTable";
           String flinkSrcTable1 = "FlinkSrcTable";
           String srcQueryString =
@@ -112,7 +111,7 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
   // together.
   @Test
   public void testReadFromQueryInternal() throws Exception {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
     String filter = "word_count > 500 and word=\"I\"";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
@@ -144,6 +143,6 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
         count += 1;
       }
     }
-    assertEquals(count, 16);
+    assertEquals(count, 24);
   }
 }

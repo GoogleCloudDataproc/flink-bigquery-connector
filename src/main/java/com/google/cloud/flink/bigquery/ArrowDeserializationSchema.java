@@ -44,11 +44,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   private final TypeInformation<RowData> typeInfo;
   ArrowRecordBatch deserializedBatch;
 
-  public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
-      String schemaJsonString, TypeInformation<RowData> typeInfo) {
-    return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
-  }
-
   private VectorSchemaRoot root;
   private VectorLoader loader;
   List<FieldVector> vectors = new ArrayList<>();
@@ -63,6 +58,11 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     this.typeInfo = typeInfo;
     this.recordClazz = recordClazz;
     this.schemaJsonString = schemaJsonString;
+  }
+
+  public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
+      String schemaJsonString, TypeInformation<RowData> typeInfo) {
+    return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
   }
 
   @SuppressWarnings("unchecked")

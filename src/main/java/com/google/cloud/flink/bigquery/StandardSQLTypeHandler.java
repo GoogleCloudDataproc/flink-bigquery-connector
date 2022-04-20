@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery.write;
+package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.flink.table.types.logical.LogicalType;

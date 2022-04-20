@@ -30,6 +30,7 @@ import org.junit.Test;
 
 public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
   String flinkSrcTable;
+  private static final String ALL_TYPES_TABLE_NAME = "all_types";
 
   public FlinkReadIntegrationTest() {
     super();
@@ -47,7 +48,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testReadWithOption() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -73,7 +74,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
   // We are passing filter in table API (Filter will work at flink level)
   @Test
   public void testReadWithFilterInTableAPI() throws Exception {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -100,13 +101,13 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
         count += 1;
       }
     }
-    assertEquals(count, 72);
+    assertEquals(count, 96);
   }
 
   // We are passing filter as an option (Filter will work at Storage API level)
   @Test
   public void testReadWithFilter() throws Exception {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String filter = "word_count > 500 and word=\"I\"";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -136,7 +137,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
         count += 1;
       }
     }
-    assertThat(count).isEqualTo(16);
+    assertThat(count).isEqualTo(24);
   }
 
   // TODO: Few data types rae not supported by Flink , custom data types research
@@ -144,7 +145,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
   @SuppressWarnings("deprecation")
   @Test
   public void testReadForDifferentDataTypes() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.test.data_types_test";
+    String bigqueryReadTable = testDataset.toString() + "." + ALL_TYPES_TABLE_NAME;
     String selectedFields =
         "numeric_datatype,string_datatype,bytes_datatype,integer_datatype,"
             + "float_datatype,boolean_datatype,timestamp_datatype,"
@@ -181,7 +182,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testReadCompressed() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -205,7 +206,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testReadCompressedWith1BackgroundThreads() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String table = "flink_test";
     String srcQueryString = "CREATE TABLE " + table + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -231,7 +232,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testReadCompressedWith4BackgroundThreads() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -265,7 +266,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + Constants.LARGE_TABLE_DATASET
             + "."
             + Constants.LARGE_TABLE;
-    // config.setParallelism(10);
+
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (is_male BOOLEAN)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -291,7 +292,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testNonExistentSchema() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.noSuchTable";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     assertThrows(
         "Trying to read a non existing table should throw an exception",
         ValidationException.class,

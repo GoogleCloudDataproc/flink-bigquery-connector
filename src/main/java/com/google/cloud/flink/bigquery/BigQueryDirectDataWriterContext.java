@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery.write;
+package com.google.cloud.flink.bigquery;
 
-import static com.google.cloud.flink.bigquery.write.ProtobufUtils.buildSingleRowMessage;
-import static com.google.cloud.flink.bigquery.write.ProtobufUtils.toDescriptor;
+import static com.google.cloud.flink.bigquery.ProtobufUtils.buildSingleRowMessage;
+import static com.google.cloud.flink.bigquery.ProtobufUtils.toDescriptor;
 
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.retrying.RetrySettings.Builder;
@@ -37,8 +37,6 @@ import com.google.cloud.bigquery.connector.common.BigQueryConfig;
 import com.google.cloud.bigquery.connector.common.BigQueryConnectorException;
 import com.google.cloud.bigquery.connector.common.BigQueryCredentialsSupplier;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
-import com.google.cloud.flink.bigquery.BigQueryDynamicTableFactory;
-import com.google.cloud.flink.bigquery.FlinkBigQueryConfig;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectDataWriterHelper;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
 import com.google.cloud.flink.bigquery.common.DataWriterContext;
@@ -104,7 +102,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
       this.schemaDescriptor = toDescriptor(flinkSchema);
     } catch (Descriptors.DescriptorValidationException e) {
       throw new BigQueryConnectorException.InvalidSchemaException(
-          "Could not convert spark-schema to descriptor object", e);
+          "Could not convert flink-schema to descriptor object", e);
     }
 
     this.bqconfig = BigQueryDynamicTableFactory.getBqConfig();

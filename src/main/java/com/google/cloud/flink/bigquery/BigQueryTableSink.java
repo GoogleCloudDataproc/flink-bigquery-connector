@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery.write;
+package com.google.cloud.flink.bigquery;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -32,7 +32,6 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
   private String table;
   private String[] fieldNames;
   private DataType[] fieldTypes;
-  private boolean overwrite;
 
   public BigQueryTableSink(Table srcTable, String table) {
     this.srcTable = srcTable;
@@ -65,7 +64,5 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
   }
 
   @Override
-  public void setOverwrite(boolean overwrite) {
-    this.overwrite = overwrite;
-  }
+  public void setOverwrite(boolean overwrite) {}
 }

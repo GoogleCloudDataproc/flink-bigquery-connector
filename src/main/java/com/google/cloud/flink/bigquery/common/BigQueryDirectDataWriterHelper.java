@@ -35,7 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The class which sketches out the necessary functions in order for a Spark DataWriter to interact
+ * The class which sketches out the necessary functions in order for a Flink DataWriter to interact
  * with the BigQuery Storage Write API.
  */
 public class BigQueryDirectDataWriterHelper {
@@ -88,8 +88,6 @@ public class BigQueryDirectDataWriterHelper {
    * @throws InterruptedException If retryCallable was interrupted while creating the write-stream
    *     during a retry.
    */
-
-  // Can implemet
   private String retryCreateWriteStream() throws ExecutionException, InterruptedException {
     return retryCallable(
         () ->

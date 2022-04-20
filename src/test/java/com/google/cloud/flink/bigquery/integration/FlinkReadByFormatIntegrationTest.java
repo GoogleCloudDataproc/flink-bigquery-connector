@@ -35,7 +35,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
   @Test
   public void testOutOfOrderColumns() {
 
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -61,7 +61,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
 
   @Test
   public void testDefaultNumberOfPartitions() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -87,7 +87,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
   @Test
   public void testSelectAllColumnsFromATable() {
 
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -113,7 +113,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
 
   @Test
   public void testViewWithDifferentColumnsForSelectAndFilter() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     String filter = "word_count > 500";
     flinkTableEnv.executeSql(

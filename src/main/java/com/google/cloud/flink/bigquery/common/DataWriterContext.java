@@ -18,7 +18,7 @@ package com.google.cloud.flink.bigquery.common;
 import java.io.IOException;
 
 /**
- * An internal version to Spark DataSource DataWriter interface
+ * An internal version to Flink DataSource DataWriter interface
  *
  * @param <T>
  */

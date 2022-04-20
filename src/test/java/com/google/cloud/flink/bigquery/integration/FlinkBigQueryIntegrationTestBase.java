@@ -19,13 +19,24 @@ import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.rules.ExternalResource;
 
 public class FlinkBigQueryIntegrationTestBase {
 
   @SuppressWarnings("unused")
   private BigQuery bq;
 
+  @ClassRule public static TestDataset testDataset = new TestDataset();
+
+  protected String testTable;
   public static StreamTableEnvironment flinkTableEnv;
+
+  @Before
+  public void createTestTable() {
+    testTable = "test_" + System.nanoTime();
+  }
 
   @SuppressWarnings("static-access")
   public FlinkBigQueryIntegrationTestBase() {
@@ -34,5 +45,27 @@ public class FlinkBigQueryIntegrationTestBase {
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
     this.flinkTableEnv = StreamTableEnvironment.create(env);
+  }
+
+  protected static class TestDataset extends ExternalResource {
+
+    String testDataset =
+        String.format("flink_bigquery_%d_%d", System.currentTimeMillis(), System.nanoTime());
+
+    @Override
+    protected void before() throws Throwable {
+      IntegrationTestUtils.createDataset(testDataset);
+      IntegrationTestUtils.createTable(testDataset, Constants.ALL_TYPES_TABLE_NAME, "read");
+    }
+
+    @Override
+    protected void after() {
+      IntegrationTestUtils.deleteDatasetAndTables(testDataset);
+    }
+
+    @Override
+    public String toString() {
+      return testDataset;
+    }
   }
 }

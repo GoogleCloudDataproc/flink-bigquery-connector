@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery.write;
+package com.google.cloud.flink.bigquery;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -22,6 +22,7 @@ import com.google.cloud.bigquery.Field.Mode;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchemaConverter;
 import com.google.common.annotations.VisibleForTesting;
@@ -36,9 +37,9 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.fnexecution.v1.FlinkFnApi;
-import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.BinaryType;
@@ -94,7 +95,7 @@ public final class ProtobufUtils {
               .put(LegacySQLTypeName.FLOAT, DescriptorProtos.FieldDescriptorProto.Type.TYPE_DOUBLE)
               .put(
                   LegacySQLTypeName.NUMERIC,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // TYPE_INT64
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // #####TYPE_INT64
               .put(
                   LegacySQLTypeName.BIGNUMERIC,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
@@ -102,14 +103,21 @@ public final class ProtobufUtils {
               .put(
                   LegacySQLTypeName.TIMESTAMP,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
-              .put(LegacySQLTypeName.DATE, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+              .put(
+                  LegacySQLTypeName.DATE,
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64) // ########
               .put(
                   LegacySQLTypeName.DATETIME,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
               .put(
                   LegacySQLTypeName.GEOGRAPHY,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-              .put(LegacySQLTypeName.TIME, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+              .put(
+                  LegacySQLTypeName.TIME,
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
+              .put(
+                  LegacySQLTypeName.RECORD,
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
               .build();
 
   public static FlinkFnApi.Schema.FieldType toProtoType(LogicalType logicalType) {
@@ -121,7 +129,16 @@ public final class ProtobufUtils {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
     } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
+      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
+    }
+  }
+
+  public static ProtoSchema toProtoSchema(RowType schema) throws IllegalArgumentException {
+    try {
+      Descriptors.Descriptor descriptor = toDescriptor(schema);
+      return ProtoSchemaConverter.convert(descriptor);
+    } catch (Descriptors.DescriptorValidationException e) {
+      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
     }
   }
 
@@ -130,7 +147,7 @@ public final class ProtobufUtils {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
     } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
+      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
     }
   }
 
@@ -153,10 +170,34 @@ public final class ProtobufUtils {
     Iterator<RowField> streamdata = schema.getFields().iterator();
     while (streamdata.hasNext()) {
       RowField elem = streamdata.next();
-      listOfFileds.add(
-          Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-              .setMode(Mode.NULLABLE)
-              .build());
+      boolean isNullable = elem.getType().isNullable();
+      Mode typeMode;
+      if (isNullable) {
+        typeMode = Mode.NULLABLE;
+      } else {
+        typeMode = Mode.REQUIRED;
+      }
+      if (elem.getType().getTypeRoot().toString() == "ROW") {
+        listOfFileds.add(
+            Field.newBuilder(
+                    elem.getName(),
+                    StandardSQLTypeName.STRUCT,
+                    FieldList.of(getListOfSubFileds(elem.getType())))
+                .setMode(typeMode)
+                .build());
+      } else if (elem.getType().getTypeRoot().toString() == "ARRAY") {
+        listOfFileds.add(
+            Field.newBuilder(
+                    elem.getName(),
+                    StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
+                .setMode(Mode.REPEATED)
+                .build());
+      } else {
+        listOfFileds.add(
+            Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
+                .setMode(typeMode)
+                .build());
+      }
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
@@ -173,17 +214,47 @@ public final class ProtobufUtils {
     Iterator<StructuredAttribute> streamdata = schema.getAttributes().stream().iterator();
     while (streamdata.hasNext()) {
       StructuredAttribute elem = streamdata.next();
-
-      listOfFileds.add(
-          Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-              .setMode(Mode.NULLABLE)
-              .build());
+      if (elem.getType().getTypeRoot().toString() == "ROW") {
+        Field.newBuilder(
+                elem.getName(),
+                StandardSQLTypeName.STRUCT,
+                FieldList.of(getListOfSubFileds(elem.getType())))
+            .setMode(Mode.NULLABLE)
+            .build();
+      } else {
+        listOfFileds.add(
+            Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
+                .setMode(Mode.NULLABLE)
+                .build());
+      }
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
         buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFileds), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
+  }
+
+  static ArrayList<Field> getListOfSubFileds(LogicalType logicalType) {
+    ArrayList<Field> listOfSubFileds = new ArrayList<Field>();
+    List<String> fieldNameList = new ArrayList<String>();
+    Stream.of(logicalType.toString().split(","))
+        .forEach(
+            typeStr -> {
+              fieldNameList.add(
+                  typeStr.substring(
+                      typeStr.indexOf("`", 1) + 1,
+                      typeStr.indexOf("`", typeStr.indexOf("`", 1) + 1)));
+            });
+    List<LogicalType> logicalTypeList = logicalType.getChildren();
+    for (int i = 0; i < logicalTypeList.size(); i++) {
+      listOfSubFileds.add(
+          Field.newBuilder(
+                  fieldNameList.get(i), StandardSQLTypeHandler.handle(logicalTypeList.get(i)))
+              .setMode(logicalTypeList.get(i).isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
+              .build());
+    }
+    return listOfSubFileds;
   }
 
   private static Descriptors.Descriptor toDescriptor(Schema schema)
@@ -210,7 +281,6 @@ public final class ProtobufUtils {
     for (Field field : fields) {
       String fieldName = field.getName();
       DescriptorProtos.FieldDescriptorProto.Label fieldLabel = toProtoFieldLabel(field.getMode());
-      FieldList subFields = field.getSubFields();
 
       if (field.getType() == LegacySQLTypeName.RECORD) {
         String recordTypeName =
@@ -220,8 +290,6 @@ public final class ProtobufUtils {
         DescriptorProtos.DescriptorProto.Builder nestedFieldTypeBuilder =
             descriptorBuilder.addNestedTypeBuilder();
         nestedFieldTypeBuilder.setName(recordTypeName);
-        DescriptorProtos.DescriptorProto nestedFieldType =
-            buildDescriptorProtoWithFields(nestedFieldTypeBuilder, subFields, depth + 1);
 
         descriptorBuilder.addField(
             createProtoFieldBuilder(fieldName, fieldLabel, messageNumber)
@@ -275,12 +343,38 @@ public final class ProtobufUtils {
   }
 
   public static DynamicMessage buildSingleRowMessage(
+      RowType schema, Descriptors.Descriptor schemaDescriptor, Row row) {
+    DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(schemaDescriptor);
+
+    for (int fieldIndex = 0; fieldIndex < schemaDescriptor.getFields().size(); fieldIndex++) {
+      int protoFieldNumber = fieldIndex + 1;
+      RowField flinkField = schema.getFields().get(fieldIndex);
+      LogicalType flinkType = flinkField.getType();
+      Object flinkValue = row.getField(fieldIndex);
+      boolean nullable = flinkType.isNullable();
+      Descriptors.Descriptor nestedTypeDescriptor =
+          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + (protoFieldNumber));
+      Object protoValue =
+          convertFlinkValueToProtoRowValue(flinkType, flinkValue, nullable, nestedTypeDescriptor);
+
+      if (protoValue == null) {
+        continue;
+      }
+
+      messageBuilder.setField(schemaDescriptor.findFieldByNumber(protoFieldNumber), protoValue);
+    }
+
+    return messageBuilder.build();
+  }
+
+  public static DynamicMessage buildSingleRowMessage(
       StructuredType schema, Descriptors.Descriptor schemaDescriptor, Row row) {
     DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(schemaDescriptor);
 
     for (int fieldIndex = 0; fieldIndex < schemaDescriptor.getFields().size(); fieldIndex++) {
       int protoFieldNumber = fieldIndex + 1;
-      StructuredAttribute flinkField = schema.getAttributes().get(fieldIndex);
+      StructuredAttribute flinkField =
+          schema.getAttributes().get(fieldIndex); // .fields()[fieldIndex];
       LogicalType flinkType = flinkField.getType();
       Object flinkValue = row.getField(fieldIndex);
       boolean nullable = flinkType.isNullable();
@@ -313,15 +407,16 @@ public final class ProtobufUtils {
     }
 
     if (flinkType instanceof ArrayType) {
+
       ArrayType arrayType = (ArrayType) flinkType;
       LogicalType elementType = arrayType.getElementType();
-      byte[] flinkArrayData = ((ArrayData) flinkValue).toByteArray();
+      Object[] flinkArrayData = (Object[]) flinkValue;
       boolean containsNull = arrayType.isNullable();
       List<Object> protoValue = new ArrayList<>();
-      for (Object flinkElement : flinkArrayData) {
+      for (Object sparkElement : flinkArrayData) {
         Object converted =
             convertFlinkValueToProtoRowValue(
-                elementType, flinkElement, containsNull, nestedTypeDescriptor);
+                elementType, sparkElement, containsNull, nestedTypeDescriptor);
         if (converted == null) {
           continue;
         }
@@ -334,22 +429,22 @@ public final class ProtobufUtils {
       return buildSingleRowMessage(
           (StructuredType) flinkType, nestedTypeDescriptor, (Row) flinkValue);
     }
-
+    if (flinkType instanceof RowType) {
+      return buildSingleRowMessage((RowType) flinkType, nestedTypeDescriptor, (Row) flinkValue);
+    }
     if (flinkType instanceof TinyIntType
         || flinkType instanceof SmallIntType
         || flinkType instanceof IntType
-        || flinkType instanceof BigIntType) {
+        || flinkType instanceof BigIntType) { // || flinkType instanceof TimestampType) {
       return ((Number) flinkValue).longValue();
-    } // TODO: CalendarInterval
+    }
     if (flinkType instanceof TimestampType) {
-
       return flinkValue.toString();
     }
     if (flinkType instanceof DateType) {
       return ((LocalDate) flinkValue).toEpochDay();
     }
     if (flinkType instanceof TimeType) {
-
       return ((LocalTime) flinkValue);
     }
     if (flinkType instanceof FloatType || flinkType instanceof DoubleType) {
