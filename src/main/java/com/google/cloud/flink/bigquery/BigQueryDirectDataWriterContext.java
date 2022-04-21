@@ -37,7 +37,7 @@ import com.google.cloud.bigquery.connector.common.BigQueryConfig;
 import com.google.cloud.bigquery.connector.common.BigQueryConnectorException;
 import com.google.cloud.bigquery.connector.common.BigQueryCredentialsSupplier;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
-import com.google.cloud.flink.bigquery.common.BigQueryDirectDataWriterHelper;
+import com.google.cloud.flink.bigquery.common.BigQueryDirectDataWriteHelper;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
 import com.google.cloud.flink.bigquery.common.DataWriterContext;
 import com.google.cloud.flink.bigquery.common.UserAgentHeaderProvider;
@@ -66,7 +66,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
   final StructuredType flinkSchema;
   final Descriptors.Descriptor schemaDescriptor;
   static BigQuery bigquery;
-  private BigQueryDirectDataWriterHelper writerHelper;
+  private BigQueryDirectDataWriteHelper writeHelper;
 
   Table srcTable;
   String projectId;
@@ -125,8 +125,8 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
     retrySettingsBuilder.setMaxAttempts(3);
     RetrySettings bigqueryDataWriterHelperRetrySettings = retrySettingsBuilder.build();
     checkBigQueryInitialized();
-    this.writerHelper =
-        new BigQueryDirectDataWriterHelper(
+    this.writeHelper =
+        new BigQueryDirectDataWriteHelper(
             writeClientFactory, tablePath, protoSchema, bigqueryDataWriterHelperRetrySettings);
   }
 
@@ -191,15 +191,15 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
   public void write(Row record) throws IOException {
     ByteString message =
         buildSingleRowMessage(flinkSchema, schemaDescriptor, record).toByteString();
-    writerHelper.addRow(message);
+    writeHelper.addRow(message);
   }
 
   @Override
   public WriterCommitMessageContext finalizeStream() throws IOException {
     logger.debug("Data Writer commit()");
 
-    long rowCount = writerHelper.finalizeStream();
-    String writeStreamName = writerHelper.getWriteStreamName();
+    long rowCount = writeHelper.finalizeStream();
+    String writeStreamName = writeHelper.getWriteStreamName();
 
     logger.debug("Data Writer write-stream has finalized with row count: {}", rowCount);
 
@@ -208,12 +208,12 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
 
   @Override
   public void commit() throws IOException {
-    writerHelper.commitStream();
+    writeHelper.commitStream();
   }
 
   @Override
   public void abort() throws IOException {
     logger.debug("Data Writer {} abort()");
-    writerHelper.abort();
+    writeHelper.abort();
   }
 }

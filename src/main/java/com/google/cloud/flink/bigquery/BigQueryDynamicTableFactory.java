@@ -38,18 +38,15 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.connector.format.DecodingFormat;
-import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class BigQueryDynamicTableFactory
-    implements DynamicTableSourceFactory, DynamicTableSinkFactory {
+public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
   static FlinkBigQueryConfig bqconfig;
@@ -161,11 +158,6 @@ public final class BigQueryDynamicTableFactory
     final DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
     return new BigQueryDynamicTableSource(
         decodingFormat, producedDataType, getReadStreamNames(options), bigQueryReadClientFactory);
-  }
-
-  @Override
-  public DynamicTableSink createDynamicTableSink(Context context) {
-    return null;
   }
 
   private LinkedList<String> getReadStreamNames(ReadableConfig options) {

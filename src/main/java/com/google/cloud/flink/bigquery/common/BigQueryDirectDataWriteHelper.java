@@ -38,8 +38,8 @@ import org.slf4j.LoggerFactory;
  * The class which sketches out the necessary functions in order for a Flink DataWriter to interact
  * with the BigQuery Storage Write API.
  */
-public class BigQueryDirectDataWriterHelper {
-  final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriterHelper.class);
+public class BigQueryDirectDataWriteHelper {
+  final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriteHelper.class);
 
   // multiplying with 0.95 so as to keep a buffer preventing the quota limits
   final long MAX_APPEND_ROWS_REQUEST_SIZE = (long) (StreamWriterV2.getApiMaxRequestBytes() * 0.95);
@@ -57,7 +57,7 @@ public class BigQueryDirectDataWriterHelper {
   private long appendRequestSizeBytes = 0; // number of bytes waiting for the next append request
   private long writeStreamRowCount = 0; // total offset / rows of the current write-stream
 
-  public BigQueryDirectDataWriterHelper(
+  public BigQueryDirectDataWriteHelper(
       BigQueryClientFactory writeClientFactory,
       String tablePath,
       ProtoSchema protoSchema,

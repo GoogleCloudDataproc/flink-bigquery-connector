@@ -40,7 +40,7 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
       throws JSQLParserException {
     BigQueryDirectDataWriterContext writeContextObj =
         new BigQueryDirectDataWriterContext(sourceResultTable, projectId, dataset, table);
-    setWriteContext(writeContextObj);
+    writeContext = writeContextObj;
   }
 
   public BigQuerySinkFunction(Table sourceResultTable, String bigqueryWriteTable) {
@@ -53,10 +53,6 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
     } catch (JSQLParserException e) {
       logger.error("Error while creating sink function");
     }
-  }
-
-  public void setWriteContext(BigQueryDirectDataWriterContext writeContext) {
-    this.writeContext = writeContext;
   }
 
   @Override
