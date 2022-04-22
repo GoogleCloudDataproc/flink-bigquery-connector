@@ -257,7 +257,7 @@ public final class ProtobufUtils {
     return listOfSubFileds;
   }
 
-  private static Descriptors.Descriptor toDescriptor(Schema schema)
+  public static Descriptors.Descriptor toDescriptor(Schema schema)
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
         DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
