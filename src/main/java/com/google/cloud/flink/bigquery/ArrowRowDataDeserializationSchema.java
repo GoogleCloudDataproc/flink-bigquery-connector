@@ -62,7 +62,6 @@ public class ArrowRowDataDeserializationSchema
     this.nestedSchema.open(context);
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public void deserialize(@Nullable byte[] message, Collector<RowData> out) throws IOException {
     if (message == null) {

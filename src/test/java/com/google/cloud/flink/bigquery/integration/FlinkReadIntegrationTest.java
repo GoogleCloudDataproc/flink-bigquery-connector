@@ -37,7 +37,6 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     flinkSrcTable = "FlinkSrcTable";
   }
 
-  @SuppressWarnings("deprecation")
   private void testWordCount(TableResult tableRes) {
     assertThat(tableRes.getTableSchema()).isEqualTo(Constants.WORDCOUNT_TABLE_SCHEMA);
   }
@@ -140,9 +139,8 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     assertThat(count).isEqualTo(24);
   }
 
-  // TODO: Few data types rae not supported by Flink , custom data types research
+  // TODO: Few data types are not supported by Flink , custom data types research
   // is under progress.
-  @SuppressWarnings("deprecation")
   @Test
   public void testReadForDifferentDataTypes() {
     String bigqueryReadTable = testDataset.toString() + "." + ALL_TYPES_TABLE_NAME;

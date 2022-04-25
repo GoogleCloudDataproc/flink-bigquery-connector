@@ -43,11 +43,11 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
         PROJECT_ID + "." + testDataset.toString() + "." + "supportsOverwrite";
     testWriteToBigQuery(bigqueryReadTable, bigqueryWriteTable);
     Thread.sleep(120 * 1000);
-    int count = bqReadTable(bigqueryWriteTable);
+    int count = getCountFromBigQueryTable(bigqueryWriteTable);
     assertThat(count).isEqualTo(96);
   }
 
-  public int bqReadTable(String bigqueryWriteTable) throws Exception {
+  public int getCountFromBigQueryTable(String bigqueryWriteTable) throws Exception {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1); // source only supports parallelism of 1
     final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
@@ -81,7 +81,6 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     return count;
   }
 
-  @SuppressWarnings({"unused", "deprecation"})
   public void testWriteToBigQuery(String bigqueryReadTable, String bigqueryWriteTable)
       throws Exception {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -169,7 +168,6 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     assertThat(count).isEqualTo(37);
   }
 
-  @SuppressWarnings("unused")
   public int bqReadTableForPartiton(String bigqueryReadTable) throws Exception {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1); // source only supports parallelism of 1
@@ -205,7 +203,6 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     return count;
   }
 
-  @SuppressWarnings({"deprecation", "unused"})
   public void testPartition(
       String partitionType, String bigqueryReadTable, String bigqueryWriteTable, String filter)
       throws Exception {

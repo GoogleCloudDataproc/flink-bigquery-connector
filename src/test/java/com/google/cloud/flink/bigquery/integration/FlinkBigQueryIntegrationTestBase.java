@@ -25,7 +25,6 @@ import org.junit.rules.ExternalResource;
 
 public class FlinkBigQueryIntegrationTestBase {
 
-  @SuppressWarnings("unused")
   private BigQuery bq;
 
   @ClassRule public static TestDataset testDataset = new TestDataset();
@@ -38,7 +37,6 @@ public class FlinkBigQueryIntegrationTestBase {
     testTable = "test_" + System.nanoTime();
   }
 
-  @SuppressWarnings("static-access")
   public FlinkBigQueryIntegrationTestBase() {
 
     this.bq = BigQueryOptions.getDefaultInstance().getService();

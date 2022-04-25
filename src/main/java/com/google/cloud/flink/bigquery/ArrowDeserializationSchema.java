@@ -65,7 +65,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public T deserialize(byte[] message) throws IOException {
     this.schema = Schema.fromJSON(schemaJsonString);
@@ -99,7 +98,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   }
 
   @Override
-  @SuppressWarnings({"unchecked"})
   public TypeInformation<T> getProducedType() {
     return (TypeInformation<T>) typeInfo;
   }

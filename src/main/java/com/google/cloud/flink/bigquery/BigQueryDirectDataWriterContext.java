@@ -48,7 +48,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.types.DataType;
@@ -112,9 +111,9 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
             bqconfig.getAccessToken(),
             bqconfig.getCredentialsKey(),
             bqconfig.getCredentialsFile(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty());
+            bqconfig.getBigQueryProxyConfig().getProxyUri(),
+            bqconfig.getBigQueryProxyConfig().getProxyUsername(),
+            bqconfig.getBigQueryProxyConfig().getProxyPassword());
     final UserAgentHeaderProvider userAgentHeaderProvider =
         new UserAgentHeaderProvider("test-agent");
     BigQueryClientFactory writeClientFactory =
