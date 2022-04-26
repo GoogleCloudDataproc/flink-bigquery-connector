@@ -69,10 +69,8 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
   Table srcTable;
   String projectId;
   String dataset;
-
   String table;
   StandardSQLTypeName type;
-
   FlinkBigQueryConfig bqconfig;
 
   public BigQueryDirectDataWriterContext(
@@ -113,6 +111,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
             bqconfig.getBigQueryProxyConfig().getProxyUri(),
             bqconfig.getBigQueryProxyConfig().getProxyUsername(),
             bqconfig.getBigQueryProxyConfig().getProxyPassword());
+
     final UserAgentHeaderProvider userAgentHeaderProvider =
         new UserAgentHeaderProvider("test-agent");
     BigQueryClientFactory writeClientFactory =

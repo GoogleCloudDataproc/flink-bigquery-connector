@@ -19,13 +19,16 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.sql.Time;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericArrayData;
@@ -59,24 +62,43 @@ public class ArrowToRowDataConverters {
   // Runtime Converters
   // -------------------------------------------------------------------------------------
 
-  public static ArrowToRowDataConverter createRowConverter(RowType rowType) {
+  public static ArrowToRowDataConverter createRowConverter(
+      RowType rowType, List<String> readSessionFieldNames, List<String> selectedFieldsList) {
     final ArrowToRowDataConverter[] fieldConverters =
         rowType.getFields().stream()
             .map(RowType.RowField::getType)
             .map(ArrowToRowDataConverters::createNullableConverter)
             .toArray(ArrowToRowDataConverter[]::new);
     final int arity = rowType.getFieldCount();
+    final List<String> selectedFields = selectedFieldsList;
+
     return arrowObject -> {
-      VectorSchemaRoot record = (VectorSchemaRoot) arrowObject;
-      int numOfRows = record.getRowCount();
       List<GenericRowData> rowdatalist = new ArrayList<GenericRowData>();
-      for (int row = 0; row < numOfRows; ++row) {
+      if (arrowObject instanceof VectorSchemaRoot) {
+        VectorSchemaRoot record = (VectorSchemaRoot) arrowObject;
+        int numOfRows = record.getRowCount();
+        for (int row = 0; row < numOfRows; ++row) {
+          GenericRowData genericRowData = new GenericRowData(arity);
+          for (int col = 0; col < arity; col++) {
+            String rowTypeField = selectedFields.get(col);
+            int arrowFieldIdx = readSessionFieldNames.indexOf(rowTypeField);
+            genericRowData.setField(
+                col,
+                fieldConverters[col].convert(
+                    record.getFieldVectors().get(arrowFieldIdx).getObject(row)));
+          }
+          rowdatalist.add(genericRowData);
+        }
+      } else if (arrowObject instanceof JsonStringHashMap) {
+        JsonStringHashMap record = (JsonStringHashMap) arrowObject;
+        Set columnSet = record.keySet();
+        Object[] columnSetArray = columnSet.toArray();
         GenericRowData genericRowData = new GenericRowData(arity);
         for (int col = 0; col < arity; col++) {
           genericRowData.setField(
-              col, fieldConverters[col].convert(record.getFieldVectors().get(col).getObject(row)));
+              col, fieldConverters[col].convert(record.get(columnSetArray[col])));
         }
-        rowdatalist.add(genericRowData);
+        return genericRowData;
       }
       return rowdatalist;
     };
@@ -130,7 +152,8 @@ public class ArrowToRowDataConverters {
       case ARRAY:
         return createArrayConverter((ArrayType) type);
       case ROW:
-        return createRowConverter((RowType) type);
+        return createRowConverter(
+            (RowType) type, ((RowType) type).getFieldNames(), ((RowType) type).getFieldNames());
       case MAP:
       case RAW:
       default:
@@ -141,7 +164,7 @@ public class ArrowToRowDataConverters {
   private static TimestampData convertToTimestamp(Object object) {
     final long millis;
     if (object instanceof Long) {
-      millis = (Long) object;
+      millis = ((Long) object) / 1000;
     } else if (object instanceof Instant) {
       millis = ((Instant) object).toEpochMilli();
     } else {
@@ -175,7 +198,13 @@ public class ArrowToRowDataConverters {
   private static int convertToTime(Object object) {
     final int millis;
     if (object instanceof Integer) {
-      millis = (Integer) object;
+      int value = ((Integer) object);
+      millis = (Integer) (Math.abs(value) / 1000);
+    } else if (object instanceof Long) {
+      int value = ((Long) object).intValue();
+      Integer noZoneMillis = (Integer) (Math.abs(value) / 1000);
+      int timeZoneOffset = new Time(noZoneMillis).getTimezoneOffset();
+      millis = noZoneMillis + Math.abs(timeZoneOffset);
     } else if (object instanceof LocalTime) {
       millis = ((LocalTime) object).get(ChronoField.MILLI_OF_DAY);
     } else {
@@ -202,7 +231,6 @@ public class ArrowToRowDataConverters {
       } else if (arrowObject instanceof BigDecimal) {
         DecimalData bdValue =
             DecimalData.fromBigDecimal((BigDecimal) arrowObject, precision, scale);
-
         return bdValue;
       } else {
         bytes = (byte[]) arrowObject;

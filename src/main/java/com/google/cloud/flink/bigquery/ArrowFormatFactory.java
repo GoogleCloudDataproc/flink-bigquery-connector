@@ -15,6 +15,8 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.cloud.bigquery.storage.v1.ArrowSchema;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
@@ -38,6 +40,8 @@ public class ArrowFormatFactory
     implements DeserializationFormatFactory, SerializationFormatFactory {
 
   public static final String IDENTIFIER = "arrow";
+  private static ArrowSchema arrowSchema;
+  private static String selectedFields;
 
   @Override
   public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(
@@ -45,13 +49,18 @@ public class ArrowFormatFactory
     FactoryUtil.validateFactoryOptions(this, formatOptions);
 
     return new DecodingFormat<DeserializationSchema<RowData>>() {
+      @SuppressWarnings("unchecked")
       @Override
       public DeserializationSchema<RowData> createRuntimeDecoder(
           DynamicTableSource.Context context, DataType producedDataType) {
         final RowType rowType = (RowType) producedDataType.getLogicalType();
         final TypeInformation<RowData> rowDataTypeInfo =
             (TypeInformation<RowData>) context.createTypeInformation(producedDataType);
-        return new ArrowRowDataDeserializationSchema(rowType, rowDataTypeInfo);
+        return new ArrowRowDataDeserializationSchema(
+            rowType,
+            rowDataTypeInfo,
+            ArrowFormatFactory.arrowSchema,
+            Arrays.asList(ArrowFormatFactory.selectedFields.split(",")));
       }
 
       @Override
@@ -80,5 +89,13 @@ public class ArrowFormatFactory
   public EncodingFormat<SerializationSchema<RowData>> createEncodingFormat(
       Context context, ReadableConfig formatOptions) {
     return null;
+  }
+
+  public static void setSchema(ArrowSchema arrowSchema) {
+    ArrowFormatFactory.arrowSchema = arrowSchema;
+  }
+
+  public static void setSelectedFields(String selectedFields) {
+    ArrowFormatFactory.selectedFields = selectedFields;
   }
 }

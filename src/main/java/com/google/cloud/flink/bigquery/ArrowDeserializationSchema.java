@@ -43,7 +43,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   private BufferAllocator allocator;
   private final TypeInformation<RowData> typeInfo;
   ArrowRecordBatch deserializedBatch;
-
   private VectorSchemaRoot root;
   private VectorLoader loader;
   List<FieldVector> vectors = new ArrayList<>();
@@ -65,6 +64,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public T deserialize(byte[] message) throws IOException {
     this.schema = Schema.fromJSON(schemaJsonString);
@@ -77,7 +77,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return (T) root;
   }
 
-  void checkArrowInitialized() {
+  private void checkArrowInitialized() {
     Preconditions.checkNotNull(schema);
     if (root != null) {
       return;
@@ -98,6 +98,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   }
 
   @Override
+  @SuppressWarnings({"unchecked"})
   public TypeInformation<T> getProducedType() {
     return (TypeInformation<T>) typeInfo;
   }

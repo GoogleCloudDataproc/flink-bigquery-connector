@@ -174,7 +174,7 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString =
-        "CREATE TABLE " + flinkSrcTable + " (creation_date TIMESTAMP,tags STRING , title STRING)";
+        "CREATE TABLE " + flinkSrcTable + " (tags STRING , title STRING,creation_date TIMESTAMP)";
     tEnv.executeSql(
         srcQueryString
             + "\n"
@@ -212,7 +212,7 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     String flinkSrcTable = "FlinkSrcTable";
     String flinkSinkTable = "FlinkSinkTable";
     String srcQueryString =
-        "CREATE TABLE " + flinkSrcTable + " (creation_date TIMESTAMP,tags STRING , title STRING)";
+        "CREATE TABLE " + flinkSrcTable + " (tags STRING , title STRING,creation_date TIMESTAMP)";
     tEnv.executeSql(
         srcQueryString
             + "\n"
@@ -260,7 +260,7 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     String filter = "view_count=300 and owner_user_id<5000";
     String partitionType = "DAY";
     String srcQueryString =
-        "CREATE TABLE " + flinkSrcTable + " (creation_date TIMESTAMP,tags STRING , title STRING)";
+        "CREATE TABLE " + flinkSrcTable + " (tags STRING , title STRING, creation_date TIMESTAMP)";
     tEnv.executeSql(
         srcQueryString
             + "\n"

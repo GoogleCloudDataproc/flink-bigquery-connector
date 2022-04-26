@@ -168,10 +168,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + "',\n"
             + "  'selectedFields' = '"
             + selectedFields
-            + "',\n"
-            + "  'credentialsFile' = '"
-            + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            + "' \n"
+            + "'\n"
             + ")");
     Table result = flinkTableEnv.from(flinkSrcTable);
     TableResult tableapi = result.execute();

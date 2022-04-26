@@ -78,9 +78,9 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   public static final ConfigOption<String> CREDENTIAL_KEY_FILE =
       ConfigOptions.key("credentialsFile").stringType().noDefaultValue();
   public static final ConfigOption<String> ACCESS_TOKEN =
-      ConfigOptions.key("gcpAccessToken").stringType().defaultValue("");
+      ConfigOptions.key("gcpAccessToken").stringType().noDefaultValue();
   public static final ConfigOption<String> CREDENTIALS_KEY =
-      ConfigOptions.key("credentials").stringType().defaultValue("");
+      ConfigOptions.key("credentials").stringType().noDefaultValue();
   public static final ConfigOption<String> PROXY_URI =
       ConfigOptions.key("proxyUri").stringType().defaultValue("");
   public static final ConfigOption<String> PROXY_USERNAME =
@@ -112,9 +112,9 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   public Set<ConfigOption<?>> optionalOptions() {
     final Set<ConfigOption<?>> options = new HashSet<>();
     options.add(FactoryUtil.FORMAT);
-    options.add(CREDENTIAL_KEY_FILE);
     options.add(ACCESS_TOKEN);
     options.add(CREDENTIALS_KEY);
+    options.add(CREDENTIAL_KEY_FILE);
     options.add(FILTER);
     options.add(SELECTED_FIELDS);
     options.add(QUERY);
@@ -144,6 +144,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
         FactoryUtil.createTableFactoryHelper(this, context);
 
     final ReadableConfig options = helper.getOptions();
+
     try {
       helper.validate();
     } catch (Exception ex) {
@@ -168,7 +169,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
     try {
       // Create client factory
       ImmutableMap<String, String> defaultOptions =
-          ImmutableMap.of("credentialsFile", options.get(CREDENTIAL_KEY_FILE));
+          ImmutableMap.of("flinkVersion", options.get(FLINK_VERSION));
 
       bqconfig =
           FlinkBigQueryConfig.from(
@@ -202,7 +203,8 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ReadSession readSession =
           BigQueryReadSession.getReadsession(credentials, bqconfig, bigQueryReadClientFactory);
       List<ReadStream> readsessionList = readSession.getStreamsList();
-
+      ArrowFormatFactory.setSchema(readSession.getArrowSchema());
+      ArrowFormatFactory.setSelectedFields(bqconfig.getSelectedFields());
       // Iterate over read stream
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
@@ -227,16 +229,6 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       missingArgs.remove("query");
       missingArgs.remove("materializationProject");
       missingArgs.remove("materializationDataset");
-    } else if (options.get(QUERY) != null) {
-      missingArgs.remove("table");
-      missingArgs.remove("selectedFields");
-    }
-    if (options.get(CREDENTIAL_KEY_FILE) != null
-        || options.get(ACCESS_TOKEN) != null
-        || options.get(CREDENTIALS_KEY) != null) {
-      missingArgs.remove("credentialsFile");
-      missingArgs.remove("gcpAccessToken");
-      missingArgs.remove("credentials");
     } else if (options.get(QUERY) != null) {
       missingArgs.remove("table");
       missingArgs.remove("selectedFields");

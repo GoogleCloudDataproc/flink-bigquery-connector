@@ -28,12 +28,12 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
 /**
- * Converts an Avro schema into Flink's type information. It uses {@link RowTypeInfo} for
- * representing objects and converts Avro types into types that are compatible with Flink's Table &
+ * Converts an Arrow schema into Flink's type information. It uses {@link RowTypeInfo} for
+ * representing objects and converts Arrow types into types that are compatible with Flink's Table &
  * SQL API.
  *
  * <p>Note: Changes in this class need to be kept in sync with the corresponding runtime classes
- * {@link AvroRowDeserializationSchema} and {@link AvroRowSerializationSchema}.
+ * {@link ArrowRowDataDeserializationSchema}.
  */
 public class ArrowSchemaConverter {
 

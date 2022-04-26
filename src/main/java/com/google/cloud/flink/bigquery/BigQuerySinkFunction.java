@@ -47,16 +47,16 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
 
   public BigQuerySinkFunction(Table sourceResultTable, String bigqueryWriteTable) {
 
-    List<String> tableProperties = Splitter.on("\\.").splitToList(bigqueryWriteTable);
+    List<String> tableProperties = Splitter.on(".").splitToList(bigqueryWriteTable);
     String projectId = null;
     String dataset = null;
     String table = null;
-    if (tableProperties != null && tableProperties.size() >= 0) {
+    if (tableProperties != null && tableProperties.size() >= 1) {
       projectId = tableProperties.get(0);
-      if (tableProperties.size() >= 1) {
+      if (tableProperties.size() >= 2) {
         dataset = tableProperties.get(1);
       }
-      if (tableProperties.size() >= 2) {
+      if (tableProperties.size() >= 3) {
         table = tableProperties.get(2);
       }
     }
