@@ -15,7 +15,9 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.common.base.Splitter;
 import java.io.IOException;
+import java.util.List;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.flink.api.common.functions.IterationRuntimeContext;
 import org.apache.flink.api.common.functions.RichFunction;
@@ -44,10 +46,21 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
   }
 
   public BigQuerySinkFunction(Table sourceResultTable, String bigqueryWriteTable) {
-    String[] tableProperties = bigqueryWriteTable.split("\\.");
-    String projectId = tableProperties[0];
-    String dataset = tableProperties[1];
-    String table = tableProperties[2];
+
+    List<String> tableProperties = Splitter.on("\\.").splitToList(bigqueryWriteTable);
+    String projectId = null;
+    String dataset = null;
+    String table = null;
+    if (tableProperties != null && tableProperties.size() >= 0) {
+      projectId = tableProperties.get(0);
+      if (tableProperties.size() >= 1) {
+        dataset = tableProperties.get(1);
+      }
+      if (tableProperties.size() >= 2) {
+        table = tableProperties.get(2);
+      }
+    }
+
     try {
       new BigQuerySinkFunction(sourceResultTable, projectId, dataset, table);
     } catch (JSQLParserException e) {

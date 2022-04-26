@@ -280,7 +280,6 @@ public class ArrowToRowDataConverters {
       } else if (object.toString().length() == 26) {
         DateTime value =
             DateTime.parse(object.toString(), ISODateTimeFormat.dateTimeParser().withZoneUTC());
-        value = value.toDateTime();
         dateTime = value.toDate().getTime();
       }
 

@@ -177,7 +177,7 @@ public final class ProtobufUtils {
       } else {
         typeMode = Mode.REQUIRED;
       }
-      if (elem.getType().getTypeRoot().toString() == "ROW") {
+      if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
         listOfFileds.add(
             Field.newBuilder(
                     elem.getName(),
@@ -185,7 +185,7 @@ public final class ProtobufUtils {
                     FieldList.of(getListOfSubFileds(elem.getType())))
                 .setMode(typeMode)
                 .build());
-      } else if (elem.getType().getTypeRoot().toString() == "ARRAY") {
+      } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
         listOfFileds.add(
             Field.newBuilder(
                     elem.getName(),
@@ -214,7 +214,7 @@ public final class ProtobufUtils {
     Iterator<StructuredAttribute> streamdata = schema.getAttributes().stream().iterator();
     while (streamdata.hasNext()) {
       StructuredAttribute elem = streamdata.next();
-      if (elem.getType().getTypeRoot().toString() == "ROW") {
+      if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
         Field.newBuilder(
                 elem.getName(),
                 StandardSQLTypeName.STRUCT,
@@ -272,7 +272,7 @@ public final class ProtobufUtils {
   }
 
   @VisibleForTesting
-  protected static DescriptorProtos.DescriptorProto buildDescriptorProtoWithFields(
+  static DescriptorProtos.DescriptorProto buildDescriptorProtoWithFields(
       DescriptorProtos.DescriptorProto.Builder descriptorBuilder, FieldList fields, int depth) {
     Preconditions.checkArgument(
         depth < MAX_BIGQUERY_NESTED_DEPTH,
@@ -282,7 +282,7 @@ public final class ProtobufUtils {
       String fieldName = field.getName();
       DescriptorProtos.FieldDescriptorProto.Label fieldLabel = toProtoFieldLabel(field.getMode());
 
-      if (field.getType() == LegacySQLTypeName.RECORD) {
+      if (field.getType().equals(LegacySQLTypeName.RECORD)) {
         String recordTypeName =
             RESERVED_NESTED_TYPE_NAME + messageNumber; // TODO: Maintain this as a reserved
         // nested-type name, which no
@@ -353,7 +353,7 @@ public final class ProtobufUtils {
       Object flinkValue = row.getField(fieldIndex);
       boolean nullable = flinkType.isNullable();
       Descriptors.Descriptor nestedTypeDescriptor =
-          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + (protoFieldNumber));
+          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + protoFieldNumber);
       Object protoValue =
           convertFlinkValueToProtoRowValue(flinkType, flinkValue, nullable, nestedTypeDescriptor);
 
@@ -379,7 +379,7 @@ public final class ProtobufUtils {
       Object flinkValue = row.getField(fieldIndex);
       boolean nullable = flinkType.isNullable();
       Descriptors.Descriptor nestedTypeDescriptor =
-          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + (protoFieldNumber));
+          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + protoFieldNumber);
       Object protoValue =
           convertFlinkValueToProtoRowValue(flinkType, flinkValue, nullable, nestedTypeDescriptor);
 

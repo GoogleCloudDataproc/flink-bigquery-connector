@@ -19,7 +19,6 @@ import static com.google.cloud.flink.bigquery.ProtobufUtils.buildSingleRowMessag
 import static com.google.cloud.flink.bigquery.ProtobufUtils.toDescriptor;
 
 import com.google.api.gax.retrying.RetrySettings;
-import com.google.api.gax.retrying.RetrySettings.Builder;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.BigQueryOptions;
@@ -120,7 +119,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
         new BigQueryClientFactory(
             bigQueryCredentialsSupplier, userAgentHeaderProvider, (BigQueryConfig) bqconfig);
     ProtoSchema protoSchema = ProtobufUtils.toProtoSchema(flinkSchema);
-    Builder retrySettingsBuilder = RetrySettings.newBuilder();
+    RetrySettings.Builder retrySettingsBuilder = RetrySettings.newBuilder();
     retrySettingsBuilder.setMaxAttempts(3);
     RetrySettings bigqueryDataWriterHelperRetrySettings = retrySettingsBuilder.build();
     checkBigQueryInitialized();
