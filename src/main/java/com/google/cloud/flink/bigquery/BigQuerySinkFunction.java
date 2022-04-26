@@ -51,7 +51,7 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
     String projectId = null;
     String dataset = null;
     String table = null;
-    if (tableProperties != null && tableProperties.size() >= 1) {
+    if (tableProperties != null && !tableProperties.isEmpty()) {
       projectId = tableProperties.get(0);
       if (tableProperties.size() >= 2) {
         dataset = tableProperties.get(1);

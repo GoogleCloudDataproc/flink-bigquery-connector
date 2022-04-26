@@ -319,7 +319,7 @@ public final class ProtobufUtils {
   }
 
   @VisibleForTesting
-  protected static DescriptorProtos.FieldDescriptorProto.Builder createProtoFieldBuilder(
+  static DescriptorProtos.FieldDescriptorProto.Builder createProtoFieldBuilder(
       String fieldName,
       DescriptorProtos.FieldDescriptorProto.Label fieldLabel,
       int messageNumber,
@@ -464,7 +464,7 @@ public final class ProtobufUtils {
     }
 
     if (flinkType instanceof VarCharType) {
-      return new String(((String) flinkValue).getBytes(), UTF_8);
+      return new String(((String) flinkValue).getBytes(UTF_8), UTF_8);
     }
 
     if (flinkType instanceof MapType) {
