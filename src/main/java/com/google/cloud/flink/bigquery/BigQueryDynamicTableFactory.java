@@ -32,21 +32,28 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import net.sf.jsqlparser.JSQLParserException;
+import org.apache.arrow.vector.ipc.ReadChannel;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.connector.format.DecodingFormat;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
+public final class BigQueryDynamicTableFactory
+    implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
   static FlinkBigQueryConfig bqconfig;
@@ -78,9 +85,9 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   public static final ConfigOption<String> CREDENTIAL_KEY_FILE =
       ConfigOptions.key("credentialsFile").stringType().noDefaultValue();
   public static final ConfigOption<String> ACCESS_TOKEN =
-      ConfigOptions.key("gcpAccessToken").stringType().noDefaultValue();
+      ConfigOptions.key("gcpAccessToken").stringType().defaultValue("");
   public static final ConfigOption<String> CREDENTIALS_KEY =
-      ConfigOptions.key("credentials").stringType().noDefaultValue();
+      ConfigOptions.key("credentials").stringType().defaultValue("");
   public static final ConfigOption<String> PROXY_URI =
       ConfigOptions.key("proxyUri").stringType().defaultValue("");
   public static final ConfigOption<String> PROXY_USERNAME =
@@ -95,6 +102,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ConfigOptions.key("materializationProject").stringType().noDefaultValue();
   public static final ConfigOption<String> MATERIALIZATION_DATASET =
       ConfigOptions.key("materializationDataset").stringType().noDefaultValue();
+  public static ConfigOption<String> READ_SESSION_ARROW_SCHEMA_FIELDS;
 
   @Override
   public String factoryIdentifier() {
@@ -105,6 +113,10 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   public Set<ConfigOption<?>> requiredOptions() {
     final Set<ConfigOption<?>> options = new HashSet<>();
     options.add(TABLE);
+    options.add(SELECTED_FIELDS);
+    options.add(QUERY);
+    options.add(MATERIALIZATION_PROJECT);
+    options.add(MATERIALIZATION_DATASET);
     return options;
   }
 
@@ -112,14 +124,10 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   public Set<ConfigOption<?>> optionalOptions() {
     final Set<ConfigOption<?>> options = new HashSet<>();
     options.add(FactoryUtil.FORMAT);
+    options.add(CREDENTIAL_KEY_FILE);
     options.add(ACCESS_TOKEN);
     options.add(CREDENTIALS_KEY);
-    options.add(CREDENTIAL_KEY_FILE);
     options.add(FILTER);
-    options.add(SELECTED_FIELDS);
-    options.add(QUERY);
-    options.add(MATERIALIZATION_PROJECT);
-    options.add(MATERIALIZATION_DATASET);
     options.add(FLINK_VERSION);
     options.add(PARTITION_FIELD);
     options.add(PARTITION_TYPE);
@@ -137,14 +145,13 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   }
 
   DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
+  private String arrowReadSessionSchema;
 
   @Override
   public DynamicTableSource createDynamicTableSource(Context context) {
     final FactoryUtil.TableFactoryHelper helper =
         FactoryUtil.createTableFactoryHelper(this, context);
-
     final ReadableConfig options = helper.getOptions();
-
     try {
       helper.validate();
     } catch (Exception ex) {
@@ -158,7 +165,16 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
 
     final DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
     return new BigQueryDynamicTableSource(
-        decodingFormat, producedDataType, getReadStreamNames(options), bigQueryReadClientFactory);
+        decodingFormat,
+        producedDataType,
+        getReadStreamNames(options),
+        bigQueryReadClientFactory,
+        arrowReadSessionSchema);
+  }
+
+  @Override
+  public DynamicTableSink createDynamicTableSink(Context context) {
+    return null;
   }
 
   private LinkedList<String> getReadStreamNames(ReadableConfig options) {
@@ -167,7 +183,6 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
     BigQueryCredentialsSupplier bigQueryCredentialsSupplier;
     LinkedList<String> readStreamNames = new LinkedList<String>();
     try {
-      // Create client factory
       ImmutableMap<String, String> defaultOptions =
           ImmutableMap.of("flinkVersion", options.get(FLINK_VERSION));
 
@@ -203,9 +218,20 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ReadSession readSession =
           BigQueryReadSession.getReadsession(credentials, bqconfig, bigQueryReadClientFactory);
       List<ReadStream> readsessionList = readSession.getStreamsList();
-      ArrowFormatFactory.setSchema(readSession.getArrowSchema());
-      ArrowFormatFactory.setSelectedFields(bqconfig.getSelectedFields());
-      // Iterate over read stream
+      Schema arrowReadSchema =
+          MessageSerializer.deserializeSchema(
+              new ReadChannel(
+                  new ByteArrayReadableSeekableByteChannel(
+                      readSession.getArrowSchema().getSerializedSchema().toByteArray())));
+      this.arrowReadSessionSchema = arrowReadSchema.toJson();
+      String fieldList = new String();
+      for (int i = 0; i < arrowReadSchema.getFields().size(); i++) {
+        fieldList = fieldList.concat(arrowReadSchema.getFields().get(i).getName() + ",");
+      }
+      bqconfig.setArrowSchemaFields(fieldList);
+      ConfigOption<String> readSessionSchemaFields =
+          ConfigOptions.key("readSessionSchemaFields").stringType().defaultValue(fieldList);
+      optionalOptions().add(readSessionSchemaFields);
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
       }

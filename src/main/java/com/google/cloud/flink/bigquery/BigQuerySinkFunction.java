@@ -34,17 +34,6 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
   final Logger logger = LoggerFactory.getLogger(BigQuerySinkFunction.class);
   private static BigQueryDirectDataWriterContext writeContext;
 
-  public BigQuerySinkFunction(
-      org.apache.flink.table.api.Table sourceResultTable,
-      String projectId,
-      String dataset,
-      String table)
-      throws JSQLParserException {
-    BigQueryDirectDataWriterContext writeContextObj =
-        new BigQueryDirectDataWriterContext(sourceResultTable, projectId, dataset, table);
-    writeContext = writeContextObj;
-  }
-
   public BigQuerySinkFunction(Table sourceResultTable, String bigqueryWriteTable) {
 
     List<String> tableProperties = Splitter.on(".").splitToList(bigqueryWriteTable);
@@ -62,7 +51,10 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
     }
 
     try {
-      new BigQuerySinkFunction(sourceResultTable, projectId, dataset, table);
+
+      BigQueryDirectDataWriterContext writeContextObj =
+          new BigQueryDirectDataWriterContext(sourceResultTable, projectId, dataset, table);
+      writeContext = writeContextObj;
     } catch (JSQLParserException e) {
       logger.error("Error while creating sink function");
     }
@@ -89,12 +81,12 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
 
   @Override
   public RuntimeContext getRuntimeContext() {
-    return null;
+    return getRuntimeContext();
   }
 
   @Override
   public IterationRuntimeContext getIterationRuntimeContext() {
-    return null;
+    return getIterationRuntimeContext();
   }
 
   @Override

@@ -16,9 +16,11 @@
 package com.google.cloud.flink.bigquery;
 
 import static com.google.cloud.flink.bigquery.ProtobufUtils.buildSingleRowMessage;
+import static com.google.cloud.flink.bigquery.ProtobufUtils.getListOfSubFields;
 import static com.google.cloud.flink.bigquery.ProtobufUtils.toDescriptor;
 
 import com.google.api.gax.retrying.RetrySettings;
+import com.google.api.gax.retrying.RetrySettings.Builder;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.BigQueryOptions;
@@ -39,6 +41,7 @@ import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectDataWriteHelper;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
 import com.google.cloud.flink.bigquery.common.DataWriterContext;
+import com.google.cloud.flink.bigquery.common.FlinkBigQueryConnectorUserAgentProvider;
 import com.google.cloud.flink.bigquery.common.UserAgentHeaderProvider;
 import com.google.cloud.flink.bigquery.common.WriterCommitMessageContext;
 import com.google.protobuf.ByteString;
@@ -46,26 +49,27 @@ import com.google.protobuf.Descriptors;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.types.logical.StructuredType;
-import org.apache.flink.table.types.logical.StructuredType.StructuredAttribute;
+import org.apache.flink.table.types.logical.ArrayType;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
-
   final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriterContext.class);
 
   final String tablePath;
-  final StructuredType flinkSchema;
+  final RowType flinkSchema;
   final Descriptors.Descriptor schemaDescriptor;
   static BigQuery bigquery;
-  private BigQueryDirectDataWriteHelper writeHelper;
-
+  private BigQueryDirectDataWriteHelper writerHelper;
   Table srcTable;
   String projectId;
   String dataset;
@@ -74,24 +78,19 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
   FlinkBigQueryConfig bqconfig;
 
   public BigQueryDirectDataWriterContext(
-      Table srcTable, String projectId, String dataset, String table) throws JSQLParserException {
-    List<DataType> columnDataTypeList = Arrays.asList(srcTable.getSchema().getFieldDataTypes());
-    List<String> columnNameList = Arrays.asList(srcTable.getSchema().getFieldNames());
-    ArrayList<StructuredAttribute> listOfAttribute = new ArrayList<StructuredAttribute>();
+      Table src_table, String projectId, String dataset, String table) throws JSQLParserException {
+    List<DataType> columnDataTypeList = Arrays.asList(src_table.getSchema().getFieldDataTypes());
+    List<String> columnNameList = Arrays.asList(src_table.getSchema().getFieldNames());
+    ArrayList<RowField> listOfRowFields = new ArrayList<RowField>();
     for (int i = 0; i < columnNameList.size(); i++) {
-      listOfAttribute.add(
-          new StructuredAttribute(
+      listOfRowFields.add(
+          new RowField(
               columnNameList.get(i).toString(), columnDataTypeList.get(i).getLogicalType()));
     }
-    final StructuredType.Builder builder = StructuredType.newBuilder(Row.class);
-    builder.attributes(listOfAttribute);
-    builder.setFinal(true);
-    builder.setInstantiable(true);
-
     this.projectId = projectId;
     this.dataset = dataset;
     this.table = table;
-    flinkSchema = builder.build();
+    flinkSchema = new RowType(listOfRowFields);
     this.tablePath = String.format("projects/%s/datasets/%s/tables/%s", projectId, dataset, table);
     this.srcTable = srcTable;
     try {
@@ -100,65 +99,58 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
       throw new BigQueryConnectorException.InvalidSchemaException(
           "Could not convert flink-schema to descriptor object", e);
     }
+  }
 
-    this.bqconfig = BigQueryDynamicTableFactory.getBqConfig();
-
-    BigQueryCredentialsSupplier bigQueryCredentialsSupplier =
-        new BigQueryCredentialsSupplier(
-            bqconfig.getAccessToken(),
-            bqconfig.getCredentialsKey(),
-            bqconfig.getCredentialsFile(),
-            bqconfig.getBigQueryProxyConfig().getProxyUri(),
-            bqconfig.getBigQueryProxyConfig().getProxyUsername(),
-            bqconfig.getBigQueryProxyConfig().getProxyPassword());
-
-    final UserAgentHeaderProvider userAgentHeaderProvider =
-        new UserAgentHeaderProvider("test-agent");
-    BigQueryClientFactory writeClientFactory =
-        new BigQueryClientFactory(
-            bigQueryCredentialsSupplier, userAgentHeaderProvider, (BigQueryConfig) bqconfig);
-    ProtoSchema protoSchema = ProtobufUtils.toProtoSchema(flinkSchema);
-    RetrySettings.Builder retrySettingsBuilder = RetrySettings.newBuilder();
-    retrySettingsBuilder.setMaxAttempts(3);
-    RetrySettings bigqueryDataWriterHelperRetrySettings = retrySettingsBuilder.build();
-    checkBigQueryInitialized();
-    this.writeHelper =
-        new BigQueryDirectDataWriteHelper(
-            writeClientFactory, tablePath, protoSchema, bigqueryDataWriterHelperRetrySettings);
+  public void setBigQueryConfig(FlinkBigQueryConfig config) {
+    this.bqconfig = config;
   }
 
   void checkBigQueryInitialized() throws JSQLParserException {
     if (bigquery == null) {
-
       bigquery =
           BigQueryOptions.newBuilder()
               .setCredentials(bqconfig.createCredentials())
               .build()
               .getService();
     }
-    com.google.cloud.bigquery.Table destTable =
+    com.google.cloud.bigquery.Table dest_table =
         bigquery.getTable(TableId.of(projectId, dataset, table));
-    if (destTable == null || !destTable.exists()) {
+    if (dest_table == null || !dest_table.exists()) {
       ArrayList<Field> listOfFileds = new ArrayList<Field>();
-
-      flinkSchema.getAttributes().stream()
-          .forEach(
-              elem ->
-                  listOfFileds.add(
-                      Field.newBuilder(
-                              elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-                          .setMode(Mode.NULLABLE)
-                          .build()));
-
+      Iterator<RowField> rowFieldItrator = flinkSchema.getFields().iterator();
+      while (rowFieldItrator.hasNext()) {
+        RowField elem = rowFieldItrator.next();
+        if (elem.getType().getTypeRoot().toString() == "ROW") {
+          listOfFileds.add(
+              Field.newBuilder(
+                      elem.getName(),
+                      StandardSQLTypeName.STRUCT,
+                      FieldList.of(getListOfSubFields(elem.getType())))
+                  .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
+                  .build());
+        } else if (elem.getType().getTypeRoot().toString() == "ARRAY") {
+          listOfFileds.add(
+              Field.newBuilder(
+                      elem.getName(),
+                      StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
+                  .setMode(Mode.REPEATED)
+                  .build());
+        } else {
+          listOfFileds.add(
+              Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
+                  .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
+                  .build());
+        }
+      }
       FieldList fieldlist = FieldList.of(listOfFileds);
       Schema schema = Schema.of(fieldlist);
       createTable(projectId, dataset, table, schema);
     }
   }
 
-  public void createTable(String projectId, String datasetName, String tableName, Schema schema) {
+  private void createTable(String project_id, String datasetName, String tableName, Schema schema) {
     try {
-      TableId tableId = TableId.of(projectId, datasetName, tableName);
+      TableId tableId = TableId.of(project_id, datasetName, tableName);
       StandardTableDefinition tableDefinition;
       tableDefinition = StandardTableDefinition.of(schema);
       if (bqconfig.getPartitionField().isPresent() || bqconfig.getPartitionType().isPresent()) {
@@ -180,7 +172,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
       bigquery.create(tableInfo);
       logger.info("Table " + tableId.getTable() + " created successfully");
     } catch (BigQueryException e) {
-      logger.error("Table was not created. \n" + e.toString());
+      throw new FlinkBigQueryException("Table was not created. \n" + e.toString());
     }
   }
 
@@ -188,15 +180,58 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
   public void write(Row record) throws IOException {
     ByteString message =
         buildSingleRowMessage(flinkSchema, schemaDescriptor, record).toByteString();
-    writeHelper.addRow(message);
+    if (writerHelper == null) initializeWriterHelper();
+    writerHelper.addRow(message);
+  }
+
+  private void initializeWriterHelper() {
+
+    if (this.bqconfig == null) setBigQueryConfig(BigQueryDynamicTableFactory.getBqConfig());
+
+    BigQueryCredentialsSupplier bigQueryCredentialsSupplier =
+        new BigQueryCredentialsSupplier(
+            bqconfig.getAccessToken(),
+            bqconfig.getCredentialsKey(),
+            bqconfig.getCredentialsFile(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
+    FlinkBigQueryConnectorUserAgentProvider agentProvider =
+        new FlinkBigQueryConnectorUserAgentProvider(bqconfig.getFlinkVersion());
+    final UserAgentHeaderProvider userAgentHeaderProvider =
+        new UserAgentHeaderProvider(agentProvider.getUserAgent());
+
+    BigQueryClientFactory writeClientFactory =
+        new BigQueryClientFactory(
+            bigQueryCredentialsSupplier, userAgentHeaderProvider, (BigQueryConfig) bqconfig);
+    ProtoSchema protoSchema = ProtobufUtils.toProtoSchema(flinkSchema);
+    Builder retrySettingsBuilder = RetrySettings.newBuilder();
+    retrySettingsBuilder.setMaxAttempts(3);
+    RetrySettings bigqueryDataWriterHelperRetrySettings = retrySettingsBuilder.build();
+    try {
+      checkBigQueryInitialized();
+    } catch (JSQLParserException e) {
+      throw new FlinkBigQueryException("Error while initializing big query", e);
+    }
+
+    this.writerHelper =
+        new BigQueryDirectDataWriteHelper(
+            writeClientFactory, tablePath, protoSchema, bigqueryDataWriterHelperRetrySettings);
+  }
+
+  public String getWriterStream() {
+
+    return this.writerHelper.getWriteStreamName();
   }
 
   @Override
   public WriterCommitMessageContext finalizeStream() throws IOException {
+
     logger.debug("Data Writer commit()");
 
-    long rowCount = writeHelper.finalizeStream();
-    String writeStreamName = writeHelper.getWriteStreamName();
+    long rowCount = writerHelper.finalizeStream();
+    String writeStreamName = writerHelper.getWriteStreamName();
 
     logger.debug("Data Writer write-stream has finalized with row count: {}", rowCount);
 
@@ -205,12 +240,12 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
 
   @Override
   public void commit() throws IOException {
-    writeHelper.commitStream();
+    writerHelper.commitStream();
   }
 
   @Override
   public void abort() throws IOException {
     logger.debug("Data Writer {} abort()");
-    writeHelper.abort();
+    writerHelper.abort();
   }
 }

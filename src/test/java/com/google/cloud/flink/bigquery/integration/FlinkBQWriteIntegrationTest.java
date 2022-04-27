@@ -41,10 +41,11 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String bigqueryWriteTable =
         PROJECT_ID + "." + testDataset.toString() + "." + "supportsOverwrite";
-    testWriteToBigQuery(bigqueryReadTable, bigqueryWriteTable);
+    boolean isExecuted = testWriteToBigQuery(bigqueryReadTable, bigqueryWriteTable);
     Thread.sleep(120 * 1000);
     int count = getCountFromBigQueryTable(bigqueryWriteTable);
     assertThat(count).isEqualTo(96);
+    assertThat(isExecuted);
   }
 
   public int getCountFromBigQueryTable(String bigqueryWriteTable) throws Exception {
@@ -68,8 +69,8 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
             + "' \n"
             + ")");
     Table result = tEnv.from(flinkSrcTable);
-    Table datatable = result.select($("word"), $("word_count"));
-    TableResult tableapi = datatable.execute();
+    Table dataTable = result.select($("word"), $("word_count"));
+    TableResult tableapi = dataTable.execute();
     int count = 0;
     try (CloseableIterator<Row> it = tableapi.collect()) {
       while (it.hasNext()) {
@@ -77,11 +78,11 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
         count += 1;
       }
     }
-    datatable.execute();
+    dataTable.execute();
     return count;
   }
 
-  public void testWriteToBigQuery(String bigqueryReadTable, String bigqueryWriteTable)
+  public boolean testWriteToBigQuery(String bigqueryReadTable, String bigqueryWriteTable)
       throws Exception {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1); // source only supports parallelism of 1
@@ -118,6 +119,8 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
             .get()
             .getJobExecutionResult(Thread.currentThread().getContextClassLoader())
             .get();
+
+    return jobExecutionResult.isJobExecutionResult();
   }
 
   @Test
@@ -207,7 +210,7 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
       String partitionType, String bigqueryReadTable, String bigqueryWriteTable, String filter)
       throws Exception {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-    env.setParallelism(1); // source only supports parallelism of 1
+    env.setParallelism(2);
     final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
     String flinkSrcTable = "FlinkSrcTable";
     String flinkSinkTable = "FlinkSinkTable";

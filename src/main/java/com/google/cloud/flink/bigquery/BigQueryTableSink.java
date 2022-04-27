@@ -48,6 +48,7 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
     return sink;
   }
 
+  @SuppressWarnings("rawtypes")
   @Override
   public TableSink<Row> configure(String[] fieldNames, TypeInformation[] fieldTypes) {
     return null;
@@ -64,5 +65,8 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
   }
 
   @Override
-  public void setOverwrite(boolean overwrite) {}
+  public void setOverwrite(boolean overwrite) {
+    // TODO Auto-generated method stub
+
+  }
 }

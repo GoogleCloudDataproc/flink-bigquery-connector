@@ -15,6 +15,7 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -51,6 +52,12 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 
   private String schemaJsonString;
 
+  private List<String> selectedFields;
+
+  private Schema readSessionSchema;
+
+  private Schema rowTypeSchema;
+
   ArrowDeserializationSchema(
       Class<T> recordClazz, String schemaJsonString, TypeInformation<RowData> typeInfo) {
     Preconditions.checkNotNull(recordClazz, "Arrow record class must not be null.");
@@ -66,12 +73,32 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 
   @SuppressWarnings("unchecked")
   @Override
-  public T deserialize(byte[] message) throws IOException {
-    this.schema = Schema.fromJSON(schemaJsonString);
+  public T deserialize(byte[] responseByteMessage) throws IOException {
+    ReadRowsResponse response = ReadRowsResponse.parseFrom(responseByteMessage);
+    byte[] arrowRecordBatchMessage =
+        response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray();
+    try {
+      this.readSessionSchema =
+          MessageSerializer.deserializeSchema(
+              new ReadChannel(
+                  new ByteArrayReadableSeekableByteChannel(
+                      response.getArrowSchema().getSerializedSchema().toByteArray())));
+    } catch (Exception e) {
+
+    }
+    if (arrowRecordBatchMessage == null) {
+      throw new FlinkBigQueryException("Deserializing message is empty");
+    }
+    if (this.schema == null) {
+      this.rowTypeSchema = Schema.fromJSON(schemaJsonString);
+      String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
+      this.schema = Schema.fromJSON(jsonArrowSchemafromReadSession);
+    }
     checkArrowInitialized();
     deserializedBatch =
         MessageSerializer.deserializeRecordBatch(
-            new ReadChannel(new ByteArrayReadableSeekableByteChannel(message)), allocator);
+            new ReadChannel(new ByteArrayReadableSeekableByteChannel(arrowRecordBatchMessage)),
+            allocator);
     loader.load(deserializedBatch);
     deserializedBatch.close();
     return (T) root;
@@ -94,11 +121,10 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 
   @Override
   public boolean isEndOfStream(T nextElement) {
-    return nextElement == null ? Boolean.TRUE : Boolean.FALSE;
+    return nextElement == null;
   }
 
   @Override
-  @SuppressWarnings({"unchecked"})
   public TypeInformation<T> getProducedType() {
     return (TypeInformation<T>) typeInfo;
   }

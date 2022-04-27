@@ -32,7 +32,9 @@ public class StandardSQLTypeHandler {
       case "INT64":
       case "INT32":
       case "INT16":
+      case "INT":
       case "BIGINT":
+      case "INTEGER":
         type = StandardSQLTypeName.INT64;
         break;
       case "FLOAT":
@@ -43,10 +45,7 @@ public class StandardSQLTypeHandler {
       case "BIGNUMERIC":
         type = StandardSQLTypeName.BIGNUMERIC;
         break;
-      case "INT":
-        type = StandardSQLTypeName.NUMERIC;
-        break;
-      case "INTEGER":
+
       case "DECIMAL":
       case "NUMERIC":
         type = StandardSQLTypeName.NUMERIC;

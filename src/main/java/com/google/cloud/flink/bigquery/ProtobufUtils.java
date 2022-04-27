@@ -182,7 +182,7 @@ public final class ProtobufUtils {
             Field.newBuilder(
                     elem.getName(),
                     StandardSQLTypeName.STRUCT,
-                    FieldList.of(getListOfSubFileds(elem.getType())))
+                    FieldList.of(getListOfSubFields(elem.getType())))
                 .setMode(typeMode)
                 .build());
       } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
@@ -218,7 +218,7 @@ public final class ProtobufUtils {
         Field.newBuilder(
                 elem.getName(),
                 StandardSQLTypeName.STRUCT,
-                FieldList.of(getListOfSubFileds(elem.getType())))
+                FieldList.of(getListOfSubFields(elem.getType())))
             .setMode(Mode.NULLABLE)
             .build();
       } else {
@@ -235,7 +235,7 @@ public final class ProtobufUtils {
     return createDescriptorFromProto(descriptorProto);
   }
 
-  static ArrayList<Field> getListOfSubFileds(LogicalType logicalType) {
+  static ArrayList<Field> getListOfSubFields(LogicalType logicalType) {
     ArrayList<Field> listOfSubFileds = new ArrayList<Field>();
     List<String> fieldNameList = new ArrayList<String>();
     Stream.of(logicalType.toString().split(","))

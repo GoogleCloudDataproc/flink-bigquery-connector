@@ -63,19 +63,24 @@ public class ArrowToRowDataConverters {
   // -------------------------------------------------------------------------------------
 
   public static ArrowToRowDataConverter createRowConverter(
-      RowType rowType, List<String> readSessionFieldNames, List<String> selectedFieldsList) {
+      RowType rowType, List<String> readSessionFieldNames) {
     final ArrowToRowDataConverter[] fieldConverters =
         rowType.getFields().stream()
             .map(RowType.RowField::getType)
             .map(ArrowToRowDataConverters::createNullableConverter)
             .toArray(ArrowToRowDataConverter[]::new);
     final int arity = rowType.getFieldCount();
-    final List<String> selectedFields = selectedFieldsList;
+    final List<String> selectedFields = new ArrayList<String>();
 
     return arrowObject -> {
       List<GenericRowData> rowdatalist = new ArrayList<GenericRowData>();
       if (arrowObject instanceof VectorSchemaRoot) {
         VectorSchemaRoot record = (VectorSchemaRoot) arrowObject;
+        record.getSchema().getFields().stream()
+            .forEach(
+                field -> {
+                  selectedFields.add(field.getName());
+                });
         int numOfRows = record.getRowCount();
         for (int row = 0; row < numOfRows; ++row) {
           GenericRowData genericRowData = new GenericRowData(arity);
@@ -83,9 +88,9 @@ public class ArrowToRowDataConverters {
             String rowTypeField = selectedFields.get(col);
             int arrowFieldIdx = readSessionFieldNames.indexOf(rowTypeField);
             genericRowData.setField(
-                col,
-                fieldConverters[col].convert(
-                    record.getFieldVectors().get(arrowFieldIdx).getObject(row)));
+                arrowFieldIdx,
+                fieldConverters[arrowFieldIdx].convert(
+                    record.getFieldVectors().get(col).getObject(row)));
           }
           rowdatalist.add(genericRowData);
         }
@@ -152,8 +157,7 @@ public class ArrowToRowDataConverters {
       case ARRAY:
         return createArrayConverter((ArrayType) type);
       case ROW:
-        return createRowConverter(
-            (RowType) type, ((RowType) type).getFieldNames(), ((RowType) type).getFieldNames());
+        return createRowConverter((RowType) type, ((RowType) type).getFieldNames());
       case MAP:
       case RAW:
       default:
