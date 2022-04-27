@@ -36,10 +36,13 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, Serializable {
 
   private static final long serialVersionUID = 1L;
+  final Logger logger = LoggerFactory.getLogger(ArrowDeserializationSchema.class);
 
   private BufferAllocator allocator;
   private final TypeInformation<RowData> typeInfo;
@@ -51,12 +54,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   private final Class<T> recordClazz;
 
   private String schemaJsonString;
-
-  private List<String> selectedFields;
-
   private Schema readSessionSchema;
-
-  private Schema rowTypeSchema;
 
   ArrowDeserializationSchema(
       Class<T> recordClazz, String schemaJsonString, TypeInformation<RowData> typeInfo) {
@@ -71,7 +69,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public T deserialize(byte[] responseByteMessage) throws IOException {
     ReadRowsResponse response = ReadRowsResponse.parseFrom(responseByteMessage);
@@ -84,13 +81,12 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
                   new ByteArrayReadableSeekableByteChannel(
                       response.getArrowSchema().getSerializedSchema().toByteArray())));
     } catch (Exception e) {
-
+      logger.error("Error while deserializing schema:", e);
     }
     if (arrowRecordBatchMessage == null) {
       throw new FlinkBigQueryException("Deserializing message is empty");
     }
     if (this.schema == null) {
-      this.rowTypeSchema = Schema.fromJSON(schemaJsonString);
       String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
       this.schema = Schema.fromJSON(jsonArrowSchemafromReadSession);
     }

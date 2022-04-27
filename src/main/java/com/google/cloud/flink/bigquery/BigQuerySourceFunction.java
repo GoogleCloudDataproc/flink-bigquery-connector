@@ -90,7 +90,10 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
     ListCollector<RowData> listCollector = new ListCollector<>(outputCollector);
     Options options =
         new ReadRowsHelper.Options(
-            /* maxRetries= */ 5, Optional.of("endpoint"), /* backgroundParsingThreads= */ 5, 1);
+            /* maxReadRowsRetries= */ 5,
+            Optional.of("endpoint"),
+            /* backgroundParsingThreads= */ 5,
+            1);
     if (!streamNames.isEmpty()) {
       for (String streamName : streamNames) {
         ReadRowsRequest.Builder readRowsRequest =

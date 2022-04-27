@@ -20,7 +20,6 @@ import static com.google.cloud.flink.bigquery.ProtobufUtils.getListOfSubFields;
 import static com.google.cloud.flink.bigquery.ProtobufUtils.toDescriptor;
 
 import com.google.api.gax.retrying.RetrySettings;
-import com.google.api.gax.retrying.RetrySettings.Builder;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.BigQueryOptions;
@@ -120,7 +119,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
       Iterator<RowField> rowFieldItrator = flinkSchema.getFields().iterator();
       while (rowFieldItrator.hasNext()) {
         RowField elem = rowFieldItrator.next();
-        if (elem.getType().getTypeRoot().toString() == "ROW") {
+        if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
           listOfFileds.add(
               Field.newBuilder(
                       elem.getName(),
@@ -128,7 +127,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
                       FieldList.of(getListOfSubFields(elem.getType())))
                   .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
                   .build());
-        } else if (elem.getType().getTypeRoot().toString() == "ARRAY") {
+        } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
           listOfFileds.add(
               Field.newBuilder(
                       elem.getName(),
@@ -206,7 +205,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
         new BigQueryClientFactory(
             bigQueryCredentialsSupplier, userAgentHeaderProvider, (BigQueryConfig) bqconfig);
     ProtoSchema protoSchema = ProtobufUtils.toProtoSchema(flinkSchema);
-    Builder retrySettingsBuilder = RetrySettings.newBuilder();
+    RetrySettings.Builder retrySettingsBuilder = RetrySettings.newBuilder();
     retrySettingsBuilder.setMaxAttempts(3);
     RetrySettings bigqueryDataWriterHelperRetrySettings = retrySettingsBuilder.build();
     try {

@@ -67,11 +67,14 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.hadoop.conf.Configuration;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
 
 public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   private static final long serialVersionUID = 1L;
+  final Logger logger = LoggerFactory.getLogger(FlinkBigQueryConfig.class);
 
   public enum WriteMethod {
     DIRECT,
@@ -518,8 +521,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
       selectedFieldString =
           selectedFields != null ? selectedFields : new ParseSqlString(query).getSelectedFields();
     } catch (JSQLParserException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      logger.error("Error while parsing sql query", e);
     }
     return selectedFieldString;
   }
