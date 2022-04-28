@@ -373,8 +373,7 @@ public final class ProtobufUtils {
 
     for (int fieldIndex = 0; fieldIndex < schemaDescriptor.getFields().size(); fieldIndex++) {
       int protoFieldNumber = fieldIndex + 1;
-      StructuredAttribute flinkField =
-          schema.getAttributes().get(fieldIndex);
+      StructuredAttribute flinkField = schema.getAttributes().get(fieldIndex);
       LogicalType flinkType = flinkField.getType();
       Object flinkValue = row.getField(fieldIndex);
       boolean nullable = flinkType.isNullable();

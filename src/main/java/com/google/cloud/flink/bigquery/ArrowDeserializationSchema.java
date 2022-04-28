@@ -54,7 +54,12 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   private final Class<T> recordClazz;
 
   private String schemaJsonString;
+
+  private List<String> selectedFields;
+
   private Schema readSessionSchema;
+
+  private Schema rowTypeSchema;
 
   ArrowDeserializationSchema(
       Class<T> recordClazz, String schemaJsonString, TypeInformation<RowData> typeInfo) {
@@ -74,19 +79,21 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     ReadRowsResponse response = ReadRowsResponse.parseFrom(responseByteMessage);
     byte[] arrowRecordBatchMessage =
         response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray();
-    try {
-      this.readSessionSchema =
-          MessageSerializer.deserializeSchema(
-              new ReadChannel(
-                  new ByteArrayReadableSeekableByteChannel(
-                      response.getArrowSchema().getSerializedSchema().toByteArray())));
-    } catch (Exception e) {
-      logger.error("Error while deserializing schema:", e);
-    }
+
     if (arrowRecordBatchMessage == null) {
       throw new FlinkBigQueryException("Deserializing message is empty");
     }
     if (this.schema == null) {
+      try {
+        this.readSessionSchema =
+            MessageSerializer.deserializeSchema(
+                new ReadChannel(
+                    new ByteArrayReadableSeekableByteChannel(
+                        response.getArrowSchema().getSerializedSchema().toByteArray())));
+      } catch (Exception e) {
+    	  logger.error("Error while deserializing schema:", e);
+      }
+      this.rowTypeSchema = Schema.fromJSON(schemaJsonString);
       String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
       this.schema = Schema.fromJSON(jsonArrowSchemafromReadSession);
     }

@@ -44,8 +44,7 @@ public final class BigQueryDynamicTableSource
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
       DataType producedDataType,
       LinkedList<String> readSessionStreamList,
-      BigQueryClientFactory bigQueryReadClientFactory,
-      String arrowReadSessionSchema) {
+      BigQueryClientFactory bigQueryReadClientFactory) {
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
@@ -71,11 +70,7 @@ public final class BigQueryDynamicTableSource
   @Override
   public DynamicTableSource copy() {
     return new BigQueryDynamicTableSource(
-        decodingFormat,
-        producedDataType,
-        readSessionStreamList,
-        bigQueryReadClientFactory,
-        arrowReadSessionSchema);
+        decodingFormat, producedDataType, readSessionStreamList, bigQueryReadClientFactory);
   }
 
   @Override

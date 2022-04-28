@@ -31,7 +31,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -103,6 +102,8 @@ public final class BigQueryDynamicTableFactory
       ConfigOptions.key("materializationProject").stringType().noDefaultValue();
   public static final ConfigOption<String> MATERIALIZATION_DATASET =
       ConfigOptions.key("materializationDataset").stringType().noDefaultValue();
+  public static final ConfigOption<String> ARROW_COMPRESSION_CODEC =
+      ConfigOptions.key("arrowCompressionCodec").stringType().noDefaultValue();
   public static ConfigOption<String> READ_SESSION_ARROW_SCHEMA_FIELDS;
 
   @Override
@@ -142,6 +143,7 @@ public final class BigQueryDynamicTableFactory
     options.add(BQ_BACKGROUND_THREADS_PER_STREAM);
     options.add(PARALLELISM);
     options.add(MAX_PARALLELISM);
+    options.add(ARROW_COMPRESSION_CODEC);
     return options;
   }
 
@@ -166,11 +168,7 @@ public final class BigQueryDynamicTableFactory
 
     final DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
     return new BigQueryDynamicTableSource(
-        decodingFormat,
-        producedDataType,
-        getReadStreamNames(options),
-        bigQueryReadClientFactory,
-        arrowReadSessionSchema);
+        decodingFormat, producedDataType, getReadStreamNames(options), bigQueryReadClientFactory);
   }
 
   @Override
@@ -224,14 +222,15 @@ public final class BigQueryDynamicTableFactory
               new ReadChannel(
                   new ByteArrayReadableSeekableByteChannel(
                       readSession.getArrowSchema().getSerializedSchema().toByteArray())));
-      this.arrowReadSessionSchema = arrowReadSchema.toJson();     
-
-      String fieldList =
-          arrowReadSchema.getFields().stream()
-              .map(org.apache.arrow.vector.types.pojo.Field::getName)
-              .collect(Collectors.joining(","));
+      this.arrowReadSessionSchema = arrowReadSchema.toJson();
+      String fieldList = new String();
+      for (int i = 0; i < arrowReadSchema.getFields().size(); i++) {
+        fieldList = fieldList.concat(arrowReadSchema.getFields().get(i).getName() + ",");
+      }
       bqconfig.setArrowSchemaFields(fieldList);
-     
+      ConfigOption<String> readSessionSchemaFields =
+          ConfigOptions.key("readSessionSchemaFields").stringType().defaultValue(fieldList);
+      optionalOptions().add(readSessionSchemaFields);
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
       }

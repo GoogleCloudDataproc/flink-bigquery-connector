@@ -39,7 +39,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   private void testWordCount(TableResult tableRes) {
     assertThat(tableRes.getTableSchema()).isEqualTo(Constants.WORDCOUNT_TABLE_SCHEMA);
-  }  
+  }
 
   @Test
   public void testReadWithOption() {

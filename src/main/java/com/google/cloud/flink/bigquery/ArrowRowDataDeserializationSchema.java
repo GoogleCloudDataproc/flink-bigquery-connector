@@ -40,12 +40,12 @@ public class ArrowRowDataDeserializationSchema
   public DeserializationSchema<VectorSchemaRoot> nestedSchema;
   public ArrowToRowDataConverters.ArrowToRowDataConverter runtimeConverter;
   public List<GenericRowData> rowDataList;
-  public static List<String> selectedFields = new ArrayList<String>();
+  public List<String> selectedFields = new ArrayList<String>();
   public static Schema arrowSchema;
   public static Schema readSessionArrowSchema;
-  public static String selectedFieldString;
+  public String selectedFieldString;
   final List<String> readSessionFieldNames = new ArrayList<String>();
-  public static String arrowReadSessionSchema;
+  public String arrowReadSessionSchema;
 
   public ArrowRowDataDeserializationSchema() {}
 
