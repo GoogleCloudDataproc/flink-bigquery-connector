@@ -16,12 +16,15 @@
 package com.google.cloud.flink.bigquery.integration;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.apache.flink.table.api.Expressions.$;
 
 import java.util.Optional;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TableResult;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.CloseableIterator;
 import org.junit.Test;
 
 public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
@@ -33,7 +36,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
   }
 
   @Test
-  public void testOutOfOrderColumns() {
+  public void testOutOfOrderColumns() throws Exception {
 
     String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
@@ -53,10 +56,19 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
             + "' ,\n"
             + "  'selectedFields' = 'word,word_count' \n"
             + ")");
-    Table result = flinkTableEnv.from(flinkSrcTable);
-
-    assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.STRING()));
-    assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.BIGINT()));
+    Table table1 = flinkTableEnv.from(flinkSrcTable);
+    Table result = table1.select($("word_count"), $("word"));
+    int count = 0;
+    TableResult tableResult = result.execute();
+    try (CloseableIterator<Row> it = tableResult.collect()) {
+      while (it.hasNext()) {
+        Row row = it.next();
+        count += 1;
+      }
+    }
+    assertThat(count).isEqualTo(96);
+    assertThat(result.getSchema().getFieldDataType(0)).isEqualTo(Optional.of(DataTypes.BIGINT()));
+    assertThat(result.getSchema().getFieldDataType(1)).isEqualTo(Optional.of(DataTypes.STRING()));
   }
 
   @Test

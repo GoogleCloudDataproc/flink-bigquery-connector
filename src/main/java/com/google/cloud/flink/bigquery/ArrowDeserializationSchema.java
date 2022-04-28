@@ -91,7 +91,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
                     new ByteArrayReadableSeekableByteChannel(
                         response.getArrowSchema().getSerializedSchema().toByteArray())));
       } catch (Exception e) {
-    	  logger.error("Error while deserializing schema:", e);
+        logger.error("Error while deserializing schema:", e);
       }
       this.rowTypeSchema = Schema.fromJSON(schemaJsonString);
       String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
