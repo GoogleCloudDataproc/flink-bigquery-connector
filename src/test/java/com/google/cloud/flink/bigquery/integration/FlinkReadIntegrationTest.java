@@ -39,11 +39,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   private void testWordCount(TableResult tableRes) {
     assertThat(tableRes.getTableSchema()).isEqualTo(Constants.WORDCOUNT_TABLE_SCHEMA);
-  }
-
-  private void testReadFilter(int count) {
-    assertEquals(count, 16);
-  }
+  }  
 
   @Test
   public void testReadWithOption() {
@@ -96,7 +92,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     TableResult tableResult = datatable.execute();
     try (CloseableIterator<Row> it = tableResult.collect()) {
       while (it.hasNext()) {
-        Row row = it.next();
+        it.next();
         count += 1;
       }
     }

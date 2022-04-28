@@ -77,9 +77,9 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
   FlinkBigQueryConfig bqconfig;
 
   public BigQueryDirectDataWriterContext(
-      Table src_table, String projectId, String dataset, String table) throws JSQLParserException {
-    List<DataType> columnDataTypeList = Arrays.asList(src_table.getSchema().getFieldDataTypes());
-    List<String> columnNameList = Arrays.asList(src_table.getSchema().getFieldNames());
+      Table srcTable, String projectId, String dataset, String table) throws JSQLParserException {
+    List<DataType> columnDataTypeList = Arrays.asList(srcTable.getSchema().getFieldDataTypes());
+    List<String> columnNameList = Arrays.asList(srcTable.getSchema().getFieldNames());
     ArrayList<RowField> listOfRowFields = new ArrayList<RowField>();
     for (int i = 0; i < columnNameList.size(); i++) {
       listOfRowFields.add(
@@ -147,9 +147,9 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
     }
   }
 
-  private void createTable(String project_id, String datasetName, String tableName, Schema schema) {
+  private void createTable(String projectId, String datasetName, String tableName, Schema schema) {
     try {
-      TableId tableId = TableId.of(project_id, datasetName, tableName);
+      TableId tableId = TableId.of(projectId, datasetName, tableName);
       StandardTableDefinition tableDefinition;
       tableDefinition = StandardTableDefinition.of(schema);
       if (bqconfig.getPartitionField().isPresent() || bqconfig.getPartitionType().isPresent()) {
