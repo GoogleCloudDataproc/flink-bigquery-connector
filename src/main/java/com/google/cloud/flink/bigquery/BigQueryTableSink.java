@@ -32,6 +32,8 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
   private String table;
   private String[] fieldNames;
   private DataType[] fieldTypes;
+  private boolean overwrite;
+  private DataStreamSink<Row> sink;
 
   public BigQueryTableSink(Table srcTable, String table) {
     this.srcTable = srcTable;
@@ -43,7 +45,7 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
   @Override
   public DataStreamSink<Row> consumeDataStream(DataStream<Row> dataStream) {
     BigQuerySinkFunction bigQuerySinkFunction = new BigQuerySinkFunction(srcTable, table);
-    DataStreamSink<Row> sink = dataStream.addSink(bigQuerySinkFunction).setParallelism(1);
+    this.sink = dataStream.addSink(bigQuerySinkFunction).setParallelism(1);
     sink.name(TableConnectorUtils.generateRuntimeName(BigQueryTableSink.class, fieldNames));
     return sink;
   }
@@ -66,7 +68,6 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
 
   @Override
   public void setOverwrite(boolean overwrite) {
-    // TODO Auto-generated method stub
-
+    this.overwrite = overwrite;
   }
 }

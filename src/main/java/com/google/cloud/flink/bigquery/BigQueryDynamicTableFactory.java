@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -223,15 +224,14 @@ public final class BigQueryDynamicTableFactory
               new ReadChannel(
                   new ByteArrayReadableSeekableByteChannel(
                       readSession.getArrowSchema().getSerializedSchema().toByteArray())));
-      this.arrowReadSessionSchema = arrowReadSchema.toJson();
-      String fieldList = new String();
-      for (int i = 0; i < arrowReadSchema.getFields().size(); i++) {
-        fieldList = fieldList.concat(arrowReadSchema.getFields().get(i).getName() + ",");
-      }
+      this.arrowReadSessionSchema = arrowReadSchema.toJson();     
+
+      String fieldList =
+          arrowReadSchema.getFields().stream()
+              .map(org.apache.arrow.vector.types.pojo.Field::getName)
+              .collect(Collectors.joining(","));
       bqconfig.setArrowSchemaFields(fieldList);
-      ConfigOption<String> readSessionSchemaFields =
-          ConfigOptions.key("readSessionSchemaFields").stringType().defaultValue(fieldList);
-      optionalOptions().add(readSessionSchemaFields);
+     
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
       }

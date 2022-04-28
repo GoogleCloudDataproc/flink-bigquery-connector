@@ -112,9 +112,9 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row> {
               .build()
               .getService();
     }
-    com.google.cloud.bigquery.Table dest_table =
+    com.google.cloud.bigquery.Table destTable =
         bigquery.getTable(TableId.of(projectId, dataset, table));
-    if (dest_table == null || !dest_table.exists()) {
+    if (destTable == null || !destTable.exists()) {
       ArrayList<Field> listOfFileds = new ArrayList<Field>();
       Iterator<RowField> rowFieldItrator = flinkSchema.getFields().iterator();
       while (rowFieldItrator.hasNext()) {

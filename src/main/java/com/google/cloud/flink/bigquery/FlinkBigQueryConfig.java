@@ -519,7 +519,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     String selectedFieldString = null;
     try {
       selectedFieldString =
-          selectedFields != null ? selectedFields : new ParseSqlString(query).getSelectedFields();
+          selectedFields != null ? selectedFields : new SqlParser(query).getSelectedFields();
     } catch (JSQLParserException e) {
       logger.error("Error while parsing sql query", e);
     }
@@ -791,11 +791,11 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     };
   }
 
-  class ParseSqlString {
+  class SqlParser {
     List<String> tableList = new ArrayList<String>();
     List<SelectItem> selectCols = new ArrayList<SelectItem>();
 
-    ParseSqlString(com.google.common.base.Optional<String> query) throws JSQLParserException {
+    SqlParser(com.google.common.base.Optional<String> query) throws JSQLParserException {
       String sql = query.get();
       Statement select = (Statement) CCJSqlParserUtil.parse(sql);
       TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
