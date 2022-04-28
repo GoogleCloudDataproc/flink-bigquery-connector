@@ -164,7 +164,7 @@ public class FlinkBigQueryProxyAndHttpConfig implements BigQueryProxyConfig, Ser
   }
 
   @VisibleForTesting
-  static URI parseProxyAddress(String proxyAddress) {
+  public static URI parseProxyAddress(String proxyAddress) {
     if (Strings.isNullOrEmpty(proxyAddress)) {
       return null;
     }
@@ -204,15 +204,15 @@ public class FlinkBigQueryProxyAndHttpConfig implements BigQueryProxyConfig, Ser
     return proxyPassword.toJavaUtil();
   }
 
-  Optional<Integer> getHttpMaxRetry() {
+  public Optional<Integer> getHttpMaxRetry() {
     return httpMaxRetry.toJavaUtil();
   }
 
-  Optional<Integer> getHttpConnectTimeout() {
+  public Optional<Integer> getHttpConnectTimeout() {
     return httpConnectTimeout.toJavaUtil();
   }
 
-  Optional<Integer> getHttpReadTimeout() {
+  public Optional<Integer> getHttpReadTimeout() {
     return httpReadTimeout.toJavaUtil();
   }
 

@@ -27,14 +27,14 @@ public class StandardSQLTypeHandler {
       case "BOOL":
         type = StandardSQLTypeName.BOOL;
         break;
+      case "INTEGER":
+      case "INT":
       case "TINYINT":
       case "SMALLINT":
       case "INT64":
       case "INT32":
       case "INT16":
-      case "INT":
       case "BIGINT":
-      case "INTEGER":
         type = StandardSQLTypeName.INT64;
         break;
       case "FLOAT":
@@ -45,7 +45,6 @@ public class StandardSQLTypeHandler {
       case "BIGNUMERIC":
         type = StandardSQLTypeName.BIGNUMERIC;
         break;
-
       case "DECIMAL":
       case "NUMERIC":
         type = StandardSQLTypeName.NUMERIC;
@@ -59,6 +58,7 @@ public class StandardSQLTypeHandler {
         type = StandardSQLTypeName.BYTES;
         break;
       case "STRUCT":
+      case "ROW":
         type = StandardSQLTypeName.STRUCT;
         break;
       case "ARRAY":
@@ -71,6 +71,7 @@ public class StandardSQLTypeHandler {
       case "DATE":
         type = StandardSQLTypeName.DATE;
         break;
+      case "TIME_WITHOUT_TIME_ZONE":
       case "TIME":
         type = StandardSQLTypeName.TIME;
         break;

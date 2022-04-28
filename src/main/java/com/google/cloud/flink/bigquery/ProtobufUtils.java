@@ -33,7 +33,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -94,8 +93,7 @@ public final class ProtobufUtils {
               .put(LegacySQLTypeName.BOOLEAN, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BOOL)
               .put(LegacySQLTypeName.FLOAT, DescriptorProtos.FieldDescriptorProto.Type.TYPE_DOUBLE)
               .put(
-                  LegacySQLTypeName.NUMERIC,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // #####TYPE_INT64
+                  LegacySQLTypeName.NUMERIC, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
               .put(
                   LegacySQLTypeName.BIGNUMERIC,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
@@ -103,21 +101,15 @@ public final class ProtobufUtils {
               .put(
                   LegacySQLTypeName.TIMESTAMP,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
-              .put(
-                  LegacySQLTypeName.DATE,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64) // ########
+              .put(LegacySQLTypeName.DATE, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
               .put(
                   LegacySQLTypeName.DATETIME,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
+                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
               .put(
                   LegacySQLTypeName.GEOGRAPHY,
                   DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-              .put(
-                  LegacySQLTypeName.TIME,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
-              .put(
-                  LegacySQLTypeName.RECORD,
-                  DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING) // ##########
+              .put(LegacySQLTypeName.TIME, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+              .put(LegacySQLTypeName.RECORD, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
               .build();
 
   public static FlinkFnApi.Schema.FieldType toProtoType(LogicalType logicalType) {
@@ -129,7 +121,7 @@ public final class ProtobufUtils {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
     } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
+      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
     }
   }
 
@@ -138,7 +130,7 @@ public final class ProtobufUtils {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
     } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
+      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
     }
   }
 
@@ -147,7 +139,7 @@ public final class ProtobufUtils {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
     } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
+      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
     }
   }
 
@@ -235,6 +227,20 @@ public final class ProtobufUtils {
     return createDescriptorFromProto(descriptorProto);
   }
 
+  public static Descriptors.Descriptor toDescriptor(Schema schema)
+      throws Descriptors.DescriptorValidationException {
+    DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
+        DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
+
+    FieldList fields = schema.getFields();
+
+    int initialDepth = 0;
+    DescriptorProtos.DescriptorProto descriptorProto =
+        buildDescriptorProtoWithFields(descriptorBuilder, fields, initialDepth);
+
+    return createDescriptorFromProto(descriptorProto);
+  }
+
   static ArrayList<Field> getListOfSubFields(LogicalType logicalType) {
     ArrayList<Field> listOfSubFileds = new ArrayList<Field>();
     List<String> fieldNameList = new ArrayList<String>();
@@ -257,22 +263,8 @@ public final class ProtobufUtils {
     return listOfSubFileds;
   }
 
-  private static Descriptors.Descriptor toDescriptor(Schema schema)
-      throws Descriptors.DescriptorValidationException {
-    DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
-        DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-
-    FieldList fields = schema.getFields();
-
-    int initialDepth = 0;
-    DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, fields, initialDepth);
-
-    return createDescriptorFromProto(descriptorProto);
-  }
-
   @VisibleForTesting
-  static DescriptorProtos.DescriptorProto buildDescriptorProtoWithFields(
+  protected static DescriptorProtos.DescriptorProto buildDescriptorProtoWithFields(
       DescriptorProtos.DescriptorProto.Builder descriptorBuilder, FieldList fields, int depth) {
     Preconditions.checkArgument(
         depth < MAX_BIGQUERY_NESTED_DEPTH,
@@ -281,16 +273,14 @@ public final class ProtobufUtils {
     for (Field field : fields) {
       String fieldName = field.getName();
       DescriptorProtos.FieldDescriptorProto.Label fieldLabel = toProtoFieldLabel(field.getMode());
+      FieldList subFields = field.getSubFields();
 
       if (field.getType().equals(LegacySQLTypeName.RECORD)) {
-        String recordTypeName =
-            RESERVED_NESTED_TYPE_NAME + messageNumber; // TODO: Maintain this as a reserved
-        // nested-type name, which no
-        // column can have.
+        String recordTypeName = RESERVED_NESTED_TYPE_NAME + messageNumber;
         DescriptorProtos.DescriptorProto.Builder nestedFieldTypeBuilder =
             descriptorBuilder.addNestedTypeBuilder();
         nestedFieldTypeBuilder.setName(recordTypeName);
-
+        buildDescriptorProtoWithFields(nestedFieldTypeBuilder, subFields, depth + 1);
         descriptorBuilder.addField(
             createProtoFieldBuilder(fieldName, fieldLabel, messageNumber)
                 .setTypeName(recordTypeName));
@@ -319,7 +309,7 @@ public final class ProtobufUtils {
   }
 
   @VisibleForTesting
-  static DescriptorProtos.FieldDescriptorProto.Builder createProtoFieldBuilder(
+  protected static DescriptorProtos.FieldDescriptorProto.Builder createProtoFieldBuilder(
       String fieldName,
       DescriptorProtos.FieldDescriptorProto.Label fieldLabel,
       int messageNumber,
@@ -353,7 +343,7 @@ public final class ProtobufUtils {
       Object flinkValue = row.getField(fieldIndex);
       boolean nullable = flinkType.isNullable();
       Descriptors.Descriptor nestedTypeDescriptor =
-          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + protoFieldNumber);
+          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + (protoFieldNumber));
       Object protoValue =
           convertFlinkValueToProtoRowValue(flinkType, flinkValue, nullable, nestedTypeDescriptor);
 
@@ -378,7 +368,7 @@ public final class ProtobufUtils {
       Object flinkValue = row.getField(fieldIndex);
       boolean nullable = flinkType.isNullable();
       Descriptors.Descriptor nestedTypeDescriptor =
-          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + protoFieldNumber);
+          schemaDescriptor.findNestedTypeByName(RESERVED_NESTED_TYPE_NAME + (protoFieldNumber));
       Object protoValue =
           convertFlinkValueToProtoRowValue(flinkType, flinkValue, nullable, nestedTypeDescriptor);
 
@@ -444,7 +434,7 @@ public final class ProtobufUtils {
       return ((LocalDate) flinkValue).toEpochDay();
     }
     if (flinkType instanceof TimeType) {
-      return ((LocalTime) flinkValue);
+      return flinkValue.toString();
     }
     if (flinkType instanceof FloatType || flinkType instanceof DoubleType) {
       return ((Number) flinkValue).doubleValue();
