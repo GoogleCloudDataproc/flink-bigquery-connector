@@ -63,8 +63,8 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             + "'\n"
             + ")");
-    final Table sourceTable = flinkTableEnv.from(flinkSrcTable);   
-    TableResult datatable = sourceTable.execute();   
+    final Table sourceTable = flinkTableEnv.from(flinkSrcTable);
+    TableResult datatable = sourceTable.execute();
     assertNotNull(datatable);
     assertEquals(2, datatable.getTableSchema().getFieldCount());
   }
@@ -89,14 +89,13 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
                   + sql
                   + "',\n"
                   + "  'maxParallelism' = '10',\n"
-                  //					+ "  'filter = 'view_count < 10'"
                   + "  'materializationProject' = 'q-gcp-6750-pso-gs-flink-22-01',\n"
                   + "  'materializationDataset' = 'testDataset',\n"
                   + "  'credentialsFile' = '"
                   + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
                   + "'\n"
                   + ")");
-          Table result = flinkTableEnv.from(flinkSrcTable);          
+          Table result = flinkTableEnv.from(flinkSrcTable);
           result.execute();
           throw new FlinkBigQueryException("Column not found");
         });
@@ -108,7 +107,7 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
         "SELECT tag, COUNT(*) countVal \n"
             + "FROM ( SELECT SPLIT(tags, \"|\") tags FROM `q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions` a \n"
             + "WHERE EXTRACT(YEAR FROM creation_date)>=2014 ), UNNEST(tags) tag GROUP BY 1 ORDER BY 2 DESC LIMIT 10 ";
-   
+
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (tag STRING,tag_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -127,8 +126,8 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             + "'\n"
             + ")");
-    final Table sourceTable = flinkTableEnv.from(flinkSrcTable);   
-    TableResult datatable = sourceTable.execute();  
+    final Table sourceTable = flinkTableEnv.from(flinkSrcTable);
+    TableResult datatable = sourceTable.execute();
     assertNotNull(datatable);
     assertEquals(2, datatable.getTableSchema().getFieldCount());
   }

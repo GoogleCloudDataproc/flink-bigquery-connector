@@ -604,10 +604,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     return persistentGcsPath.toJavaUtil();
   }
 
-  // public IntermediateFormat getIntermediateFormat() {
-  // return intermediateFormat;
-  // }
-
   public DataFormat getReadDataFormat() {
     return readDataFormat;
   }
@@ -687,10 +683,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   public boolean getPushAllFilters() {
     return pushAllFilters;
   }
-
-  // in order to simplify the configuration, the BigQuery client settings are
-  // fixed. If needed
-  // we will add configuration properties for them.
 
   @Override
   public int getBigQueryClientConnectTimeout() {
@@ -801,12 +793,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
       TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
       this.tableList = tablesNamesFinder.getTableList(select);
       this.selectCols = ((PlainSelect) ((Select) select).getSelectBody()).getSelectItems();
-    }
-
-    private String getTable() {
-      String tableName = tableList.get(0);
-      tableName = tableName.replace("`", "");
-      return tableName;
     }
 
     String getSelectedFields() {

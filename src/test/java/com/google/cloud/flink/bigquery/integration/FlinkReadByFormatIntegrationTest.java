@@ -62,7 +62,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
     TableResult tableResult = result.execute();
     try (CloseableIterator<Row> it = tableResult.collect()) {
       while (it.hasNext()) {
-        Row row = it.next();
+        it.next();
         count += 1;
       }
     }
