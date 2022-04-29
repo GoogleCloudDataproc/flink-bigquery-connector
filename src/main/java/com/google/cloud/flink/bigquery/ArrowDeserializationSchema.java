@@ -15,6 +15,7 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -35,49 +36,78 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, Serializable {
 
   private static final long serialVersionUID = 1L;
+  final Logger logger = LoggerFactory.getLogger(ArrowDeserializationSchema.class);
 
   private BufferAllocator allocator;
   private final TypeInformation<RowData> typeInfo;
   ArrowRecordBatch deserializedBatch;
-
-  public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
-      Schema schema, TypeInformation<RowData> typeInfo) {
-    return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schema, typeInfo);
-  }
-
   private VectorSchemaRoot root;
   private VectorLoader loader;
   List<FieldVector> vectors = new ArrayList<>();
   private Schema schema;
   private final Class<T> recordClazz;
 
+  private String schemaJsonString;
+
+  private List<String> selectedFields;
+
+  private Schema readSessionSchema;
+
+  private Schema rowTypeSchema;
+
   ArrowDeserializationSchema(
-      Class<T> recordClazz, Schema schema, TypeInformation<RowData> typeInfo) {
+      Class<T> recordClazz, String schemaJsonString, TypeInformation<RowData> typeInfo) {
     Preconditions.checkNotNull(recordClazz, "Arrow record class must not be null.");
     this.typeInfo = typeInfo;
     this.recordClazz = recordClazz;
+    this.schemaJsonString = schemaJsonString;
   }
 
-  @SuppressWarnings("unchecked")
+  public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
+      String schemaJsonString, TypeInformation<RowData> typeInfo) {
+    return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
+  }
+
   @Override
-  public T deserialize(byte[] message) throws IOException {
-    if (schema == null) {
-      this.schema = ArrowRowDataDeserializationSchema.getArrowSchema();
+  public T deserialize(byte[] responseByteMessage) throws IOException {
+    ReadRowsResponse response = ReadRowsResponse.parseFrom(responseByteMessage);
+    byte[] arrowRecordBatchMessage =
+        response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray();
+
+    if (arrowRecordBatchMessage == null) {
+      throw new FlinkBigQueryException("Deserializing message is empty");
+    }
+    if (this.schema == null) {
+      try {
+        this.readSessionSchema =
+            MessageSerializer.deserializeSchema(
+                new ReadChannel(
+                    new ByteArrayReadableSeekableByteChannel(
+                        response.getArrowSchema().getSerializedSchema().toByteArray())));
+      } catch (Exception e) {
+        logger.error("Error while deserializing schema:", e);
+      }
+      this.rowTypeSchema = Schema.fromJSON(schemaJsonString);
+      String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
+      this.schema = Schema.fromJSON(jsonArrowSchemafromReadSession);
     }
     checkArrowInitialized();
     deserializedBatch =
         MessageSerializer.deserializeRecordBatch(
-            new ReadChannel(new ByteArrayReadableSeekableByteChannel(message)), allocator);
+            new ReadChannel(new ByteArrayReadableSeekableByteChannel(arrowRecordBatchMessage)),
+            allocator);
     loader.load(deserializedBatch);
     deserializedBatch.close();
     return (T) root;
   }
 
-  void checkArrowInitialized() {
+  private void checkArrowInitialized() {
     Preconditions.checkNotNull(schema);
     if (root != null) {
       return;
@@ -94,12 +124,10 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
 
   @Override
   public boolean isEndOfStream(T nextElement) {
-
-    return nextElement == null ? Boolean.TRUE : Boolean.FALSE;
+    return nextElement == null;
   }
 
   @Override
-  @SuppressWarnings({"unchecked"})
   public TypeInformation<T> getProducedType() {
     return (TypeInformation<T>) typeInfo;
   }

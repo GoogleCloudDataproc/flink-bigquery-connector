@@ -16,6 +16,7 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
+import java.util.Arrays;
 import java.util.LinkedList;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
@@ -24,54 +25,66 @@ import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
+import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 
-public final class BigQueryDynamicTableSource implements ScanTableSource {
+public final class BigQueryDynamicTableSource
+    implements ScanTableSource, SupportsProjectionPushDown {
 
-  private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
-  private final DataType producedDataType;
-  private LinkedList<String> readStreamNames;
+  private DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
+  private DataType producedDataType;
+  private LinkedList<String> readSessionStreamList;
   private BigQueryClientFactory bigQueryReadClientFactory;
+  private Object[] projectedFields;
+  private String selectedfields;
+  private String arrowReadSessionSchema;
 
   public BigQueryDynamicTableSource(
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
       DataType producedDataType,
-      LinkedList<String> readStreamNames,
+      LinkedList<String> readSessionStreamList,
       BigQueryClientFactory bigQueryReadClientFactory) {
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
-
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
-    this.readStreamNames = readStreamNames;
+    this.readSessionStreamList = readSessionStreamList;
+    this.arrowReadSessionSchema = arrowReadSessionSchema;
   }
 
   @Override
   public ChangelogMode getChangelogMode() {
-
     return decodingFormat.getChangelogMode();
   }
 
   @Override
   public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-
     // create runtime classes that are shipped to the cluster
     final DeserializationSchema<RowData> deserializer =
         decodingFormat.createRuntimeDecoder(runtimeProviderContext, producedDataType);
     final SourceFunction<RowData> sourceFunction =
-        new BigQuerySourceFunction(deserializer, readStreamNames, bigQueryReadClientFactory);
+        new BigQuerySourceFunction(deserializer, readSessionStreamList, bigQueryReadClientFactory);
     return SourceFunctionProvider.of(sourceFunction, false);
   }
 
   @Override
   public DynamicTableSource copy() {
-
     return new BigQueryDynamicTableSource(
-        decodingFormat, producedDataType, readStreamNames, bigQueryReadClientFactory);
+        decodingFormat, producedDataType, readSessionStreamList, bigQueryReadClientFactory);
   }
 
   @Override
   public String asSummaryString() {
     return "BigQuery Table Source";
+  }
+
+  @Override
+  public boolean supportsNestedProjection() {
+    return false;
+  }
+
+  @Override
+  public void applyProjection(int[][] projectedFields) {
+    this.projectedFields = Arrays.stream(projectedFields).map(value -> value[0]).toArray();
   }
 }

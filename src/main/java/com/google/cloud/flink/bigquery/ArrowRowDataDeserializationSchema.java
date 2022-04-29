@@ -16,9 +16,10 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.flink.bigquery.arrow.util.ArrowSchemaConverter;
-import com.google.cloud.flink.bigquery.arrow.util.ArrowToRowDataConverter;
+import com.google.cloud.flink.bigquery.arrow.util.ArrowToRowDataConverters;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -37,16 +38,30 @@ public class ArrowRowDataDeserializationSchema
   public static final long serialVersionUID = 1L;
   public TypeInformation<RowData> typeInfo;
   public DeserializationSchema<VectorSchemaRoot> nestedSchema;
-  public ArrowToRowDataConverter runtimeConverter;
-  List<GenericRowData> rowDataList;
+  public ArrowToRowDataConverters.ArrowToRowDataConverter runtimeConverter;
+  public List<GenericRowData> rowDataList;
+  public List<String> selectedFields = new ArrayList<String>();
+  public String selectedFieldString;
+  final List<String> readSessionFieldNames = new ArrayList<String>();
+  public String arrowReadSessionSchema;
+  public String arrowSchemaJson;
 
-  public static Schema arrowSchema;
+  public ArrowRowDataDeserializationSchema() {}
 
-  public ArrowRowDataDeserializationSchema(RowType rowType, TypeInformation<RowData> typeInfo) {
+  public ArrowRowDataDeserializationSchema(
+      RowType rowType, TypeInformation<RowData> typeInfo, List<String> selectedFieldList) {
     this.typeInfo = typeInfo;
-    arrowSchema = ArrowSchemaConverter.convertToSchema(rowType);
-    this.nestedSchema = ArrowDeserializationSchema.forGeneric(arrowSchema, typeInfo);
-    this.runtimeConverter = ArrowToRowDataConverter.createRowConverter(rowType);
+    Schema arrowSchema = ArrowSchemaConverter.convertToSchema(rowType);
+    arrowSchema.getFields().stream()
+        .forEach(
+            field -> {
+              this.readSessionFieldNames.add(field.getName());
+            });
+    this.arrowSchemaJson = arrowSchema.toJson().toString();
+    this.nestedSchema = ArrowDeserializationSchema.forGeneric(arrowSchemaJson, typeInfo);
+    this.runtimeConverter =
+        ArrowToRowDataConverters.createRowConverter(
+            rowType, readSessionFieldNames, selectedFieldList);
   }
 
   @Override
@@ -59,19 +74,20 @@ public class ArrowRowDataDeserializationSchema
     this.nestedSchema.open(context);
   }
 
-  @SuppressWarnings("unchecked")
   @Override
-  public void deserialize(@Nullable byte[] message, Collector<RowData> out) throws IOException {
-    if (message == null) {
+  public void deserialize(@Nullable byte[] responseByteMessage, Collector<RowData> out)
+      throws IOException {
+    if (responseByteMessage == null) {
       throw new FlinkBigQueryException("Deserializing message is empty");
     }
     VectorSchemaRoot root = null;
     try {
-      root = nestedSchema.deserialize(message);
+      root = nestedSchema.deserialize(responseByteMessage);
       List<GenericRowData> rowdatalist = (List<GenericRowData>) runtimeConverter.convert(root);
       for (int i = 0; i < rowdatalist.size(); i++) {
         out.collect(rowdatalist.get(i));
       }
+
     } catch (Exception ex) {
       throw new FlinkBigQueryException("Error while deserializing Arrow type", ex);
     } finally {
@@ -79,10 +95,6 @@ public class ArrowRowDataDeserializationSchema
         root.close();
       }
     }
-  }
-
-  public static Schema getArrowSchema() {
-    return arrowSchema;
   }
 
   @Override
@@ -119,6 +131,6 @@ public class ArrowRowDataDeserializationSchema
 
   @Override
   public boolean isEndOfStream(RowData nextElement) {
-    return nextElement != null ? false : true;
+    return nextElement == null;
   }
 }
