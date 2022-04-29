@@ -15,6 +15,7 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import java.util.List;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -25,6 +26,12 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
 public class BigQueryArrowFormat implements DecodingFormat<DeserializationSchema<RowData>> {
+  private List<String> selectedFieldList;
+
+  public BigQueryArrowFormat(List<String> selectedFieldList) {
+    this.selectedFieldList = selectedFieldList;
+  }
+
   @Override
   public ChangelogMode getChangelogMode() {
     return ChangelogMode.insertOnly();
@@ -37,6 +44,6 @@ public class BigQueryArrowFormat implements DecodingFormat<DeserializationSchema
     final RowType rowType = (RowType) producedDataType.getLogicalType();
     final TypeInformation<RowData> rowDataTypeInfo =
         (TypeInformation<RowData>) context.createTypeInformation(producedDataType);
-    return new ArrowRowDataDeserializationSchema(rowType, rowDataTypeInfo);
+    return new ArrowRowDataDeserializationSchema(rowType, rowDataTypeInfo, selectedFieldList);
   }
 }

@@ -16,7 +16,10 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.storage.v1.ArrowSchema;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
@@ -33,13 +36,32 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 public class ArrowFormatFactory
     implements DeserializationFormatFactory, SerializationFormatFactory {
   public static final String IDENTIFIER = "arrow";
+  public String selectedFields = null;
   public ArrowSchema arrowSchema;
 
   @Override
   public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(
       Context context, ReadableConfig formatOptions) {
     FactoryUtil.validateFactoryOptions(this, formatOptions);
-    return new BigQueryArrowFormat();
+    String formatOptionsString = formatOptions.toString();
+    if (formatOptionsString.contains("selectedFields=")) {
+      this.selectedFields =
+          formatOptionsString.substring(
+              formatOptionsString.indexOf("selectedFields="),
+              formatOptionsString.indexOf(" ", formatOptionsString.indexOf("selectedFields=")));
+      if (this.selectedFields.endsWith(",")) {
+        this.selectedFields =
+            selectedFields.substring(0, selectedFields.length() - 1).replace("selectedFields=", "");
+      }
+    }
+    List<String> selectedFieldList = new ArrayList<String>();
+    ;
+    if (selectedFields != null) {
+      selectedFieldList = Arrays.asList(selectedFields.split(","));
+    } else {
+      selectedFieldList = null;
+    }
+    return new BigQueryArrowFormat(selectedFieldList);
   }
 
   @Override

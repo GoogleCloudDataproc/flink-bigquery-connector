@@ -41,26 +41,27 @@ public class ArrowRowDataDeserializationSchema
   public ArrowToRowDataConverters.ArrowToRowDataConverter runtimeConverter;
   public List<GenericRowData> rowDataList;
   public List<String> selectedFields = new ArrayList<String>();
-  public static Schema arrowSchema;
-  public static Schema readSessionArrowSchema;
   public String selectedFieldString;
   final List<String> readSessionFieldNames = new ArrayList<String>();
   public String arrowReadSessionSchema;
+  public String arrowSchemaJson;
 
   public ArrowRowDataDeserializationSchema() {}
 
-  public ArrowRowDataDeserializationSchema(RowType rowType, TypeInformation<RowData> typeInfo) {
+  public ArrowRowDataDeserializationSchema(
+      RowType rowType, TypeInformation<RowData> typeInfo, List<String> selectedFieldList) {
     this.typeInfo = typeInfo;
-    this.arrowSchema = ArrowSchemaConverter.convertToSchema(rowType);
-    this.arrowSchema.getFields().stream()
+    Schema arrowSchema = ArrowSchemaConverter.convertToSchema(rowType);
+    arrowSchema.getFields().stream()
         .forEach(
             field -> {
               this.readSessionFieldNames.add(field.getName());
             });
-    this.nestedSchema =
-        ArrowDeserializationSchema.forGeneric(arrowSchema.toJson().toString(), typeInfo);
+    this.arrowSchemaJson = arrowSchema.toJson().toString();
+    this.nestedSchema = ArrowDeserializationSchema.forGeneric(arrowSchemaJson, typeInfo);
     this.runtimeConverter =
-        ArrowToRowDataConverters.createRowConverter(rowType, readSessionFieldNames);
+        ArrowToRowDataConverters.createRowConverter(
+            rowType, readSessionFieldNames, selectedFieldList);
   }
 
   @Override

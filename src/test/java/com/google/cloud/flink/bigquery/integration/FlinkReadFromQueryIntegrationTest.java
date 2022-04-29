@@ -15,7 +15,6 @@
  */
 package com.google.cloud.flink.bigquery.integration;
 
-import static org.apache.flink.table.api.Expressions.$;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
@@ -27,8 +26,6 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.types.Row;
-import org.apache.flink.util.CloseableIterator;
 import org.junit.Test;
 
 public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationTestBase {
@@ -46,103 +43,103 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
 
   @Test
   public void testReadFromQuery() {
-    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
+    String sql =
+        "SELECT tag, COUNT(*) countVal FROM ( SELECT SPLIT(tags, \"|\") tags FROM `q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions` a WHERE EXTRACT(YEAR FROM creation_date)>=2014 ), UNNEST(tags) tag GROUP BY 1 ORDER BY 2 DESC LIMIT 10 ";
+    //		String sql = "SELECT title,view_count,creation_date FROM
+    // `q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions` a WHERE view_count < 10 and
+    // EXTRACT(YEAR FROM creation_date)>=2014 ";
     String flinkSrcTable = "FlinkSrcTable";
-    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (tag STRING,tag_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
             + "\n"
             + "WITH (\n"
             + "  'connector' = 'bigquery',\n"
             + "  'format' = 'arrow',\n"
-            + "  'table' = '"
-            + bigqueryReadTable
+            + "  'query' = '"
+            + sql
             + "',\n"
-            + "  'filter' = 'word_count > 500',\n"
+            + "  'maxParallelism' = '10',\n"
+            + "  'materializationProject' = 'q-gcp-6750-pso-gs-flink-22-01',\n"
+            + "  'materializationDataset' = 'testDataset',\n"
             + "  'credentialsFile' = '"
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            + "' ,\n"
-            + "  'selectedFields' = 'word,word_count' \n"
+            + "'\n"
             + ")");
-    Table result = flinkTableEnv.from(flinkSrcTable);
-    Table datatable = result.select($("word"), $("word_count"));
-    TableResult tableapi = datatable.execute();
-    assertNotNull(tableapi);
-    assertEquals(2, tableapi.getTableSchema().getFieldCount());
+    final Table sourceTable = flinkTableEnv.from(flinkSrcTable);
+    //		TableResult datatable = flinkTableEnv.executeSql("select * from "+flinkSrcTable);;
+    TableResult datatable = sourceTable.execute();
+    //		datatable.print();
+    assertNotNull(datatable);
+    assertEquals(2, datatable.getTableSchema().getFieldCount());
   }
 
   @Test
   public void testBadSql() {
+    String flinkSrcTable = "FlinkSrcTable";
+    String sql =
+        "SELECT tagging, COUNT(*) countVal FROM ( SELECT SPLIT(tags, \"|\") tagging FROM `q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions` a WHERE EXTRACT(YEAR FROM creation_date)>=2014 ), UNNEST(tags) tag GROUP BY 1 ORDER BY 2 DESC LIMIT 10 ";
     assertThrows(
         RuntimeException.class,
         () -> {
-          String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
-          String flinkSrcTable = "FlinkSrcTable";
-          String flinkSrcTable1 = "FlinkSrcTable";
           String srcQueryString =
-              "CREATE TABLE " + flinkSrcTable1 + " (word STRING , word_count BIGINT)";
+              "CREATE TABLE " + flinkSrcTable + " (tag STRING,tag_count BIGINT)";
           flinkTableEnv.executeSql(
               srcQueryString
                   + "\n"
                   + "WITH (\n"
                   + "  'connector' = 'bigquery',\n"
                   + "  'format' = 'arrow',\n"
-                  + "  'table' = '"
-                  + bigqueryReadTable
+                  + "  'query' = '"
+                  + sql
                   + "',\n"
-                  + "  'filter' = 'word_count > 500',\n"
+                  + "  'maxParallelism' = '10',\n"
+                  //					+ "  'filter = 'view_count < 10'"
+                  + "  'materializationProject' = 'q-gcp-6750-pso-gs-flink-22-01',\n"
+                  + "  'materializationDataset' = 'testDataset',\n"
                   + "  'credentialsFile' = '"
                   + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-                  + "' ,\n"
-                  + "  'selectedFields' = 'word_test' \n"
+                  + "'\n"
                   + ")");
-          Table result = flinkTableEnv.from(flinkSrcTable1);
-          Table datatable =
-              result
-                  .where($("word_count").isGreaterOrEqual(100))
-                  .select($("word"), $("word_count"));
-          TableResult tableapi = datatable.execute();
+          Table result = flinkTableEnv.from(flinkSrcTable);
+          //			Table datatable = result.select($("word"), $("word_count"));
+          TableResult tableapi = result.execute();
           throw new FlinkBigQueryException("Column not found");
         });
   }
 
-  // We are passing all the configuration values and setting filter in flink and
-  // tableAPI both
-  // together.
   @Test
-  public void testReadFromQueryInternal() throws Exception {
-    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
+  public void testReadFromQueryWithNewLine() {
+    String sql =
+        "SELECT tag, COUNT(*) countVal \n"
+            + "FROM ( SELECT SPLIT(tags, \"|\") tags FROM `q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions` a \n"
+            + "WHERE EXTRACT(YEAR FROM creation_date)>=2014 ), UNNEST(tags) tag GROUP BY 1 ORDER BY 2 DESC LIMIT 10 ";
+    //		String sql = "SELECT title,view_count,creation_date FROM
+    // `q-gcp-6750-pso-gs-flink-22-01.testDataset.posts_questions` a WHERE view_count < 10 and
+    // EXTRACT(YEAR FROM creation_date)>=2014 ";
     String flinkSrcTable = "FlinkSrcTable";
-    String filter = "word_count > 500 and word=\"I\"";
-    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (tag STRING,tag_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
             + "\n"
             + "WITH (\n"
             + "  'connector' = 'bigquery',\n"
             + "  'format' = 'arrow',\n"
-            + "  'table' = '"
-            + bigqueryReadTable
+            + "  'query' = '"
+            + sql
             + "',\n"
-            + "  'filter' = '"
-            + filter
-            + "',\n"
+            + "  'maxParallelism' = '10',\n"
+            + "  'materializationProject' = 'q-gcp-6750-pso-gs-flink-22-01',\n"
+            + "  'materializationDataset' = 'testDataset',\n"
             + "  'credentialsFile' = '"
             + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            + "' ,\n"
-            + "  'selectedFields' = 'word,word_count' \n"
+            + "'\n"
             + ")");
-    Table result = flinkTableEnv.from(flinkSrcTable);
-    Table datatable =
-        result.where($("word_count").isGreaterOrEqual(100)).select($("word"), $("word_count"));
-    int count = 0;
-    TableResult tableResult = datatable.execute();
-    try (CloseableIterator<Row> it = tableResult.collect()) {
-      while (it.hasNext()) {
-        it.next();
-        count += 1;
-      }
-    }
-    assertEquals(count, 24);
+    final Table sourceTable = flinkTableEnv.from(flinkSrcTable);
+    //		TableResult datatable = flinkTableEnv.executeSql("select * from "+flinkSrcTable);;
+    TableResult datatable = sourceTable.execute();
+    //		datatable.print();
+    assertNotNull(datatable);
+    assertEquals(2, datatable.getTableSchema().getFieldCount());
   }
 }
