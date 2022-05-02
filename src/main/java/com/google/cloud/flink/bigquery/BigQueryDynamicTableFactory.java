@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
 public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
-  static FlinkBigQueryConfig bqconfig;
+  private FlinkBigQueryConfig bqconfig;
   private BigQueryClientFactory bigQueryReadClientFactory;
   public static final ConfigOption<String> TABLE =
       ConfigOptions.key("table").stringType().noDefaultValue();
@@ -61,14 +61,6 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ConfigOptions.key("query").stringType().noDefaultValue();
   public static final ConfigOption<String> FILTER =
       ConfigOptions.key("filter").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_FIELD =
-      ConfigOptions.key("partitionField").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_TYPE =
-      ConfigOptions.key("partitionType").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_EXPIRATION_MS =
-      ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
-      ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
   public static final ConfigOption<String> FLINK_VERSION =
       ConfigOptions.key("flinkVersion").stringType().defaultValue("1.11");
   public static final ConfigOption<Integer> PARALLELISM =
@@ -128,10 +120,6 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
     options.add(CREDENTIALS_KEY);
     options.add(FILTER);
     options.add(FLINK_VERSION);
-    options.add(PARTITION_FIELD);
-    options.add(PARTITION_TYPE);
-    options.add(PARTITION_EXPIRATION_MS);
-    options.add(PARTITION_REQUIRE_FILTER);
     options.add(DEFAULT_PARALLELISM);
     options.add(PROXY_URI);
     options.add(PROXY_USERNAME);
@@ -254,9 +242,5 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       errorString = errorString + exceptionHead + "\n\n" + String.join("\n", missingArgs);
     }
     return errorString;
-  }
-
-  public static FlinkBigQueryConfig getBqConfig() {
-    return bqconfig;
   }
 }
