@@ -17,7 +17,6 @@ package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import java.util.ArrayList;
-import java.util.Arrays;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -81,7 +80,6 @@ public final class BigQueryDynamicTableSource
   }
 
   @Override
-  public void applyProjection(int[][] projectedFields) {
-    Arrays.stream(projectedFields).map(value -> value[0]).toArray();
+  public void applyProjection(int[][] projectedFields) {   
   }
 }
