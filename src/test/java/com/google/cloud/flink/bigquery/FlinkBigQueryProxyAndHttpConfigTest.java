@@ -37,7 +37,6 @@ import java.util.Optional;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.hadoop.conf.Configuration;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class FlinkBigQueryProxyAndHttpConfigTest {
@@ -54,12 +53,12 @@ public class FlinkBigQueryProxyAndHttpConfigTest {
 
   private final ImmutableMap<String, String> defaultGlobalOptions =
       ImmutableMap.<String, String>builder()
-          .put("spark.datasource.bigquery.proxyAddress", "http://bq-connector-host-global:1234")
-          .put("spark.datasource.bigquery.proxyUsername", "bq-connector-user-global")
-          .put("spark.datasource.bigquery.proxyPassword", "bq-connector-password-global")
-          .put("spark.datasource.bigquery.httpMaxRetry", "20")
-          .put("spark.datasource.bigquery.httpConnectTimeout", "20000")
-          .put("spark.datasource.bigquery.httpReadTimeout", "30000")
+          .put("flink.datasource.bigquery.proxyAddress", "http://bq-connector-host-global:1234")
+          .put("flink.datasource.bigquery.proxyUsername", "bq-connector-user-global")
+          .put("flink.datasource.bigquery.proxyPassword", "bq-connector-password-global")
+          .put("flink.datasource.bigquery.httpMaxRetry", "20")
+          .put("flink.datasource.bigquery.httpConnectTimeout", "20000")
+          .put("flink.datasource.bigquery.httpReadTimeout", "30000")
           .build();
 
   private final Configuration defaultHadoopConfiguration = getHadoopConfiguration();
@@ -98,14 +97,19 @@ public class FlinkBigQueryProxyAndHttpConfigTest {
                 defaultOptions, defaultGlobalOptions, defaultHadoopConfiguration));
   }
 
-  @Ignore@Test
-  public void testConfigFromOptions()
-      throws URISyntaxException { // need to confirm the parameter of from method
+  @Test
+  public void testConfigFromOptions() throws URISyntaxException {
     Configuration emptyHadoopConfiguration = new Configuration();
+
     FlinkBigQueryProxyAndHttpConfig config =
         FlinkBigQueryProxyAndHttpConfig.from(
-            defaultOptions, ImmutableMap.of(), emptyHadoopConfiguration);
+            defaultOptions,
+            ImmutableMap.of(), // empty
+            // globalOptions
+            emptyHadoopConfiguration);
 
+    assertThat(config.getProxyUri())
+        .isEqualTo(Optional.of(getURI("http", "bq-connector-host", 1234)));
     assertThat(config.getProxyUsername()).isEqualTo(Optional.of("bq-connector-user"));
     assertThat(config.getProxyPassword()).isEqualTo(Optional.of("bq-connector-password"));
     assertThat(config.getHttpMaxRetry()).isEqualTo(Optional.of(10));
@@ -142,12 +146,12 @@ public class FlinkBigQueryProxyAndHttpConfigTest {
             emptyHadoopConfiguration);
 
     assertThat(config.getProxyUri())
-        .isNotEqualTo(Optional.of(getURI("http", "bq-connector-host-global", 1234)));
-    assertThat(config.getProxyUsername()).isNotEqualTo(Optional.of("bq-connector-user-global"));
-    assertThat(config.getProxyPassword()).isNotEqualTo(Optional.of("bq-connector-password-global"));
-    assertThat(config.getHttpMaxRetry()).isNotEqualTo(Optional.of(20));
-    assertThat(config.getHttpConnectTimeout()).isNotEqualTo(Optional.of(20000));
-    assertThat(config.getHttpReadTimeout()).isNotEqualTo(Optional.of(30000));
+        .isNotEqualTo(Optional.of(getURI("http", "bq-connector-host-hadoop", 1234)));
+    assertThat(config.getProxyUsername()).isNotEqualTo(Optional.of("bq-connector-user-hadoop"));
+    assertThat(config.getProxyPassword()).isNotEqualTo(Optional.of("bq-connector-password-hadoop"));
+    assertThat(config.getHttpMaxRetry()).isNotEqualTo(Optional.of(30));
+    assertThat(config.getHttpConnectTimeout()).isNotEqualTo(Optional.of(30000));
+    assertThat(config.getHttpReadTimeout()).isNotEqualTo(Optional.of(40000));
   }
 
   @Test
@@ -180,12 +184,12 @@ public class FlinkBigQueryProxyAndHttpConfigTest {
             defaultHadoopConfiguration);
 
     assertThat(config.getProxyUri())
-        .isEqualTo(Optional.of(getURI("http", "bq-connector-host-hadoop", 1234)));
-    assertThat(config.getProxyUsername()).isEqualTo(Optional.of("bq-connector-user-hadoop"));
-    assertThat(config.getProxyPassword()).isEqualTo(Optional.of("bq-connector-password-hadoop"));
-    assertThat(config.getHttpMaxRetry()).isEqualTo(Optional.of(30));
-    assertThat(config.getHttpConnectTimeout()).isEqualTo(Optional.of(30000));
-    assertThat(config.getHttpReadTimeout()).isEqualTo(Optional.of(40000));
+        .isEqualTo(Optional.of(getURI("http", "bq-connector-host-global", 1234)));
+    assertThat(config.getProxyUsername()).isEqualTo(Optional.of("bq-connector-user-global"));
+    assertThat(config.getProxyPassword()).isEqualTo(Optional.of("bq-connector-password-global"));
+    assertThat(config.getHttpMaxRetry()).isEqualTo(Optional.of(20));
+    assertThat(config.getHttpConnectTimeout()).isEqualTo(Optional.of(20000));
+    assertThat(config.getHttpReadTimeout()).isEqualTo(Optional.of(30000));
   }
 
   @Test
