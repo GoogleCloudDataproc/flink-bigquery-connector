@@ -61,6 +61,7 @@
         <guava.version>31.1-jre</guava.version>
         <hadoop.version>2.10.0</hadoop.version>
         <jackson.version>2.13.2</jackson.version>
+        <jackson-databind.version>2.13.2.2</jackson-databind.version>
         <joda.version>2.10.14</joda.version>        
         <jsqlparser.version>3.1</jsqlparser.version>
         <junit.version>4.13.1</junit.version>
@@ -94,7 +95,7 @@
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <!-- TODO: Fix once Jackson release jackson-databind with the same version as the BOM -->
-                <version>2.13.2.2</version>
+                <version>${jackson-databind.version}</version>
                 <scope>compile</scope>
             </dependency>
             <dependency>
@@ -245,8 +246,7 @@
         <dependency>
            <groupId>com.fasterxml.jackson.core</groupId>
            <artifactId>jackson-databind</artifactId>
-           <version>${jackson.version}</version>
-        </dependency>
+           </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-api-java-bridge_${scala.version}</artifactId>
@@ -262,8 +262,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>${protobuf.version}</version>
-        </dependency>            
+            </dependency>            
     </dependencies>
     <build>
         <pluginManagement>
