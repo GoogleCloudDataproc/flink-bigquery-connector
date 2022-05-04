@@ -61,7 +61,7 @@
         <guava.version>31.1-jre</guava.version>
         <hadoop.version>2.10.0</hadoop.version>
         <jackson.version>2.13.2</jackson.version>
-        <joda.version>2.10</joda.version>        
+        <joda.version>2.10.14</joda.version>        
         <jsqlparser.version>3.1</jsqlparser.version>
         <junit.version>4.13.1</junit.version>
         <netty.version>4.1.75.Final</netty.version>
