@@ -23,7 +23,6 @@ import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import org.apache.flink.api.common.functions.util.ListCollector;
@@ -47,7 +46,7 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
   int numOfStreams;
   int executerIndex;
   private DeserializationSchema<RowData> deserializer;
-  private LinkedList<String> readSessionStreamList = new LinkedList<>();
+  private ArrayList<String> readSessionStreamList = new ArrayList<>();
   private BigQueryClientFactory bigQueryReadClientFactory;
   private List<String> streamNames = new ArrayList<String>();
   private int numOfExecutors;
@@ -56,8 +55,9 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
 
   public BigQuerySourceFunction(
       DeserializationSchema<RowData> deserializer,
-      LinkedList<String> readSessionStreams,
+      ArrayList<String> readSessionStreams,
       BigQueryClientFactory bigQueryReadClientFactory) {
+
     this.deserializer = deserializer;
     this.readSessionStreamList = readSessionStreams;
     this.numOfStreams = readSessionStreamList.size();

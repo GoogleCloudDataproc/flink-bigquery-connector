@@ -783,7 +783,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     };
   }
 
-  class SqlParser {
+  static class SqlParser {
     List<String> tableList = new ArrayList<String>();
     List<SelectItem> selectCols = new ArrayList<SelectItem>();
 

@@ -15,7 +15,6 @@
  */
 package com.google.cloud.flink.bigquery.integration;
 
-import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
@@ -24,8 +23,6 @@ import org.junit.ClassRule;
 import org.junit.rules.ExternalResource;
 
 public class FlinkBigQueryIntegrationTestBase {
-
-  private BigQuery bq;
 
   @ClassRule public static TestDataset testDataset = new TestDataset();
 
@@ -39,10 +36,10 @@ public class FlinkBigQueryIntegrationTestBase {
 
   public FlinkBigQueryIntegrationTestBase() {
 
-    this.bq = BigQueryOptions.getDefaultInstance().getService();
+    BigQueryOptions.getDefaultInstance().getService();
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
-    this.flinkTableEnv = StreamTableEnvironment.create(env);
+    FlinkBigQueryIntegrationTestBase.flinkTableEnv = StreamTableEnvironment.create(env);
   }
 
   protected static class TestDataset extends ExternalResource {

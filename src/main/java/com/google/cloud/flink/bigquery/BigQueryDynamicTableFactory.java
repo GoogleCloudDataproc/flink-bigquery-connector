@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -133,7 +132,6 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   }
 
   DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
-  private String arrowReadSessionSchema;
 
   @Override
   public DynamicTableSource createDynamicTableSource(Context context) {
@@ -156,11 +154,11 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
         decodingFormat, producedDataType, getReadStreamNames(options), bigQueryReadClientFactory);
   }
 
-  private LinkedList<String> getReadStreamNames(ReadableConfig options) {
+  private ArrayList<String> getReadStreamNames(ReadableConfig options) {
     bigQueryReadClientFactory = null;
     UserAgentHeaderProvider userAgentHeaderProvider;
     BigQueryCredentialsSupplier bigQueryCredentialsSupplier;
-    LinkedList<String> readStreamNames = new LinkedList<String>();
+    ArrayList<String> readStreamNames = new ArrayList<String>();
     try {
       ImmutableMap<String, String> defaultOptions =
           ImmutableMap.of("flinkVersion", options.get(FLINK_VERSION));
@@ -202,7 +200,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
               new ReadChannel(
                   new ByteArrayReadableSeekableByteChannel(
                       readSession.getArrowSchema().getSerializedSchema().toByteArray())));
-      this.arrowReadSessionSchema = arrowReadSchema.toJson();
+      arrowReadSchema.toJson();
       String fieldList = new String();
       for (int i = 0; i < arrowReadSchema.getFields().size(); i++) {
         fieldList = fieldList.concat(arrowReadSchema.getFields().get(i).getName() + ",");

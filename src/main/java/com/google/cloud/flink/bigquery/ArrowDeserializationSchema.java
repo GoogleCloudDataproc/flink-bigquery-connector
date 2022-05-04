@@ -52,14 +52,8 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   List<FieldVector> vectors = new ArrayList<>();
   private Schema schema;
   private final Class<T> recordClazz;
-
   private String schemaJsonString;
-
-  private List<String> selectedFields;
-
   private Schema readSessionSchema;
-
-  private Schema rowTypeSchema;
 
   ArrowDeserializationSchema(
       Class<T> recordClazz, String schemaJsonString, TypeInformation<RowData> typeInfo) {
@@ -93,7 +87,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
       } catch (Exception e) {
         logger.error("Error while deserializing schema:", e);
       }
-      this.rowTypeSchema = Schema.fromJSON(schemaJsonString);
+      Schema.fromJSON(schemaJsonString);
       String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
       this.schema = Schema.fromJSON(jsonArrowSchemafromReadSession);
     }

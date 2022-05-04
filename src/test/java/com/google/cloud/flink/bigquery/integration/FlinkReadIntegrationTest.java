@@ -128,7 +128,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     TableResult tableResult = datatable.execute();
     try (CloseableIterator<Row> it = tableResult.collect()) {
       while (it.hasNext()) {
-        Row row = it.next();
+        it.next();
         count += 1;
       }
     }

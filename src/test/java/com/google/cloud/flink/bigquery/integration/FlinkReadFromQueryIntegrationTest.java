@@ -19,7 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 
-import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.flink.bigquery.FlinkBigQueryException;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -30,12 +29,11 @@ import org.junit.Test;
 
 public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
-  private BigQuery bq;
   StreamTableEnvironment flinkTableEnv;
 
   public FlinkReadFromQueryIntegrationTest() {
 
-    this.bq = BigQueryOptions.getDefaultInstance().getService();
+    BigQueryOptions.getDefaultInstance().getService();
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1); // source only supports parallelism of 1
     flinkTableEnv = StreamTableEnvironment.create(env);

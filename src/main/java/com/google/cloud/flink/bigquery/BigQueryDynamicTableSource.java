@@ -16,8 +16,8 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -34,22 +34,19 @@ public final class BigQueryDynamicTableSource
 
   private DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
   private DataType producedDataType;
-  private LinkedList<String> readSessionStreamList;
+  private ArrayList<String> readSessionStreamList;
   private BigQueryClientFactory bigQueryReadClientFactory;
-  private Object[] projectedFields;
-  private String selectedfields;
-  private String arrowReadSessionSchema;
 
   public BigQueryDynamicTableSource(
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
       DataType producedDataType,
-      LinkedList<String> readSessionStreamList,
+      ArrayList<String> readSessionStreamList,
       BigQueryClientFactory bigQueryReadClientFactory) {
+
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
     this.readSessionStreamList = readSessionStreamList;
-    this.arrowReadSessionSchema = arrowReadSessionSchema;
   }
 
   @Override
@@ -85,6 +82,6 @@ public final class BigQueryDynamicTableSource
 
   @Override
   public void applyProjection(int[][] projectedFields) {
-    this.projectedFields = Arrays.stream(projectedFields).map(value -> value[0]).toArray();
+    Arrays.stream(projectedFields).map(value -> value[0]).toArray();
   }
 }
