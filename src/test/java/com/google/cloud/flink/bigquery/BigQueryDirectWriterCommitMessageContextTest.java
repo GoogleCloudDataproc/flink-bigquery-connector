@@ -1,3 +1,18 @@
+/*
+ * Copyright 2022 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.google.cloud.flink.bigquery;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -20,7 +35,6 @@ public class BigQueryDirectWriterCommitMessageContextTest {
     String streamName = messageContext.getWriteStreamName();
     assertThat(streamName).isNotNull();
     assertThat(streamName).isEqualTo("Stream0");
-    assertThat(streamName instanceof String).isTrue();
   }
 
   @Test
@@ -28,7 +42,6 @@ public class BigQueryDirectWriterCommitMessageContextTest {
     String tablePath = messageContext.getTablePath();
     assertThat(tablePath).isNotNull();
     assertThat(tablePath).isEqualTo("project/dataset/table");
-    assertThat(tablePath instanceof String).isTrue();
   }
 
   @Test
@@ -36,7 +49,6 @@ public class BigQueryDirectWriterCommitMessageContextTest {
     Long rowCount = messageContext.getRowCount();
     assertThat(rowCount).isNotNull();
     assertThat(rowCount).isEqualTo(100);
-    assertThat(rowCount instanceof Long).isTrue();
   }
 
   @Test
@@ -44,7 +56,6 @@ public class BigQueryDirectWriterCommitMessageContextTest {
     String messagecontextString = messageContext.toString();
     assertThat(messagecontextString).isNotNull();
     assertThat(messagecontextString)
-        .isEqualTo("BigQueryWriterCommitMessage{, taskId=, tableId='project/dataset/table'}");
-    assertThat(messagecontextString instanceof String).isTrue();
+        .isEqualTo("BigQueryWriterCommitMessage{tableId='project/dataset/table'}");
   }
 }

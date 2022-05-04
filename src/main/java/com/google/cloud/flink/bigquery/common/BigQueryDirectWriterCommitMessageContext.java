@@ -44,6 +44,6 @@ public class BigQueryDirectWriterCommitMessageContext implements WriterCommitMes
 
   @Override
   public String toString() {
-    return "BigQueryWriterCommitMessage{" + ", taskId=" + ", tableId='" + tablePath + '\'' + '}';
+    return "BigQueryWriterCommitMessage{tableId='" + tablePath + '\'' + '}';
   }
 }
