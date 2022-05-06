@@ -195,9 +195,9 @@ public class ArrowToRowDataConverters {
     } else if (object instanceof Instant) {
       millis = ((Instant) object).toEpochMilli();
     } else {
-      JavaUtilConverter jodaConverter = JavaUtilConverter.getConverter();
-      if (jodaConverter != null) {
-        millis = jodaConverter.convertTimestamp(object);
+      JavaUtilConverter javaUtilConverter = JavaUtilConverter.getConverter();
+      if (javaUtilConverter != null) {
+        millis = javaUtilConverter.convertTimestamp(object);
       } else {
         throw new IllegalArgumentException(
             "Unexpected object type for TIMESTAMP logical type. Received: " + object);
@@ -212,9 +212,9 @@ public class ArrowToRowDataConverters {
     } else if (object instanceof LocalDate) {
       return (int) ((LocalDate) object).toEpochDay();
     } else {
-      JavaUtilConverter jodaConverter = JavaUtilConverter.getConverter();
-      if (jodaConverter != null) {
-        return (int) jodaConverter.convertDate(object);
+      JavaUtilConverter javaUtilConverter = JavaUtilConverter.getConverter();
+      if (javaUtilConverter != null) {
+        return (int) javaUtilConverter.convertDate(object);
       } else {
         throw new IllegalArgumentException(
             "Unexpected object type for DATE logical type. Received: " + object);
@@ -238,9 +238,9 @@ public class ArrowToRowDataConverters {
     } else if (object instanceof LocalTime) {
       millis = ((LocalTime) object).get(ChronoField.MILLI_OF_DAY);
     } else {
-      JavaUtilConverter jodaConverter = JavaUtilConverter.getConverter();
-      if (jodaConverter != null) {
-        millis = jodaConverter.convertTime(object);
+      JavaUtilConverter javaUtilConverter = JavaUtilConverter.getConverter();
+      if (javaUtilConverter != null) {
+        millis = javaUtilConverter.convertTime(object);
       } else {
         throw new IllegalArgumentException(
             "Unexpected object type for TIME logical type. Received: " + object);
@@ -308,7 +308,7 @@ public class ArrowToRowDataConverters {
       }
       try {
         Class.forName(
-            "org.joda.time.DateTime", false, Thread.currentThread().getContextClassLoader());
+            "java.time.LocalDateTime", false, Thread.currentThread().getContextClassLoader());
         instance = new JavaUtilConverter();
       } catch (Exception e) {
         instance = null;
@@ -345,6 +345,7 @@ public class ArrowToRowDataConverters {
         Date output = Date.from(zdt.toInstant());
         dateTime = output.getTime();
       }
+
       return dateTime;
     }
 
