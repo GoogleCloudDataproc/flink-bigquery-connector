@@ -19,12 +19,15 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.sql.Time;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -41,9 +44,6 @@ import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeFieldType;
-import org.joda.time.format.ISODateTimeFormat;
 
 /** Tool class used to convert from Arrow {@link GenericRecord} to {@link RowData}. * */
 @Internal
@@ -195,7 +195,7 @@ public class ArrowToRowDataConverters {
     } else if (object instanceof Instant) {
       millis = ((Instant) object).toEpochMilli();
     } else {
-      JodaConverter jodaConverter = JodaConverter.getConverter();
+      JavaUtilConverter jodaConverter = JavaUtilConverter.getConverter();
       if (jodaConverter != null) {
         millis = jodaConverter.convertTimestamp(object);
       } else {
@@ -212,7 +212,7 @@ public class ArrowToRowDataConverters {
     } else if (object instanceof LocalDate) {
       return (int) ((LocalDate) object).toEpochDay();
     } else {
-      JodaConverter jodaConverter = JodaConverter.getConverter();
+      JavaUtilConverter jodaConverter = JavaUtilConverter.getConverter();
       if (jodaConverter != null) {
         return (int) jodaConverter.convertDate(object);
       } else {
@@ -223,19 +223,22 @@ public class ArrowToRowDataConverters {
   }
 
   private static int convertToTime(Object object) {
+    ZoneId zoneId = ZoneId.of("UTC");
     final int millis;
     if (object instanceof Integer) {
       int value = ((Integer) object);
       millis = (Integer) (Math.abs(value) / 1000);
     } else if (object instanceof Long) {
-      int value = ((Long) object).intValue();
-      Integer noZoneMillis = (Integer) (Math.abs(value) / 1000);
-      int timeZoneOffset = new Time(noZoneMillis).getTimezoneOffset();
-      millis = noZoneMillis + Math.abs(timeZoneOffset);
+      Long value = ((Long) object);
+      value = (Math.abs(value) / 1000);
+      LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(value), zoneId);
+      ZonedDateTime zdt = time.atZone(zoneId);
+      Date output = Date.from(zdt.toInstant());
+      millis = (int) output.getTime();
     } else if (object instanceof LocalTime) {
       millis = ((LocalTime) object).get(ChronoField.MILLI_OF_DAY);
     } else {
-      JodaConverter jodaConverter = JodaConverter.getConverter();
+      JavaUtilConverter jodaConverter = JavaUtilConverter.getConverter();
       if (jodaConverter != null) {
         millis = jodaConverter.convertTime(object);
       } else {
@@ -294,19 +297,19 @@ public class ArrowToRowDataConverters {
     }
   }
 
-  private static class JodaConverter {
+  private static class JavaUtilConverter {
 
-    private static JodaConverter instance;
+    private static JavaUtilConverter instance;
     private static boolean instantiated = false;
 
-    public static JodaConverter getConverter() {
+    public static JavaUtilConverter getConverter() {
       if (instantiated) {
         return instance;
       }
       try {
         Class.forName(
             "org.joda.time.DateTime", false, Thread.currentThread().getContextClassLoader());
-        instance = new JodaConverter();
+        instance = new JavaUtilConverter();
       } catch (Exception e) {
         instance = null;
       } finally {
@@ -316,31 +319,35 @@ public class ArrowToRowDataConverters {
     }
 
     public long convertDate(Object object) {
-      final org.joda.time.LocalDate value = (org.joda.time.LocalDate) object;
-      return value.toDate().getTime();
+      final java.util.Date value = (Date) object;
+      return value.getTime();
     }
 
     public int convertTime(Object object) {
-      final org.joda.time.LocalTime value = (org.joda.time.LocalTime) object;
-      return value.get(DateTimeFieldType.millisOfDay());
+      ZoneId zoneId = ZoneId.of("UTC");
+      final java.time.LocalDateTime value = (LocalDateTime) object;
+      ZonedDateTime zdt = value.atZone(zoneId);
+      Date output = Date.from(zdt.toInstant());
+      return (int) output.getTime();
     }
 
     public long convertTimestamp(Object object) {
       long dateTime = 0;
+      ZoneId zoneId = ZoneId.of("UTC");
       if (!(object.toString().length() == 26)) {
-        final DateTime value =
-            DateTime.parse(object.toString(), ISODateTimeFormat.dateTimeParser().withZoneUTC());
-
-        dateTime = value.toDate().getTime();
+        final java.time.LocalDateTime value = (LocalDateTime) object;
+        ZonedDateTime zdt = value.atZone(zoneId);
+        Date output = Date.from(zdt.toInstant());
+        dateTime = output.getTime();
       } else if (object.toString().length() == 26) {
-        DateTime value =
-            DateTime.parse(object.toString(), ISODateTimeFormat.dateTimeParser().withZoneUTC());
-        dateTime = value.toDate().getTime();
+        final java.time.LocalDateTime value = (LocalDateTime) object;
+        ZonedDateTime zdt = value.atZone(zoneId);
+        Date output = Date.from(zdt.toInstant());
+        dateTime = output.getTime();
       }
-
       return dateTime;
     }
 
-    private JodaConverter() {}
+    private JavaUtilConverter() {}
   }
 }
