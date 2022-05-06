@@ -55,11 +55,8 @@ public class ArrowFormatFactory
       }
     }
     List<String> selectedFieldList = new ArrayList<String>();
-    ;
     if (selectedFields != null) {
       selectedFieldList = Arrays.asList(selectedFields.split(","));
-    } else {
-      selectedFieldList = null;
     }
     return new BigQueryArrowFormat(selectedFieldList);
   }

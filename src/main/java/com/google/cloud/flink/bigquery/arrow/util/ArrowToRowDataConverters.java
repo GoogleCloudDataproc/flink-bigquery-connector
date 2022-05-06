@@ -71,7 +71,7 @@ public class ArrowToRowDataConverters {
             .toArray(ArrowToRowDataConverter[]::new);
     final int arity = rowType.getFieldCount();
     final List<String> selectedFields;
-    if (selectedFieldList == null) {
+    if (selectedFieldList.isEmpty()) {
       selectedFields = new ArrayList<String>();
     } else {
       selectedFields = selectedFieldList;
@@ -80,47 +80,55 @@ public class ArrowToRowDataConverters {
     final List<String> arrowFields = new ArrayList<String>();
 
     return arrowObject -> {
-      List<GenericRowData> rowdatalist = new ArrayList<GenericRowData>();
-      if (arrowObject instanceof VectorSchemaRoot) {
-        VectorSchemaRoot record = (VectorSchemaRoot) arrowObject;
+      return getArrowObject(fieldConverters, arity, selectedFields, arrowFields, arrowObject);
+    };
+  }
+
+  private static Object getArrowObject(
+      final ArrowToRowDataConverter[] fieldConverters,
+      final int arity,
+      final List<String> selectedFields,
+      final List<String> arrowFields,
+      Object arrowObject) {
+    List<GenericRowData> rowdatalist = new ArrayList<GenericRowData>();
+    if (arrowObject instanceof VectorSchemaRoot) {
+      VectorSchemaRoot record = (VectorSchemaRoot) arrowObject;
+      record.getSchema().getFields().stream()
+          .forEach(
+              field -> {
+                arrowFields.add(field.getName());
+              });
+      if (selectedFields.isEmpty()) {
         record.getSchema().getFields().stream()
             .forEach(
                 field -> {
-                  arrowFields.add(field.getName());
+                  selectedFields.add(field.getName());
                 });
-        if (selectedFields.isEmpty()) {
-          record.getSchema().getFields().stream()
-              .forEach(
-                  field -> {
-                    selectedFields.add(field.getName());
-                  });
-        }
-        int numOfRows = record.getRowCount();
-        for (int row = 0; row < numOfRows; ++row) {
-          GenericRowData genericRowData = new GenericRowData(arity);
-          for (int col = 0; col < arity; col++) {
-            String rowTypeField = selectedFields.get(col);
-            int arrowFieldIdx = arrowFields.indexOf(rowTypeField);
-            genericRowData.setField(
-                col,
-                fieldConverters[col].convert(
-                    record.getFieldVectors().get(arrowFieldIdx).getObject(row)));
-          }
-          rowdatalist.add(genericRowData);
-        }
-      } else if (arrowObject instanceof JsonStringHashMap) {
-        JsonStringHashMap record = (JsonStringHashMap) arrowObject;
-        Set columnSet = record.keySet();
-        Object[] columnSetArray = columnSet.toArray();
+      }
+      int numOfRows = record.getRowCount();
+      for (int row = 0; row < numOfRows; ++row) {
         GenericRowData genericRowData = new GenericRowData(arity);
         for (int col = 0; col < arity; col++) {
+          String rowTypeField = selectedFields.get(col);
+          int arrowFieldIdx = arrowFields.indexOf(rowTypeField);
           genericRowData.setField(
-              col, fieldConverters[col].convert(record.get(columnSetArray[col])));
+              col,
+              fieldConverters[col].convert(
+                  record.getFieldVectors().get(arrowFieldIdx).getObject(row)));
         }
-        return genericRowData;
+        rowdatalist.add(genericRowData);
       }
-      return rowdatalist;
-    };
+    } else if (arrowObject instanceof JsonStringHashMap) {
+      JsonStringHashMap record = (JsonStringHashMap) arrowObject;
+      Set columnSet = record.keySet();
+      Object[] columnSetArray = columnSet.toArray();
+      GenericRowData genericRowData = new GenericRowData(arity);
+      for (int col = 0; col < arity; col++) {
+        genericRowData.setField(col, fieldConverters[col].convert(record.get(columnSetArray[col])));
+      }
+      return genericRowData;
+    }
+    return rowdatalist;
   }
 
   /** Creates a runtime converter which is null safe. */

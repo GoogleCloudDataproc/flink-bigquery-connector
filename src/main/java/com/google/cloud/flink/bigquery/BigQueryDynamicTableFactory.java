@@ -92,6 +92,14 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ConfigOptions.key("materializationDataset").stringType().noDefaultValue();
   public static final ConfigOption<String> ARROW_COMPRESSION_CODEC =
       ConfigOptions.key("arrowCompressionCodec").stringType().noDefaultValue();
+  public static final ConfigOption<String> PARTITION_FIELD =
+      ConfigOptions.key("partitionField").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_TYPE =
+      ConfigOptions.key("partitionType").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_EXPIRATION_MS =
+      ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
+      ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
   public static ConfigOption<String> READ_SESSION_ARROW_SCHEMA_FIELDS;
 
   @Override
@@ -128,6 +136,10 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
     options.add(PARALLELISM);
     options.add(MAX_PARALLELISM);
     options.add(ARROW_COMPRESSION_CODEC);
+    options.add(PARTITION_FIELD);
+    options.add(PARTITION_TYPE);
+    options.add(PARTITION_EXPIRATION_MS);
+    options.add(PARTITION_REQUIRE_FILTER);
     return options;
   }
 

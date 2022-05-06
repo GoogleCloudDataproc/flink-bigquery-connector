@@ -52,7 +52,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   List<FieldVector> vectors = new ArrayList<>();
   private Schema schema;
   private final Class<T> recordClazz;
-  private String schemaJsonString;
   private Schema readSessionSchema;
 
   ArrowDeserializationSchema(
@@ -60,7 +59,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     Preconditions.checkNotNull(recordClazz, "Arrow record class must not be null.");
     this.typeInfo = typeInfo;
     this.recordClazz = recordClazz;
-    this.schemaJsonString = schemaJsonString;
   }
 
   public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
@@ -86,12 +84,12 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
                         response.getArrowSchema().getSerializedSchema().toByteArray())));
       } catch (Exception e) {
         logger.error("Error while deserializing schema:", e);
+        throw new FlinkBigQueryException("Deserialization mush have schema:", e);
       }
-      Schema.fromJSON(schemaJsonString);
       String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
       this.schema = Schema.fromJSON(jsonArrowSchemafromReadSession);
     }
-    checkArrowInitialized();
+    initializeArrow();
     deserializedBatch =
         MessageSerializer.deserializeRecordBatch(
             new ReadChannel(new ByteArrayReadableSeekableByteChannel(arrowRecordBatchMessage)),
@@ -101,7 +99,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return (T) root;
   }
 
-  private void checkArrowInitialized() {
+  private void initializeArrow() {
     Preconditions.checkNotNull(schema);
     if (root != null) {
       return;

@@ -43,8 +43,8 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
   boolean running = true;
   private static final long serialVersionUID = 1;
   private static final Logger log = LoggerFactory.getLogger(BigQuerySourceFunction.class);
-  int numOfStreams;
-  int executerIndex;
+  private int numOfStreams;
+  private int executerIndex;
   private DeserializationSchema<RowData> deserializer;
   private ArrayList<String> readSessionStreamList = new ArrayList<>();
   private BigQueryClientFactory bigQueryReadClientFactory;
@@ -94,37 +94,38 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
             Optional.of("endpoint"),
             /* backgroundParsingThreads= */ 5,
             1);
-    if (!streamNames.isEmpty()) {
-      for (String streamName : streamNames) {
-        ReadRowsRequest.Builder readRowsRequest =
-            ReadRowsRequest.newBuilder().setReadStream(streamName);
-        ReadRowsHelper readRowsHelper =
-            new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options);
 
-        Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
-        while (readRows.hasNext()) {
-          ReadRowsResponse response = readRows.next();
-          try {
-            if (response.hasArrowRecordBatch()) {
-              Preconditions.checkState(response.hasArrowRecordBatch());
-              deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
+    for (String streamName : streamNames) {
+      ReadRowsRequest.Builder readRowsRequest =
+          ReadRowsRequest.newBuilder().setReadStream(streamName);
+      ReadRowsHelper readRowsHelper =
+          new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options);
 
-            } else if (response.hasAvroRows()) {
-              Preconditions.checkState(response.hasAvroRows());
-              deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
-              break;
-            }
-          } catch (IOException ex) {
-            log.error("Error while deserialization");
-            throw new FlinkBigQueryException("Error while deserialization:", ex);
+      Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
+      while (readRows.hasNext()) {
+        ReadRowsResponse response = readRows.next();
+        try {
+          if (response.hasArrowRecordBatch()) {
+            Preconditions.checkState(response.hasArrowRecordBatch());
+            deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
+
+          } else if (response.hasAvroRows()) {
+            Preconditions.checkState(response.hasAvroRows());
+            deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
+            break;
           }
+        } catch (IOException ex) {
+          log.error("Error while deserialization:", ex);
+          throw new FlinkBigQueryException("Error while deserialization:", ex);
         }
-        readRowsHelper.close();
       }
+      readRowsHelper.close();
     }
+
     for (int i = 0; i < outputCollector.size(); i++) {
       ctx.collect((RowData) outputCollector.get(i));
     }
+    outputCollector.clear();
   }
 
   @Override

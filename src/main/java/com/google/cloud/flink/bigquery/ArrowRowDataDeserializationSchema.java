@@ -46,8 +46,6 @@ public class ArrowRowDataDeserializationSchema
   public String arrowReadSessionSchema;
   public String arrowSchemaJson;
 
-  public ArrowRowDataDeserializationSchema() {}
-
   public ArrowRowDataDeserializationSchema(
       RowType rowType, TypeInformation<RowData> typeInfo, List<String> selectedFieldList) {
     this.typeInfo = typeInfo;

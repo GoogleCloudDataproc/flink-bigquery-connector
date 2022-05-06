@@ -80,6 +80,5 @@ public final class BigQueryDynamicTableSource
   }
 
   @Override
-  public void applyProjection(int[][] projectedFields) {   
-  }
+  public void applyProjection(int[][] projectedFields) {}
 }
