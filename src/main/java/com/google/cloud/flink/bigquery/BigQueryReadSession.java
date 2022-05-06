@@ -68,7 +68,7 @@ public class BigQueryReadSession {
 
     TableId tableId = bqconfig.getQuery().isPresent() ? tabId : bqconfig.getTableId();
     ImmutableList<String> selectedFields =
-        ImmutableList.copyOf(Arrays.asList((bqconfig.getSelectedFields()).split(",")));
+        ImmutableList.copyOf(Arrays.asList(bqconfig.getSelectedFields().split(",")));
     Optional<String> filter =
         bqconfig.getFilter().isPresent() ? bqconfig.getFilter() : Optional.empty();
     ReadSessionResponse response = readSessionCreator.create(tableId, selectedFields, filter);

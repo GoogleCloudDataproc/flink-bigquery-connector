@@ -31,21 +31,21 @@ import org.apache.flink.table.types.DataType;
 public final class BigQueryDynamicTableSource
     implements ScanTableSource, SupportsProjectionPushDown {
 
-  private DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
+  private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
   private DataType producedDataType;
-  private ArrayList<String> readSessionStreamList;
+  private ArrayList<String> readStreamNames;
   private BigQueryClientFactory bigQueryReadClientFactory;
 
   public BigQueryDynamicTableSource(
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
       DataType producedDataType,
-      ArrayList<String> readSessionStreamList,
+      ArrayList<String> readStreamNames,
       BigQueryClientFactory bigQueryReadClientFactory) {
 
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
-    this.readSessionStreamList = readSessionStreamList;
+    this.readStreamNames = readStreamNames;
   }
 
   @Override
@@ -59,14 +59,14 @@ public final class BigQueryDynamicTableSource
     final DeserializationSchema<RowData> deserializer =
         decodingFormat.createRuntimeDecoder(runtimeProviderContext, producedDataType);
     final SourceFunction<RowData> sourceFunction =
-        new BigQuerySourceFunction(deserializer, readSessionStreamList, bigQueryReadClientFactory);
+        new BigQuerySourceFunction(deserializer, readStreamNames, bigQueryReadClientFactory);
     return SourceFunctionProvider.of(sourceFunction, false);
   }
 
   @Override
   public DynamicTableSource copy() {
     return new BigQueryDynamicTableSource(
-        decodingFormat, producedDataType, readSessionStreamList, bigQueryReadClientFactory);
+        decodingFormat, producedDataType, readStreamNames, bigQueryReadClientFactory);
   }
 
   @Override

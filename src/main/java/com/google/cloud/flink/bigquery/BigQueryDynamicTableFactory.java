@@ -31,15 +31,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import net.sf.jsqlparser.JSQLParserException;
-import org.apache.arrow.vector.ipc.ReadChannel;
-import org.apache.arrow.vector.ipc.message.MessageSerializer;
-import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
@@ -60,8 +57,6 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ConfigOptions.key("query").stringType().noDefaultValue();
   public static final ConfigOption<String> FILTER =
       ConfigOptions.key("filter").stringType().defaultValue("");
-  public static final ConfigOption<String> FLINK_VERSION =
-      ConfigOptions.key("flinkVersion").stringType().defaultValue("1.11");
   public static final ConfigOption<Integer> PARALLELISM =
       ConfigOptions.key("parallelism").intType().defaultValue(1);
   public static final ConfigOption<Integer> MAX_PARALLELISM =
@@ -102,6 +97,8 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
   public static ConfigOption<String> READ_SESSION_ARROW_SCHEMA_FIELDS;
 
+  private String flinkVersion = EnvironmentInformation.getVersion();
+
   @Override
   public String factoryIdentifier() {
     return "bigquery";
@@ -126,7 +123,6 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
     options.add(ACCESS_TOKEN);
     options.add(CREDENTIALS_KEY);
     options.add(FILTER);
-    options.add(FLINK_VERSION);
     options.add(DEFAULT_PARALLELISM);
     options.add(PROXY_URI);
     options.add(PROXY_USERNAME);
@@ -172,8 +168,9 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
     BigQueryCredentialsSupplier bigQueryCredentialsSupplier;
     ArrayList<String> readStreamNames = new ArrayList<String>();
     try {
+
       ImmutableMap<String, String> defaultOptions =
-          ImmutableMap.of("flinkVersion", options.get(FLINK_VERSION));
+          ImmutableMap.of("flinkVersion", EnvironmentInformation.getVersion());
 
       bqconfig =
           FlinkBigQueryConfig.from(
@@ -184,7 +181,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
               new org.apache.hadoop.conf.Configuration(),
               options.get(DEFAULT_PARALLELISM),
               new org.apache.flink.configuration.Configuration(),
-              options.get(FLINK_VERSION),
+              flinkVersion,
               Optional.empty());
 
       Credentials credentials = bqconfig.createCredentials();
@@ -198,7 +195,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
               Optional.empty());
 
       FlinkBigQueryConnectorUserAgentProvider agentProvider =
-          new FlinkBigQueryConnectorUserAgentProvider(options.get(FLINK_VERSION));
+          new FlinkBigQueryConnectorUserAgentProvider(flinkVersion);
       userAgentHeaderProvider = new UserAgentHeaderProvider(agentProvider.getUserAgent());
       bigQueryReadClientFactory =
           new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
@@ -207,25 +204,12 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ReadSession readSession =
           BigQueryReadSession.getReadsession(credentials, bqconfig, bigQueryReadClientFactory);
       List<ReadStream> readsessionList = readSession.getStreamsList();
-      Schema arrowReadSchema =
-          MessageSerializer.deserializeSchema(
-              new ReadChannel(
-                  new ByteArrayReadableSeekableByteChannel(
-                      readSession.getArrowSchema().getSerializedSchema().toByteArray())));
-      arrowReadSchema.toJson();
-      String fieldList = new String();
-      for (int i = 0; i < arrowReadSchema.getFields().size(); i++) {
-        fieldList = fieldList.concat(arrowReadSchema.getFields().get(i).getName() + ",");
-      }
-      bqconfig.setArrowSchemaFields(fieldList);
-      ConfigOption<String> readSessionSchemaFields =
-          ConfigOptions.key("readSessionSchemaFields").stringType().defaultValue(fieldList);
-      optionalOptions().add(readSessionSchemaFields);
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
       }
     } catch (JSQLParserException | IOException ex) {
       log.error("Error while reading big query session", ex);
+      throw new FlinkBigQueryException("Error while reading big query session:", ex);
     }
     return readStreamNames;
   }
