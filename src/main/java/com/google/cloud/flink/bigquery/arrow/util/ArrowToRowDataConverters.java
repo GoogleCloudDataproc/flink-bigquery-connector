@@ -24,10 +24,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -232,9 +230,8 @@ public class ArrowToRowDataConverters {
       Long value = ((Long) object);
       value = (Math.abs(value) / 1000);
       LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(value), zoneId);
-      ZonedDateTime zdt = time.atZone(zoneId);
-      Date output = Date.from(zdt.toInstant());
-      millis = (int) output.getTime();
+      millis = (int) time.atZone(zoneId).toInstant().toEpochMilli();
+
     } else if (object instanceof LocalTime) {
       millis = ((LocalTime) object).get(ChronoField.MILLI_OF_DAY);
     } else {
@@ -319,34 +316,18 @@ public class ArrowToRowDataConverters {
     }
 
     public long convertDate(Object object) {
-      final java.util.Date value = (Date) object;
-      return value.getTime();
+      final java.time.LocalDate localDate = (LocalDate) object;
+      return localDate.toEpochDay();
     }
 
     public int convertTime(Object object) {
-      ZoneId zoneId = ZoneId.of("UTC");
-      final java.time.LocalDateTime value = (LocalDateTime) object;
-      ZonedDateTime zdt = value.atZone(zoneId);
-      Date output = Date.from(zdt.toInstant());
-      return (int) output.getTime();
+      final java.time.LocalDateTime localDateTime = (LocalDateTime) object;
+      return (int) localDateTime.atZone(ZoneId.of("UTC")).toInstant().toEpochMilli();
     }
 
     public long convertTimestamp(Object object) {
-      long dateTime = 0;
-      ZoneId zoneId = ZoneId.of("UTC");
-      if (!(object.toString().length() == 26)) {
-        final java.time.LocalDateTime value = (LocalDateTime) object;
-        ZonedDateTime zdt = value.atZone(zoneId);
-        Date output = Date.from(zdt.toInstant());
-        dateTime = output.getTime();
-      } else if (object.toString().length() == 26) {
-        final java.time.LocalDateTime value = (LocalDateTime) object;
-        ZonedDateTime zdt = value.atZone(zoneId);
-        Date output = Date.from(zdt.toInstant());
-        dateTime = output.getTime();
-      }
-
-      return dateTime;
+      final java.time.LocalDateTime localDateTime = (LocalDateTime) object;
+      return localDateTime.atZone(ZoneId.of("UTC")).toInstant().toEpochMilli();
     }
 
     private JavaUtilConverter() {}
