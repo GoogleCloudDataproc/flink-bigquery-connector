@@ -159,7 +159,7 @@ public class FlinkBigQueryProxyAndHttpConfig implements BigQueryProxyConfig, Ser
 
   private static com.google.common.base.Optional<String> getFirstOrSecondOption(
       Map<String, String> options, ImmutableMap<String, String> globalOptions, String name) {
-    return com.google.common.base.Optional.fromNullable(options.get(name.toLowerCase()))
+    return com.google.common.base.Optional.fromNullable(options.get(name))
         .or(com.google.common.base.Optional.fromNullable(globalOptions.get(name)));
   }
 
