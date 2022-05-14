@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License.
+ * numOfStreamsations under the License.
  */
 package com.google.cloud.flink.bigquery;
 
@@ -23,9 +23,9 @@ import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
@@ -40,23 +40,27 @@ import org.slf4j.LoggerFactory;
 public final class BigQuerySourceFunction extends RichParallelSourceFunction<RowData>
     implements ResultTypeQueryable<RowData> {
 
-  Boolean running = true;
+  boolean running = true;
   private static final long serialVersionUID = 1;
   private static final Logger log = LoggerFactory.getLogger(BigQuerySourceFunction.class);
   private int numOfStreams;
-  private int numOfExecutors;
-  private int executorIndex;
+  private int executerIndex;
   private DeserializationSchema<RowData> deserializer;
-  private LinkedList<String> readSessionStreamList = new LinkedList<>();
-  private List<String> streamNames = new ArrayList<String>();
+  private ArrayList<String> readSessionStreamList = new ArrayList<>();
   private BigQueryClientFactory bigQueryReadClientFactory;
+  private List<String> streamNames = new ArrayList<String>();
+  private int numOfExecutors;
+
+  public BigQuerySourceFunction() {}
 
   public BigQuerySourceFunction(
       DeserializationSchema<RowData> deserializer,
-      LinkedList<String> readSessionStreams,
+      ArrayList<String> readSessionStreams,
       BigQueryClientFactory bigQueryReadClientFactory) {
+
     this.deserializer = deserializer;
     this.readSessionStreamList = readSessionStreams;
+    this.numOfStreams = readSessionStreamList.size();
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
   }
 
@@ -67,77 +71,71 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
 
   @Override
   public void open(Configuration parameters) throws Exception {
-
-    this.executorIndex = getRuntimeContext().getIndexOfThisSubtask();
+    deserializer.open(() -> getRuntimeContext().getMetricGroup().addGroup("bigQuery"));
+    this.executerIndex = getRuntimeContext().getIndexOfThisSubtask();
     this.numOfExecutors = getRuntimeContext().getNumberOfParallelSubtasks();
     this.numOfStreams = readSessionStreamList.size();
-    for (int i = executorIndex; i < numOfStreams; i += numOfExecutors) {
+    this.streamNames.clear();
+    for (int i = executerIndex; i < numOfStreams; i += numOfExecutors) {
       if (running) {
         this.streamNames.add(readSessionStreamList.get(i));
       }
     }
   }
 
+  @SuppressWarnings("resource")
   @Override
-  public void run(final SourceContext<RowData> ctx) throws Exception {
-    Collector<RowData> collector = new SourceContextCollector<RowData>(ctx);
+  public void run(SourceContext<RowData> ctx) throws Exception {
+    List<RowData> outputCollector = new ArrayList<>();
+    ListCollector<RowData> listCollector = new ListCollector<>(outputCollector);
     Options options =
         new ReadRowsHelper.Options(
-            /* maxRetries= */ 5,
+            /* maxReadRowsRetries= */ 5,
             Optional.of("endpoint"),
             /* backgroundParsingThreads= */ 5,
-            /* prebufferResponses= */ 1);
+            1);
 
     for (String streamName : streamNames) {
       ReadRowsRequest.Builder readRowsRequest =
           ReadRowsRequest.newBuilder().setReadStream(streamName);
-      try (ReadRowsHelper readRowsHelper =
-          new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options)) {
-        Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
-        while (readRows.hasNext()) {
-          ReadRowsResponse response = readRows.next();
-          try {
-            if (response.hasArrowRecordBatch()) {
-              Preconditions.checkState(response.hasArrowRecordBatch());
-              deserializer.deserialize(
-                  response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray(),
-                  collector);
-            } else if (response.hasAvroRows()) {
-              Preconditions.checkState(response.hasAvroRows());
-              deserializer.deserialize(
-                  response.getAvroRows().getSerializedBinaryRows().toByteArray(), collector);
-              break;
-            }
-          } catch (IOException ex) {
-            log.error("Error while deserialization", ex);
-            throw new FlinkBigQueryException("Error while deserialization:", ex);
+      ReadRowsHelper readRowsHelper =
+          new ReadRowsHelper(bigQueryReadClientFactory, readRowsRequest, options);
+
+      Iterator<ReadRowsResponse> readRows = readRowsHelper.readRows();
+      while (readRows.hasNext()) {
+        ReadRowsResponse response = readRows.next();
+        try {
+          if (response.hasArrowRecordBatch()) {
+            Preconditions.checkState(response.hasArrowRecordBatch());
+            deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
+
+          } else if (response.hasAvroRows()) {
+            Preconditions.checkState(response.hasAvroRows());
+            deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
+            break;
           }
+        } catch (IOException ex) {
+          log.error("Error while deserialization:", ex);
+          throw new FlinkBigQueryException("Error while deserialization:", ex);
         }
       }
+      readRowsHelper.close();
     }
+
+    for (int i = 0; i < outputCollector.size(); i++) {
+      ctx.collect((RowData) outputCollector.get(i));
+    }
+    outputCollector.clear();
+  }
+
+  @Override
+  public void close() {
+    running = false;
   }
 
   @Override
   public void cancel() {
-    running = false;
+    // TODO Auto-generated method stub
+
   }
-
-  static class SourceContextCollector<T> implements Collector<T> {
-
-    private SourceContext<T> context;
-
-    public SourceContextCollector(SourceContext<T> context) {
-      this.context = context;
-    }
-
-    @Override
-    public void collect(T t) {
-      context.collect(t);
-    }
-
-    @Override
-    public void close() {
-      // no op as we don't want to close ctx
-    }
-  };
 }

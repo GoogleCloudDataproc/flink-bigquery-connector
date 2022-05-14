@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -37,22 +36,20 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.table.connector.format.DecodingFormat;
-import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class BigQueryDynamicTableFactory
-    implements DynamicTableSourceFactory, DynamicTableSinkFactory {
+public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
-  static FlinkBigQueryConfig bqconfig;
+  private FlinkBigQueryConfig bqconfig;
   private BigQueryClientFactory bigQueryReadClientFactory;
   public static final ConfigOption<String> TABLE =
       ConfigOptions.key("table").stringType().noDefaultValue();
@@ -60,16 +57,6 @@ public final class BigQueryDynamicTableFactory
       ConfigOptions.key("query").stringType().noDefaultValue();
   public static final ConfigOption<String> FILTER =
       ConfigOptions.key("filter").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_FIELD =
-      ConfigOptions.key("partitionField").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_TYPE =
-      ConfigOptions.key("partitionType").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_EXPIRATION_MS =
-      ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
-      ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
-  public static final ConfigOption<String> FLINK_VERSION =
-      ConfigOptions.key("flinkVersion").stringType().defaultValue("1.11");
   public static final ConfigOption<Integer> PARALLELISM =
       ConfigOptions.key("parallelism").intType().defaultValue(1);
   public static final ConfigOption<Integer> MAX_PARALLELISM =
@@ -98,6 +85,19 @@ public final class BigQueryDynamicTableFactory
       ConfigOptions.key("materializationProject").stringType().noDefaultValue();
   public static final ConfigOption<String> MATERIALIZATION_DATASET =
       ConfigOptions.key("materializationDataset").stringType().noDefaultValue();
+  public static final ConfigOption<String> ARROW_COMPRESSION_CODEC =
+      ConfigOptions.key("arrowCompressionCodec").stringType().noDefaultValue();
+  public static final ConfigOption<String> PARTITION_FIELD =
+      ConfigOptions.key("partitionField").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_TYPE =
+      ConfigOptions.key("partitionType").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_EXPIRATION_MS =
+      ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
+  public static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
+      ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
+  public static ConfigOption<String> READ_SESSION_ARROW_SCHEMA_FIELDS;
+
+  private String flinkVersion = EnvironmentInformation.getVersion();
 
   @Override
   public String factoryIdentifier() {
@@ -108,6 +108,10 @@ public final class BigQueryDynamicTableFactory
   public Set<ConfigOption<?>> requiredOptions() {
     final Set<ConfigOption<?>> options = new HashSet<>();
     options.add(TABLE);
+    options.add(SELECTED_FIELDS);
+    options.add(QUERY);
+    options.add(MATERIALIZATION_PROJECT);
+    options.add(MATERIALIZATION_DATASET);
     return options;
   }
 
@@ -119,15 +123,6 @@ public final class BigQueryDynamicTableFactory
     options.add(ACCESS_TOKEN);
     options.add(CREDENTIALS_KEY);
     options.add(FILTER);
-    options.add(SELECTED_FIELDS);
-    options.add(QUERY);
-    options.add(MATERIALIZATION_PROJECT);
-    options.add(MATERIALIZATION_DATASET);
-    options.add(FLINK_VERSION);
-    options.add(PARTITION_FIELD);
-    options.add(PARTITION_TYPE);
-    options.add(PARTITION_EXPIRATION_MS);
-    options.add(PARTITION_REQUIRE_FILTER);
     options.add(DEFAULT_PARALLELISM);
     options.add(PROXY_URI);
     options.add(PROXY_USERNAME);
@@ -136,6 +131,11 @@ public final class BigQueryDynamicTableFactory
     options.add(BQ_BACKGROUND_THREADS_PER_STREAM);
     options.add(PARALLELISM);
     options.add(MAX_PARALLELISM);
+    options.add(ARROW_COMPRESSION_CODEC);
+    options.add(PARTITION_FIELD);
+    options.add(PARTITION_TYPE);
+    options.add(PARTITION_EXPIRATION_MS);
+    options.add(PARTITION_REQUIRE_FILTER);
     return options;
   }
 
@@ -145,7 +145,6 @@ public final class BigQueryDynamicTableFactory
   public DynamicTableSource createDynamicTableSource(Context context) {
     final FactoryUtil.TableFactoryHelper helper =
         FactoryUtil.createTableFactoryHelper(this, context);
-
     final ReadableConfig options = helper.getOptions();
     try {
       helper.validate();
@@ -163,20 +162,15 @@ public final class BigQueryDynamicTableFactory
         decodingFormat, producedDataType, getReadStreamNames(options), bigQueryReadClientFactory);
   }
 
-  @Override
-  public DynamicTableSink createDynamicTableSink(Context context) {
-    return null;
-  }
-
-  private LinkedList<String> getReadStreamNames(ReadableConfig options) {
+  private ArrayList<String> getReadStreamNames(ReadableConfig options) {
     bigQueryReadClientFactory = null;
     UserAgentHeaderProvider userAgentHeaderProvider;
     BigQueryCredentialsSupplier bigQueryCredentialsSupplier;
-    LinkedList<String> readStreamNames = new LinkedList<String>();
+    ArrayList<String> readStreamNames = new ArrayList<String>();
     try {
-      // Create client factory
+
       ImmutableMap<String, String> defaultOptions =
-          ImmutableMap.of("credentialsFile", options.get(CREDENTIAL_KEY_FILE));
+          ImmutableMap.of("flinkVersion", EnvironmentInformation.getVersion());
 
       bqconfig =
           FlinkBigQueryConfig.from(
@@ -187,7 +181,7 @@ public final class BigQueryDynamicTableFactory
               new org.apache.hadoop.conf.Configuration(),
               options.get(DEFAULT_PARALLELISM),
               new org.apache.flink.configuration.Configuration(),
-              options.get(FLINK_VERSION),
+              flinkVersion,
               Optional.empty());
 
       Credentials credentials = bqconfig.createCredentials();
@@ -201,7 +195,7 @@ public final class BigQueryDynamicTableFactory
               Optional.empty());
 
       FlinkBigQueryConnectorUserAgentProvider agentProvider =
-          new FlinkBigQueryConnectorUserAgentProvider(options.get(FLINK_VERSION));
+          new FlinkBigQueryConnectorUserAgentProvider(flinkVersion);
       userAgentHeaderProvider = new UserAgentHeaderProvider(agentProvider.getUserAgent());
       bigQueryReadClientFactory =
           new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
@@ -210,13 +204,12 @@ public final class BigQueryDynamicTableFactory
       ReadSession readSession =
           BigQueryReadSession.getReadsession(credentials, bqconfig, bigQueryReadClientFactory);
       List<ReadStream> readsessionList = readSession.getStreamsList();
-
-      // Iterate over read stream
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
       }
     } catch (JSQLParserException | IOException ex) {
       log.error("Error while reading big query session", ex);
+      throw new FlinkBigQueryException("Error while reading big query session:", ex);
     }
     return readStreamNames;
   }
@@ -239,23 +232,9 @@ public final class BigQueryDynamicTableFactory
       missingArgs.remove("table");
       missingArgs.remove("selectedFields");
     }
-    if (options.get(CREDENTIAL_KEY_FILE) != null
-        || options.get(ACCESS_TOKEN) != null
-        || options.get(CREDENTIALS_KEY) != null) {
-      missingArgs.remove("credentialsFile");
-      missingArgs.remove("gcpAccessToken");
-      missingArgs.remove("credentials");
-    } else if (options.get(QUERY) != null) {
-      missingArgs.remove("table");
-      missingArgs.remove("selectedFields");
-    }
     if (!missingArgs.isEmpty()) {
       errorString = errorString + exceptionHead + "\n\n" + String.join("\n", missingArgs);
     }
     return errorString;
-  }
-
-  public static FlinkBigQueryConfig getBqConfig() {
-    return bqconfig;
   }
 }

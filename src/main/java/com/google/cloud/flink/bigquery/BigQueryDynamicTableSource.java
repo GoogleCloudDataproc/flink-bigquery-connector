@@ -16,7 +16,7 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -25,22 +25,25 @@ import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.sources.ProjectableTableSource;
+import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.types.DataType;
 
-public final class BigQueryDynamicTableSource implements ScanTableSource {
+public final class BigQueryDynamicTableSource
+    implements ScanTableSource, ProjectableTableSource<RowData> {
 
   private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
-  private final DataType producedDataType;
-  private LinkedList<String> readStreamNames;
+  private DataType producedDataType;
+  private ArrayList<String> readStreamNames;
   private BigQueryClientFactory bigQueryReadClientFactory;
 
   public BigQueryDynamicTableSource(
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
       DataType producedDataType,
-      LinkedList<String> readStreamNames,
+      ArrayList<String> readStreamNames,
       BigQueryClientFactory bigQueryReadClientFactory) {
-    this.bigQueryReadClientFactory = bigQueryReadClientFactory;
 
+    this.bigQueryReadClientFactory = bigQueryReadClientFactory;
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
     this.readStreamNames = readStreamNames;
@@ -48,13 +51,11 @@ public final class BigQueryDynamicTableSource implements ScanTableSource {
 
   @Override
   public ChangelogMode getChangelogMode() {
-
     return decodingFormat.getChangelogMode();
   }
 
   @Override
   public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-
     // create runtime classes that are shipped to the cluster
     final DeserializationSchema<RowData> deserializer =
         decodingFormat.createRuntimeDecoder(runtimeProviderContext, producedDataType);
@@ -65,7 +66,6 @@ public final class BigQueryDynamicTableSource implements ScanTableSource {
 
   @Override
   public DynamicTableSource copy() {
-
     return new BigQueryDynamicTableSource(
         decodingFormat, producedDataType, readStreamNames, bigQueryReadClientFactory);
   }
@@ -73,5 +73,10 @@ public final class BigQueryDynamicTableSource implements ScanTableSource {
   @Override
   public String asSummaryString() {
     return "BigQuery Table Source";
+  }
+
+  @Override
+  public TableSource projectFields(int[] fields) {
+    return null;
   }
 }

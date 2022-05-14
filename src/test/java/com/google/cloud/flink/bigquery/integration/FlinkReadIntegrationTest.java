@@ -30,24 +30,20 @@ import org.junit.Test;
 
 public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
   String flinkSrcTable;
+  private static final String ALL_TYPES_TABLE_NAME = "all_types";
 
   public FlinkReadIntegrationTest() {
     super();
     flinkSrcTable = "FlinkSrcTable";
   }
 
-  @SuppressWarnings("deprecation")
   private void testWordCount(TableResult tableRes) {
     assertThat(tableRes.getTableSchema()).isEqualTo(Constants.WORDCOUNT_TABLE_SCHEMA);
   }
 
-  private void testReadFilter(int count) {
-    assertEquals(count, 16);
-  }
-
   @Test
   public void testReadWithOption() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -73,7 +69,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
   // We are passing filter in table API (Filter will work at flink level)
   @Test
   public void testReadWithFilterInTableAPI() throws Exception {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -96,17 +92,17 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     TableResult tableResult = datatable.execute();
     try (CloseableIterator<Row> it = tableResult.collect()) {
       while (it.hasNext()) {
-        Row row = it.next();
+        it.next();
         count += 1;
       }
     }
-    assertEquals(count, 72);
+    assertEquals(count, 96);
   }
 
   // We are passing filter as an option (Filter will work at Storage API level)
   @Test
   public void testReadWithFilter() throws Exception {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String filter = "word_count > 500 and word=\"I\"";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -132,29 +128,29 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     TableResult tableResult = datatable.execute();
     try (CloseableIterator<Row> it = tableResult.collect()) {
       while (it.hasNext()) {
-        Row row = it.next();
+        it.next();
         count += 1;
       }
     }
-    assertThat(count).isEqualTo(16);
+    assertThat(count).isEqualTo(24);
   }
 
-  // TODO: Few data types rae not supported by Flink , custom data types research is under progress.
-  @SuppressWarnings("deprecation")
-  @Ignore
+  // TODO: Few data types are not supported by Flink , custom data types research
+  // is under progress.
   @Test
   public void testReadForDifferentDataTypes() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = testDataset.toString() + "." + ALL_TYPES_TABLE_NAME;
     String selectedFields =
-        "string_datatype,bytes_datatype,integer_datatype,"
+        "numeric_datatype,string_datatype,bytes_datatype,integer_datatype,"
             + "float_datatype,boolean_datatype,timestamp_datatype,"
             + "date_datatype,datetime_datatype,geography_datatype"
             + "";
     String srcQueryString =
         "CREATE TABLE "
             + flinkSrcTable
-            + " (string_datatype STRING , bytes_datatype BYTES, integer_datatype INTEGER,"
-            + " float_datatype FLOAT,boolean_datatype BOOLEAN, timestamp_datatype TIMESTAMP,"
+            + " (numeric_datatype DECIMAL(38,9),"
+            + "string_datatype STRING , bytes_datatype BYTES, integer_datatype BIGINT,"
+            + " float_datatype DOUBLE,boolean_datatype BOOLEAN, timestamp_datatype TIMESTAMP,"
             + "  date_datatype DATE,datetime_datatype TIMESTAMP, geography_datatype STRING"
             + ")";
     flinkTableEnv.executeSql(
@@ -168,20 +164,16 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + "',\n"
             + "  'selectedFields' = '"
             + selectedFields
-            + "',\n"
-            + "  'credentialsFile' = '"
-            + System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            + "' \n"
+            + "'\n"
             + ")");
     Table result = flinkTableEnv.from(flinkSrcTable);
     TableResult tableapi = result.execute();
-    tableapi.print();
     assertThat(tableapi.getTableSchema()).isEqualTo(Constants.FLINK_TEST_TABLE_SCHEMA);
   }
 
   @Test
   public void testReadCompressed() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -205,7 +197,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testReadCompressedWith1BackgroundThreads() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String table = "flink_test";
     String srcQueryString = "CREATE TABLE " + table + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -231,7 +223,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testReadCompressedWith4BackgroundThreads() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -254,7 +246,8 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
     testWordCount(tableapi);
   }
 
-  // TODO : Code is executed in 15 sec , thought it is not working as expected with timeout.
+  // TODO : Code is executed in 15 sec , thought it is not working as expected
+  // with timeout.
   @Ignore
   @Test(timeout = 50000) // throwing null pointer exception when use timeout
   public void testHeadDoesNotTimeoutAndOOM() {
@@ -264,7 +257,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
             + Constants.LARGE_TABLE_DATASET
             + "."
             + Constants.LARGE_TABLE;
-    // config.setParallelism(10);
+
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (is_male BOOLEAN)";
     flinkTableEnv.executeSql(
         srcQueryString
@@ -290,7 +283,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
 
   @Test
   public void testNonExistentSchema() {
-    String bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.noSuchTable";
+    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
     assertThrows(
         "Trying to read a non existing table should throw an exception",
         ValidationException.class,
@@ -311,7 +304,7 @@ public class FlinkReadIntegrationTest extends FlinkBigQueryIntegrationTestBase {
                   + "' \n"
                   + ")");
           Table result = flinkTableEnv.from(flinkSrcTable);
-          TableResult tableapi = result.execute();
+          result.execute();
         });
   }
 }

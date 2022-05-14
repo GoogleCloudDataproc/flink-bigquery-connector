@@ -22,7 +22,6 @@ import static java.lang.String.format;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.auth.Credentials;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.bigquery.FormatOptions;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TimePartitioning;
@@ -35,7 +34,6 @@ import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfigBuilde
 import com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.CompressionCodec;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.Serializable;
@@ -56,7 +54,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
@@ -70,11 +67,14 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.hadoop.conf.Configuration;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
 
 public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   private static final long serialVersionUID = 1L;
+  final Logger logger = LoggerFactory.getLogger(FlinkBigQueryConfig.class);
 
   public enum WriteMethod {
     DIRECT,
@@ -97,9 +97,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   public static final String INTERMEDIATE_FORMAT_OPTION = "intermediateFormat";
   public static final int DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES = 24 * 60;
   @VisibleForTesting static final DataFormat DEFAULT_READ_DATA_FORMAT = DataFormat.ARROW;
-
-  @VisibleForTesting
-  static final IntermediateFormat DEFAULT_INTERMEDIATE_FORMAT = IntermediateFormat.PARQUET;
 
   @VisibleForTesting
   static final CompressionCodec DEFAULT_ARROW_COMPRESSION_CODEC =
@@ -126,6 +123,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   TableId tableId;
   String selectedFields;
+  String flinkVersion;
   com.google.common.base.Optional<String> query = empty();
   String parentProjectId;
   boolean useParentProjectForMetadataOperations;
@@ -140,7 +138,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   com.google.common.base.Optional<String> persistentGcsBucket = empty();
   com.google.common.base.Optional<String> persistentGcsPath = empty();
 
-  IntermediateFormat intermediateFormat = DEFAULT_INTERMEDIATE_FORMAT;
   DataFormat readDataFormat = DEFAULT_READ_DATA_FORMAT;
   boolean combinePushedDownFilters = true;
   boolean viewsEnabled = false;
@@ -169,9 +166,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   // for V2 write with BigQuery Storage Write API
   RetrySettings bigqueryDataWriteHelperRetrySettings =
       RetrySettings.newBuilder().setMaxAttempts(5).build();
-
-  @VisibleForTesting
-  FlinkBigQueryConfig() {}
+  private String fieldList;
 
   @VisibleForTesting
   public static FlinkBigQueryConfig from(
@@ -191,7 +186,9 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     config.flinkBigQueryProxyAndHttpConfig =
         FlinkBigQueryProxyAndHttpConfig.from(options, globalOptions, hadoopConfiguration);
 
+    // we need those parameters in case a read from query is issued
     config.viewsEnabled = getAnyBooleanOption(globalOptions, options, VIEWS_ENABLED_OPTION, false);
+    config.flinkVersion = flinkVersion;
     config.materializationProject =
         getAnyOption(
             globalOptions,
@@ -276,14 +273,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     config.temporaryGcsBucket = getAnyOption(globalOptions, options, "temporaryGcsBucket");
     config.persistentGcsBucket = getAnyOption(globalOptions, options, "persistentGcsBucket");
     config.persistentGcsPath = getOption(options, "persistentGcsPath");
-    boolean validateSparkAvro =
-        Boolean.valueOf(getRequiredOption(options, VALIDATE_SPARK_AVRO_PARAM, () -> "true"));
-    config.intermediateFormat =
-        getAnyOption(globalOptions, options, INTERMEDIATE_FORMAT_OPTION)
-            .transform(String::toLowerCase)
-            .transform(
-                format -> IntermediateFormat.from(format, flinkVersion, sqlConf, validateSparkAvro))
-            .or(DEFAULT_INTERMEDIATE_FORMAT);
     String readDataFormatParam =
         getAnyOption(globalOptions, options, "format")
             .transform(String::toUpperCase)
@@ -482,7 +471,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     return getAnyOption(globalOptions, options, name).transform(Boolean::valueOf).or(defaultValue);
   }
 
-  static ImmutableMap<String, String> normalizeConf(Map<String, String> conf) {
+  public static ImmutableMap<String, String> normalizeConf(Map<String, String> conf) {
     Map<String, String> normalizeConf =
         conf.entrySet().stream()
             .filter(e -> e.getKey().startsWith(CONF_PREFIX))
@@ -518,9 +507,23 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     return tableId;
   }
 
-  public String getSelectedFields() throws JSQLParserException {
+  public void setTableId(TableId tableId) {
+    this.tableId = tableId;
+  }
 
-    return selectedFields != null ? selectedFields : new ParseSqlString(query).getSelectedFields();
+  public String getFlinkVersion() {
+    return this.flinkVersion;
+  }
+
+  public String getSelectedFields() {
+    String selectedFieldString = null;
+    try {
+      selectedFieldString =
+          selectedFields != null ? selectedFields : new SqlParser(query).getSelectedFields();
+    } catch (JSQLParserException e) {
+      logger.error("Error while parsing sql query", e);
+    }
+    return selectedFieldString;
   }
 
   /** Returns the table id, without the added partition id if it exists. */
@@ -573,6 +576,14 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     return schema.toJavaUtil();
   }
 
+  public void setArrowSchemaFields(String fieldList) {
+    this.fieldList = fieldList;
+  }
+
+  public String getArrowSchemaFields() {
+    return this.fieldList;
+  }
+
   public OptionalInt getMaxParallelism() {
     return maxParallelism == null ? OptionalInt.empty() : OptionalInt.of(maxParallelism);
   }
@@ -591,10 +602,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   public Optional<String> getPersistentGcsPath() {
     return persistentGcsPath.toJavaUtil();
-  }
-
-  public IntermediateFormat getIntermediateFormat() {
-    return intermediateFormat;
   }
 
   public DataFormat getReadDataFormat() {
@@ -776,71 +783,11 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     };
   }
 
-  public enum IntermediateFormat {
-    AVRO("avro", FormatOptions.avro()),
-    AVRO_2_3("com.databricks.spark.avro", FormatOptions.avro()),
-    ORC("orc", FormatOptions.orc()),
-    PARQUET("parquet", FormatOptions.parquet());
-
-    private static Set<String> PERMITTED_DATA_SOURCES =
-        Stream.of(values())
-            .map(IntermediateFormat::getDataSource)
-            .filter(dataSource -> !dataSource.contains("."))
-            .collect(Collectors.toSet());
-
-    private final String dataSource;
-    private final FormatOptions formatOptions;
-
-    IntermediateFormat(String dataSource, FormatOptions formatOptions) {
-      this.dataSource = dataSource;
-      this.formatOptions = formatOptions;
-    }
-
-    public static IntermediateFormat from(
-        String format,
-        String flinkVersion,
-        org.apache.flink.configuration.Configuration sqlConf,
-        boolean validateSparkAvro) {
-      Preconditions.checkArgument(
-          PERMITTED_DATA_SOURCES.contains(format.toLowerCase()),
-          "Data write format '%s' is not supported. Supported formats are %s",
-          format,
-          PERMITTED_DATA_SOURCES);
-
-      if (validateSparkAvro && format.equalsIgnoreCase("avro")) {
-        IntermediateFormat intermediateFormat = isSpark24OrAbove(flinkVersion) ? AVRO : AVRO_2_3;
-        return intermediateFormat;
-      }
-
-      return Stream.of(values())
-          .filter(intermediateFormat -> intermediateFormat.getDataSource().equalsIgnoreCase(format))
-          .findFirst()
-          .get();
-    }
-
-    static boolean isSpark24OrAbove(String flinkVersion) {
-      return flinkVersion.compareTo("2.4") > 0;
-    }
-
-    public String getDataSource() {
-      return dataSource;
-    }
-
-    public FormatOptions getFormatOptions() {
-      return formatOptions;
-    }
-
-    public String getFileSuffix() {
-      return getFormatOptions().getType().toLowerCase();
-    }
-  }
-
-  private static class ParseSqlString {
+  static class SqlParser {
     List<String> tableList = new ArrayList<String>();
     List<SelectItem> selectCols = new ArrayList<SelectItem>();
 
-    private ParseSqlString(com.google.common.base.Optional<String> query)
-        throws JSQLParserException {
+    SqlParser(com.google.common.base.Optional<String> query) throws JSQLParserException {
       String sql = query.get();
       Statement select = (Statement) CCJSqlParserUtil.parse(sql);
       TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
@@ -848,13 +795,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
       this.selectCols = ((PlainSelect) ((Select) select).getSelectBody()).getSelectItems();
     }
 
-    private String getTable() {
-      String tableName = tableList.get(0);
-      tableName = tableName.replace("`", "");
-      return tableName;
-    }
-
-    private String getSelectedFields() {
+    String getSelectedFields() {
       String selectedFields = "";
       for (SelectItem field : selectCols) {
         selectedFields =

@@ -40,6 +40,7 @@ public class BigQueryReadSession {
       FlinkBigQueryConfig bqconfig,
       BigQueryClientFactory bigQueryReadClientFactory)
       throws FileNotFoundException, IOException, JSQLParserException {
+
     final BigQuery bigquery =
         BigQueryOptions.newBuilder().setCredentials(credentials).build().getService();
     Optional<String> materializationProject =
@@ -54,18 +55,20 @@ public class BigQueryReadSession {
     ReadSessionCreatorConfig readSessionCreatorConfig = bqconfig.toReadSessionCreatorConfig();
     ReadSessionCreator readSessionCreator =
         new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryReadClientFactory);
+
     TableId tabId = null;
     if (bqconfig.getQuery().isPresent()) {
+
       int expirationTimeInMinutes = bqconfig.getMaterializationExpirationTimeInMinutes();
-      ;
       TableInfo tableInfo =
           bigQueryClient.materializeQueryToTable(
               bqconfig.getQuery().get(), expirationTimeInMinutes);
       tabId = tableInfo.getTableId();
     }
+
     TableId tableId = bqconfig.getQuery().isPresent() ? tabId : bqconfig.getTableId();
     ImmutableList<String> selectedFields =
-        ImmutableList.copyOf(Arrays.asList((bqconfig.getSelectedFields()).split(",")));
+        ImmutableList.copyOf(Arrays.asList(bqconfig.getSelectedFields().split(",")));
     Optional<String> filter =
         bqconfig.getFilter().isPresent() ? bqconfig.getFilter() : Optional.empty();
     ReadSessionResponse response = readSessionCreator.create(tableId, selectedFields, filter);

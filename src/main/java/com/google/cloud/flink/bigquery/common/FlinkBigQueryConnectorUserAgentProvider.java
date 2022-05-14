@@ -84,7 +84,7 @@ public class FlinkBigQueryConnectorUserAgentProvider implements UserAgentProvide
         return Optional.empty();
       }
     } catch (Exception e) {
-      throw new FlinkBigQueryException("Error while invoking GCP instance");
+      return Optional.empty();
     } finally {
       try {
         Closeables.close(httpClient, true);
