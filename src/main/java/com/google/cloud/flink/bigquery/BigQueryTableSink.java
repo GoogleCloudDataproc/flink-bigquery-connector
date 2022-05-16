@@ -57,8 +57,12 @@ import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BigQueryTableSink implements AppendStreamTableSink<Row>, OverwritableTableSink {
+
+  private static final Logger log = LoggerFactory.getLogger(BigQueryTableSink.class);
   public static final ConfigOption<String> TABLE =
       ConfigOptions.key("table").stringType().noDefaultValue();
   public static final ConfigOption<String> PARTITION_FIELD =
@@ -106,7 +110,8 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
     try {
       createBigQueryTable();
     } catch (JSQLParserException e) {
-      e.printStackTrace();
+      log.error("Error while creating big query table:", e);
+      throw new FlinkBigQueryException("Error while creating big query table:", e);
     }
     BigQuerySinkFunction bigQuerySinkFunction =
         new BigQuerySinkFunction(fieldNames, fieldTypes, bqconfig, bigQueryWriteClientFactory);
