@@ -17,6 +17,37 @@ package com.google.cloud.flink.bigquery;
 
 import static com.google.cloud.flink.bigquery.ProtobufUtils.getListOfSubFields;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import javax.annotation.Nullable;
+
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.sinks.AppendStreamTableSink;
+import org.apache.flink.table.sinks.OverwritableTableSink;
+import org.apache.flink.table.sinks.TableSink;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.ArrayType;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.RowType.RowField;
+import org.apache.flink.table.utils.TableConnectorUtils;
+import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Field;
@@ -31,38 +62,12 @@ import com.google.cloud.bigquery.connector.common.BigQueryCredentialsSupplier;
 import com.google.cloud.flink.bigquery.common.FlinkBigQueryConnectorUserAgentProvider;
 import com.google.cloud.flink.bigquery.common.UserAgentHeaderProvider;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import javax.annotation.Nullable;
+
 import net.sf.jsqlparser.JSQLParserException;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ConfigOptions;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.sinks.AppendStreamTableSink;
-import org.apache.flink.table.sinks.OverwritableTableSink;
-import org.apache.flink.table.sinks.TableSink;
-import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.types.logical.ArrayType;
-import org.apache.flink.table.types.logical.RowType;
-import org.apache.flink.table.types.logical.RowType.RowField;
-import org.apache.flink.table.utils.TableConnectorUtils;
-import org.apache.flink.types.Row;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class BigQueryTableSink implements AppendStreamTableSink<Row>, OverwritableTableSink {
-
-  private static final Logger log = LoggerFactory.getLogger(BigQueryTableSink.class);
+	
+	private static final Logger log = LoggerFactory.getLogger(BigQueryTableSink.class);
   public static final ConfigOption<String> TABLE =
       ConfigOptions.key("table").stringType().noDefaultValue();
   public static final ConfigOption<String> PARTITION_FIELD =
@@ -110,8 +115,8 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
     try {
       createBigQueryTable();
     } catch (JSQLParserException e) {
-      log.error("Error while creating big query table:", e);
-      throw new FlinkBigQueryException("Error while creating big query table:", e);
+    	log.error("Error while creating big query table:", e);
+    	throw new FlinkBigQueryException("Error while creating big query table:", e);
     }
     BigQuerySinkFunction bigQuerySinkFunction =
         new BigQuerySinkFunction(fieldNames, fieldTypes, bqconfig, bigQueryWriteClientFactory);
@@ -179,37 +184,60 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
       }
       RowType flinkSchema = new RowType(listOfRowFields);
 
-      ArrayList<Field> listOfFields = new ArrayList<Field>();
+      //			ArrayList<Field> listOfFields = new ArrayList<Field>();
 
       Iterator<RowField> rowFieldItrator = flinkSchema.getFields().iterator();
+      List<Field> listOfFields = new ArrayList<Field>();
       while (rowFieldItrator.hasNext()) {
-        RowField elem = rowFieldItrator.next();
-        if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
-          listOfFields.add(
-              Field.newBuilder(
-                      elem.getName(),
-                      StandardSQLTypeName.STRUCT,
-                      FieldList.of(getListOfSubFields(elem.getType())))
-                  .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
-                  .build());
-        } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
-          listOfFields.add(
-              Field.newBuilder(
-                      elem.getName(),
-                      StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
-                  .setMode(Mode.REPEATED)
-                  .build());
-        } else {
-          listOfFields.add(
-              Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-                  .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
-                  .build());
-        }
+        listOfFields.addAll(getFields(rowFieldItrator.next(), null));
       }
       FieldList fieldlist = FieldList.of(listOfFields);
       Schema schema = Schema.of(fieldlist);
       bigQueryClient.createTable(tableId, schema);
     }
+  }
+
+  private List<Field> getFields(RowField elem, String mode) {
+    if ("REPEATED".equals(mode)) mode = "REPEATED";
+    List<Field> listOfFields = new ArrayList<Field>();
+    if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
+      listOfFields.add(getRowField(elem, mode));
+    } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
+      if ("ROW".equals(((ArrayType) elem.getType()).getElementType().getTypeRoot().toString())) {
+        LogicalType rowElementType = ((ArrayType) elem.getType()).getElementType();
+        List<LogicalType> rowLogicalType = rowElementType.getChildren();
+        RowField rowelem = new RowField(elem.getName(), rowElementType);
+        listOfFields.addAll(getFields(rowelem, "REPEATED"));
+      } else {
+        listOfFields.add(
+            Field.newBuilder(
+                    elem.getName(),
+                    StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
+                .setMode(Mode.REPEATED)
+                .build());
+      }
+    } else {
+      listOfFields.add(
+          Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
+              .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
+              .build());
+    }
+    return listOfFields;
+  }
+
+  private Field getRowField(RowField elem, String modeValue) {
+    Mode mode;
+    if ("REPEATED".equals(modeValue)) {
+      mode = Mode.REPEATED;
+    } else {
+      mode = elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED;
+    }
+    return Field.newBuilder(
+            elem.getName(),
+            StandardSQLTypeName.STRUCT,
+            FieldList.of(getListOfSubFields(elem.getType())))
+        .setMode(mode)
+        .build();
   }
 
   @Override

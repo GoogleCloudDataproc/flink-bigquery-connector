@@ -15,6 +15,7 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import static com.google.cloud.flink.bigquery.ProtobufUtils.getListOfSubFields;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.cloud.bigquery.Field;
@@ -158,42 +159,14 @@ public final class ProtobufUtils {
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
         DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-    ArrayList<Field> listOfFileds = new ArrayList<Field>();
+    List<Field> listOfFields = new ArrayList<Field>();
     Iterator<RowField> streamdata = schema.getFields().iterator();
     while (streamdata.hasNext()) {
-      RowField elem = streamdata.next();
-      boolean isNullable = elem.getType().isNullable();
-      Mode typeMode;
-      if (isNullable) {
-        typeMode = Mode.NULLABLE;
-      } else {
-        typeMode = Mode.REQUIRED;
-      }
-      if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
-        listOfFileds.add(
-            Field.newBuilder(
-                    elem.getName(),
-                    StandardSQLTypeName.STRUCT,
-                    FieldList.of(getListOfSubFields(elem.getType())))
-                .setMode(typeMode)
-                .build());
-      } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
-        listOfFileds.add(
-            Field.newBuilder(
-                    elem.getName(),
-                    StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
-                .setMode(Mode.REPEATED)
-                .build());
-      } else {
-        listOfFileds.add(
-            Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-                .setMode(typeMode)
-                .build());
-      }
+      listOfFields.addAll(getFields(streamdata.next(), null));
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFileds), initialDepth);
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFields), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
   }
@@ -225,6 +198,49 @@ public final class ProtobufUtils {
         buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFileds), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
+  }
+
+  private static List<Field> getFields(RowField elem, String mode) {
+    if ("REPEATED".equals(mode)) mode = "REPEATED";
+    List<Field> listOfFields = new ArrayList<Field>();
+    if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
+      listOfFields.add(getRowField(elem, mode));
+    } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
+      if ("ROW".equals(((ArrayType) elem.getType()).getElementType().getTypeRoot().toString())) {
+        LogicalType rowElementType = ((ArrayType) elem.getType()).getElementType();
+        List<LogicalType> rowLogicalType = rowElementType.getChildren();
+        RowField rowelem = new RowField(elem.getName(), rowElementType);
+        listOfFields.addAll(getFields(rowelem, "REPEATED"));
+      } else {
+        listOfFields.add(
+            Field.newBuilder(
+                    elem.getName(),
+                    StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
+                .setMode(Mode.REPEATED)
+                .build());
+      }
+    } else {
+      listOfFields.add(
+          Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
+              .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
+              .build());
+    }
+    return listOfFields;
+  }
+
+  private static Field getRowField(RowField elem, String modeValue) {
+    Mode mode;
+    if ("REPEATED".equals(modeValue)) {
+      mode = Mode.REPEATED;
+    } else {
+      mode = elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED;
+    }
+    return Field.newBuilder(
+            elem.getName(),
+            StandardSQLTypeName.STRUCT,
+            FieldList.of(getListOfSubFields(elem.getType())))
+        .setMode(mode)
+        .build();
   }
 
   public static Descriptors.Descriptor toDescriptor(Schema schema)
