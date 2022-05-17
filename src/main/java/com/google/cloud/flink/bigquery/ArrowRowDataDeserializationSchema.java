@@ -29,6 +29,7 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.Collector;
 
@@ -47,9 +48,14 @@ public class ArrowRowDataDeserializationSchema
   public String arrowSchemaJson;
 
   public ArrowRowDataDeserializationSchema(
-      RowType rowType, TypeInformation<RowData> typeInfo, List<String> selectedFieldList) {
+      RowType rowType,
+      TypeInformation<RowData> typeInfo,
+      List<String> selectedFieldList,
+      List<String> arrowFieldList) {
     this.typeInfo = typeInfo;
-    Schema arrowSchema = ArrowSchemaConverter.convertToSchema(rowType);
+    Schema arrowSchema =
+        ArrowSchemaConverter.convertToSchema(
+            getRowTypeForArrowSchema(rowType, selectedFieldList, arrowFieldList));
     arrowSchema.getFields().stream()
         .forEach(
             field -> {
@@ -58,8 +64,37 @@ public class ArrowRowDataDeserializationSchema
     this.arrowSchemaJson = arrowSchema.toJson().toString();
     this.nestedSchema = ArrowDeserializationSchema.forGeneric(arrowSchemaJson, typeInfo);
     this.runtimeConverter =
-        ArrowToRowDataConverters.createRowConverter(
-            rowType, readSessionFieldNames, selectedFieldList);
+        ArrowToRowDataConverters.createRowConverter(rowType, readSessionFieldNames);
+  }
+
+  /**
+   * @param rowType
+   * @param selectedFieldList
+   * @param arrowFieldList
+   * @return
+   */
+  private RowType getRowTypeForArrowSchema(
+      RowType rowType, List<String> selectedFieldList, List<String> arrowFieldList) {
+    List<String> rowFieldNames = rowType.getFieldNames();
+    List<LogicalType> rowFields = rowType.getChildren();
+    List<LogicalType> updatedRowFields = new ArrayList<LogicalType>();
+    List<String> updatedRowFieldNames = new ArrayList<String>();
+    for (int i = 0; i < rowFieldNames.size(); i++) {
+      if (selectedFieldList.get(i).equals(arrowFieldList.get(i))) {
+        updatedRowFieldNames.add(rowFieldNames.get(i));
+        updatedRowFields.add(rowFields.get(i));
+      } else {
+        String arrowFieldsName = arrowFieldList.get(i);
+        int rowTypeFieldIndex = selectedFieldList.indexOf(arrowFieldsName);
+        updatedRowFieldNames.add(rowFieldNames.get(rowTypeFieldIndex));
+        updatedRowFields.add(rowFields.get(rowTypeFieldIndex));
+      }
+    }
+    RowType updatedRowType =
+        RowType.of(
+            updatedRowFields.toArray(new LogicalType[0]),
+            updatedRowFieldNames.toArray(new String[0]));
+    return updatedRowType;
   }
 
   @Override

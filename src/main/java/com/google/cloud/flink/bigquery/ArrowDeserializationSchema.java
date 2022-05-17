@@ -45,20 +45,20 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   final Logger logger = LoggerFactory.getLogger(ArrowDeserializationSchema.class);
 
   private BufferAllocator allocator;
-  private final TypeInformation<RowData> typeInfo;
-  ArrowRecordBatch deserializedBatch;
+  private TypeInformation<RowData> typeInfo;
   private VectorSchemaRoot root;
   private VectorLoader loader;
-  List<FieldVector> vectors = new ArrayList<>();
+  private List<FieldVector> vectors = new ArrayList<>();
   private Schema schema;
-  private final Class<T> recordClazz;
-  private Schema readSessionSchema;
+  private Class<T> recordClazz;
+  private String schemaJsonString;
 
-  ArrowDeserializationSchema(
+  public ArrowDeserializationSchema(
       Class<T> recordClazz, String schemaJsonString, TypeInformation<RowData> typeInfo) {
     Preconditions.checkNotNull(recordClazz, "Arrow record class must not be null.");
     this.typeInfo = typeInfo;
     this.recordClazz = recordClazz;
+    this.schemaJsonString = schemaJsonString;
   }
 
   public static ArrowDeserializationSchema<VectorSchemaRoot> forGeneric(
@@ -76,21 +76,10 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
       throw new FlinkBigQueryException("Deserializing message is empty");
     }
     if (this.schema == null) {
-      try {
-        this.readSessionSchema =
-            MessageSerializer.deserializeSchema(
-                new ReadChannel(
-                    new ByteArrayReadableSeekableByteChannel(
-                        response.getArrowSchema().getSerializedSchema().toByteArray())));
-      } catch (Exception e) {
-        logger.error("Error while deserializing schema:", e);
-        throw new FlinkBigQueryException("Deserialization mush have schema:", e);
-      }
-      String jsonArrowSchemafromReadSession = this.readSessionSchema.toJson();
-      this.schema = Schema.fromJSON(jsonArrowSchemafromReadSession);
+      this.schema = Schema.fromJSON(schemaJsonString);
     }
     initializeArrow();
-    deserializedBatch =
+    ArrowRecordBatch deserializedBatch =
         MessageSerializer.deserializeRecordBatch(
             new ReadChannel(new ByteArrayReadableSeekableByteChannel(arrowRecordBatchMessage)),
             allocator);

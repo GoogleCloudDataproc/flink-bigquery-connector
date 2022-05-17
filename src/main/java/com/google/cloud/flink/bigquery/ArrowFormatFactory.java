@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
@@ -42,23 +43,20 @@ public class ArrowFormatFactory
   @Override
   public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(
       Context context, ReadableConfig formatOptions) {
+    Map<String, String> options = context.getCatalogTable().getOptions();
     FactoryUtil.validateFactoryOptions(this, formatOptions);
-    String formatOptionsString = formatOptions.toString();
-    if (formatOptionsString.contains("selectedFields=")) {
+    this.selectedFields = options.get("selectedFields");
+    if (this.selectedFields.endsWith(",")) {
       this.selectedFields =
-          formatOptionsString.substring(
-              formatOptionsString.indexOf("selectedFields="),
-              formatOptionsString.indexOf(" ", formatOptionsString.indexOf("selectedFields=")));
-      if (this.selectedFields.endsWith(",")) {
-        this.selectedFields =
-            selectedFields.substring(0, selectedFields.length() - 1).replace("selectedFields=", "");
-      }
+          selectedFields.substring(0, selectedFields.length() - 1).replace("selectedFields=", "");
     }
     List<String> selectedFieldList = new ArrayList<String>();
+    List<String> arrowFieldList = new ArrayList<String>();
+    arrowFieldList = Arrays.asList(options.get("arrowFields").split(","));
     if (selectedFields != null) {
       selectedFieldList = Arrays.asList(selectedFields.split(","));
     }
-    return new BigQueryArrowFormat(selectedFieldList);
+    return new BigQueryArrowFormat(selectedFieldList, arrowFieldList);
   }
 
   @Override
