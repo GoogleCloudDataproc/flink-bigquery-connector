@@ -67,12 +67,6 @@ public class ArrowRowDataDeserializationSchema
         ArrowToRowDataConverters.createRowConverter(rowType, readSessionFieldNames);
   }
 
-  /**
-   * @param rowType
-   * @param selectedFieldList
-   * @param arrowFieldList
-   * @return
-   */
   private RowType getRowTypeForArrowSchema(
       RowType rowType, List<String> selectedFieldList, List<String> arrowFieldList) {
     List<String> rowFieldNames = rowType.getFieldNames();

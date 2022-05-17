@@ -51,8 +51,7 @@ public class ArrowFormatFactory
           selectedFields.substring(0, selectedFields.length() - 1).replace("selectedFields=", "");
     }
     List<String> selectedFieldList = new ArrayList<String>();
-    List<String> arrowFieldList = new ArrayList<String>();
-    arrowFieldList = Arrays.asList(options.get("arrowFields").split(","));
+    List<String> arrowFieldList = Arrays.asList(options.get("arrowFields").split(","));
     if (selectedFields != null) {
       selectedFieldList = Arrays.asList(selectedFields.split(","));
     }
