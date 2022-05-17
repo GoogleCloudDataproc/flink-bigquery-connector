@@ -45,7 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, Serializable {
-  /** */
+
   private static final long serialVersionUID = 1L;
 
   final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriterContext.class);
@@ -69,7 +69,6 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
       FlinkBigQueryConfig bqConfig,
       BigQueryClientFactory bigQueryWriteClientFactory)
       throws JSQLParserException {
-
     this.bqConfig = bqConfig;
     this.tableId = bqConfig.getTableId();
     this.bigQueryWriteClientFactory = bigQueryWriteClientFactory;

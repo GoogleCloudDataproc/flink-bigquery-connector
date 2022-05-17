@@ -41,7 +41,6 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
       DataType[] fieldDataTypes,
       FlinkBigQueryConfig bqconfig,
       BigQueryClientFactory bigQueryWriteClientFactory) {
-
     this.fieldNames = fieldNames;
     this.fieldDataTypes = fieldDataTypes;
     this.bqconfig = bqconfig;
