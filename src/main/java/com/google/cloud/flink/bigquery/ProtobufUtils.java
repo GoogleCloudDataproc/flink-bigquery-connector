@@ -207,7 +207,6 @@ public final class ProtobufUtils {
     } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
       if ("ROW".equals(((ArrayType) elem.getType()).getElementType().getTypeRoot().toString())) {
         LogicalType rowElementType = ((ArrayType) elem.getType()).getElementType();
-        List<LogicalType> rowLogicalType = rowElementType.getChildren();
         RowField rowelem = new RowField(elem.getName(), rowElementType);
         listOfFields.addAll(getFields(rowelem, "REPEATED"));
       } else {
