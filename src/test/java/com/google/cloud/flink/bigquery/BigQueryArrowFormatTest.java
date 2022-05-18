@@ -27,7 +27,6 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
@@ -41,12 +40,12 @@ import org.apache.flink.table.factories.DynamicTableFactory.Context;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.RowKind;
+import org.junit.Before;
 import org.junit.Test;
 
 public class BigQueryArrowFormatTest {
 
-  BigQueryArrowFormat bigQueryArrowFormat =
-      new BigQueryArrowFormat(Arrays.asList("word", "wordcount_output"));
+  static BigQueryArrowFormat bigQueryArrowFormat;
   MockScanContext mockScanContext = new MockScanContext();
   static StreamTableEnvironment flinkTableEnv;
   static String bigqueryReadTable;
@@ -56,21 +55,24 @@ public class BigQueryArrowFormatTest {
   static TableSchema tableSchema;
   public static final int DEFAULT_PARALLELISM = 10;
   public static final String FLINK_VERSION = "1.11.0";
-  ImmutableMap<String, String> defaultOptions = ImmutableMap.of("table", "dataset.table");
+  static ImmutableMap<String, String> defaultOptions;
 
-  public BigQueryArrowFormatTest() {
-    StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-    flinkTableEnv = StreamTableEnvironment.create(env);
+  @Before
+  public void setUp() {
 
-    bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
-    flinkSrcTable = "table1";
-    srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    bigQueryArrowFormat =
+        new BigQueryArrowFormat(Arrays.asList("col1", "col2"), Arrays.asList("col1", "col2"));
+    defaultOptions = ImmutableMap.of("table", "dataset.table");
+
+    bigqueryReadTable = "project.datatset.table";
+    flinkSrcTable = "testTable";
+    srcQueryString = "CREATE TABLE " + flinkSrcTable + " (col1 STRING , col2 BIGINT)";
 
     tableIdentifier = ObjectIdentifier.of("bigquerycatalog", "default", flinkSrcTable);
     tableSchema =
         TableSchema.builder()
-            .field("word", DataTypes.STRING())
-            .field("word_count", DataTypes.BIGINT())
+            .field("col1", DataTypes.STRING())
+            .field("col2", DataTypes.BIGINT())
             .build();
   }
 
@@ -78,8 +80,6 @@ public class BigQueryArrowFormatTest {
   public void getChangelogModeTest() {
     ChangelogMode result = bigQueryArrowFormat.getChangelogMode();
     assertThat(result).isNotNull();
-    assertThat(result).isInstanceOf(ChangelogMode.class);
-    assertThat(result.getContainedKinds().toString()).isEqualTo("[INSERT]");
     assertThat(result.contains(RowKind.INSERT)).isTrue();
   }
 
