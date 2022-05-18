@@ -67,7 +67,7 @@ public class ArrowFormatFactoryTest {
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     flinkTableEnv = StreamTableEnvironment.create(env);
 
-    bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    bigqueryReadTable = "project.dataset.table";
     flinkSrcTable = "table1";
     srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
 

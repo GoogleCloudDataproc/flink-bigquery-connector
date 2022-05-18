@@ -27,9 +27,11 @@ import org.apache.flink.table.types.logical.RowType;
 
 public class BigQueryArrowFormat implements DecodingFormat<DeserializationSchema<RowData>> {
   private List<String> selectedFieldList;
+  private List<String> arrowFieldList;
 
-  public BigQueryArrowFormat(List<String> selectedFieldList) {
+  public BigQueryArrowFormat(List<String> selectedFieldList, List<String> arrowFieldList) {
     this.selectedFieldList = selectedFieldList;
+    this.arrowFieldList = arrowFieldList;
   }
 
   @Override
@@ -44,6 +46,7 @@ public class BigQueryArrowFormat implements DecodingFormat<DeserializationSchema
     final RowType rowType = (RowType) producedDataType.getLogicalType();
     final TypeInformation<RowData> rowDataTypeInfo =
         (TypeInformation<RowData>) context.createTypeInformation(producedDataType);
-    return new ArrowRowDataDeserializationSchema(rowType, rowDataTypeInfo, selectedFieldList);
+    return new ArrowRowDataDeserializationSchema(
+        rowType, rowDataTypeInfo, selectedFieldList, arrowFieldList);
   }
 }
