@@ -17,16 +17,15 @@ package com.google.cloud.flink.bigquery;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
@@ -61,14 +60,12 @@ public class BigQueryDynamicTableFactoryTest {
     Set<ConfigOption<?>> configOptionSet = bigQueryDynamicTableFactory.requiredOptions();
     assertThat(configOptionSet).isNotNull();
     assertThat(configOptionSet.size()).isEqualTo(5);
-    List<String> options = new ArrayList<String>();
-    Iterator<ConfigOption<?>> configOptionIterator = configOptionSet.iterator();
-    while (configOptionIterator.hasNext()) {
-      ConfigOption configOption = configOptionIterator.next();
-      options.add(configOption.key().toString());
-    }
+    List<String> options =
+        configOptionSet.stream()
+            .map(configOption -> configOption.key().toString())
+            .collect(Collectors.toList());
     Collections.sort(options);
-    assertTrue(expectedOptions.equals(options));
+    assertThat(expectedOptions).containsExactlyElementsIn(options);
   }
 
   @Test
@@ -103,7 +100,7 @@ public class BigQueryDynamicTableFactoryTest {
           options.add(option.key().toString());
         });
     Collections.sort(options);
-    assertTrue(expectedOptions.equals(options));
+    assertThat(expectedOptions).containsExactlyElementsIn(options);
   }
 
   @Test
