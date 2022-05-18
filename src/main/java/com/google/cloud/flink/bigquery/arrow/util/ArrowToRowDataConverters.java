@@ -27,7 +27,6 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.flink.annotation.Internal;
@@ -61,31 +60,25 @@ public class ArrowToRowDataConverters {
   // -------------------------------------------------------------------------------------
 
   public static ArrowToRowDataConverter createRowConverter(
-      RowType rowType, List<String> readSessionFieldNames, List<String> selectedFieldList) {
+      RowType rowType, List<String> readSessionFieldNames) {
     final ArrowToRowDataConverter[] fieldConverters =
         rowType.getFields().stream()
             .map(RowType.RowField::getType)
             .map(ArrowToRowDataConverters::createNullableConverter)
             .toArray(ArrowToRowDataConverter[]::new);
     final int arity = rowType.getFieldCount();
-    final List<String> selectedFields;
-    if (selectedFieldList.isEmpty()) {
-      selectedFields = new ArrayList<String>();
-    } else {
-      selectedFields = selectedFieldList;
-    }
-
+    List<String> fieldNameList = rowType.getFieldNames();
     final List<String> arrowFields = new ArrayList<String>();
 
     return arrowObject -> {
-      return getArrowObject(fieldConverters, arity, selectedFields, arrowFields, arrowObject);
+      return getArrowObject(fieldConverters, arity, fieldNameList, arrowFields, arrowObject);
     };
   }
 
   private static Object getArrowObject(
       final ArrowToRowDataConverter[] fieldConverters,
       final int arity,
-      final List<String> selectedFields,
+      final List<String> fieldNameList,
       final List<String> arrowFields,
       Object arrowObject) {
     List<GenericRowData> rowdatalist = new ArrayList<GenericRowData>();
@@ -96,18 +89,11 @@ public class ArrowToRowDataConverters {
               field -> {
                 arrowFields.add(field.getName());
               });
-      if (selectedFields.isEmpty()) {
-        record.getSchema().getFields().stream()
-            .forEach(
-                field -> {
-                  selectedFields.add(field.getName());
-                });
-      }
       int numOfRows = record.getRowCount();
       for (int row = 0; row < numOfRows; ++row) {
         GenericRowData genericRowData = new GenericRowData(arity);
         for (int col = 0; col < arity; col++) {
-          String rowTypeField = selectedFields.get(col);
+          String rowTypeField = fieldNameList.get(col);
           int arrowFieldIdx = arrowFields.indexOf(rowTypeField);
           genericRowData.setField(
               col,
@@ -117,12 +103,20 @@ public class ArrowToRowDataConverters {
         rowdatalist.add(genericRowData);
       }
     } else if (arrowObject instanceof JsonStringHashMap) {
-      JsonStringHashMap record = (JsonStringHashMap) arrowObject;
-      Set columnSet = record.keySet();
-      Object[] columnSetArray = columnSet.toArray();
+      JsonStringHashMap<String, ?> record = (JsonStringHashMap<String, ?>) arrowObject;
+      ArrayList<String> columnSet = new ArrayList<String>(record.keySet());
       GenericRowData genericRowData = new GenericRowData(arity);
-      for (int col = 0; col < arity; col++) {
-        genericRowData.setField(col, fieldConverters[col].convert(record.get(columnSetArray[col])));
+      if (!columnSet.isEmpty()) {
+        for (int col = 0; col < arity; col++) {
+          String actualField = fieldNameList.get(col);
+          if (columnSet.contains(actualField)) {
+            int actualIndex = columnSet.indexOf(actualField);
+            genericRowData.setField(
+                col, fieldConverters[col].convert(record.get(columnSet.get(actualIndex))));
+          } else {
+            genericRowData.setField(col, fieldConverters[col].convert(null));
+          }
+        }
       }
       return genericRowData;
     }
@@ -177,8 +171,7 @@ public class ArrowToRowDataConverters {
       case ARRAY:
         return createArrayConverter((ArrayType) type);
       case ROW:
-        return createRowConverter(
-            (RowType) type, ((RowType) type).getFieldNames(), ((RowType) type).getFieldNames());
+        return createRowConverter((RowType) type, ((RowType) type).getFieldNames());
       case MAP:
       case RAW:
       default:
