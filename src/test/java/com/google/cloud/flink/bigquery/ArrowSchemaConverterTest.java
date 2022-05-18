@@ -20,6 +20,9 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.cloud.flink.bigquery.arrow.util.ArrowSchemaConverter;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.flink.table.api.DataTypes;
@@ -46,10 +49,40 @@ public class ArrowSchemaConverterTest {
     fields.add(new RowField("time_dataType", DataTypes.TIME().getLogicalType()));
     RowType rowType = new RowType(fields);
     Schema schema = ArrowSchemaConverter.convertToSchema(rowType);
-    assertThat(schema).isNotNull();
-    assertThat(schema.toString())
-        .isEqualTo(
-            "Schema<int_dataType: Int(64, true), string_dataType: Utf8, array_dataType: List<element: Utf8>, boolean_dataType: Bool, bytes_dataType: Binary, date_dataType: Date(DAY), decimal_dataType: Decimal(10, 0, 128), double_dataType: FloatingPoint(DOUBLE), row_dataType: Struct, timestamp_dataType: Timestamp(MICROSECOND, null), time_dataType: Time(SECOND, 32)>");
+
+    assertThat(schema.getFields().get(0).getName().equals("int_dataType"));
+    assertThat(schema.getFields().get(0).getType().equals(new ArrowType.Int(64, true)));
+    assertThat(schema.getFields().get(1).getName().equals("string_dataType"));
+    assertThat(schema.getFields().get(1).getType().equals(new ArrowType.Utf8()));
+    assertThat(schema.getFields().get(2).getName().equals("array_dataType"));
+    assertThat(schema.getFields().get(2).getType().equals(new ArrowType.List()));
+    assertThat(schema.getFields().get(3).getName().equals("boolean_dataType"));
+    assertThat(schema.getFields().get(3).getType().equals(new ArrowType.Bool()));
+    assertThat(schema.getFields().get(4).getName().equals("bytes_dataType"));
+    assertThat(schema.getFields().get(4).getType().equals(new ArrowType.LargeBinary()));
+    assertThat(schema.getFields().get(5).getName().equals("date_dataType"));
+    assertThat(schema.getFields().get(5).getType().equals(new ArrowType.Binary()));
+    assertThat(schema.getFields().get(6).getName().equals("decimal_dataType"));
+    assertThat(schema.getFields().get(6).getType().equals(new ArrowType.Decimal(10, 0, 128)));
+    assertThat(schema.getFields().get(7).getName().equals("double_dataType"));
+    assertThat(
+        schema
+            .getFields()
+            .get(7)
+            .getType()
+            .equals(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)));
+    assertThat(schema.getFields().get(8).getName().equals("row_dataType"));
+    assertThat(schema.getFields().get(8).getType().equals(new ArrowType.Struct()));
+    assertThat(schema.getFields().get(9).getName().equals("timestamp_dataType"));
+    assertThat(
+        schema
+            .getFields()
+            .get(9)
+            .getType()
+            .equals(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
+    assertThat(schema.getFields().get(10).getName().equals("time_dataType"));
+    assertThat(
+        schema.getFields().get(10).getType().equals(new ArrowType.Time(TimeUnit.SECOND, 32)));
   }
 
   @Test
