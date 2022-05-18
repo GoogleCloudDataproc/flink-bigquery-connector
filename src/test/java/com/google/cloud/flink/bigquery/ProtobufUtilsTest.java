@@ -245,7 +245,7 @@ public class ProtobufUtilsTest {
   }
 
   @Test
-  public void LogicalTypeToProtoTypeConverterTest() {
+  public void logicalTypeToProtoTypeConverterTest() {
     FieldType fieldType;
     fieldType =
         DataTypes.BIGINT()
