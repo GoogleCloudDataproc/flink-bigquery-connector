@@ -32,10 +32,7 @@ import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
-import org.apache.flink.table.connector.source.DynamicTableSource;
-import org.apache.flink.table.connector.source.ScanTableSource;
-import org.apache.flink.table.connector.source.ScanTableSource.ScanRuntimeProvider;
-import org.apache.flink.table.connector.source.SourceFunctionProvider;
+import org.apache.flink.table.connector.source.ScanTableSource.ScanContext;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.factories.FactoryUtil;
@@ -54,16 +51,6 @@ public class BigQueryDynamicTableSourceTest {
   @BeforeClass
   public static void setup() {
     bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
-  }
-
-  private DynamicTableSource getTableSource(String tableName) throws Exception {
-
-    MockDynamicTableContext contextObj = createContextObject();
-
-    BigQueryDynamicTableFactory dynamicTableFactory = new BigQueryDynamicTableFactory();
-    BigQueryDynamicTableSource dynamicTableSource =
-        (BigQueryDynamicTableSource) dynamicTableFactory.createDynamicTableSource(contextObj);
-    return dynamicTableSource;
   }
 
   @Test
@@ -86,38 +73,14 @@ public class BigQueryDynamicTableSourceTest {
         new BigQueryDynamicTableSource(
             decodingFormat, producedDataType, readStreamNames, mockBigQueryClientFactory);
 
-    ScanRuntimeProvider resultScanRuntimeProvider =
-        bigQueryDynamicTableSource.getScanRuntimeProvider(new MockScanContext());
+    ScanContext mockScanContext = Mockito.mock(ScanContext.class);
+    bigQueryDynamicTableSource.getScanRuntimeProvider(mockScanContext);
 
     assertThat(bigQueryDynamicTableSource instanceof BigQueryDynamicTableSource);
     assertThat(bigQueryDynamicTableSource.getChangelogMode()).isNotNull();
     assertThat(bigQueryDynamicTableSource.getChangelogMode() instanceof ChangelogMode);
     assertThat(bigQueryDynamicTableSource.copy() instanceof BigQueryDynamicTableSource);
     assertThat(bigQueryDynamicTableSource.asSummaryString()).isEqualTo("BigQuery Table Source");
-    assertThat(resultScanRuntimeProvider).isNotNull();
-  }
-
-  @Test
-  public void testSourceFunction() throws Exception {
-
-    DynamicTableSource dynamicTableSource = getTableSource("bigquery");
-
-    // Test the TableSource Class
-    ScanTableSource.ScanRuntimeProvider scanRuntimeProvider =
-        ((BigQueryDynamicTableSource) dynamicTableSource)
-            .getScanRuntimeProvider(new MockScanContext());
-
-    assertThat(scanRuntimeProvider).isNotNull();
-    assertThat(scanRuntimeProvider.isBounded()).isEqualTo(false);
-    assertThat(
-        ((BigQueryDynamicTableSource) dynamicTableSource).copy()
-            instanceof BigQueryDynamicTableSource);
-
-    BigQuerySourceFunction bqSourceFunction =
-        (BigQuerySourceFunction)
-            ((SourceFunctionProvider) scanRuntimeProvider).createSourceFunction();
-    assertThat(bqSourceFunction).isNotNull();
-    assertThat(dynamicTableSource.asSummaryString()).isEqualTo("BigQuery Table Source");
   }
 
   private MockDynamicTableContext createContextObject() {
