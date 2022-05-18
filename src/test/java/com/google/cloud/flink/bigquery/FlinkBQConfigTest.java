@@ -33,7 +33,6 @@ import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class FlinkBQConfigTest {
@@ -184,7 +183,6 @@ public class FlinkBQConfigTest {
     assertThat(config.getSelectedFields()).isEqualTo("word,word_count");
   }
 
-  @Ignore
   @Test
   public void testInvalidCompressionCodec() {
     Configuration hadoopConfiguration = new Configuration();
