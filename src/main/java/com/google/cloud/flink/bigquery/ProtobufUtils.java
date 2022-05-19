@@ -158,14 +158,14 @@ public final class ProtobufUtils {
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
         DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-    List<Field> listOfFields = new ArrayList<Field>();
+    List<Field> fieldList = new ArrayList<Field>();
     Iterator<RowField> streamdata = schema.getFields().iterator();
     while (streamdata.hasNext()) {
-      listOfFields.addAll(getFields(streamdata.next(), null));
+      fieldList.addAll(getFields(streamdata.next(), null));
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFields), initialDepth);
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(fieldList), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
   }
@@ -183,12 +183,12 @@ public final class ProtobufUtils {
                 elem.getName(),
                 StandardSQLTypeName.STRUCT,
                 FieldList.of(getListOfSubFields(elem.getType())))
-            .setMode(Mode.NULLABLE)
+            .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
             .build();
       } else {
         fieldList.add(
             Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-                .setMode(Mode.NULLABLE)
+                .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
                 .build());
       }
     }
@@ -201,16 +201,16 @@ public final class ProtobufUtils {
 
   private static List<Field> getFields(RowField elem, String mode) {
 
-    List<Field> listOfFields = new ArrayList<Field>();
+    List<Field> fieldList = new ArrayList<Field>();
     if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
-      listOfFields.add(getRowField(elem, mode));
+      fieldList.add(getRowField(elem, mode));
     } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
       if ("ROW".equals(((ArrayType) elem.getType()).getElementType().getTypeRoot().toString())) {
         LogicalType rowElementType = ((ArrayType) elem.getType()).getElementType();
         RowField rowelem = new RowField(elem.getName(), rowElementType);
-        listOfFields.addAll(getFields(rowelem, "REPEATED"));
+        fieldList.addAll(getFields(rowelem, "REPEATED"));
       } else {
-        listOfFields.add(
+        fieldList.add(
             Field.newBuilder(
                     elem.getName(),
                     StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
@@ -218,12 +218,12 @@ public final class ProtobufUtils {
                 .build());
       }
     } else {
-      listOfFields.add(
+      fieldList.add(
           Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
               .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
               .build());
     }
-    return listOfFields;
+    return fieldList;
   }
 
   private static Field getRowField(RowField elem, String modeValue) {

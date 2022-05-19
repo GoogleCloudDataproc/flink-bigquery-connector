@@ -126,12 +126,11 @@ public class ProtobufUtilsTest {
 
   @Test
   public void toDescriptorSchemaTest() throws IOException, DescriptorValidationException {
-    ArrayList<Field> listOfFileds = new ArrayList<Field>();
-    listOfFileds.add(
-        Field.newBuilder("id", StandardSQLTypeName.INT64).setMode(Mode.NULLABLE).build());
-    listOfFileds.add(
+    ArrayList<Field> fieldList = new ArrayList<Field>();
+    fieldList.add(Field.newBuilder("id", StandardSQLTypeName.INT64).setMode(Mode.NULLABLE).build());
+    fieldList.add(
         Field.newBuilder("name", StandardSQLTypeName.STRING).setMode(Mode.NULLABLE).build());
-    FieldList fieldlist = FieldList.of(listOfFileds);
+    FieldList fieldlist = FieldList.of(fieldList);
     Schema schema = Schema.of(fieldlist);
     Descriptor descriptor = ProtobufUtils.toDescriptor(schema);
     assertThat(descriptor).isNotNull();
@@ -173,12 +172,11 @@ public class ProtobufUtilsTest {
 
   @Test
   public void toProtoSchemaSchemaTest() throws IOException, DescriptorValidationException {
-    ArrayList<Field> listOfFileds = new ArrayList<Field>();
-    listOfFileds.add(
-        Field.newBuilder("id", StandardSQLTypeName.INT64).setMode(Mode.NULLABLE).build());
-    listOfFileds.add(
+    ArrayList<Field> fieldList = new ArrayList<Field>();
+    fieldList.add(Field.newBuilder("id", StandardSQLTypeName.INT64).setMode(Mode.NULLABLE).build());
+    fieldList.add(
         Field.newBuilder("name", StandardSQLTypeName.STRING).setMode(Mode.NULLABLE).build());
-    FieldList fieldlist = FieldList.of(listOfFileds);
+    FieldList fieldlist = FieldList.of(fieldList);
     Schema schema = Schema.of(fieldlist);
     ProtoSchema protoSchema = ProtobufUtils.toProtoSchema(schema);
     Descriptor descriptor = ProtobufUtils.toDescriptor(schema);
