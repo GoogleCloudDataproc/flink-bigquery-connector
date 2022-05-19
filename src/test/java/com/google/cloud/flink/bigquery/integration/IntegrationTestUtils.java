@@ -93,65 +93,64 @@ public class IntegrationTestUtils {
   public static void createTable(String dataset, String table, String function)
       throws UnsupportedEncodingException, InterruptedException {
     BigQuery bq = getBigquery();
-    ArrayList<Field> listOfFileds = new ArrayList<Field>();
-    ArrayList<Field> listOfSubFileds = new ArrayList<Field>();
-    listOfSubFileds.add(
+    ArrayList<Field> fieldList = new ArrayList<Field>();
+    ArrayList<Field> subFieldList = new ArrayList<Field>();
+    subFieldList.add(
         Field.newBuilder("record1", StandardSQLTypeName.STRING).setMode(Mode.NULLABLE).build());
-    listOfSubFileds.add(
+    subFieldList.add(
         Field.newBuilder("record2", StandardSQLTypeName.NUMERIC).setMode(Mode.NULLABLE).build());
-    listOfSubFileds.add(
+    subFieldList.add(
         Field.newBuilder("record3", StandardSQLTypeName.BOOL).setMode(Mode.NULLABLE).build());
 
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("numeric_datatype", StandardSQLTypeName.NUMERIC)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("string_datatype", StandardSQLTypeName.STRING)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("bytes_datatype", StandardSQLTypeName.BYTES)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("integer_datatype", StandardSQLTypeName.INT64)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("float_datatype", StandardSQLTypeName.FLOAT64)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("boolean_datatype", StandardSQLTypeName.BOOL)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("timestamp_datatype", StandardSQLTypeName.TIMESTAMP)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("date_datatype", StandardSQLTypeName.DATE).setMode(Mode.NULLABLE).build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("datetime_datatype", StandardSQLTypeName.DATETIME)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("time_datatype", StandardSQLTypeName.TIME).setMode(Mode.NULLABLE).build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("geography_datatype", StandardSQLTypeName.STRING)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
-        Field.newBuilder(
-                "record_datatype", StandardSQLTypeName.STRUCT, FieldList.of(listOfSubFileds))
+    fieldList.add(
+        Field.newBuilder("record_datatype", StandardSQLTypeName.STRUCT, FieldList.of(subFieldList))
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("array_datatype", StandardSQLTypeName.STRING)
             .setMode(Mode.REPEATED)
             .build());
-    FieldList fieldlist = FieldList.of(listOfFileds);
+    FieldList fieldlist = FieldList.of(fieldList);
     Schema schema = Schema.of(fieldlist);
 
     TableId tableId = TableId.of(dataset, table);
