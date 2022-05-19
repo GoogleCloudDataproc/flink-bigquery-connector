@@ -17,13 +17,26 @@ package com.google.cloud.flink.bigquery;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.Field.Mode;
+import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.LegacySQLTypeName;
+import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
+import com.google.cloud.bigquery.storage.v1beta2.ProtoSchemaConverter;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
-
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.fnexecution.v1.FlinkFnApi;
 import org.apache.flink.table.types.logical.ArrayType;
@@ -52,21 +65,6 @@ import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeDefaultVisitor;
 import org.apache.flink.types.Row;
-
-import com.google.cloud.bigquery.Field;
-import com.google.cloud.bigquery.Field.Mode;
-import com.google.cloud.bigquery.FieldList;
-import com.google.cloud.bigquery.LegacySQLTypeName;
-import com.google.cloud.bigquery.Schema;
-import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
-import com.google.cloud.bigquery.storage.v1beta2.ProtoSchemaConverter;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 
 /**
  * Utilities for converting Flink logical types, such as convert it to the related TypeSerializer or
@@ -160,14 +158,14 @@ public final class ProtobufUtils {
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
         DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-    List<Field> listOfFields = new ArrayList<Field>();
+    List<Field> fieldList = new ArrayList<Field>();
     Iterator<RowField> streamdata = schema.getFields().iterator();
     while (streamdata.hasNext()) {
-      listOfFields.addAll(getFields(streamdata.next(), null));
+      fieldList.addAll(getFields(streamdata.next(), null));
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFields), initialDepth);
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(fieldList), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
   }
@@ -176,7 +174,7 @@ public final class ProtobufUtils {
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
         DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-    ArrayList<Field> listOfFileds = new ArrayList<Field>();
+    ArrayList<Field> fieldList = new ArrayList<Field>();
     Iterator<StructuredAttribute> streamdata = schema.getAttributes().stream().iterator();
     while (streamdata.hasNext()) {
       StructuredAttribute elem = streamdata.next();
@@ -185,35 +183,34 @@ public final class ProtobufUtils {
                 elem.getName(),
                 StandardSQLTypeName.STRUCT,
                 FieldList.of(getListOfSubFields(elem.getType())))
-            .setMode(Mode.NULLABLE)
+            .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
             .build();
       } else {
-        listOfFileds.add(
+        fieldList.add(
             Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-                .setMode(Mode.NULLABLE)
+                .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
                 .build());
       }
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFileds), initialDepth);
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(fieldList), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
   }
 
-  private static List<Field> getFields(RowField elem, String mode) {
-    if ("REPEATED".equals(mode)) mode = "REPEATED";
-    List<Field> listOfFields = new ArrayList<Field>();
+  public static List<Field> getFields(RowField elem, String mode) {
+
+    List<Field> fieldList = new ArrayList<Field>();
     if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
-      listOfFields.add(getRowField(elem, mode));
+      fieldList.add(getRowField(elem, mode));
     } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
       if ("ROW".equals(((ArrayType) elem.getType()).getElementType().getTypeRoot().toString())) {
         LogicalType rowElementType = ((ArrayType) elem.getType()).getElementType();
-        List<LogicalType> rowLogicalType = rowElementType.getChildren();
         RowField rowelem = new RowField(elem.getName(), rowElementType);
-        listOfFields.addAll(getFields(rowelem, "REPEATED"));
+        fieldList.addAll(getFields(rowelem, "REPEATED"));
       } else {
-        listOfFields.add(
+        fieldList.add(
             Field.newBuilder(
                     elem.getName(),
                     StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
@@ -221,12 +218,12 @@ public final class ProtobufUtils {
                 .build());
       }
     } else {
-      listOfFields.add(
+      fieldList.add(
           Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
               .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
               .build());
     }
-    return listOfFields;
+    return fieldList;
   }
 
   private static Field getRowField(RowField elem, String modeValue) {
@@ -259,7 +256,7 @@ public final class ProtobufUtils {
   }
 
   static ArrayList<Field> getListOfSubFields(LogicalType logicalType) {
-    ArrayList<Field> listOfSubFileds = new ArrayList<Field>();
+    ArrayList<Field> subFieldList = new ArrayList<Field>();
     List<String> fieldNameList = new ArrayList<String>();
     Stream.of(logicalType.toString().split(","))
         .forEach(
@@ -271,13 +268,13 @@ public final class ProtobufUtils {
             });
     List<LogicalType> logicalTypeList = logicalType.getChildren();
     for (int i = 0; i < logicalTypeList.size(); i++) {
-      listOfSubFileds.add(
+      subFieldList.add(
           Field.newBuilder(
                   fieldNameList.get(i), StandardSQLTypeHandler.handle(logicalTypeList.get(i)))
               .setMode(logicalTypeList.get(i).isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
               .build());
     }
-    return listOfSubFileds;
+    return subFieldList;
   }
 
   @VisibleForTesting

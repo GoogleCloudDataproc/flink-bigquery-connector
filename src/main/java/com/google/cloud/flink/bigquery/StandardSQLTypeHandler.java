@@ -16,74 +16,33 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.common.collect.ImmutableMap;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 
 public class StandardSQLTypeHandler {
 
+  static ImmutableMap<LogicalTypeRoot, StandardSQLTypeName> bqStandardSQLTypes =
+      new ImmutableMap.Builder<LogicalTypeRoot, StandardSQLTypeName>()
+          .put(LogicalTypeRoot.BOOLEAN, StandardSQLTypeName.BOOL)
+          .put(LogicalTypeRoot.SMALLINT, StandardSQLTypeName.INT64)
+          .put(LogicalTypeRoot.TINYINT, StandardSQLTypeName.INT64)
+          .put(LogicalTypeRoot.INTEGER, StandardSQLTypeName.INT64)
+          .put(LogicalTypeRoot.BIGINT, StandardSQLTypeName.INT64)
+          .put(LogicalTypeRoot.FLOAT, StandardSQLTypeName.FLOAT64)
+          .put(LogicalTypeRoot.DOUBLE, StandardSQLTypeName.FLOAT64)
+          .put(LogicalTypeRoot.DECIMAL, StandardSQLTypeName.NUMERIC)
+          .put(LogicalTypeRoot.VARCHAR, StandardSQLTypeName.STRING)
+          .put(LogicalTypeRoot.VARBINARY, StandardSQLTypeName.BYTES)
+          .put(LogicalTypeRoot.ROW, StandardSQLTypeName.STRUCT)
+          .put(LogicalTypeRoot.ARRAY, StandardSQLTypeName.ARRAY)
+          .put(LogicalTypeRoot.DATE, StandardSQLTypeName.DATE)
+          .put(LogicalTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE, StandardSQLTypeName.TIMESTAMP)
+          .put(LogicalTypeRoot.TIME_WITHOUT_TIME_ZONE, StandardSQLTypeName.TIME)
+          .build();
+
   public static StandardSQLTypeName handle(LogicalType sqlType) {
-    StandardSQLTypeName type = null;
-    switch (sqlType.getTypeRoot().toString()) {
-      case "BOOLEAN":
-      case "BOOL":
-        type = StandardSQLTypeName.BOOL;
-        break;
-      case "INTEGER":
-      case "INT":
-      case "TINYINT":
-      case "SMALLINT":
-      case "INT64":
-      case "INT32":
-      case "INT16":
-      case "BIGINT":
-        type = StandardSQLTypeName.INT64;
-        break;
-      case "FLOAT":
-      case "FLOAT64":
-      case "DOUBLE":
-        type = StandardSQLTypeName.FLOAT64;
-        break;
-      case "BIGNUMERIC":
-        type = StandardSQLTypeName.BIGNUMERIC;
-        break;
-      case "DECIMAL":
-      case "NUMERIC":
-        type = StandardSQLTypeName.NUMERIC;
-        break;
-      case "STRING":
-      case "VARCHAR":
-        type = StandardSQLTypeName.STRING;
-        break;
-      case "BYTES":
-      case "VARBINARY":
-        type = StandardSQLTypeName.BYTES;
-        break;
-      case "STRUCT":
-      case "ROW":
-        type = StandardSQLTypeName.STRUCT;
-        break;
-      case "ARRAY":
-        type = StandardSQLTypeName.ARRAY;
-        break;
-      case "TIMESTAMP":
-      case "TIMESTAMP_WITHOUT_TIME_ZONE":
-        type = StandardSQLTypeName.TIMESTAMP;
-        break;
-      case "DATE":
-        type = StandardSQLTypeName.DATE;
-        break;
-      case "TIME_WITHOUT_TIME_ZONE":
-      case "TIME":
-        type = StandardSQLTypeName.TIME;
-        break;
-      case "DATETIME":
-        type = StandardSQLTypeName.DATETIME;
-        break;
-      case "GEOGRAPHY":
-        type = StandardSQLTypeName.GEOGRAPHY;
-        break;
-      default:
-        break;
-    }
-    return type;
+    LogicalTypeRoot rootType = sqlType.getTypeRoot();
+    return bqStandardSQLTypes.get(rootType);
   }
 }
