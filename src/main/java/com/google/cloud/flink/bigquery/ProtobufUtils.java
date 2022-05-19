@@ -174,7 +174,7 @@ public final class ProtobufUtils {
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
         DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-    ArrayList<Field> listOfFileds = new ArrayList<Field>();
+    ArrayList<Field> fieldList = new ArrayList<Field>();
     Iterator<StructuredAttribute> streamdata = schema.getAttributes().stream().iterator();
     while (streamdata.hasNext()) {
       StructuredAttribute elem = streamdata.next();
@@ -186,7 +186,7 @@ public final class ProtobufUtils {
             .setMode(Mode.NULLABLE)
             .build();
       } else {
-        listOfFileds.add(
+        fieldList.add(
             Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
                 .setMode(Mode.NULLABLE)
                 .build());
@@ -194,13 +194,13 @@ public final class ProtobufUtils {
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFileds), initialDepth);
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(fieldList), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
   }
 
   private static List<Field> getFields(RowField elem, String mode) {
-    if ("REPEATED".equals(mode)) mode = "REPEATED";
+
     List<Field> listOfFields = new ArrayList<Field>();
     if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
       listOfFields.add(getRowField(elem, mode));
