@@ -21,7 +21,6 @@ import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Field.Mode;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
-import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchemaConverter;
@@ -112,29 +111,7 @@ public final class ProtobufUtils {
               .put(LegacySQLTypeName.RECORD, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
               .build();
 
-  public static FlinkFnApi.Schema.FieldType toProtoType(LogicalType logicalType) {
-    return logicalType.accept(new ProtobufUtils.LogicalTypeToProtoTypeConverter());
-  }
-
-  public static ProtoSchema toProtoSchema(Schema schema) throws IllegalArgumentException {
-    try {
-      Descriptors.Descriptor descriptor = toDescriptor(schema);
-      return ProtoSchemaConverter.convert(descriptor);
-    } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
-    }
-  }
-
   public static ProtoSchema toProtoSchema(RowType schema) throws IllegalArgumentException {
-    try {
-      Descriptors.Descriptor descriptor = toDescriptor(schema);
-      return ProtoSchemaConverter.convert(descriptor);
-    } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
-    }
-  }
-
-  public static ProtoSchema toProtoSchema(StructuredType schema) throws IllegalArgumentException {
     try {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
@@ -170,36 +147,7 @@ public final class ProtobufUtils {
     return createDescriptorFromProto(descriptorProto);
   }
 
-  public static Descriptors.Descriptor toDescriptor(StructuredType schema)
-      throws Descriptors.DescriptorValidationException {
-    DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
-        DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-    ArrayList<Field> fieldList = new ArrayList<Field>();
-    Iterator<StructuredAttribute> streamdata = schema.getAttributes().stream().iterator();
-    while (streamdata.hasNext()) {
-      StructuredAttribute elem = streamdata.next();
-      if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
-        Field.newBuilder(
-                elem.getName(),
-                StandardSQLTypeName.STRUCT,
-                FieldList.of(getListOfSubFields(elem.getType())))
-            .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
-            .build();
-      } else {
-        fieldList.add(
-            Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
-                .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
-                .build());
-      }
-    }
-    int initialDepth = 0;
-    DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(fieldList), initialDepth);
-
-    return createDescriptorFromProto(descriptorProto);
-  }
-
-  private static List<Field> getFields(RowField elem, String mode) {
+  public static List<Field> getFields(RowField elem, String mode) {
 
     List<Field> fieldList = new ArrayList<Field>();
     if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
@@ -241,22 +189,8 @@ public final class ProtobufUtils {
         .build();
   }
 
-  public static Descriptors.Descriptor toDescriptor(Schema schema)
-      throws Descriptors.DescriptorValidationException {
-    DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
-        DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-
-    FieldList fields = schema.getFields();
-
-    int initialDepth = 0;
-    DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, fields, initialDepth);
-
-    return createDescriptorFromProto(descriptorProto);
-  }
-
   static ArrayList<Field> getListOfSubFields(LogicalType logicalType) {
-    ArrayList<Field> listOfSubFileds = new ArrayList<Field>();
+    ArrayList<Field> subFieldList = new ArrayList<Field>();
     List<String> fieldNameList = new ArrayList<String>();
     Stream.of(logicalType.toString().split(","))
         .forEach(
@@ -268,13 +202,13 @@ public final class ProtobufUtils {
             });
     List<LogicalType> logicalTypeList = logicalType.getChildren();
     for (int i = 0; i < logicalTypeList.size(); i++) {
-      listOfSubFileds.add(
+      subFieldList.add(
           Field.newBuilder(
                   fieldNameList.get(i), StandardSQLTypeHandler.handle(logicalTypeList.get(i)))
               .setMode(logicalTypeList.get(i).isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
               .build());
     }
-    return listOfSubFileds;
+    return subFieldList;
   }
 
   @VisibleForTesting
@@ -364,10 +298,8 @@ public final class ProtobufUtils {
       if (protoValue == null) {
         continue;
       }
-
       messageBuilder.setField(schemaDescriptor.findFieldByNumber(protoFieldNumber), protoValue);
     }
-
     return messageBuilder.build();
   }
 
