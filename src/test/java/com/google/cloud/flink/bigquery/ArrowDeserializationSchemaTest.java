@@ -42,7 +42,6 @@ public class ArrowDeserializationSchemaTest {
   @Test
   public void deserializeTest() throws IOException {
 
-    assertThat(arrowDeserializationSchema).isNotNull();
     ReadRowsResponse response = Mockito.mock(ReadRowsResponse.class);
     assertThrows(
         "Deserializing message is empty",
@@ -56,23 +55,12 @@ public class ArrowDeserializationSchemaTest {
   public void testIsEndOfStream() {
 
     VectorSchemaRoot root = Mockito.mock(VectorSchemaRoot.class);
-    assertThat(arrowDeserializationSchema.isEndOfStream(null)).isEqualTo(true);
-    assertThat(arrowDeserializationSchema.isEndOfStream(root)).isEqualTo(false);
+    assertThat(arrowDeserializationSchema.isEndOfStream(null)).isTrue();
+    assertThat(arrowDeserializationSchema.isEndOfStream(root)).isFalse();
   }
 
   @Test
   public void getProducedType() {
-    assertThat(arrowDeserializationSchema.getProducedType()).isEqualTo(null);
-  }
-
-  @Test
-  public void testEquals() {
-
-    assertThat(arrowDeserializationSchema.equals(null)).isEqualTo(false);
-
-    ArrowDeserializationSchema<VectorSchemaRoot> arrowDeserializationSchemaTest =
-        new ArrowDeserializationSchema<VectorSchemaRoot>(
-            VectorSchemaRoot.class, jsonStringArrowSchema, null);
-    assertThat(arrowDeserializationSchema.equals(arrowDeserializationSchemaTest)).isEqualTo(true);
+    assertThat(arrowDeserializationSchema.getProducedType()).isNull();
   }
 }
