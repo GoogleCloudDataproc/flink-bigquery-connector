@@ -16,6 +16,7 @@
 package com.google.cloud.flink.bigquery;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import java.util.ArrayList;
@@ -39,7 +40,6 @@ import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 public class BigQueryDynamicTableSourceTest {
 
@@ -50,14 +50,14 @@ public class BigQueryDynamicTableSourceTest {
 
   @BeforeClass
   public static void setup() {
-    bigqueryReadTable = "q-gcp-6750-pso-gs-flink-22-01.wordcount_dataset.wordcount_output";
+    bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
   }
 
   @Test
   public void getScanRuntimeProviderSuccessfulTest() {
 
     // Mock the big query client factory
-    BigQueryClientFactory mockBigQueryClientFactory = Mockito.mock(BigQueryClientFactory.class);
+    BigQueryClientFactory mockBigQueryClientFactory = mock(BigQueryClientFactory.class);
 
     ArrowFormatFactory arrowFormat = new ArrowFormatFactory();
     DataType producedDataType =
@@ -73,7 +73,7 @@ public class BigQueryDynamicTableSourceTest {
         new BigQueryDynamicTableSource(
             decodingFormat, producedDataType, readStreamNames, mockBigQueryClientFactory);
 
-    ScanContext mockScanContext = Mockito.mock(ScanContext.class);
+    ScanContext mockScanContext = mock(ScanContext.class);
     bigQueryDynamicTableSource.getScanRuntimeProvider(mockScanContext);
 
     assertThat(bigQueryDynamicTableSource instanceof BigQueryDynamicTableSource);
@@ -128,10 +128,7 @@ public class BigQueryDynamicTableSourceTest {
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 
     // Create the context object
-    MockDynamicTableContext contextObj =
-        new MockDynamicTableContext(
-            tableIdentifier, resolvedCatalogTable, configOptions, options, classloader, false);
-
-    return contextObj;
+    return new MockDynamicTableContext(
+        tableIdentifier, resolvedCatalogTable, configOptions, options, classloader, false);
   }
 }
