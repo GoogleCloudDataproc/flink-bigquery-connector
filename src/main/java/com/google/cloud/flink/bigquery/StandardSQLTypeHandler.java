@@ -22,7 +22,7 @@ import org.apache.flink.table.types.logical.LogicalTypeRoot;
 
 public class StandardSQLTypeHandler {
 
-  static ImmutableMap<LogicalTypeRoot, StandardSQLTypeName> bqStandardSQLTypes =
+  static ImmutableMap<LogicalTypeRoot, StandardSQLTypeName> LOGICAL_TYPE_ROOT_TO_BIGQUERY_MAP =
       new ImmutableMap.Builder<LogicalTypeRoot, StandardSQLTypeName>()
           .put(LogicalTypeRoot.BOOLEAN, StandardSQLTypeName.BOOL)
           .put(LogicalTypeRoot.SMALLINT, StandardSQLTypeName.INT64)
@@ -43,6 +43,6 @@ public class StandardSQLTypeHandler {
 
   public static StandardSQLTypeName handle(LogicalType sqlType) {
     LogicalTypeRoot rootType = sqlType.getTypeRoot();
-    return bqStandardSQLTypes.get(rootType);
+    return LOGICAL_TYPE_ROOT_TO_BIGQUERY_MAP.get(rootType);
   }
 }
