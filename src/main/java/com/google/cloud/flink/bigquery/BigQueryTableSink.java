@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -50,7 +49,6 @@ import org.apache.flink.table.sinks.AppendStreamTableSink;
 import org.apache.flink.table.sinks.OverwritableTableSink;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
@@ -60,37 +58,37 @@ import org.slf4j.LoggerFactory;
 public class BigQueryTableSink implements AppendStreamTableSink<Row>, OverwritableTableSink {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryTableSink.class);
-  public static final ConfigOption<String> TABLE =
+  private static final ConfigOption<String> TABLE =
       ConfigOptions.key("table").stringType().noDefaultValue();
-  public static final ConfigOption<String> PARTITION_FIELD =
+  private static final ConfigOption<String> PARTITION_FIELD =
       ConfigOptions.key("partitionField").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_TYPE =
+  private static final ConfigOption<String> PARTITION_TYPE =
       ConfigOptions.key("partitionType").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_EXPIRATION_MS =
+  private static final ConfigOption<String> PARTITION_EXPIRATION_MS =
       ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
-  public static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
+  private static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
       ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
-  public static final ConfigOption<String> FLINK_VERSION =
+  private static final ConfigOption<String> FLINK_VERSION =
       ConfigOptions.key("flinkVersion").stringType().defaultValue("1.11");
-  public static final ConfigOption<String> ACCESS_TOKEN =
+  private static final ConfigOption<String> ACCESS_TOKEN =
       ConfigOptions.key("gcpAccessToken").stringType().defaultValue("");
-  public static final ConfigOption<String> CREDENTIAL_KEY_FILE =
+  private static final ConfigOption<String> CREDENTIAL_KEY_FILE =
       ConfigOptions.key("credentialsFile").stringType().noDefaultValue();
-  public static final ConfigOption<String> CREDENTIALS_KEY =
+  private static final ConfigOption<String> CREDENTIALS_KEY =
       ConfigOptions.key("credentials").stringType().defaultValue("");
-  public static final ConfigOption<String> PROXY_URI =
+  private static final ConfigOption<String> PROXY_URI =
       ConfigOptions.key("proxyUri").stringType().defaultValue("");
-  public static final ConfigOption<String> PROXY_USERNAME =
+  private static final ConfigOption<String> PROXY_USERNAME =
       ConfigOptions.key("proxyUsername").stringType().defaultValue("");
-  public static final ConfigOption<String> PROXY_PASSWORD =
+  private static final ConfigOption<String> PROXY_PASSWORD =
       ConfigOptions.key("proxyPassword").stringType().defaultValue("");
-  public static final ConfigOption<Integer> DEFAULT_PARALLELISM =
+  private static final ConfigOption<Integer> DEFAULT_PARALLELISM =
       ConfigOptions.key("defaultParallelism").intType().defaultValue(1);
   private String table;
   private String[] fieldNames;
   private DataType[] fieldTypes;
   private DataStreamSink<Row> sink;
-  public Configuration allOptions = new Configuration();
+  private Configuration allOptions = new Configuration();
   private FlinkBigQueryConfig bqconfig;
   private BigQueryClientFactory bigQueryWriteClientFactory;
   private BigQueryClient bigQueryClient;
@@ -152,7 +150,7 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
         new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
   }
 
-  void createBigQueryTable() throws JSQLParserException {
+  private void createBigQueryTable() throws JSQLParserException {
     TableId tableId = bqconfig.getTableId();
     if (bigQueryClient == null) {
       final BigQuery bigquery =
@@ -168,20 +166,14 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
     if (!destTableExists) {
       List<DataType> columnDataTypeList = Arrays.asList(fieldTypes);
       List<String> columnNameList = Arrays.asList(fieldNames);
-      ArrayList<RowField> rowFieldList = new ArrayList<RowField>();
+      List<Field> listOfFields = new ArrayList<Field>();
       for (int i = 0; i < columnNameList.size(); i++) {
-        rowFieldList.add(
+        RowField rowField =
             new RowField(
-                columnNameList.get(i).toString(), columnDataTypeList.get(i).getLogicalType()));
+                columnNameList.get(i).toString(), columnDataTypeList.get(i).getLogicalType());
+        listOfFields.addAll(getFields(rowField, null));
       }
-      RowType flinkSchema = new RowType(rowFieldList);
-
-      Iterator<RowField> rowFieldItrator = flinkSchema.getFields().iterator();
-      List<Field> fieldList = new ArrayList<Field>();
-      while (rowFieldItrator.hasNext()) {
-        fieldList.addAll(getFields(rowFieldItrator.next(), null));
-      }
-      FieldList fieldlist = FieldList.of(fieldList);
+      FieldList fieldlist = FieldList.of(listOfFields);
       Schema schema = Schema.of(fieldlist);
       bigQueryClient.createTable(tableId, schema);
     }

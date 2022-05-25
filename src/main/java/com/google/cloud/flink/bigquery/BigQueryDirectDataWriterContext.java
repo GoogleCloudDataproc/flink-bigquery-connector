@@ -19,11 +19,9 @@ import static com.google.cloud.flink.bigquery.ProtobufUtils.buildSingleRowMessag
 import static com.google.cloud.flink.bigquery.ProtobufUtils.toDescriptor;
 
 import com.google.api.gax.retrying.RetrySettings;
-import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import com.google.cloud.bigquery.connector.common.BigQueryConnectorException;
-import com.google.cloud.bigquery.storage.v1beta2.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectDataWriteHelper;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
@@ -50,18 +48,15 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
 
   final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriterContext.class);
 
-  final String tablePath;
-  final RowType flinkSchema;
-  final Descriptors.Descriptor schemaDescriptor;
-  static BigQueryWriteClient bigQueryWriteClient;
+  private String tablePath;
+  private RowType flinkSchema;
+  private Descriptors.Descriptor schemaDescriptor;
   private BigQueryDirectDataWriteHelper writerHelper;
   private TableId tableId;
   private BigQueryClientFactory bigQueryWriteClientFactory;
-  String projectId;
-  String dataset;
-  String table;
-  StandardSQLTypeName type;
-  FlinkBigQueryConfig bqConfig;
+  private String projectId;
+  private String dataset;
+  private String table;
 
   public BigQueryDirectDataWriterContext(
       String[] fieldNames,
@@ -69,7 +64,6 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
       FlinkBigQueryConfig bqConfig,
       BigQueryClientFactory bigQueryWriteClientFactory)
       throws JSQLParserException {
-    this.bqConfig = bqConfig;
     this.tableId = bqConfig.getTableId();
     this.bigQueryWriteClientFactory = bigQueryWriteClientFactory;
     List<DataType> columnDataTypeList = Arrays.asList(fieldDataTypes);
@@ -83,7 +77,6 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
     this.projectId = tableId.getProject();
     this.dataset = tableId.getDataset();
     this.table = tableId.getTable();
-    this.bqConfig = bqConfig;
     this.flinkSchema = new RowType(listOfRowFields);
     this.tablePath = String.format("projects/%s/datasets/%s/tables/%s", projectId, dataset, table);
 

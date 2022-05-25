@@ -71,6 +71,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
 
+/*
+ * Setting all the configuration for BigQuery
+ */
 public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   private static final long serialVersionUID = 1L;
@@ -93,7 +96,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   public static final String VIEWS_ENABLED_OPTION = "viewsEnabled";
   public static final String USE_AVRO_LOGICAL_TYPES_OPTION = "useAvroLogicalTypes";
   public static final String DATE_PARTITION_PARAM = "datePartition";
-  public static final String VALIDATE_SPARK_AVRO_PARAM = "validateSparkAvroInternalParam";
   public static final String INTERMEDIATE_FORMAT_OPTION = "intermediateFormat";
   public static final int DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES = 24 * 60;
   @VisibleForTesting static final DataFormat DEFAULT_READ_DATA_FORMAT = DataFormat.ARROW;
@@ -104,8 +106,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   static final String GCS_CONFIG_CREDENTIALS_FILE_PROPERTY =
       "google.cloud.auth.service.account.json.keyfile";
-  static final String GCS_CONFIG_PROJECT_ID_PROPERTY = "q-gcp-6750-pso-gs-flink-22-01";
-  private static final String READ_DATA_FORMAT_OPTION = DataFormat.ARROW.toString();
+  private static String GCS_CONFIG_PROJECT_ID_PROPERTY = "project.id";
   private static final ImmutableList<String> PERMITTED_READ_DATA_FORMATS =
       ImmutableList.of(DataFormat.ARROW.toString(), DataFormat.AVRO.toString());
   private static final Supplier<com.google.common.base.Optional<String>> DEFAULT_FALLBACK =
@@ -139,19 +140,19 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   com.google.common.base.Optional<String> persistentGcsPath = empty();
 
   DataFormat readDataFormat = DEFAULT_READ_DATA_FORMAT;
-  boolean combinePushedDownFilters = true;
-  boolean viewsEnabled = false;
-  com.google.common.base.Optional<String> materializationProject = empty();
-  com.google.common.base.Optional<String> materializationDataset = empty();
-  com.google.common.base.Optional<String> partitionField = empty();
-  Long partitionExpirationMs = null;
-  com.google.common.base.Optional<Boolean> partitionRequireFilter = empty();
-  com.google.common.base.Optional<TimePartitioning.Type> partitionType = empty();
-  com.google.common.base.Optional<String[]> clusteredFields = empty();
-  com.google.common.base.Optional<JobInfo.CreateDisposition> createDisposition = empty();
-  boolean optimizedEmptyProjection = true;
-  boolean useAvroLogicalTypes = false;
-  ImmutableList<JobInfo.SchemaUpdateOption> loadSchemaUpdateOptions = ImmutableList.of();
+  private boolean combinePushedDownFilters = true;
+  private boolean viewsEnabled = false;
+  private com.google.common.base.Optional<String> materializationProject = empty();
+  private com.google.common.base.Optional<String> materializationDataset = empty();
+  private com.google.common.base.Optional<String> partitionField = empty();
+  private Long partitionExpirationMs = null;
+  private com.google.common.base.Optional<Boolean> partitionRequireFilter = empty();
+  private com.google.common.base.Optional<TimePartitioning.Type> partitionType = empty();
+  private com.google.common.base.Optional<String[]> clusteredFields = empty();
+  private com.google.common.base.Optional<JobInfo.CreateDisposition> createDisposition = empty();
+  private boolean optimizedEmptyProjection = true;
+  private boolean useAvroLogicalTypes = false;
+  private ImmutableList<JobInfo.SchemaUpdateOption> loadSchemaUpdateOptions = ImmutableList.of();
   int materializationExpirationTimeInMinutes = DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES;
   int maxReadRowsRetries = 3;
   boolean pushAllFilters = true;
