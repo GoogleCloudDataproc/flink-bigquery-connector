@@ -77,7 +77,7 @@ public final class ProtobufUtils {
   private static final String RESERVED_NESTED_TYPE_NAME = "STRUCT";
 
   private static final ImmutableMap<Field.Mode, DescriptorProtos.FieldDescriptorProto.Label>
-      BigQueryModeToProtoFieldLabel =
+      BIGQUERY_MODE_TO_PROTO_FIELD_LABEL =
           new ImmutableMap.Builder<Field.Mode, DescriptorProtos.FieldDescriptorProto.Label>()
               .put(Field.Mode.NULLABLE, DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
               .put(Field.Mode.REPEATED, DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED)
@@ -85,7 +85,7 @@ public final class ProtobufUtils {
               .build();
 
   private static final ImmutableMap<LegacySQLTypeName, DescriptorProtos.FieldDescriptorProto.Type>
-      BigQueryToProtoType =
+      BIGQUERY_TO_PROTO_TYPE =
           new ImmutableMap.Builder<LegacySQLTypeName, DescriptorProtos.FieldDescriptorProto.Type>()
               .put(LegacySQLTypeName.BYTES, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
               .put(LegacySQLTypeName.INTEGER, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
@@ -116,7 +116,7 @@ public final class ProtobufUtils {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
     } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
+      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
     }
   }
 
@@ -127,7 +127,7 @@ public final class ProtobufUtils {
           "Program attempted to return an atomic data-type for a RECORD");
     }
     return Preconditions.checkNotNull(
-        BigQueryToProtoType.get(bqType),
+        BIGQUERY_TO_PROTO_TYPE.get(bqType),
         new IllegalArgumentException("Unexpected type: " + bqType.name()));
   }
 
@@ -244,7 +244,7 @@ public final class ProtobufUtils {
 
   private static DescriptorProtos.FieldDescriptorProto.Label toProtoFieldLabel(Field.Mode mode) {
     return Preconditions.checkNotNull(
-        BigQueryModeToProtoFieldLabel.get(mode),
+        BIGQUERY_MODE_TO_PROTO_FIELD_LABEL.get(mode),
         new IllegalArgumentException("A BigQuery Field Mode was invalid: " + mode.name()));
   }
 
@@ -348,10 +348,10 @@ public final class ProtobufUtils {
       Object[] flinkArrayData = (Object[]) flinkValue;
       boolean containsNull = arrayType.isNullable();
       List<Object> protoValue = new ArrayList<>();
-      for (Object sparkElement : flinkArrayData) {
+      for (Object flinkElement : flinkArrayData) {
         Object converted =
             convertFlinkValueToProtoRowValue(
-                elementType, sparkElement, containsNull, nestedTypeDescriptor);
+                elementType, flinkElement, containsNull, nestedTypeDescriptor);
         if (converted == null) {
           continue;
         }

@@ -35,6 +35,7 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
   private BigQueryDirectDataWriterContext writeContext;
   private String[] fieldNames;
   private DataType[] fieldDataTypes;
+  private RuntimeContext runtimeContext;
 
   public BigQuerySinkFunction(
       String[] fieldNames,
@@ -74,7 +75,7 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
 
   @Override
   public RuntimeContext getRuntimeContext() {
-    return null;
+    return runtimeContext;
   }
 
   @Override
@@ -83,5 +84,7 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
   }
 
   @Override
-  public void setRuntimeContext(RuntimeContext t) {}
+  public void setRuntimeContext(RuntimeContext t) {
+    this.runtimeContext = t;
+  }
 }
