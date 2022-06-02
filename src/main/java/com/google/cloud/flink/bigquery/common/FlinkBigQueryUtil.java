@@ -18,6 +18,11 @@ package com.google.cloud.flink.bigquery.common;
 import com.google.cloud.flink.bigquery.FlinkBigQueryException;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.UUID;
+import java.util.stream.Stream;
+import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.configuration.Configuration;
 
 /** Flink related utilities */
 public class FlinkBigQueryUtil {
@@ -35,5 +40,22 @@ public class FlinkBigQueryUtil {
     } catch (IOException e) {
       throw new FlinkBigQueryException("Error while loading properties file");
     }
+  }
+
+  public static String getJobId(Configuration flinkConf) {
+    ConfigOption<String> flink_yarn_tag =
+        ConfigOptions.key("flink.yarn.tags").stringType().noDefaultValue();
+    ConfigOption<String> flink_app_id =
+        ConfigOptions.key("flink.app.id").stringType().noDefaultValue();
+    return getJobIdInternal(
+        flinkConf.getString(flink_yarn_tag, "missing"),
+        flinkConf.getString(flink_app_id, "generated-" + UUID.randomUUID()));
+  }
+
+  static String getJobIdInternal(String yarnTags, String applicationId) {
+    return Stream.of(yarnTags.split(","))
+        .filter(tag -> tag.startsWith("dataproc_job_"))
+        .findFirst()
+        .orElseGet(() -> applicationId);
   }
 }

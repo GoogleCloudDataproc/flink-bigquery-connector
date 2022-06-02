@@ -24,8 +24,7 @@ import org.junit.rules.ExternalResource;
 
 public class FlinkBigQueryIntegrationTestBase {
 
-  @ClassRule public static TestDataset testDataset = new TestDataset("read");
-  @ClassRule public static TestDataset WriteTestDataset = new TestDataset("write");
+  @ClassRule public static TestDataset testDataset = new TestDataset();
 
   protected String testTable;
   public static StreamTableEnvironment flinkTableEnv;
@@ -45,19 +44,13 @@ public class FlinkBigQueryIntegrationTestBase {
 
   protected static class TestDataset extends ExternalResource {
 
-    private String function;
-
-    TestDataset(String function) {
-      this.function = function;
-    }
-
     String testDataset =
         String.format("flink_bigquery_%d_%d", System.currentTimeMillis(), System.nanoTime());
 
     @Override
     protected void before() throws Throwable {
       IntegrationTestUtils.createDataset(testDataset);
-      IntegrationTestUtils.createTable(testDataset, Constants.ALL_TYPES_TABLE_NAME, function);
+      IntegrationTestUtils.createTable(testDataset, Constants.ALL_TYPES_TABLE_NAME);
     }
 
     @Override
