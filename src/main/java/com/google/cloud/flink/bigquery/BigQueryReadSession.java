@@ -26,11 +26,14 @@ import com.google.cloud.bigquery.connector.common.ReadSessionCreator;
 import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfig;
 import com.google.cloud.bigquery.connector.common.ReadSessionResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import net.sf.jsqlparser.JSQLParserException;
 
 public class BigQueryReadSession {
@@ -50,8 +53,18 @@ public class BigQueryReadSession {
     Optional<String> materializationDataset =
         bqconfig.getQuery().isPresent() ? bqconfig.getMaterializationDataset() : Optional.empty();
 
+    Cache<String, TableInfo> destinationTableCache =
+        CacheBuilder.newBuilder()
+            .expireAfterWrite(bqconfig.getCacheExpirationTimeInMinutes(), TimeUnit.MINUTES)
+            .maximumSize(1000)
+            .build();
     BigQueryClient bigQueryClient =
-        new BigQueryClient(bigquery, materializationProject, materializationDataset);
+        new BigQueryClient(
+            bigquery,
+            materializationProject,
+            materializationDataset,
+            destinationTableCache,
+            bqconfig.getBigQueryJobLabels());
     ReadSessionCreatorConfig readSessionCreatorConfig = bqconfig.toReadSessionCreatorConfig();
     ReadSessionCreator readSessionCreator =
         new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryReadClientFactory);

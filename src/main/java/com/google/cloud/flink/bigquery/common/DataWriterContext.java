@@ -21,9 +21,9 @@ import java.io.IOException;
 public interface DataWriterContext<T> {
   void write(T row) throws IOException;
 
-  WriterCommitMessageContext commit() throws IOException;
+  WriterCommitMessageContext finalizeStream() throws IOException;
 
-  void commitFinalizedStream() throws IOException;
+  void commit() throws IOException;
 
   void abort() throws IOException;
 }

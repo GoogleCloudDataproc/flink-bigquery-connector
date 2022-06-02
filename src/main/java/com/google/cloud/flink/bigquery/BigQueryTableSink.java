@@ -23,11 +23,14 @@ import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.connector.common.BigQueryClient;
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import com.google.cloud.bigquery.connector.common.BigQueryCredentialsSupplier;
 import com.google.cloud.flink.bigquery.common.FlinkBigQueryConnectorUserAgentProvider;
 import com.google.cloud.flink.bigquery.common.UserAgentHeaderProvider;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,6 +38,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -158,9 +162,19 @@ public class BigQueryTableSink implements AppendStreamTableSink<Row>, Overwritab
               .setCredentials(bqconfig.createCredentials())
               .build()
               .getService();
+
+      Cache<String, TableInfo> destinationTableCache =
+          CacheBuilder.newBuilder()
+              .expireAfterWrite(bqconfig.getCacheExpirationTimeInMinutes(), TimeUnit.MINUTES)
+              .maximumSize(1000)
+              .build();
       bigQueryClient =
           new BigQueryClient(
-              bigquery, Optional.of(tableId.getProject()), Optional.of(tableId.getDataset()));
+              bigquery,
+              Optional.of(bqconfig.getTableId().getProject()),
+              Optional.of(bqconfig.getTableId().getDataset()),
+              destinationTableCache,
+              ImmutableMap.of());
     }
     boolean destTableExists = bigQueryClient.tableExists(tableId);
     if (!destTableExists) {

@@ -33,6 +33,7 @@ import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfig;
 import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfigBuilder;
 import com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.CompressionCodec;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
+import com.google.cloud.flink.bigquery.common.FlinkBigQueryUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,13 +72,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
 
-/*
- * Setting all the configuration for BigQuery
- */
 public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   private static final long serialVersionUID = 1L;
   final Logger logger = LoggerFactory.getLogger(FlinkBigQueryConfig.class);
+  public static final int MAX_TRACE_ID_LENGTH = 256;
 
   public enum WriteMethod {
     DIRECT,
@@ -96,6 +95,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   public static final String VIEWS_ENABLED_OPTION = "viewsEnabled";
   public static final String USE_AVRO_LOGICAL_TYPES_OPTION = "useAvroLogicalTypes";
   public static final String DATE_PARTITION_PARAM = "datePartition";
+  public static final String VALIDATE_SPARK_AVRO_PARAM = "validateSparkAvroInternalParam";
   public static final String INTERMEDIATE_FORMAT_OPTION = "intermediateFormat";
   public static final int DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES = 24 * 60;
   @VisibleForTesting static final DataFormat DEFAULT_READ_DATA_FORMAT = DataFormat.ARROW;
@@ -106,7 +106,8 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   static final String GCS_CONFIG_CREDENTIALS_FILE_PROPERTY =
       "google.cloud.auth.service.account.json.keyfile";
-  private static String GCS_CONFIG_PROJECT_ID_PROPERTY = "project.id";
+  static final String GCS_CONFIG_PROJECT_ID_PROPERTY = "q-gcp-6750-pso-gs-flink-22-01";
+  private static final String READ_DATA_FORMAT_OPTION = DataFormat.ARROW.toString();
   private static final ImmutableList<String> PERMITTED_READ_DATA_FORMATS =
       ImmutableList.of(DataFormat.ARROW.toString(), DataFormat.AVRO.toString());
   private static final Supplier<com.google.common.base.Optional<String>> DEFAULT_FALLBACK =
@@ -121,25 +122,27 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   private static final int DEFAULT_BIGQUERY_CLIENT_RETRIES = 10;
   private static final String ARROW_COMPRESSION_CODEC_OPTION = "arrowCompressionCodec";
   private static final WriteMethod DEFAULT_WRITE_METHOD = WriteMethod.INDIRECT;
+  public static final int DEFAULT_CACHE_EXPIRATION_IN_MINUTES = 15;
+  private static final String BIGQUERY_JOB_LABEL_PREFIX = "bigQueryJobLabel.";
 
-  TableId tableId;
-  String selectedFields;
-  String flinkVersion;
-  com.google.common.base.Optional<String> query = empty();
-  String parentProjectId;
+  private TableId tableId;
+  private String selectedFields;
+  private String flinkVersion;
+  private com.google.common.base.Optional<String> query = empty();
+  private String parentProjectId;
   boolean useParentProjectForMetadataOperations;
-  com.google.common.base.Optional<String> credentialsKey;
-  com.google.common.base.Optional<String> credentialsFile;
-  com.google.common.base.Optional<String> accessToken;
-  com.google.common.base.Optional<String> filter = empty();
-  com.google.common.base.Optional<TableSchema> schema = empty();
-  Integer maxParallelism = null;
-  int defaultParallelism = 1;
-  com.google.common.base.Optional<String> temporaryGcsBucket = empty();
-  com.google.common.base.Optional<String> persistentGcsBucket = empty();
-  com.google.common.base.Optional<String> persistentGcsPath = empty();
+  private com.google.common.base.Optional<String> credentialsKey;
+  private com.google.common.base.Optional<String> credentialsFile;
+  private com.google.common.base.Optional<String> accessToken;
+  private com.google.common.base.Optional<String> filter = empty();
+  private com.google.common.base.Optional<TableSchema> schema = empty();
+  private Integer maxParallelism = null;
+  private int defaultParallelism = 1;
+  private com.google.common.base.Optional<String> temporaryGcsBucket = empty();
+  private com.google.common.base.Optional<String> persistentGcsBucket = empty();
+  private com.google.common.base.Optional<String> persistentGcsPath = empty();
 
-  DataFormat readDataFormat = DEFAULT_READ_DATA_FORMAT;
+  private DataFormat readDataFormat = DEFAULT_READ_DATA_FORMAT;
   private boolean combinePushedDownFilters = true;
   private boolean viewsEnabled = false;
   private com.google.common.base.Optional<String> materializationProject = empty();
@@ -153,9 +156,10 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   private boolean optimizedEmptyProjection = true;
   private boolean useAvroLogicalTypes = false;
   private ImmutableList<JobInfo.SchemaUpdateOption> loadSchemaUpdateOptions = ImmutableList.of();
-  int materializationExpirationTimeInMinutes = DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES;
-  int maxReadRowsRetries = 3;
-  boolean pushAllFilters = true;
+  private int materializationExpirationTimeInMinutes =
+      DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES;
+  private int maxReadRowsRetries = 3;
+  private boolean pushAllFilters = true;
   private com.google.common.base.Optional<String> encodedCreateReadSessionRequest = empty();
   private com.google.common.base.Optional<String> storageReadEndpoint = empty();
   private int numBackgroundThreadsPerStream = 0;
@@ -168,6 +172,10 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   RetrySettings bigqueryDataWriteHelperRetrySettings =
       RetrySettings.newBuilder().setMaxAttempts(5).build();
   private String fieldList;
+  private int cacheExpirationTimeInMinutes = DEFAULT_CACHE_EXPIRATION_IN_MINUTES;
+  // used to create BigQuery ReadSessions
+  private com.google.common.base.Optional<String> traceId;
+  private ImmutableMap<String, String> bigQueryJobLabels = ImmutableMap.of();
 
   @VisibleForTesting
   public static FlinkBigQueryConfig from(
@@ -353,8 +361,58 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
               "Compression codec '%s' for Arrow is not supported. Supported formats are %s",
               arrowCompressionCodecParam, Arrays.toString(CompressionCodec.values())));
     }
+    config.cacheExpirationTimeInMinutes =
+        getAnyOption(globalOptions, options, "cacheExpirationTimeInMinutes")
+            .transform(Integer::parseInt)
+            .or(DEFAULT_CACHE_EXPIRATION_IN_MINUTES);
+    if (config.cacheExpirationTimeInMinutes < 1) {
+      throw new IllegalArgumentException(
+          "cacheExpirationTimeInMinutes must have a positive value, the configured value is "
+              + config.cacheExpirationTimeInMinutes);
+    }
 
+    com.google.common.base.Optional<String> traceApplicationNameParam =
+        getAnyOption(globalOptions, options, "traceApplicationName");
+    config.traceId =
+        traceApplicationNameParam.transform(
+            traceApplicationName -> {
+              String traceJobIdParam =
+                  getAnyOption(globalOptions, options, "traceJobId")
+                      .or(FlinkBigQueryUtil.getJobId(sqlConf));
+              String traceIdParam = "Spark:" + traceApplicationName + ":" + traceJobIdParam;
+              if (traceIdParam.length() > MAX_TRACE_ID_LENGTH) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        "trace ID cannot longer than %d. Provided value was [%s]",
+                        MAX_TRACE_ID_LENGTH, traceIdParam));
+              }
+              return traceIdParam;
+            });
+
+    config.bigQueryJobLabels = parseBigQueryJobLabels(globalOptions, options);
     return config;
+  }
+
+  @VisibleForTesting
+  static ImmutableMap<String, String> parseBigQueryJobLabels(
+      ImmutableMap<String, String> globalOptions, ImmutableMap<String, String> options) {
+
+    String lowerCasePrefix = BIGQUERY_JOB_LABEL_PREFIX.toLowerCase(Locale.ROOT);
+
+    ImmutableMap<String, String> allOptions =
+        ImmutableMap.<String, String>builder() //
+            .putAll(globalOptions) //
+            .putAll(options) //
+            .buildKeepingLast();
+
+    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
+    for (Map.Entry<String, String> entry : allOptions.entrySet()) {
+      if (entry.getKey().toLowerCase(Locale.ROOT).startsWith(lowerCasePrefix)) {
+        result.put(entry.getKey().substring(BIGQUERY_JOB_LABEL_PREFIX.length()), entry.getValue());
+      }
+    }
+
+    return result.build();
   }
 
   private static ImmutableMap<String, String> toConfigOptionsKeyMap(
@@ -581,6 +639,10 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     this.fieldList = fieldList;
   }
 
+  public com.google.common.base.Optional<String> getTraceId() {
+    return traceId;
+  }
+
   public String getArrowSchemaFields() {
     return this.fieldList;
   }
@@ -752,6 +814,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
         .setPrebufferReadRowsResponses(numPrebufferReadRowsResponses)
         .setStreamsPerPartition(numStreamsPerPartition)
         .setArrowCompressionCodec(arrowCompressionCodec)
+        .setTraceId(traceId.toJavaUtil())
         .build();
   }
 
@@ -809,5 +872,15 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
       }
       return selectedFields;
     }
+  }
+
+  @Override
+  public int getCacheExpirationTimeInMinutes() {
+    return cacheExpirationTimeInMinutes;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getBigQueryJobLabels() {
+    return bigQueryJobLabels;
   }
 }

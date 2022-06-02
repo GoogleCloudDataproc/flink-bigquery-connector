@@ -22,11 +22,16 @@ import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import com.google.cloud.bigquery.connector.common.BigQueryConnectorException;
-import com.google.cloud.bigquery.storage.v1beta2.ProtoSchema;
-import com.google.cloud.flink.bigquery.common.BigQueryDirectDataWriteHelper;
+import com.google.cloud.bigquery.connector.common.BigQueryDirectDataWriterHelper;
+import com.google.cloud.bigquery.storage.v1.BatchCommitWriteStreamsRequest;
+import com.google.cloud.bigquery.storage.v1.BatchCommitWriteStreamsResponse;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.ProtoSchema;
+import com.google.cloud.bigquery.storage.v1.StorageError;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
 import com.google.cloud.flink.bigquery.common.DataWriterContext;
 import com.google.cloud.flink.bigquery.common.WriterCommitMessageContext;
+import com.google.common.base.Optional;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import java.io.IOException;
@@ -51,12 +56,11 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
   private String tablePath;
   private RowType flinkSchema;
   private Descriptors.Descriptor schemaDescriptor;
-  private BigQueryDirectDataWriteHelper writerHelper;
+  private BigQueryDirectDataWriterHelper writerHelper;
   private TableId tableId;
   private BigQueryClientFactory bigQueryWriteClientFactory;
-  private String projectId;
-  private String dataset;
-  private String table;
+
+  private Optional<String> traceId;
 
   public BigQueryDirectDataWriterContext(
       String[] fieldNames,
@@ -65,6 +69,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
       BigQueryClientFactory bigQueryWriteClientFactory)
       throws JSQLParserException {
     this.tableId = bqConfig.getTableId();
+    this.traceId = bqConfig.getTraceId();
     this.bigQueryWriteClientFactory = bigQueryWriteClientFactory;
     List<DataType> columnDataTypeList = Arrays.asList(fieldDataTypes);
     List<String> columnNameList = Arrays.asList(fieldNames);
@@ -74,11 +79,11 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
           new RowField(
               columnNameList.get(i).toString(), columnDataTypeList.get(i).getLogicalType()));
     }
-    this.projectId = tableId.getProject();
-    this.dataset = tableId.getDataset();
-    this.table = tableId.getTable();
     this.flinkSchema = new RowType(listOfRowFields);
-    this.tablePath = String.format("projects/%s/datasets/%s/tables/%s", projectId, dataset, table);
+    this.tablePath =
+        String.format(
+            "projects/%s/datasets/%s/tables/%s",
+            tableId.getProject(), tableId.getDataset(), tableId.getTable());
 
     try {
       this.schemaDescriptor = toDescriptor(flinkSchema);
@@ -94,12 +99,13 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
     RetrySettings.Builder retrySettingsBuilder = RetrySettings.newBuilder();
     retrySettingsBuilder.setMaxAttempts(3);
     RetrySettings bigqueryDataWriterHelperRetrySettings = retrySettingsBuilder.build();
-    this.writerHelper =
-        new BigQueryDirectDataWriteHelper(
+    writerHelper =
+        new BigQueryDirectDataWriterHelper(
             bigQueryWriteClientFactory,
             tablePath,
             protoSchema,
-            bigqueryDataWriterHelperRetrySettings);
+            bigqueryDataWriterHelperRetrySettings,
+            traceId);
   }
 
   @Override
@@ -115,7 +121,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
   }
 
   @Override
-  public WriterCommitMessageContext commit() throws IOException {
+  public WriterCommitMessageContext finalizeStream() throws IOException {
 
     logger.debug("Data Writer commit()");
 
@@ -127,8 +133,25 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
   }
 
   @Override
-  public void commitFinalizedStream() throws IOException {
-    this.writerHelper.commitStream();
+  public void commit() throws IOException {
+    String writeStreamName = getWriterStream();
+    BigQueryWriteClient bigQueryWriteClient = bigQueryWriteClientFactory.getBigQueryWriteClient();
+    BatchCommitWriteStreamsRequest commitRequest =
+        BatchCommitWriteStreamsRequest.newBuilder()
+            .setParent(this.tablePath)
+            .addWriteStreams(writeStreamName)
+            .build();
+    BatchCommitWriteStreamsResponse commitResponse =
+        bigQueryWriteClient.batchCommitWriteStreams(commitRequest);
+    if (commitResponse.hasCommitTime() == false) {
+      for (StorageError err : commitResponse.getStreamErrorsList()) {
+        logger.error(err.getErrorMessage());
+      }
+      throw new RuntimeException("Error committing the streams");
+    }
+    logger.debug("Write-stream {} committed successfully.", writeStreamName);
+    logger.info(
+        "Committed Write-stream " + writeStreamName.toString() + "Committed records successfully.");
   }
 
   @Override

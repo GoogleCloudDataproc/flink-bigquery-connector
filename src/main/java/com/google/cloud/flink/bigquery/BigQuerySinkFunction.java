@@ -68,8 +68,8 @@ public class BigQuerySinkFunction implements SinkFunction<Row>, RichFunction {
 
   @Override
   public void close() throws Exception {
+    this.writeContext.finalizeStream();
     this.writeContext.commit();
-    this.writeContext.commitFinalizedStream();
     this.writeContext.abort();
   }
 

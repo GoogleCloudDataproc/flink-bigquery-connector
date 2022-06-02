@@ -46,12 +46,16 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.ViewDefinition;
 import com.google.cloud.bigquery.connector.common.BigQueryClient;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,8 +75,17 @@ public class IntegrationTestUtils {
   }
 
   public static void runQuery(String query) {
+
+    Cache<String, TableInfo> destinationTableCache =
+        CacheBuilder.newBuilder().expireAfterWrite(15, TimeUnit.MINUTES).maximumSize(1000).build();
+
     BigQueryClient bigQueryClient =
-        new BigQueryClient(getBigquery(), Optional.empty(), Optional.empty());
+        new BigQueryClient(
+            getBigquery(),
+            Optional.empty(),
+            Optional.empty(),
+            destinationTableCache,
+            ImmutableMap.of());
     bigQueryClient.query(query);
   }
 
@@ -90,7 +103,7 @@ public class IntegrationTestUtils {
     bq.create(TableInfo.of(tableId, viewDefinition));
   }
 
-  public static void createTable(String dataset, String table, String function)
+  public static void createTable(String dataset, String table)
       throws UnsupportedEncodingException, InterruptedException {
     BigQuery bq = getBigquery();
     ArrayList<Field> fieldList = new ArrayList<Field>();
@@ -161,32 +174,30 @@ public class IntegrationTestUtils {
 
     String base64encodedString = Base64.getEncoder().encodeToString("byte-test".getBytes("utf-8"));
 
-    if (function.equals("read")) {
-      Map<String, Object> subRowContent = new HashMap<>();
-      subRowContent.put("record1", "stringTest1");
-      subRowContent.put("record2", 1);
-      subRowContent.put("record3", true);
+    Map<String, Object> subRowContent = new HashMap<>();
+    subRowContent.put("record1", "stringTest1");
+    subRowContent.put("record2", 1);
+    subRowContent.put("record3", true);
 
-      Map<String, Object> rowContent = new HashMap<>();
-      rowContent.put("numeric_datatype", 123.345);
-      rowContent.put("string_datatype", "flink");
-      rowContent.put("bytes_datatype", base64encodedString);
-      rowContent.put("integer_datatype", 12345);
-      rowContent.put("float_datatype", 50.05f);
-      rowContent.put("boolean_datatype", true);
-      rowContent.put("timestamp_datatype", "2022-03-17 17:11:53 UTC");
-      rowContent.put("date_datatype", "2022-01-01");
-      rowContent.put("datetime_datatype", "2022-03-17T13:20:23.439071");
-      rowContent.put("time_datatype", "13:20:23.439071");
-      rowContent.put("geography_datatype", "POINT(51.500989020415 -0.124710813123368)");
-      rowContent.put("record_datatype", subRowContent);
-      rowContent.put("array_datatype", new String[] {"string1", "string2", "string3"});
-      InsertAllResponse response =
-          bq.insertAll(InsertAllRequest.newBuilder(tableId).addRow(rowContent).build());
-      Thread.sleep(20000);
-      if (response.hasErrors()) {
-        logger.error(response.getInsertErrors().toString());
-      }
+    Map<String, Object> rowContent = new HashMap<>();
+    rowContent.put("numeric_datatype", 123.345);
+    rowContent.put("string_datatype", "flink");
+    rowContent.put("bytes_datatype", base64encodedString);
+    rowContent.put("integer_datatype", 12345);
+    rowContent.put("float_datatype", 50.05f);
+    rowContent.put("boolean_datatype", true);
+    rowContent.put("timestamp_datatype", "2022-03-17 17:11:53 UTC");
+    rowContent.put("date_datatype", "2022-01-01");
+    rowContent.put("datetime_datatype", "2022-03-17T13:20:23.439071");
+    rowContent.put("time_datatype", "13:20:23.439071");
+    rowContent.put("geography_datatype", "POINT(51.500989020415 -0.124710813123368)");
+    rowContent.put("record_datatype", subRowContent);
+    rowContent.put("array_datatype", new String[] {"string1", "string2", "string3"});
+    InsertAllResponse response =
+        bq.insertAll(InsertAllRequest.newBuilder(tableId).addRow(rowContent).build());
+    Thread.sleep(20000);
+    if (response.hasErrors()) {
+      logger.error(response.getInsertErrors().toString());
     }
   }
 }
