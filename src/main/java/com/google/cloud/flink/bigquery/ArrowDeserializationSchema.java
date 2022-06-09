@@ -89,7 +89,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   private void initializeArrow() throws IOException {
     Schema schema = getSchema(schemaJsonString);
 
-    Preconditions.checkNotNull(schema);
     if (root != null) {
       return;
     }
@@ -119,7 +118,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
       schema = Schema.fromJSON(schemaJson);
     } catch (IOException e) {
       logger.error("Error while converting to Schema from jsonString");
-      throw new FlinkBigQueryException("Error while converting to Schema from jsonString");
+      throw new FlinkBigQueryException("Error while converting to Schema from jsonString", e);
     }
     return schema;
   }
