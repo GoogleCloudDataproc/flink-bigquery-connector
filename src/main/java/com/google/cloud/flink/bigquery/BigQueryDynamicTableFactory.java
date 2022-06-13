@@ -30,7 +30,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import net.sf.jsqlparser.JSQLParserException;
+import org.apache.arrow.vector.ipc.ReadChannel;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
@@ -98,6 +104,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   public static ConfigOption<String> READ_SESSION_ARROW_SCHEMA_FIELDS;
 
   private String flinkVersion = EnvironmentInformation.getVersion();
+  private String arrowFields = "";
 
   @Override
   public String factoryIdentifier() {
@@ -154,12 +161,14 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
         throw new IllegalArgumentException(exceptionString);
       }
     }
-
+    ArrayList<String> readStreams = getReadStreamNames(options);
+    context.getCatalogTable().getOptions().put("arrowFields", arrowFields);
+    context.getCatalogTable().getOptions().put("selectedFields", bqconfig.getSelectedFields());
     decodingFormat = helper.discoverDecodingFormat(ArrowFormatFactory.class, FactoryUtil.FORMAT);
 
     final DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
     return new BigQueryDynamicTableSource(
-        decodingFormat, producedDataType, getReadStreamNames(options), bigQueryReadClientFactory);
+        decodingFormat, producedDataType, readStreams, bigQueryReadClientFactory);
   }
 
   private ArrayList<String> getReadStreamNames(ReadableConfig options) {
@@ -207,6 +216,15 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
       }
+
+      Schema arrowSchema =
+          MessageSerializer.deserializeSchema(
+              new ReadChannel(
+                  new ByteArrayReadableSeekableByteChannel(
+                      readSession.getArrowSchema().getSerializedSchema().toByteArray())));
+
+      arrowFields =
+          arrowSchema.getFields().stream().map(Field::getName).collect(Collectors.joining(","));
     } catch (JSQLParserException | IOException ex) {
       log.error("Error while reading big query session", ex);
       throw new FlinkBigQueryException("Error while reading big query session:", ex);
