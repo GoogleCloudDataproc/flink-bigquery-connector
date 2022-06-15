@@ -49,7 +49,7 @@
         <revision>0.0.1-SNAPSHOT</revision>
         <gpg.skip>true</gpg.skip>
 
-        <avro.version>1.11.1</avro.version>
+        <avro.version>1.15.0</avro.version>
         <arrow.version>6.0.1</arrow.version>
         <bigquery-connector-common.version>0.25.1</bigquery-connector-common.version>
         <flink.version>1.13.1</flink.version>
@@ -59,7 +59,7 @@
         <google-truth.version>1.1.3</google-truth.version>
         <grpc.version>1.45.1</grpc.version>
         <guava.version>31.1-jre</guava.version>
-        <hadoop-common.version>3.2.2</hadoop-common.version>
+        <hadoop-common.version>3.3.3</hadoop-common.version>
         <jackson.version>2.13.2</jackson.version>
         <jackson-databind.version>2.13.2.2</jackson-databind.version>               
         <jsqlparser.version>3.1</jsqlparser.version>
