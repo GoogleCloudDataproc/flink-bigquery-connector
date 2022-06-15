@@ -15,29 +15,27 @@
  */
 package com.google.cloud.flink.bigquery;
 
-import static com.google.cloud.flink.bigquery.ProtobufUtils.buildSingleRowMessage;
-import static com.google.cloud.flink.bigquery.ProtobufUtils.toDescriptor;
+import static com.google.cloud.flink.bigquery.util.ProtobufUtils.buildSingleRowMessage;
+import static com.google.cloud.flink.bigquery.util.ProtobufUtils.toDescriptor;
 
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import com.google.cloud.bigquery.connector.common.BigQueryConnectorException;
 import com.google.cloud.bigquery.connector.common.BigQueryDirectDataWriterHelper;
-import com.google.cloud.bigquery.storage.v1.BatchCommitWriteStreamsRequest;
-import com.google.cloud.bigquery.storage.v1.BatchCommitWriteStreamsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
-import com.google.cloud.bigquery.storage.v1.StorageError;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
 import com.google.cloud.flink.bigquery.common.DataWriterContext;
 import com.google.cloud.flink.bigquery.common.WriterCommitMessageContext;
+import com.google.cloud.flink.bigquery.util.FlinkBigQueryConfig;
+import com.google.cloud.flink.bigquery.util.ProtobufUtils;
 import com.google.common.base.Optional;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import net.sf.jsqlparser.JSQLParserException;
 import org.apache.flink.table.types.DataType;
@@ -48,42 +46,50 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, Serializable {
-
+  /** */
   private static final long serialVersionUID = 1L;
 
   final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriterContext.class);
 
-  private String tablePath;
-  private RowType flinkSchema;
-  private Descriptors.Descriptor schemaDescriptor;
+  final String tablePath;
+  final RowType flinkSchema;
+  final Descriptors.Descriptor schemaDescriptor;
+  static BigQueryWriteClient bigQueryWriteClient;
   private BigQueryDirectDataWriterHelper writerHelper;
   private TableId tableId;
   private BigQueryClientFactory bigQueryWriteClientFactory;
+  private String projectId;
+  private String dataset;
+  private String table;
 
   private Optional<String> traceId;
 
+  private int taskNumber;
+
   public BigQueryDirectDataWriterContext(
-      String[] fieldNames,
-      DataType[] fieldDataTypes,
+      int taskNumber,
+      List<String> fieldNames,
+      List<DataType> fieldDataTypes,
       FlinkBigQueryConfig bqConfig,
       BigQueryClientFactory bigQueryWriteClientFactory)
       throws JSQLParserException {
     this.tableId = bqConfig.getTableId();
-    this.traceId = bqConfig.getTraceId();
     this.bigQueryWriteClientFactory = bigQueryWriteClientFactory;
-    List<DataType> columnDataTypeList = Arrays.asList(fieldDataTypes);
-    List<String> columnNameList = Arrays.asList(fieldNames);
+    List<DataType> columnDataTypeList = fieldDataTypes;
+    List<String> columnNameList = fieldNames;
     ArrayList<RowField> listOfRowFields = new ArrayList<RowField>();
     for (int i = 0; i < columnNameList.size(); i++) {
       listOfRowFields.add(
           new RowField(
               columnNameList.get(i).toString(), columnDataTypeList.get(i).getLogicalType()));
     }
+    this.taskNumber = taskNumber;
+    this.traceId = bqConfig.getTraceId();
+    this.projectId = tableId.getProject();
+    this.dataset = tableId.getDataset();
+    this.table = tableId.getTable();
     this.flinkSchema = new RowType(listOfRowFields);
-    this.tablePath =
-        String.format(
-            "projects/%s/datasets/%s/tables/%s",
-            tableId.getProject(), tableId.getDataset(), tableId.getTable());
+    this.tablePath = String.format("projects/%s/datasets/%s/tables/%s", projectId, dataset, table);
 
     try {
       this.schemaDescriptor = toDescriptor(flinkSchema);
@@ -113,6 +119,7 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
     ByteString message =
         buildSingleRowMessage(flinkSchema, schemaDescriptor, record).toByteString();
     this.writerHelper.addRow(message);
+    logger.debug("Writer Stream :: {} | Message Size :: {}", getWriterStream(), message.size());
   }
 
   public String getWriterStream() {
@@ -121,37 +128,14 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
   }
 
   @Override
-  public WriterCommitMessageContext finalizeStream() throws IOException {
+  public WriterCommitMessageContext commit() throws IOException {
 
     logger.debug("Data Writer commit()");
-
     long rowCount = writerHelper.commit();
     String writeStreamName = writerHelper.getWriteStreamName();
     logger.debug("Data Writer write-stream has finalized with row count: {}", rowCount);
-
-    return new BigQueryDirectWriterCommitMessageContext(writeStreamName, tablePath, rowCount);
-  }
-
-  @Override
-  public void commit() throws IOException {
-    String writeStreamName = getWriterStream();
-    BigQueryWriteClient bigQueryWriteClient = bigQueryWriteClientFactory.getBigQueryWriteClient();
-    BatchCommitWriteStreamsRequest commitRequest =
-        BatchCommitWriteStreamsRequest.newBuilder()
-            .setParent(this.tablePath)
-            .addWriteStreams(writeStreamName)
-            .build();
-    BatchCommitWriteStreamsResponse commitResponse =
-        bigQueryWriteClient.batchCommitWriteStreams(commitRequest);
-    if (commitResponse.hasCommitTime() == false) {
-      for (StorageError err : commitResponse.getStreamErrorsList()) {
-        logger.error(err.getErrorMessage());
-      }
-      throw new RuntimeException("Error committing the streams");
-    }
-    logger.debug("Write-stream {} committed successfully.", writeStreamName);
-    logger.info(
-        "Committed Write-stream " + writeStreamName.toString() + "Committed records successfully.");
+    return new BigQueryDirectWriterCommitMessageContext(
+        writeStreamName, tablePath, rowCount, taskNumber, false);
   }
 
   @Override

@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.connector.common.ReadRowsHelper;
 import com.google.cloud.bigquery.connector.common.ReadRowsHelper.Options;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
+import com.google.cloud.flink.bigquery.exception.FlinkBigQueryException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import org.apache.flink.api.common.functions.util.ListCollector;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.serialization.RuntimeContextInitializationContextAdapters;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
@@ -71,7 +73,8 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
 
   @Override
   public void open(Configuration parameters) throws Exception {
-    deserializer.open(() -> getRuntimeContext().getMetricGroup().addGroup("bigQuery"));
+    deserializer.open(
+        RuntimeContextInitializationContextAdapters.deserializationAdapter(getRuntimeContext()));
     this.executerIndex = getRuntimeContext().getIndexOfThisSubtask();
     this.numOfExecutors = getRuntimeContext().getNumberOfParallelSubtasks();
     this.numOfStreams = readSessionStreamList.size();
@@ -108,11 +111,18 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
           if (response.hasArrowRecordBatch()) {
             Preconditions.checkState(response.hasArrowRecordBatch());
             deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
-
+            for (int i = 0; i < outputCollector.size(); i++) {
+              ctx.collect((RowData) outputCollector.get(i));
+            }
+            outputCollector.clear();
           } else if (response.hasAvroRows()) {
             Preconditions.checkState(response.hasAvroRows());
-            deserializer.deserialize(response.toByteArray(), (Collector<RowData>) listCollector);
-            break;
+            long numOfRows = response.getRowCount();
+            for (int i = 0; i < numOfRows; i++) {
+              ctx.collect(
+                  deserializer.deserialize(
+                      response.getAvroRows().getSerializedBinaryRows().toByteArray()));
+            }
           }
         } catch (IOException ex) {
           log.error("Error while deserialization:", ex);
@@ -121,11 +131,6 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
       }
       readRowsHelper.close();
     }
-
-    for (int i = 0; i < outputCollector.size(); i++) {
-      ctx.collect((RowData) outputCollector.get(i));
-    }
-    outputCollector.clear();
   }
 
   @Override
@@ -134,8 +139,5 @@ public final class BigQuerySourceFunction extends RichParallelSourceFunction<Row
   }
 
   @Override
-  public void cancel() {
-    // TODO Auto-generated method stub
-
-  }
+  public void cancel() {}
 }

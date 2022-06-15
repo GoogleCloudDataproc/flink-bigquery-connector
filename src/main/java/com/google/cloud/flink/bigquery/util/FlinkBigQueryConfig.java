@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.util;
 
 import static com.google.cloud.bigquery.connector.common.BigQueryUtil.firstPresent;
 import static com.google.cloud.bigquery.connector.common.BigQueryUtil.parseTableId;
 import static java.lang.String.format;
 
 import com.google.api.gax.retrying.RetrySettings;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auth.Credentials;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.JobInfo;
@@ -65,7 +66,6 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.table.api.TableSchema;
 import org.apache.hadoop.conf.Configuration;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
@@ -123,43 +123,42 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   private static final String ARROW_COMPRESSION_CODEC_OPTION = "arrowCompressionCodec";
   private static final WriteMethod DEFAULT_WRITE_METHOD = WriteMethod.INDIRECT;
   public static final int DEFAULT_CACHE_EXPIRATION_IN_MINUTES = 15;
-  private static final String BIGQUERY_JOB_LABEL_PREFIX = "bigQueryJobLabel.";
+  static final String BIGQUERY_JOB_LABEL_PREFIX = "bigQueryJobLabel.";
 
-  private TableId tableId;
-  private String selectedFields;
-  private String flinkVersion;
-  private com.google.common.base.Optional<String> query = empty();
-  private String parentProjectId;
+  TableId tableId;
+  String selectedFields;
+  String flinkVersion;
+  com.google.common.base.Optional<String> query = empty();
+  String parentProjectId;
   boolean useParentProjectForMetadataOperations;
-  private com.google.common.base.Optional<String> credentialsKey;
-  private com.google.common.base.Optional<String> credentialsFile;
-  private com.google.common.base.Optional<String> accessToken;
-  private com.google.common.base.Optional<String> filter = empty();
-  private com.google.common.base.Optional<TableSchema> schema = empty();
-  private Integer maxParallelism = null;
-  private int defaultParallelism = 1;
-  private com.google.common.base.Optional<String> temporaryGcsBucket = empty();
-  private com.google.common.base.Optional<String> persistentGcsBucket = empty();
-  private com.google.common.base.Optional<String> persistentGcsPath = empty();
+  com.google.common.base.Optional<String> credentialsKey;
+  com.google.common.base.Optional<String> credentialsFile;
+  com.google.common.base.Optional<String> accessToken;
+  com.google.common.base.Optional<String> filter = empty();
+  com.google.common.base.Optional<TableSchema> schema = empty();
+  Integer maxParallelism = null;
+  int defaultParallelism = 1;
+  com.google.common.base.Optional<String> temporaryGcsBucket = empty();
+  com.google.common.base.Optional<String> persistentGcsBucket = empty();
+  com.google.common.base.Optional<String> persistentGcsPath = empty();
 
-  private DataFormat readDataFormat = DEFAULT_READ_DATA_FORMAT;
-  private boolean combinePushedDownFilters = true;
-  private boolean viewsEnabled = false;
-  private com.google.common.base.Optional<String> materializationProject = empty();
-  private com.google.common.base.Optional<String> materializationDataset = empty();
-  private com.google.common.base.Optional<String> partitionField = empty();
-  private Long partitionExpirationMs = null;
-  private com.google.common.base.Optional<Boolean> partitionRequireFilter = empty();
-  private com.google.common.base.Optional<TimePartitioning.Type> partitionType = empty();
-  private com.google.common.base.Optional<String[]> clusteredFields = empty();
-  private com.google.common.base.Optional<JobInfo.CreateDisposition> createDisposition = empty();
-  private boolean optimizedEmptyProjection = true;
-  private boolean useAvroLogicalTypes = false;
-  private ImmutableList<JobInfo.SchemaUpdateOption> loadSchemaUpdateOptions = ImmutableList.of();
-  private int materializationExpirationTimeInMinutes =
-      DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES;
-  private int maxReadRowsRetries = 3;
-  private boolean pushAllFilters = true;
+  DataFormat readDataFormat = DEFAULT_READ_DATA_FORMAT;
+  boolean combinePushedDownFilters = true;
+  boolean viewsEnabled = false;
+  com.google.common.base.Optional<String> materializationProject = empty();
+  com.google.common.base.Optional<String> materializationDataset = empty();
+  com.google.common.base.Optional<String> partitionField = empty();
+  Long partitionExpirationMs = null;
+  com.google.common.base.Optional<Boolean> partitionRequireFilter = empty();
+  com.google.common.base.Optional<TimePartitioning.Type> partitionType = empty();
+  com.google.common.base.Optional<String[]> clusteredFields = empty();
+  com.google.common.base.Optional<JobInfo.CreateDisposition> createDisposition = empty();
+  boolean optimizedEmptyProjection = true;
+  boolean useAvroLogicalTypes = false;
+  ImmutableList<JobInfo.SchemaUpdateOption> loadSchemaUpdateOptions = ImmutableList.of();
+  int materializationExpirationTimeInMinutes = DEFAULT_MATERIALIZATION_EXPRIRATION_TIME_IN_MINUTES;
+  int maxReadRowsRetries = 3;
+  boolean pushAllFilters = true;
   private com.google.common.base.Optional<String> encodedCreateReadSessionRequest = empty();
   private com.google.common.base.Optional<String> storageReadEndpoint = empty();
   private int numBackgroundThreadsPerStream = 0;
@@ -639,10 +638,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     this.fieldList = fieldList;
   }
 
-  public com.google.common.base.Optional<String> getTraceId() {
-    return traceId;
-  }
-
   public String getArrowSchemaFields() {
     return this.fieldList;
   }
@@ -771,6 +766,10 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     return storageReadEndpoint.toJavaUtil();
   }
 
+  public com.google.common.base.Optional<String> getTraceId() {
+    return traceId;
+  }
+
   @Override
   public RetrySettings getBigQueryClientRetrySettings() {
     return RetrySettings.newBuilder()
@@ -814,7 +813,6 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
         .setPrebufferReadRowsResponses(numPrebufferReadRowsResponses)
         .setStreamsPerPartition(numStreamsPerPartition)
         .setArrowCompressionCodec(arrowCompressionCodec)
-        .setTraceId(traceId.toJavaUtil())
         .build();
   }
 

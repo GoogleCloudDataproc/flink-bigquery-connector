@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -21,6 +21,7 @@ import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Field.Mode;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
+import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ProtoSchemaConverter;
@@ -77,7 +78,7 @@ public final class ProtobufUtils {
   private static final String RESERVED_NESTED_TYPE_NAME = "STRUCT";
 
   private static final ImmutableMap<Field.Mode, DescriptorProtos.FieldDescriptorProto.Label>
-      BIGQUERY_MODE_TO_PROTO_FIELD_LABEL =
+      BigQueryModeToProtoFieldLabel =
           new ImmutableMap.Builder<Field.Mode, DescriptorProtos.FieldDescriptorProto.Label>()
               .put(Field.Mode.NULLABLE, DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
               .put(Field.Mode.REPEATED, DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED)
@@ -85,7 +86,7 @@ public final class ProtobufUtils {
               .build();
 
   private static final ImmutableMap<LegacySQLTypeName, DescriptorProtos.FieldDescriptorProto.Type>
-      BIGQUERY_TO_PROTO_TYPE =
+      BigQueryToProtoType =
           new ImmutableMap.Builder<LegacySQLTypeName, DescriptorProtos.FieldDescriptorProto.Type>()
               .put(LegacySQLTypeName.BYTES, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
               .put(LegacySQLTypeName.INTEGER, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
@@ -111,12 +112,34 @@ public final class ProtobufUtils {
               .put(LegacySQLTypeName.RECORD, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
               .build();
 
+  public static FlinkFnApi.Schema.FieldType toProtoType(LogicalType logicalType) {
+    return logicalType.accept(new ProtobufUtils.LogicalTypeToProtoTypeConverter());
+  }
+
+  public static ProtoSchema toProtoSchema(Schema schema) throws IllegalArgumentException {
+    try {
+      Descriptors.Descriptor descriptor = toDescriptor(schema);
+      return ProtoSchemaConverter.convert(descriptor);
+    } catch (Descriptors.DescriptorValidationException e) {
+      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
+    }
+  }
+
   public static ProtoSchema toProtoSchema(RowType schema) throws IllegalArgumentException {
     try {
       Descriptors.Descriptor descriptor = toDescriptor(schema);
       return ProtoSchemaConverter.convert(descriptor);
     } catch (Descriptors.DescriptorValidationException e) {
-      throw new IllegalArgumentException("Could not build Proto-Schema from Flink schema", e);
+      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
+    }
+  }
+
+  public static ProtoSchema toProtoSchema(StructuredType schema) throws IllegalArgumentException {
+    try {
+      Descriptors.Descriptor descriptor = toDescriptor(schema);
+      return ProtoSchemaConverter.convert(descriptor);
+    } catch (Descriptors.DescriptorValidationException e) {
+      throw new IllegalArgumentException("Could not build Proto-Schema from Spark schema", e);
     }
   }
 
@@ -127,7 +150,7 @@ public final class ProtobufUtils {
           "Program attempted to return an atomic data-type for a RECORD");
     }
     return Preconditions.checkNotNull(
-        BIGQUERY_TO_PROTO_TYPE.get(bqType),
+        BigQueryToProtoType.get(bqType),
         new IllegalArgumentException("Unexpected type: " + bqType.name()));
   }
 
@@ -135,30 +158,58 @@ public final class ProtobufUtils {
       throws Descriptors.DescriptorValidationException {
     DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
         DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
-    List<Field> fieldList = new ArrayList<Field>();
+    List<Field> listOfFields = new ArrayList<Field>();
     Iterator<RowField> streamdata = schema.getFields().iterator();
     while (streamdata.hasNext()) {
-      fieldList.addAll(getFields(streamdata.next(), null));
+      listOfFields.addAll(getFields(streamdata.next(), null));
     }
     int initialDepth = 0;
     DescriptorProtos.DescriptorProto descriptorProto =
-        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(fieldList), initialDepth);
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFields), initialDepth);
+
+    return createDescriptorFromProto(descriptorProto);
+  }
+
+  public static Descriptors.Descriptor toDescriptor(StructuredType schema)
+      throws Descriptors.DescriptorValidationException {
+    DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
+        DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
+    ArrayList<Field> listOfFields = new ArrayList<Field>();
+    Iterator<StructuredAttribute> streamdata = schema.getAttributes().stream().iterator();
+    while (streamdata.hasNext()) {
+      StructuredAttribute elem = streamdata.next();
+      if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
+        Field.newBuilder(
+                elem.getName(),
+                StandardSQLTypeName.STRUCT,
+                FieldList.of(getListOfSubFields(elem.getType())))
+            .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
+            .build();
+      } else {
+        listOfFields.add(
+            Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
+                .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
+                .build());
+      }
+    }
+    int initialDepth = 0;
+    DescriptorProtos.DescriptorProto descriptorProto =
+        buildDescriptorProtoWithFields(descriptorBuilder, FieldList.of(listOfFields), initialDepth);
 
     return createDescriptorFromProto(descriptorProto);
   }
 
   public static List<Field> getFields(RowField elem, String mode) {
-
-    List<Field> fieldList = new ArrayList<Field>();
+    List<Field> listOfFields = new ArrayList<Field>();
     if ("ROW".equals(elem.getType().getTypeRoot().toString())) {
-      fieldList.add(getRowField(elem, mode));
+      listOfFields.add(getRowField(elem, mode));
     } else if ("ARRAY".equals(elem.getType().getTypeRoot().toString())) {
       if ("ROW".equals(((ArrayType) elem.getType()).getElementType().getTypeRoot().toString())) {
         LogicalType rowElementType = ((ArrayType) elem.getType()).getElementType();
         RowField rowelem = new RowField(elem.getName(), rowElementType);
-        fieldList.addAll(getFields(rowelem, "REPEATED"));
+        listOfFields.addAll(getFields(rowelem, "REPEATED"));
       } else {
-        fieldList.add(
+        listOfFields.add(
             Field.newBuilder(
                     elem.getName(),
                     StandardSQLTypeHandler.handle(((ArrayType) elem.getType()).getElementType()))
@@ -166,12 +217,12 @@ public final class ProtobufUtils {
                 .build());
       }
     } else {
-      fieldList.add(
+      listOfFields.add(
           Field.newBuilder(elem.getName(), StandardSQLTypeHandler.handle(elem.getType()))
               .setMode(elem.getType().isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
               .build());
     }
-    return fieldList;
+    return listOfFields;
   }
 
   private static Field getRowField(RowField elem, String modeValue) {
@@ -189,8 +240,22 @@ public final class ProtobufUtils {
         .build();
   }
 
+  public static Descriptors.Descriptor toDescriptor(Schema schema)
+      throws Descriptors.DescriptorValidationException {
+    DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
+        DescriptorProtos.DescriptorProto.newBuilder().setName("Schema");
+
+    FieldList fields = schema.getFields();
+
+    int initialDepth = 0;
+    DescriptorProtos.DescriptorProto descriptorProto =
+        buildDescriptorProtoWithFields(descriptorBuilder, fields, initialDepth);
+
+    return createDescriptorFromProto(descriptorProto);
+  }
+
   static ArrayList<Field> getListOfSubFields(LogicalType logicalType) {
-    ArrayList<Field> subFieldList = new ArrayList<Field>();
+    ArrayList<Field> listOfSubFileds = new ArrayList<Field>();
     List<String> fieldNameList = new ArrayList<String>();
     Stream.of(logicalType.toString().split(","))
         .forEach(
@@ -202,17 +267,17 @@ public final class ProtobufUtils {
             });
     List<LogicalType> logicalTypeList = logicalType.getChildren();
     for (int i = 0; i < logicalTypeList.size(); i++) {
-      subFieldList.add(
+      listOfSubFileds.add(
           Field.newBuilder(
                   fieldNameList.get(i), StandardSQLTypeHandler.handle(logicalTypeList.get(i)))
               .setMode(logicalTypeList.get(i).isNullable() ? Mode.NULLABLE : Mode.REQUIRED)
               .build());
     }
-    return subFieldList;
+    return listOfSubFileds;
   }
 
   @VisibleForTesting
-  static DescriptorProtos.DescriptorProto buildDescriptorProtoWithFields(
+  public static DescriptorProtos.DescriptorProto buildDescriptorProtoWithFields(
       DescriptorProtos.DescriptorProto.Builder descriptorBuilder, FieldList fields, int depth) {
     Preconditions.checkArgument(
         depth < MAX_BIGQUERY_NESTED_DEPTH,
@@ -244,7 +309,7 @@ public final class ProtobufUtils {
 
   private static DescriptorProtos.FieldDescriptorProto.Label toProtoFieldLabel(Field.Mode mode) {
     return Preconditions.checkNotNull(
-        BIGQUERY_MODE_TO_PROTO_FIELD_LABEL.get(mode),
+        BigQueryModeToProtoFieldLabel.get(mode),
         new IllegalArgumentException("A BigQuery Field Mode was invalid: " + mode.name()));
   }
 
@@ -298,8 +363,10 @@ public final class ProtobufUtils {
       if (protoValue == null) {
         continue;
       }
+
       messageBuilder.setField(schemaDescriptor.findFieldByNumber(protoFieldNumber), protoValue);
     }
+
     return messageBuilder.build();
   }
 
@@ -348,10 +415,10 @@ public final class ProtobufUtils {
       Object[] flinkArrayData = (Object[]) flinkValue;
       boolean containsNull = arrayType.isNullable();
       List<Object> protoValue = new ArrayList<>();
-      for (Object flinkElement : flinkArrayData) {
+      for (Object sparkElement : flinkArrayData) {
         Object converted =
             convertFlinkValueToProtoRowValue(
-                elementType, flinkElement, containsNull, nestedTypeDescriptor);
+                elementType, sparkElement, containsNull, nestedTypeDescriptor);
         if (converted == null) {
           continue;
         }
@@ -580,7 +647,7 @@ public final class ProtobufUtils {
     public FlinkFnApi.Schema.FieldType visit(ArrayType arrayType) {
       FlinkFnApi.Schema.FieldType.Builder builder =
           FlinkFnApi.Schema.FieldType.newBuilder()
-              .setTypeName(FlinkFnApi.Schema.TypeName.ARRAY)
+              .setTypeName(FlinkFnApi.Schema.TypeName.BASIC_ARRAY)
               .setNullable(arrayType.isNullable());
 
       FlinkFnApi.Schema.FieldType elementFieldType = arrayType.getElementType().accept(this);
@@ -627,7 +694,7 @@ public final class ProtobufUtils {
     protected FlinkFnApi.Schema.FieldType defaultMethod(LogicalType logicalType) {
       if (logicalType instanceof LegacyTypeInformationType) {
         Class<?> typeClass =
-            ((LegacyTypeInformationType) logicalType).getTypeInformation().getTypeClass();
+            ((LegacyTypeInformationType<?>) logicalType).getTypeInformation().getTypeClass();
         if (typeClass == BigDecimal.class) {
           FlinkFnApi.Schema.FieldType.Builder builder =
               FlinkFnApi.Schema.FieldType.newBuilder()

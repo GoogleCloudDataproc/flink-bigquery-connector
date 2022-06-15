@@ -16,6 +16,7 @@
 package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
+import com.google.cloud.flink.bigquery.exception.FlinkBigQueryException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -49,7 +50,7 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
   private VectorSchemaRoot root;
   private VectorLoader loader;
   private List<FieldVector> vectors = new ArrayList<>();
-
+  private Schema schema;
   private Class<T> recordClazz;
   private String schemaJsonString;
 
@@ -71,11 +72,12 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     ReadRowsResponse response = ReadRowsResponse.parseFrom(responseByteMessage);
     byte[] arrowRecordBatchMessage =
         response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray();
-
     if (arrowRecordBatchMessage == null) {
       throw new FlinkBigQueryException("Deserializing message is empty");
     }
-
+    if (this.schema == null) {
+      this.schema = Schema.fromJSON(schemaJsonString);
+    }
     initializeArrow();
     ArrowRecordBatch deserializedBatch =
         MessageSerializer.deserializeRecordBatch(
@@ -86,9 +88,8 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return (T) root;
   }
 
-  private void initializeArrow() throws IOException {
-    Schema schema = getSchema(schemaJsonString);
-
+  private void initializeArrow() {
+    Preconditions.checkNotNull(schema);
     if (root != null) {
       return;
     }
@@ -112,17 +113,6 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return (TypeInformation<T>) typeInfo;
   }
 
-  private Schema getSchema(String schemaJson) {
-    Schema schema = null;
-    try {
-      schema = Schema.fromJSON(schemaJson);
-    } catch (IOException e) {
-      logger.error("Error while converting to Schema from jsonString");
-      throw new FlinkBigQueryException("Error while converting to Schema from jsonString", e);
-    }
-    return schema;
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -132,12 +122,11 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
       return false;
     }
     ArrowDeserializationSchema<?> that = (ArrowDeserializationSchema<?>) o;
-    return recordClazz.equals(that.recordClazz)
-        && Objects.equals(getSchema(this.schemaJsonString), getSchema(that.schemaJsonString));
+    return recordClazz.equals(that.recordClazz) && Objects.equals(schema, that.schema);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(recordClazz, getSchema(this.schemaJsonString));
+    return Objects.hash(recordClazz, schema);
   }
 }

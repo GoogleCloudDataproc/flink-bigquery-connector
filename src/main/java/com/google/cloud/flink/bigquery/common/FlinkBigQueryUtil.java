@@ -15,7 +15,7 @@
  */
 package com.google.cloud.flink.bigquery.common;
 
-import com.google.cloud.flink.bigquery.FlinkBigQueryException;
+import com.google.cloud.flink.bigquery.exception.FlinkBigQueryException;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.UUID;

@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.exception;
 
 public class FlinkBigQueryException extends RuntimeException {
+
+  private static final long serialVersionUID = 1L;
 
   public FlinkBigQueryException(String message, Throwable error) {
     super(message, error);

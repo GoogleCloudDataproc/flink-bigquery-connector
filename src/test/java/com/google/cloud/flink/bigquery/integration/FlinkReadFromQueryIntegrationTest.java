@@ -20,7 +20,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.flink.bigquery.FlinkBigQueryException;
+import com.google.cloud.flink.bigquery.exception.FlinkBigQueryException;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableResult;

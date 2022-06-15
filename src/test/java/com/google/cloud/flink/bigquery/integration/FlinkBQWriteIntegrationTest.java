@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.apache.flink.table.api.Expressions.$;
 
 import com.google.cloud.ServiceOptions;
-import com.google.cloud.flink.bigquery.BigQueryTableSink;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
@@ -108,18 +107,22 @@ public class FlinkBQWriteIntegrationTest extends FlinkBigQueryIntegrationTestBas
     Table sourceTable = tEnv.from(flinkSrcTable);
     Table sourceResultTable =
         sourceTable.where($("word_count").isGreaterOrEqual(500)).select($("word"), $("word_count"));
-    BigQueryTableSink tableSink = new BigQueryTableSink(sourceResultTable, bigqueryWriteTable);
 
-    tEnv.registerTableSink(flinkSinkTable, tableSink);
-
+    String sinkQueryString =
+        "CREATE TABLE " + flinkSinkTable + " (word STRING , word_count BIGINT)";
+    tEnv.executeSql(
+        sinkQueryString
+            + "\n"
+            + "WITH (\n"
+            + "  'connector' = 'bigquery',\n"
+            + "  'table' = '"
+            + bigqueryWriteTable
+            + "',\n"
+            + "  'maxParallelism' = '10'\n"
+            + ")");
     TableResult sinkResult = sourceResultTable.executeInsert(flinkSinkTable, true);
     JobExecutionResult jobExecutionResult =
-        sinkResult
-            .getJobClient()
-            .get()
-            .getJobExecutionResult(Thread.currentThread().getContextClassLoader())
-            .get();
-
+        sinkResult.getJobClient().get().getJobExecutionResult().get();
     return jobExecutionResult.isJobExecutionResult();
   }
 }

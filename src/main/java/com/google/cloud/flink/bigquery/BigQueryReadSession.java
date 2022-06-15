@@ -26,6 +26,7 @@ import com.google.cloud.bigquery.connector.common.ReadSessionCreator;
 import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfig;
 import com.google.cloud.bigquery.connector.common.ReadSessionResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
+import com.google.cloud.flink.bigquery.util.FlinkBigQueryConfig;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +53,6 @@ public class BigQueryReadSession {
             : Optional.empty();
     Optional<String> materializationDataset =
         bqconfig.getQuery().isPresent() ? bqconfig.getMaterializationDataset() : Optional.empty();
-
     Cache<String, TableInfo> destinationTableCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(bqconfig.getCacheExpirationTimeInMinutes(), TimeUnit.MINUTES)

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.util;
 
 import static com.google.cloud.bigquery.connector.common.BigQueryUtil.firstPresent;
 import static com.google.common.base.Optional.fromJavaUtil;

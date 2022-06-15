@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery.arrow.util;
+package com.google.cloud.flink.bigquery.util.arrow;
 
 import java.util.ArrayList;
 import java.util.Collection;
