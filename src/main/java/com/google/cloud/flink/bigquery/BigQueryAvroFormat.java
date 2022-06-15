@@ -25,13 +25,16 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
-public class BigQueryArrowFormat implements DecodingFormat<DeserializationSchema<RowData>> {
+public class BigQueryAvroFormat implements DecodingFormat<DeserializationSchema<RowData>> {
   private List<String> selectedFieldList;
-  private List<String> arrowFieldList;
+  private List<String> avroFieldList;
+  private String avroSchema;
 
-  public BigQueryArrowFormat(List<String> selectedFieldList, List<String> arrowFieldList) {
+  public BigQueryAvroFormat(
+      List<String> selectedFieldList, List<String> avroFieldList, String avroSchema) {
     this.selectedFieldList = selectedFieldList;
-    this.arrowFieldList = arrowFieldList;
+    this.avroFieldList = avroFieldList;
+    this.avroSchema = avroSchema;
   }
 
   @Override
@@ -46,7 +49,7 @@ public class BigQueryArrowFormat implements DecodingFormat<DeserializationSchema
     final RowType rowType = (RowType) producedDataType.getLogicalType();
     final TypeInformation<RowData> rowDataTypeInfo =
         context.createTypeInformation(producedDataType);
-    return new ArrowRowDataDeserializationSchema(
-        rowType, rowDataTypeInfo, selectedFieldList, arrowFieldList);
+    return new AvroRowDataDeserializationSchema(
+        rowType, rowDataTypeInfo, selectedFieldList, avroFieldList, avroSchema);
   }
 }

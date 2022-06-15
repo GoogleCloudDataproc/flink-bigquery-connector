@@ -50,7 +50,7 @@ public class FlinkBigQueryIntegrationTestBase {
     @Override
     protected void before() throws Throwable {
       IntegrationTestUtils.createDataset(testDataset);
-      IntegrationTestUtils.createTable(testDataset, Constants.ALL_TYPES_TABLE_NAME, "read");
+      IntegrationTestUtils.createTable(testDataset, Constants.ALL_TYPES_TABLE_NAME);
     }
 
     @Override

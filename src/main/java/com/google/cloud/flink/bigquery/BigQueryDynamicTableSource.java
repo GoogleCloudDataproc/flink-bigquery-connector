@@ -17,36 +17,54 @@ package com.google.cloud.flink.bigquery;
 
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
+import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
+import org.apache.flink.table.connector.source.abilities.SupportsLimitPushDown;
+import org.apache.flink.table.connector.source.abilities.SupportsPartitionPushDown;
+import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.sources.ProjectableTableSource;
-import org.apache.flink.table.sources.TableSource;
+import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.types.DataType;
 
 public final class BigQueryDynamicTableSource
-    implements ScanTableSource, ProjectableTableSource<RowData> {
+    implements ScanTableSource,
+        SupportsProjectionPushDown,
+        SupportsLimitPushDown,
+        SupportsPartitionPushDown,
+        SupportsFilterPushDown {
 
   private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
   private DataType producedDataType;
   private ArrayList<String> readStreamNames;
   private BigQueryClientFactory bigQueryReadClientFactory;
+  private CatalogTable catalogTable;
+  private int[][] projectedFields;
+  private long limit;
+  private List<Map<String, String>> remainingPartitions;
+  private ArrayList filters;
 
   public BigQueryDynamicTableSource(
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
       DataType producedDataType,
       ArrayList<String> readStreamNames,
-      BigQueryClientFactory bigQueryReadClientFactory) {
+      BigQueryClientFactory bigQueryReadClientFactory,
+      CatalogTable catalogTable) {
 
     this.bigQueryReadClientFactory = bigQueryReadClientFactory;
     this.decodingFormat = decodingFormat;
     this.producedDataType = producedDataType;
     this.readStreamNames = readStreamNames;
+    this.catalogTable = catalogTable;
   }
 
   @Override
@@ -66,8 +84,18 @@ public final class BigQueryDynamicTableSource
 
   @Override
   public DynamicTableSource copy() {
-    return new BigQueryDynamicTableSource(
-        decodingFormat, producedDataType, readStreamNames, bigQueryReadClientFactory);
+    BigQueryDynamicTableSource source =
+        new BigQueryDynamicTableSource(
+            decodingFormat,
+            producedDataType,
+            readStreamNames,
+            bigQueryReadClientFactory,
+            catalogTable);
+    source.projectedFields = projectedFields;
+    source.remainingPartitions = remainingPartitions;
+    source.filters = filters;
+    source.limit = limit;
+    return source;
   }
 
   @Override
@@ -76,7 +104,39 @@ public final class BigQueryDynamicTableSource
   }
 
   @Override
-  public TableSource projectFields(int[] fields) {
+  public Result applyFilters(List<ResolvedExpression> filters) {
+    this.filters = new ArrayList<>(filters);
+    return Result.of(new ArrayList<>(filters), new ArrayList<>(filters));
+  }
+
+  @Override
+  public Optional<List<Map<String, String>>> listPartitions() {
+    // TODO Auto-generated method stub
     return null;
+  }
+
+  @Override
+  public void applyPartitions(List<Map<String, String>> remainingPartitions) {
+    if (catalogTable.getPartitionKeys() != null && catalogTable.getPartitionKeys().size() != 0) {
+      this.remainingPartitions = remainingPartitions;
+    } else {
+      throw new UnsupportedOperationException(
+          "Should not apply partitions to a non-partitioned table.");
+    }
+  }
+
+  @Override
+  public void applyLimit(long limit) {
+    this.limit = limit;
+  }
+
+  @Override
+  public boolean supportsNestedProjection() {
+    return false;
+  }
+
+  @Override
+  public void applyProjection(int[][] projectedFields) {
+    this.projectedFields = projectedFields;
   }
 }

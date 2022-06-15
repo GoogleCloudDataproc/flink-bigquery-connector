@@ -27,7 +27,8 @@ public class BigQueryDirectWriterCommitMessageContextTest {
   @Before
   public void setup() {
     messageContext =
-        new BigQueryDirectWriterCommitMessageContext("Stream0", "project/dataset/table", 100);
+        new BigQueryDirectWriterCommitMessageContext(
+            "Stream0", "project/dataset/table", 100L, 1, Boolean.TRUE);
   }
 
   @Test
@@ -56,6 +57,7 @@ public class BigQueryDirectWriterCommitMessageContextTest {
     String messagecontextString = messageContext.toString();
     assertThat(messagecontextString).isNotNull();
     assertThat(messagecontextString)
-        .isEqualTo("BigQueryWriterCommitMessage{tableId='project/dataset/table'}");
+        .isEqualTo(
+            "BigQueryWriterCommitMessage{taskId=1, tableId='project/dataset/table', rowCount='100, writeStreamName='Stream0}");
   }
 }

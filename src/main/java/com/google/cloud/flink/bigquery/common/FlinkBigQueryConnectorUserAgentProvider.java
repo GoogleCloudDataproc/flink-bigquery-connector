@@ -19,7 +19,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.cloud.bigquery.connector.common.UserAgentProvider;
-import com.google.cloud.flink.bigquery.FlinkBigQueryException;
+import com.google.cloud.flink.bigquery.exception.FlinkBigQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.CharStreams;
 import com.google.common.io.Closeables;

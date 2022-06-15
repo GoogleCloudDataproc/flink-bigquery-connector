@@ -37,6 +37,8 @@ import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Field.Mode;
 import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.InsertAllRequest;
+import com.google.cloud.bigquery.InsertAllResponse;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
@@ -44,12 +46,16 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.ViewDefinition;
 import com.google.cloud.bigquery.connector.common.BigQueryClient;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,8 +75,17 @@ public class IntegrationTestUtils {
   }
 
   public static void runQuery(String query) {
+
+    Cache<String, TableInfo> destinationTableCache =
+        CacheBuilder.newBuilder().expireAfterWrite(15, TimeUnit.MINUTES).maximumSize(1000).build();
+
     BigQueryClient bigQueryClient =
-        new BigQueryClient(getBigquery(), Optional.empty(), Optional.empty());
+        new BigQueryClient(
+            getBigquery(),
+            Optional.empty(),
+            Optional.empty(),
+            destinationTableCache,
+            ImmutableMap.of());
     bigQueryClient.query(query);
   }
 
@@ -88,49 +103,67 @@ public class IntegrationTestUtils {
     bq.create(TableInfo.of(tableId, viewDefinition));
   }
 
-  public static void createTable(String dataset, String table, String function)
-      throws UnsupportedEncodingException {
+  public static void createTable(String dataset, String table)
+      throws UnsupportedEncodingException, InterruptedException {
     BigQuery bq = getBigquery();
-    ArrayList<Field> listOfFileds = new ArrayList<Field>();
-    listOfFileds.add(
+    ArrayList<Field> fieldList = new ArrayList<Field>();
+    ArrayList<Field> subFieldList = new ArrayList<Field>();
+    subFieldList.add(
+        Field.newBuilder("record1", StandardSQLTypeName.STRING).setMode(Mode.NULLABLE).build());
+    subFieldList.add(
+        Field.newBuilder("record2", StandardSQLTypeName.NUMERIC).setMode(Mode.NULLABLE).build());
+    subFieldList.add(
+        Field.newBuilder("record3", StandardSQLTypeName.BOOL).setMode(Mode.NULLABLE).build());
+
+    fieldList.add(
         Field.newBuilder("numeric_datatype", StandardSQLTypeName.NUMERIC)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("string_datatype", StandardSQLTypeName.STRING)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("bytes_datatype", StandardSQLTypeName.BYTES)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("integer_datatype", StandardSQLTypeName.INT64)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("float_datatype", StandardSQLTypeName.FLOAT64)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("boolean_datatype", StandardSQLTypeName.BOOL)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("timestamp_datatype", StandardSQLTypeName.TIMESTAMP)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("date_datatype", StandardSQLTypeName.DATE).setMode(Mode.NULLABLE).build());
-    listOfFileds.add(
+    fieldList.add(
         Field.newBuilder("datetime_datatype", StandardSQLTypeName.DATETIME)
             .setMode(Mode.NULLABLE)
             .build());
-    listOfFileds.add(
+    fieldList.add(
+        Field.newBuilder("time_datatype", StandardSQLTypeName.TIME).setMode(Mode.NULLABLE).build());
+    fieldList.add(
         Field.newBuilder("geography_datatype", StandardSQLTypeName.STRING)
             .setMode(Mode.NULLABLE)
             .build());
-    FieldList fieldlist = FieldList.of(listOfFileds);
+    fieldList.add(
+        Field.newBuilder("record_datatype", StandardSQLTypeName.STRUCT, FieldList.of(subFieldList))
+            .setMode(Mode.NULLABLE)
+            .build());
+    fieldList.add(
+        Field.newBuilder("array_datatype", StandardSQLTypeName.STRING)
+            .setMode(Mode.REPEATED)
+            .build());
+    FieldList fieldlist = FieldList.of(fieldList);
     Schema schema = Schema.of(fieldlist);
 
     TableId tableId = TableId.of(dataset, table);
@@ -141,18 +174,30 @@ public class IntegrationTestUtils {
 
     String base64encodedString = Base64.getEncoder().encodeToString("byte-test".getBytes("utf-8"));
 
-    if (function.equals("read")) {
-      Map<String, Object> rowContent = new HashMap<>();
-      rowContent.put("numeric_datatype", 123.345);
-      rowContent.put("string_datatype", "flink");
-      rowContent.put("bytes_datatype", base64encodedString);
-      rowContent.put("integer_datatype", 12345);
-      rowContent.put("float_datatype", 50.05f);
-      rowContent.put("boolean_datatype", true);
-      rowContent.put("timestamp_datatype", "2022-03-17 17:11:53 UTC");
-      rowContent.put("date_datatype", "2022-01-01");
-      rowContent.put("datetime_datatype", "2022-03-17T13:20:23.439071");
-      rowContent.put("geography_datatype", "POINT(51.500989020415 -0.124710813123368)");
+    Map<String, Object> subRowContent = new HashMap<>();
+    subRowContent.put("record1", "stringTest1");
+    subRowContent.put("record2", 1);
+    subRowContent.put("record3", true);
+
+    Map<String, Object> rowContent = new HashMap<>();
+    rowContent.put("numeric_datatype", 123.345);
+    rowContent.put("string_datatype", "flink");
+    rowContent.put("bytes_datatype", base64encodedString);
+    rowContent.put("integer_datatype", 12345);
+    rowContent.put("float_datatype", 50.05f);
+    rowContent.put("boolean_datatype", true);
+    rowContent.put("timestamp_datatype", "2022-03-17 17:11:53 UTC");
+    rowContent.put("date_datatype", "2022-01-01");
+    rowContent.put("datetime_datatype", "2022-03-17T13:20:23.439071");
+    rowContent.put("time_datatype", "13:20:23.439071");
+    rowContent.put("geography_datatype", "POINT(51.500989020415 -0.124710813123368)");
+    rowContent.put("record_datatype", subRowContent);
+    rowContent.put("array_datatype", new String[] {"string1", "string2", "string3"});
+    InsertAllResponse response =
+        bq.insertAll(InsertAllRequest.newBuilder(tableId).addRow(rowContent).build());
+    Thread.sleep(20000);
+    if (response.hasErrors()) {
+      logger.error(response.getInsertErrors().toString());
     }
   }
 }

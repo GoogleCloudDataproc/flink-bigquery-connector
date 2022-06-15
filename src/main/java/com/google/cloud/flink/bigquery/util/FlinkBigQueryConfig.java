@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.util;
 
 import static com.google.cloud.bigquery.connector.common.BigQueryUtil.firstPresent;
 import static com.google.cloud.bigquery.connector.common.BigQueryUtil.parseTableId;
 import static java.lang.String.format;
 
 import com.google.api.gax.retrying.RetrySettings;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auth.Credentials;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.JobInfo;
@@ -33,6 +34,7 @@ import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfig;
 import com.google.cloud.bigquery.connector.common.ReadSessionCreatorConfigBuilder;
 import com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.CompressionCodec;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
+import com.google.cloud.flink.bigquery.common.FlinkBigQueryUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,7 +66,6 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.table.api.TableSchema;
 import org.apache.hadoop.conf.Configuration;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
@@ -75,6 +76,7 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
 
   private static final long serialVersionUID = 1L;
   final Logger logger = LoggerFactory.getLogger(FlinkBigQueryConfig.class);
+  public static final int MAX_TRACE_ID_LENGTH = 256;
 
   public enum WriteMethod {
     DIRECT,
@@ -120,6 +122,8 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   private static final int DEFAULT_BIGQUERY_CLIENT_RETRIES = 10;
   private static final String ARROW_COMPRESSION_CODEC_OPTION = "arrowCompressionCodec";
   private static final WriteMethod DEFAULT_WRITE_METHOD = WriteMethod.INDIRECT;
+  public static final int DEFAULT_CACHE_EXPIRATION_IN_MINUTES = 15;
+  static final String BIGQUERY_JOB_LABEL_PREFIX = "bigQueryJobLabel.";
 
   TableId tableId;
   String selectedFields;
@@ -167,6 +171,10 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
   RetrySettings bigqueryDataWriteHelperRetrySettings =
       RetrySettings.newBuilder().setMaxAttempts(5).build();
   private String fieldList;
+  private int cacheExpirationTimeInMinutes = DEFAULT_CACHE_EXPIRATION_IN_MINUTES;
+  // used to create BigQuery ReadSessions
+  private com.google.common.base.Optional<String> traceId;
+  private ImmutableMap<String, String> bigQueryJobLabels = ImmutableMap.of();
 
   @VisibleForTesting
   public static FlinkBigQueryConfig from(
@@ -352,8 +360,58 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
               "Compression codec '%s' for Arrow is not supported. Supported formats are %s",
               arrowCompressionCodecParam, Arrays.toString(CompressionCodec.values())));
     }
+    config.cacheExpirationTimeInMinutes =
+        getAnyOption(globalOptions, options, "cacheExpirationTimeInMinutes")
+            .transform(Integer::parseInt)
+            .or(DEFAULT_CACHE_EXPIRATION_IN_MINUTES);
+    if (config.cacheExpirationTimeInMinutes < 1) {
+      throw new IllegalArgumentException(
+          "cacheExpirationTimeInMinutes must have a positive value, the configured value is "
+              + config.cacheExpirationTimeInMinutes);
+    }
 
+    com.google.common.base.Optional<String> traceApplicationNameParam =
+        getAnyOption(globalOptions, options, "traceApplicationName");
+    config.traceId =
+        traceApplicationNameParam.transform(
+            traceApplicationName -> {
+              String traceJobIdParam =
+                  getAnyOption(globalOptions, options, "traceJobId")
+                      .or(FlinkBigQueryUtil.getJobId(sqlConf));
+              String traceIdParam = "Spark:" + traceApplicationName + ":" + traceJobIdParam;
+              if (traceIdParam.length() > MAX_TRACE_ID_LENGTH) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        "trace ID cannot longer than %d. Provided value was [%s]",
+                        MAX_TRACE_ID_LENGTH, traceIdParam));
+              }
+              return traceIdParam;
+            });
+
+    config.bigQueryJobLabels = parseBigQueryJobLabels(globalOptions, options);
     return config;
+  }
+
+  @VisibleForTesting
+  static ImmutableMap<String, String> parseBigQueryJobLabels(
+      ImmutableMap<String, String> globalOptions, ImmutableMap<String, String> options) {
+
+    String lowerCasePrefix = BIGQUERY_JOB_LABEL_PREFIX.toLowerCase(Locale.ROOT);
+
+    ImmutableMap<String, String> allOptions =
+        ImmutableMap.<String, String>builder() //
+            .putAll(globalOptions) //
+            .putAll(options) //
+            .buildKeepingLast();
+
+    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
+    for (Map.Entry<String, String> entry : allOptions.entrySet()) {
+      if (entry.getKey().toLowerCase(Locale.ROOT).startsWith(lowerCasePrefix)) {
+        result.put(entry.getKey().substring(BIGQUERY_JOB_LABEL_PREFIX.length()), entry.getValue());
+      }
+    }
+
+    return result.build();
   }
 
   private static ImmutableMap<String, String> toConfigOptionsKeyMap(
@@ -708,6 +766,10 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
     return storageReadEndpoint.toJavaUtil();
   }
 
+  public com.google.common.base.Optional<String> getTraceId() {
+    return traceId;
+  }
+
   @Override
   public RetrySettings getBigQueryClientRetrySettings() {
     return RetrySettings.newBuilder()
@@ -808,5 +870,15 @@ public class FlinkBigQueryConfig implements BigQueryConfig, Serializable {
       }
       return selectedFields;
     }
+  }
+
+  @Override
+  public int getCacheExpirationTimeInMinutes() {
+    return cacheExpirationTimeInMinutes;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getBigQueryJobLabels() {
+    return bigQueryJobLabels;
   }
 }
