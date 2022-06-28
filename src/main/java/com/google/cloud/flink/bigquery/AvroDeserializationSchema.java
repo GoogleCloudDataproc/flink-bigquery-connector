@@ -108,7 +108,7 @@ public class AvroDeserializationSchema<T> implements DeserializationSchema<T> {
 
   @Override
   public boolean isEndOfStream(T nextElement) {
-    return false;
+    return nextElement == null;
   }
 
   @Override

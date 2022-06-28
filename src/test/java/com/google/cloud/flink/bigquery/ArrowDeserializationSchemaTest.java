@@ -18,14 +18,12 @@ package com.google.cloud.flink.bigquery;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import java.io.IOException;
-
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
-
-import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 
 public class ArrowDeserializationSchemaTest {
 

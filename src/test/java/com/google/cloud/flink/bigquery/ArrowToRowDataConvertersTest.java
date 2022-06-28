@@ -15,18 +15,16 @@
  */
 package com.google.cloud.flink.bigquery;
 
+import com.google.cloud.flink.bigquery.util.arrow.ArrowToRowDataConverters;
+import com.google.cloud.flink.bigquery.util.arrow.ArrowToRowDataConverters.ArrowToRowDataConverter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.RowType.RowField;
 import org.junit.Assert;
 import org.junit.Test;
-
-import com.google.cloud.flink.bigquery.util.arrow.ArrowToRowDataConverters;
-import com.google.cloud.flink.bigquery.util.arrow.ArrowToRowDataConverters.ArrowToRowDataConverter;
 
 public class ArrowToRowDataConvertersTest {
 

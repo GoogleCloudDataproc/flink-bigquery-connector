@@ -17,6 +17,10 @@ package com.google.cloud.flink.bigquery;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.CompressionCodec;
+import com.google.cloud.flink.bigquery.util.FlinkBigQueryConfig;
+import com.google.common.collect.ImmutableMap;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -24,20 +28,13 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-
+import net.sf.jsqlparser.JSQLParserException;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 import org.junit.Test;
-
-import com.google.cloud.bigquery.TableId;
-import com.google.cloud.bigquery.storage.v1.ArrowSerializationOptions.CompressionCodec;
-import com.google.cloud.flink.bigquery.util.FlinkBigQueryConfig;
-import com.google.common.collect.ImmutableMap;
-
-import net.sf.jsqlparser.JSQLParserException;
 
 public class FlinkBQConfigTest {
   public static final int DEFAULT_PARALLELISM = 10;

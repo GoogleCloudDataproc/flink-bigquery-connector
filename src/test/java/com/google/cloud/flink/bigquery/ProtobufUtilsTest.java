@@ -18,11 +18,16 @@ package com.google.cloud.flink.bigquery;
 import static com.google.cloud.flink.bigquery.util.ProtobufUtils.toDescriptor;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.cloud.bigquery.storage.v1.ProtoSchema;
+import com.google.cloud.flink.bigquery.util.ProtobufUtils;
+import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.DescriptorValidationException;
+import com.google.protobuf.Descriptors.FieldDescriptor;
+import com.google.protobuf.DynamicMessage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
 import org.apache.flink.fnexecution.v1.FlinkFnApi.Schema.FieldType;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.types.logical.RowType;
@@ -30,13 +35,6 @@ import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 import org.junit.Test;
-
-import com.google.cloud.bigquery.storage.v1.ProtoSchema;
-import com.google.cloud.flink.bigquery.util.ProtobufUtils;
-import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
-import com.google.protobuf.Descriptors.FieldDescriptor;
-import com.google.protobuf.DynamicMessage;
 
 public class ProtobufUtilsTest {
 

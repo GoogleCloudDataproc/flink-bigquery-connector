@@ -17,9 +17,9 @@ package com.google.cloud.flink.bigquery;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.cloud.flink.bigquery.util.arrow.ArrowSchemaConverter;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -29,8 +29,6 @@ import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.RowType.RowField;
 import org.junit.Test;
-
-import com.google.cloud.flink.bigquery.util.arrow.ArrowSchemaConverter;
 
 public class ArrowSchemaConverterTest {
   @Test

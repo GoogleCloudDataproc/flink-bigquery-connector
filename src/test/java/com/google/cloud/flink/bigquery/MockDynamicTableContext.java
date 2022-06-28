@@ -16,7 +16,6 @@
 package com.google.cloud.flink.bigquery;
 
 import java.util.Map;
-
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.ResolvedCatalogTable;

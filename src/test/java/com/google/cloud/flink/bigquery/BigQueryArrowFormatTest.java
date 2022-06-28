@@ -17,33 +17,33 @@ package com.google.cloud.flink.bigquery;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.Schema;
+import org.apache.flink.table.api.Schema.Builder;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.catalog.CatalogTable;
-import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.ObjectIdentifier;
+import org.apache.flink.table.catalog.ResolvedCatalogTable;
+import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.factories.DynamicTableFactory.Context;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.RowKind;
 import org.junit.Before;
 import org.junit.Test;
-
-import com.google.common.collect.ImmutableMap;
 
 public class BigQueryArrowFormatTest {
 
@@ -90,8 +90,15 @@ public class BigQueryArrowFormatTest {
     Context context = createContextObject();
     final DataType producedDataType =
         (context).getCatalogTable().getSchema().toPhysicalRowDataType();
+
+    List<String> fieldNames = Arrays.asList("id", "location");
+    DataType intDT = DataTypes.BIGINT();
+    DataType chatDT = DataTypes.CHAR(10);
+    List<DataType> fieldDataTypes = Arrays.asList(intDT, chatDT);
+    ResolvedSchema physical = ResolvedSchema.physical(fieldNames, fieldDataTypes);
+
     DeserializationSchema<RowData> result =
-        bigQueryArrowFormat.createRuntimeDecoder(mockScanContext, producedDataType);
+        bigQueryArrowFormat.createRuntimeDecoder(mockScanContext, physical.toPhysicalRowDataType());
     assertThat(result).isNotNull();
     assertThat(result.getProducedType()).isNull();
   }
@@ -99,17 +106,6 @@ public class BigQueryArrowFormatTest {
   public MockDynamicTableContext createContextObject() {
 
     ObjectIdentifier tableIdentifier = ObjectIdentifier.of("csvcatalog", "default", "csvtable");
-    List<String> partitionColumnList = new ArrayList<String>();
-    DescriptorProperties tableSchemaProps = new DescriptorProperties(true);
-
-    TableSchema tableSchema =
-        tableSchemaProps
-            .getOptionalTableSchema("Schema")
-            .orElseGet(
-                () ->
-                    tableSchemaProps
-                        .getOptionalTableSchema("generic.table.schema")
-                        .orElseGet(() -> TableSchema.builder().build()));
     Map<String, String> configOptions = new HashMap<>();
     configOptions.put("table", bigqueryReadTable);
     configOptions.put(FactoryUtil.FORMAT.key(), "arrow");
@@ -131,19 +127,37 @@ public class BigQueryArrowFormatTest {
     options.set(filter, "word_count>100");
     options.set(selected_fields, "word,word_count");
 
-    CatalogTable catalogTable =
-        (CatalogTable)
-            new CatalogTableImpl(
-                tableSchema, partitionColumnList, configOptions, "sample table creation");
-
-    CatalogTableImpl resolvedCatalogTable =
-        new CatalogTableImpl(catalogTable.getSchema(), configOptions, "comments for table");
-
+    ResolvedCatalogTable resolvedCatalogTable = getResolvedCatalogTable();
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-    // Create the context object
+
     MockDynamicTableContext contextObj =
         new MockDynamicTableContext(
             tableIdentifier, resolvedCatalogTable, configOptions, options, classloader, false);
     return contextObj;
+  }
+
+  private ResolvedCatalogTable getResolvedCatalogTable() {
+
+    List<String> fieldNames = Arrays.asList("id", "location");
+    DataType intDT = DataTypes.BIGINT();
+    DataType chatDT = DataTypes.CHAR(10);
+    List<DataType> fieldDataTypes = Arrays.asList(intDT, chatDT);
+
+    Builder schemaBuilder = Schema.newBuilder();
+    Schema tableSchema = schemaBuilder.fromFields(fieldNames, fieldDataTypes).build();
+
+    Map<String, String> configOptions = new HashMap<>();
+    String bigqueryReadTable = "project.dataset.table";
+    configOptions.put("table", bigqueryReadTable);
+    configOptions.put(FactoryUtil.FORMAT.key(), "arrow");
+    configOptions.put(FactoryUtil.CONNECTOR.key(), "bigquery");
+    configOptions.put("selectedFields", "word,word_count");
+    configOptions.put("filter", "word_count>100");
+    configOptions.put("arrowFields", "f1,f2");
+    CatalogTable catalogTable =
+        CatalogTable.of(
+            tableSchema, "sample table creation", new ArrayList<String>(), configOptions);
+    ResolvedSchema physical = ResolvedSchema.physical(fieldNames, fieldDataTypes);
+    return new ResolvedCatalogTable(catalogTable, physical);
   }
 }
