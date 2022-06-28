@@ -64,6 +64,8 @@
         <jackson-databind.version>2.13.2.2</jackson-databind.version>               
         <jsqlparser.version>3.1</jsqlparser.version>
         <junit.version>4.13.1</junit.version>
+        <mockito-core.version>3.10.0</mockito-core.version>
+        <mockito-inline.version>4.5.0</mockito-inline.version>
         <netty.version>4.1.75.Final</netty.version>
         <protobuf.version>3.20.0</protobuf.version>
         <scala.version>2.12</scala.version>
@@ -265,7 +267,19 @@
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-avro</artifactId>
             <version>${flink.version}</version>
-        </dependency>    
+        </dependency>
+        <dependency>
+           <groupId>org.mockito</groupId>
+           <artifactId>mockito-core</artifactId>
+           <version>${mockito-core.version}</version>
+           <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.mockito</groupId>
+          <artifactId>mockito-inline</artifactId>
+          <version>${mockito-inline.version}</version>
+          <scope>test</scope>
+        </dependency>     
     </dependencies>
     <build>
         <pluginManagement>
