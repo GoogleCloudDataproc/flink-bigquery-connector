@@ -118,14 +118,14 @@ public class BigQueryArrowFormatTest {
     ConfigOption<String> query = ConfigOptions.key("query").stringType().noDefaultValue();
     ConfigOption<String> filter = ConfigOptions.key("filter").stringType().defaultValue("");
     ConfigOption<String> format = ConfigOptions.key("format").stringType().defaultValue("");
-    ConfigOption<String> selected_fields =
+    ConfigOption<String> selectedFields =
         ConfigOptions.key("selectedFields").stringType().noDefaultValue();
 
     options.set(table, bigqueryReadTable);
     options.set(format, "arrow");
     options.set(query, "select word,word_count from table");
     options.set(filter, "word_count>100");
-    options.set(selected_fields, "word,word_count");
+    options.set(selectedFields, "word,word_count");
 
     ResolvedCatalogTable resolvedCatalogTable = getResolvedCatalogTable();
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();

@@ -125,36 +125,36 @@ public class FlinkBQConfigTest {
     ConfigOption<String> table = ConfigOptions.key("table").stringType().noDefaultValue();
     ConfigOption<String> query = ConfigOptions.key("query").stringType().noDefaultValue();
     ConfigOption<String> filter = ConfigOptions.key("filter").stringType().defaultValue("");
-    ConfigOption<String> partition_field =
+    ConfigOption<String> partitionField =
         ConfigOptions.key("partitionField").stringType().defaultValue("");
-    ConfigOption<String> partition_type =
+    ConfigOption<String> partitionType =
         ConfigOptions.key("partitionType").stringType().defaultValue("");
-    ConfigOption<String> partition_expiration_ms =
+    ConfigOption<String> partitionExpirationMS =
         ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
-    ConfigOption<String> partition_require_filter =
+    ConfigOption<String> partitionRequireFilter =
         ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
     ConfigOption<String> flink_version =
         ConfigOptions.key("flinkVersion").stringType().defaultValue("1.11");
-    ConfigOption<Integer> max_parallelism =
+    ConfigOption<Integer> maxParallelism =
         ConfigOptions.key("maxParallelism").intType().defaultValue(1);
-    ConfigOption<String> selected_fields =
+    ConfigOption<String> selectedFields =
         ConfigOptions.key("selectedFields").stringType().noDefaultValue();
-    ConfigOption<String> materialization_project =
+    ConfigOption<String> materializationProject =
         ConfigOptions.key("materializationProject").stringType().noDefaultValue();
-    ConfigOption<String> materialization_dataset =
+    ConfigOption<String> materializationDataset =
         ConfigOptions.key("materializationDataset").stringType().noDefaultValue();
     options.set(table, "bigquery-public-data.samples.shakespeare");
     options.set(query, "select word,word_count from table");
     options.set(filter, "word_count>100");
-    options.set(partition_field, "a");
-    options.set(partition_type, "DAY");
-    options.set(partition_expiration_ms, "999");
-    options.set(partition_require_filter, "true");
+    options.set(partitionField, "a");
+    options.set(partitionType, "DAY");
+    options.set(partitionExpirationMS, "999");
+    options.set(partitionRequireFilter, "true");
     options.set(flink_version, "1.11.0");
-    options.set(max_parallelism, 99);
-    options.set(selected_fields, "word,word_count");
-    options.set(materialization_project, "vmp");
-    options.set(materialization_dataset, "vmd");
+    options.set(maxParallelism, 99);
+    options.set(selectedFields, "word,word_count");
+    options.set(materializationProject, "vmp");
+    options.set(materializationDataset, "vmd");
 
     BigQueryDynamicTableFactory factory = new BigQueryDynamicTableFactory();
     FlinkBigQueryConfig config =

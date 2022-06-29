@@ -1,11 +1,11 @@
 /*
- * Copyright 2022 Google LLC
+ * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,25 +17,16 @@ package com.google.cloud.flink.bigquery;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.cloud.flink.bigquery.util.FlinkBigQueryConfig;
 import com.google.common.collect.ImmutableMap;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
-import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Schema;
 import org.apache.flink.table.api.Schema.Builder;
@@ -45,18 +36,19 @@ import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.ResolvedCatalogTable;
 import org.apache.flink.table.catalog.ResolvedSchema;
-import org.apache.flink.table.connector.format.DecodingFormat;
-import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicTableFactory.Context;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.RowKind;
+import org.junit.Before;
 import org.junit.Test;
 
-public class ArrowFormatFactoryTest {
+public class BigQueryAvroFormatTest {
 
-  ArrowFormatFactory arrowFormatFactory = new ArrowFormatFactory();
+  static BigQueryAvroFormat bigQueryAvroFormat;
+  MockScanContext mockScanContext = new MockScanContext();
   static StreamTableEnvironment flinkTableEnv;
   static String bigqueryReadTable;
   static String srcQueryString;
@@ -65,98 +57,53 @@ public class ArrowFormatFactoryTest {
   static TableSchema tableSchema;
   public static final int DEFAULT_PARALLELISM = 10;
   public static final String FLINK_VERSION = "1.11.0";
-  ImmutableMap<String, String> defaultOptions = ImmutableMap.of("table", "dataset.table");
+  static ImmutableMap<String, String> defaultOptions;
 
-  public ArrowFormatFactoryTest() {
+  @Before
+  public void setUp() {
 
-    StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-    flinkTableEnv = StreamTableEnvironment.create(env);
+    bigQueryAvroFormat =
+        new BigQueryAvroFormat(
+            Arrays.asList("col1", "col2"),
+            Arrays.asList("col1", "col2"),
+            "{\"type\":\"record\",\"name\":\"__root__\",\"fields\":[{\"name\":\"col1\",\"type\":[\"null\",\"string\"]},{\"name\":\"col2\",\"type\":[\"null\",\"long\"]}]}");
+    defaultOptions = ImmutableMap.of("table", "dataset.table");
 
-    bigqueryReadTable = "project.dataset.table";
-    flinkSrcTable = "table1";
-    srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
+    bigqueryReadTable = "project.datatset.table";
+    flinkSrcTable = "testTable";
+    srcQueryString = "CREATE TABLE " + flinkSrcTable + " (col1 STRING , col2 BIGINT)";
 
     tableIdentifier = ObjectIdentifier.of("bigquerycatalog", "default", flinkSrcTable);
     tableSchema =
         TableSchema.builder()
-            .field("word", DataTypes.STRING())
-            .field("word_count", DataTypes.BIGINT())
+            .field("col1", DataTypes.STRING())
+            .field("col2", DataTypes.BIGINT())
             .build();
   }
 
   @Test
-  public void createDecodingFormatTest() throws IOException {
-    Context context = createContextObject();
-    ReadableConfig formatOptions = createFormatOptions();
-    DecodingFormat<DeserializationSchema<RowData>> result =
-        arrowFormatFactory.createDecodingFormat(context, formatOptions);
+  public void getChangelogModeTest() {
+    ChangelogMode result = bigQueryAvroFormat.getChangelogMode();
     assertThat(result).isNotNull();
-    assertThat(result).isInstanceOf(BigQueryArrowFormat.class);
-    assertThat(result.getChangelogMode().getContainedKinds().toString()).isEqualTo("[INSERT]");
-    assertThat(result.getChangelogMode().contains(RowKind.INSERT)).isTrue();
+    assertThat(result.contains(RowKind.INSERT)).isTrue();
   }
 
   @Test
-  public void factoryIdentifierTest() {
-    String result = arrowFormatFactory.factoryIdentifier();
-    assertThat(result).isNotNull();
-    assertThat(result).isEqualTo("arrow");
-  }
-
-  @Test
-  public void createEncodingFormatTest() throws IOException {
+  public void createRuntimeDecoderTest() {
     Context context = createContextObject();
-    ReadableConfig formatOptions = createFormatOptions();
-    EncodingFormat<SerializationSchema<RowData>> result =
-        arrowFormatFactory.createEncodingFormat(context, formatOptions);
-    assertThat(result).isNull();
-  }
+    final DataType producedDataType =
+        (context).getCatalogTable().getSchema().toPhysicalRowDataType();
 
-  @Test
-  public void requiredOptionsTest() {
-    Set<ConfigOption<?>> result = arrowFormatFactory.requiredOptions();
-    assertThat(result).isEmpty();
-  }
+    List<String> fieldNames = Arrays.asList("id", "location");
+    DataType intDT = DataTypes.BIGINT();
+    DataType chatDT = DataTypes.CHAR(10);
+    List<DataType> fieldDataTypes = Arrays.asList(intDT, chatDT);
+    ResolvedSchema physical = ResolvedSchema.physical(fieldNames, fieldDataTypes);
 
-  @Test
-  public void optionalOptionsTest() {
-    Set<ConfigOption<?>> result = arrowFormatFactory.optionalOptions();
-    assertThat(result).isEmpty();
-  }
-
-  private ReadableConfig createFormatOptions() throws IOException {
-
-    org.apache.hadoop.conf.Configuration hadoopConfiguration =
-        new org.apache.hadoop.conf.Configuration();
-    org.apache.flink.configuration.Configuration options =
-        new org.apache.flink.configuration.Configuration();
-    ConfigOption<String> table = ConfigOptions.key("table").stringType().noDefaultValue();
-    ConfigOption<String> selectedFields =
-        ConfigOptions.key("selectedFields").stringType().noDefaultValue();
-    ConfigOption<String> defaultParallelism =
-        ConfigOptions.key("defaultParallelism").stringType().noDefaultValue();
-    ConfigOption<String> connector = ConfigOptions.key("connector").stringType().noDefaultValue();
-    ConfigOption<String> format = ConfigOptions.key("format").stringType().noDefaultValue();
-    options.set(table, "bigquery-public-data.samples.shakespeare");
-    options.set(selectedFields, "word,word_count");
-    options.set(defaultParallelism, "5");
-    options.set(connector, "bigquery");
-    options.set(format, "arrow");
-
-    BigQueryDynamicTableFactory factory = new BigQueryDynamicTableFactory();
-    new ObjectOutputStream(new ByteArrayOutputStream())
-        .writeObject(
-            FlinkBigQueryConfig.from(
-                factory.requiredOptions(),
-                factory.optionalOptions(),
-                (ReadableConfig) options,
-                defaultOptions,
-                hadoopConfiguration,
-                DEFAULT_PARALLELISM,
-                new org.apache.flink.configuration.Configuration(),
-                FLINK_VERSION,
-                Optional.empty()));
-    return options;
+    DeserializationSchema<RowData> result =
+        bigQueryAvroFormat.createRuntimeDecoder(mockScanContext, physical.toPhysicalRowDataType());
+    assertThat(result).isNotNull();
+    assertThat(result.getProducedType()).isNull();
   }
 
   public MockDynamicTableContext createContextObject() {
@@ -164,7 +111,7 @@ public class ArrowFormatFactoryTest {
     ObjectIdentifier tableIdentifier = ObjectIdentifier.of("csvcatalog", "default", "csvtable");
     Map<String, String> configOptions = new HashMap<>();
     configOptions.put("table", bigqueryReadTable);
-    configOptions.put(FactoryUtil.FORMAT.key(), "arrow");
+    configOptions.put(FactoryUtil.FORMAT.key(), "avro");
     configOptions.put(FactoryUtil.CONNECTOR.key(), "bigquery");
     configOptions.put("selectedFields", "word,word_count");
 
@@ -178,7 +125,7 @@ public class ArrowFormatFactoryTest {
         ConfigOptions.key("selectedFields").stringType().noDefaultValue();
 
     options.set(table, bigqueryReadTable);
-    options.set(format, "arrow");
+    options.set(format, "avro");
     options.set(query, "select word,word_count from table");
     options.set(filter, "word_count>100");
     options.set(selectedFields, "word,word_count");
@@ -205,11 +152,11 @@ public class ArrowFormatFactoryTest {
     Map<String, String> configOptions = new HashMap<>();
     String bigqueryReadTable = "project.dataset.table";
     configOptions.put("table", bigqueryReadTable);
-    configOptions.put(FactoryUtil.FORMAT.key(), "arrow");
+    configOptions.put(FactoryUtil.FORMAT.key(), "avro");
     configOptions.put(FactoryUtil.CONNECTOR.key(), "bigquery");
     configOptions.put("selectedFields", "word,word_count");
     configOptions.put("filter", "word_count>100");
-    configOptions.put("arrowFields", "f1,f2");
+    configOptions.put("avroFields", "f1,f2");
     CatalogTable catalogTable =
         CatalogTable.of(
             tableSchema, "sample table creation", new ArrayList<String>(), configOptions);

@@ -54,9 +54,9 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.RowKind;
 import org.junit.Test;
 
-public class ArrowFormatFactoryTest {
+public class AvroFormatFactoryTest {
 
-  ArrowFormatFactory arrowFormatFactory = new ArrowFormatFactory();
+  AvroFormatFactory avroFormatFactory = new AvroFormatFactory();
   static StreamTableEnvironment flinkTableEnv;
   static String bigqueryReadTable;
   static String srcQueryString;
@@ -67,7 +67,7 @@ public class ArrowFormatFactoryTest {
   public static final String FLINK_VERSION = "1.11.0";
   ImmutableMap<String, String> defaultOptions = ImmutableMap.of("table", "dataset.table");
 
-  public ArrowFormatFactoryTest() {
+  public AvroFormatFactoryTest() {
 
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     flinkTableEnv = StreamTableEnvironment.create(env);
@@ -89,18 +89,18 @@ public class ArrowFormatFactoryTest {
     Context context = createContextObject();
     ReadableConfig formatOptions = createFormatOptions();
     DecodingFormat<DeserializationSchema<RowData>> result =
-        arrowFormatFactory.createDecodingFormat(context, formatOptions);
+        avroFormatFactory.createDecodingFormat(context, formatOptions);
     assertThat(result).isNotNull();
-    assertThat(result).isInstanceOf(BigQueryArrowFormat.class);
+    assertThat(result).isInstanceOf(BigQueryAvroFormat.class);
     assertThat(result.getChangelogMode().getContainedKinds().toString()).isEqualTo("[INSERT]");
     assertThat(result.getChangelogMode().contains(RowKind.INSERT)).isTrue();
   }
 
   @Test
   public void factoryIdentifierTest() {
-    String result = arrowFormatFactory.factoryIdentifier();
+    String result = avroFormatFactory.factoryIdentifier();
     assertThat(result).isNotNull();
-    assertThat(result).isEqualTo("arrow");
+    assertThat(result).isEqualTo("avro");
   }
 
   @Test
@@ -108,19 +108,19 @@ public class ArrowFormatFactoryTest {
     Context context = createContextObject();
     ReadableConfig formatOptions = createFormatOptions();
     EncodingFormat<SerializationSchema<RowData>> result =
-        arrowFormatFactory.createEncodingFormat(context, formatOptions);
+        avroFormatFactory.createEncodingFormat(context, formatOptions);
     assertThat(result).isNull();
   }
 
   @Test
   public void requiredOptionsTest() {
-    Set<ConfigOption<?>> result = arrowFormatFactory.requiredOptions();
+    Set<ConfigOption<?>> result = avroFormatFactory.requiredOptions();
     assertThat(result).isEmpty();
   }
 
   @Test
   public void optionalOptionsTest() {
-    Set<ConfigOption<?>> result = arrowFormatFactory.optionalOptions();
+    Set<ConfigOption<?>> result = avroFormatFactory.optionalOptions();
     assertThat(result).isEmpty();
   }
 
@@ -141,7 +141,7 @@ public class ArrowFormatFactoryTest {
     options.set(selectedFields, "word,word_count");
     options.set(defaultParallelism, "5");
     options.set(connector, "bigquery");
-    options.set(format, "arrow");
+    options.set(format, "avro");
 
     BigQueryDynamicTableFactory factory = new BigQueryDynamicTableFactory();
     new ObjectOutputStream(new ByteArrayOutputStream())
@@ -164,7 +164,7 @@ public class ArrowFormatFactoryTest {
     ObjectIdentifier tableIdentifier = ObjectIdentifier.of("csvcatalog", "default", "csvtable");
     Map<String, String> configOptions = new HashMap<>();
     configOptions.put("table", bigqueryReadTable);
-    configOptions.put(FactoryUtil.FORMAT.key(), "arrow");
+    configOptions.put(FactoryUtil.FORMAT.key(), "avro");
     configOptions.put(FactoryUtil.CONNECTOR.key(), "bigquery");
     configOptions.put("selectedFields", "word,word_count");
 
@@ -178,7 +178,7 @@ public class ArrowFormatFactoryTest {
         ConfigOptions.key("selectedFields").stringType().noDefaultValue();
 
     options.set(table, bigqueryReadTable);
-    options.set(format, "arrow");
+    options.set(format, "avro");
     options.set(query, "select word,word_count from table");
     options.set(filter, "word_count>100");
     options.set(selectedFields, "word,word_count");
@@ -205,11 +205,11 @@ public class ArrowFormatFactoryTest {
     Map<String, String> configOptions = new HashMap<>();
     String bigqueryReadTable = "project.dataset.table";
     configOptions.put("table", bigqueryReadTable);
-    configOptions.put(FactoryUtil.FORMAT.key(), "arrow");
+    configOptions.put(FactoryUtil.FORMAT.key(), "avro");
     configOptions.put(FactoryUtil.CONNECTOR.key(), "bigquery");
     configOptions.put("selectedFields", "word,word_count");
     configOptions.put("filter", "word_count>100");
-    configOptions.put("arrowFields", "f1,f2");
+    configOptions.put("avroFields", "f1,f2");
     CatalogTable catalogTable =
         CatalogTable.of(
             tableSchema, "sample table creation", new ArrayList<String>(), configOptions);
