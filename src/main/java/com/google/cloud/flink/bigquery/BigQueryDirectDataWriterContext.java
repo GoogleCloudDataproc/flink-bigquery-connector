@@ -23,7 +23,6 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.connector.common.BigQueryClientFactory;
 import com.google.cloud.bigquery.connector.common.BigQueryConnectorException;
 import com.google.cloud.bigquery.connector.common.BigQueryDirectDataWriterHelper;
-import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.flink.bigquery.common.BigQueryDirectWriterCommitMessageContext;
 import com.google.cloud.flink.bigquery.common.DataWriterContext;
@@ -52,19 +51,16 @@ public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, 
 
   final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriterContext.class);
 
-  final String tablePath;
-  final RowType flinkSchema;
-  final Descriptors.Descriptor schemaDescriptor;
-  static BigQueryWriteClient bigQueryWriteClient;
+  private final String tablePath;
+  private final RowType flinkSchema;
+  private final Descriptors.Descriptor schemaDescriptor;
   private BigQueryDirectDataWriterHelper writerHelper;
   private TableId tableId;
   private BigQueryClientFactory bigQueryWriteClientFactory;
   private String projectId;
   private String dataset;
   private String table;
-
   private Optional<String> traceId;
-
   private int taskNumber;
 
   public BigQueryDirectDataWriterContext(

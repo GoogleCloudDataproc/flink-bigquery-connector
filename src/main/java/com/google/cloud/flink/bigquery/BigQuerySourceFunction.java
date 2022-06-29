@@ -39,8 +39,9 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- * Runtime execution that reads data from big query read streams, passing for deserialization and adding to the flink context.
+/**
+ * Runtime execution that reads data from big query read streams, passing for deserialization and
+ * adding to the flink context.
  */
 public final class BigQuerySourceFunction extends RichParallelSourceFunction<RowData>
     implements ResultTypeQueryable<RowData> {

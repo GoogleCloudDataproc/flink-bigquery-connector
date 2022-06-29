@@ -163,8 +163,8 @@ public class IntegrationTestUtils {
         Field.newBuilder("array_datatype", StandardSQLTypeName.STRING)
             .setMode(Mode.REPEATED)
             .build());
-    FieldList fieldlist = FieldList.of(fieldList);
-    Schema schema = Schema.of(fieldlist);
+    FieldList fieldLists = FieldList.of(fieldList);
+    Schema schema = Schema.of(fieldLists);
 
     TableId tableId = TableId.of(dataset, table);
     StandardTableDefinition tableDefinition;
@@ -172,8 +172,7 @@ public class IntegrationTestUtils {
     TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
     bq.create(tableInfo);
 
-    String base64encodedString = Base64.getEncoder().encodeToString("byte-test".getBytes("utf-8"));
-
+    String encodeToString = Base64.getEncoder().encodeToString("byte-test".getBytes("utf-8"));
     Map<String, Object> subRowContent = new HashMap<>();
     subRowContent.put("record1", "stringTest1");
     subRowContent.put("record2", 1);
@@ -182,7 +181,7 @@ public class IntegrationTestUtils {
     Map<String, Object> rowContent = new HashMap<>();
     rowContent.put("numeric_datatype", 123.345);
     rowContent.put("string_datatype", "flink");
-    rowContent.put("bytes_datatype", base64encodedString);
+    rowContent.put("bytes_datatype", encodeToString);
     rowContent.put("integer_datatype", 12345);
     rowContent.put("float_datatype", 50.05f);
     rowContent.put("boolean_datatype", true);

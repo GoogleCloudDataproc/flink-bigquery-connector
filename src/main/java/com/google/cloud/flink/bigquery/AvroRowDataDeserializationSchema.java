@@ -41,7 +41,7 @@ public class AvroRowDataDeserializationSchema
   private final TypeInformation<RowData> typeInfo;
   private final DeserializationSchema<GenericRecord> nestedSchema;
   private final AvroToRowDataConverters.AvroToRowDataConverter runtimeConverter;
-  final List<String> readSessionFieldNames = new ArrayList<String>();
+  private final List<String> readSessionFieldNames = new ArrayList<String>();
 
   public AvroRowDataDeserializationSchema(
       RowType rowType,

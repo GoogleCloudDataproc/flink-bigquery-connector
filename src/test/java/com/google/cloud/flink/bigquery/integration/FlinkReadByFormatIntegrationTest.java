@@ -38,7 +38,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
   @Test
   public void testOutOfOrderColumns() throws Exception {
 
-    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
+    String bigQueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -48,7 +48,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
             + "  'connector' = 'bigquery',\n"
             + "  'format' = 'arrow',\n"
             + "  'table' = '"
-            + bigqueryReadTable
+            + bigQueryReadTable
             + "',\n"
             + "  'filter' = 'word_count > 500',\n"
             + "  'credentialsFile' = '"
@@ -56,8 +56,8 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
             + "' ,\n"
             + "  'selectedFields' = 'word,word_count' \n"
             + ")");
-    Table table1 = flinkTableEnv.from(flinkSrcTable);
-    Table result = table1.select($("word_count"), $("word"));
+    Table sourceTable = flinkTableEnv.from(flinkSrcTable);
+    Table result = sourceTable.select($("word_count"), $("word"));
     int count = 0;
     TableResult tableResult = result.execute();
     try (CloseableIterator<Row> it = tableResult.collect()) {
@@ -99,7 +99,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
   @Test
   public void testSelectAllColumnsFromATable() {
 
-    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
+    String bigQueryReadTable = "bigquery-public-data.samples.shakespeare";
     String flinkSrcTable = "FlinkSrcTable";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     flinkTableEnv.executeSql(
@@ -109,7 +109,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
             + "  'connector' = 'bigquery',\n"
             + "  'format' = 'arrow',\n"
             + "  'table' = '"
-            + bigqueryReadTable
+            + bigQueryReadTable
             + "',\n"
             + "  'filter' = 'word_count > 500',\n"
             + "  'credentialsFile' = '"
@@ -125,7 +125,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
 
   @Test
   public void testViewWithDifferentColumnsForSelectAndFilter() {
-    String bigqueryReadTable = "bigquery-public-data.samples.shakespeare";
+    String bigQueryReadTable = "bigquery-public-data.samples.shakespeare";
     String srcQueryString = "CREATE TABLE " + flinkSrcTable + " (word STRING , word_count BIGINT)";
     String filter = "word_count > 500";
     flinkTableEnv.executeSql(
@@ -135,7 +135,7 @@ public class FlinkReadByFormatIntegrationTest extends FlinkReadIntegrationTest {
             + "  'connector' = 'bigquery',\n"
             + "  'format' = 'arrow',\n"
             + "  'table' = '"
-            + bigqueryReadTable
+            + bigQueryReadTable
             + "',\n"
             + "  'filter' = '"
             + filter

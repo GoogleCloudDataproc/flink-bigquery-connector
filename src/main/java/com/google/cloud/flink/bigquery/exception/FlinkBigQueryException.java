@@ -15,9 +15,7 @@
  */
 package com.google.cloud.flink.bigquery.exception;
 
-/*
- * Custom exception handling for flik BigQuey connector
- */
+/** Custom exception handling for flik BigQuey connector */
 public class FlinkBigQueryException extends RuntimeException {
 
   private static final long serialVersionUID = 1L;

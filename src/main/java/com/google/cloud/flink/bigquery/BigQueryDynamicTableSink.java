@@ -35,14 +35,12 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.RowKind;
 
-/*
- * Sink that provides runtime implementation for write data to BigQuery
- */
+/** Sink that provides runtime implementation for write data to BigQuery */
 public class BigQueryDynamicTableSink
     implements DynamicTableSink, SupportsOverwrite, SupportsPartitioning {
   private List<String> fieldNames;
   private List<DataType> fieldTypes;
-  private FlinkBigQueryConfig bqconfig;
+  private FlinkBigQueryConfig bqConfig;
   private BigQueryClientFactory bigQueryWriteClientFactory;
   private boolean overwrite = false;
   private int configuredParallelism;
@@ -59,7 +57,7 @@ public class BigQueryDynamicTableSink
       ListAccumulator<WriterCommitMessageContext> accumulator) {
     this.fieldNames = fieldNames;
     this.fieldTypes = fieldTypes;
-    this.bqconfig = bqconfig;
+    this.bqConfig = bqconfig;
     this.bigQueryWriteClientFactory = bigQueryWriteClientFactory;
     this.partitionKeys = partitionKeys;
     this.accumulator = accumulator;
@@ -95,7 +93,7 @@ public class BigQueryDynamicTableSink
       DataStream<RowData> dataStream, Context sinkContext, final int parallelism) {
     BigqueryOutputFormat outputFormat =
         new BigqueryOutputFormat(
-            fieldNames, fieldTypes, bqconfig, bigQueryWriteClientFactory, accumulator);
+            fieldNames, fieldTypes, bqConfig, bigQueryWriteClientFactory, accumulator);
     return dataStream
         .writeUsingOutputFormat(outputFormat)
         .setParallelism(dataStream.getParallelism())
@@ -110,7 +108,7 @@ public class BigQueryDynamicTableSink
         new BigQueryDynamicTableSink(
             fieldNames,
             fieldTypes,
-            bqconfig,
+            bqConfig,
             bigQueryWriteClientFactory,
             partitionKeys,
             accumulator);

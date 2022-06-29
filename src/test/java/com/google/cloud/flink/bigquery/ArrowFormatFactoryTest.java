@@ -64,7 +64,7 @@ public class ArrowFormatFactoryTest {
   static ObjectIdentifier tableIdentifier;
   static TableSchema tableSchema;
   public static final int DEFAULT_PARALLELISM = 10;
-  public static final String FLINK_VERSION = "1.11.0";
+  public static final String FLINK_VERSION = "1.13.1";
   ImmutableMap<String, String> defaultOptions = ImmutableMap.of("table", "dataset.table");
 
   public ArrowFormatFactoryTest() {
@@ -184,20 +184,20 @@ public class ArrowFormatFactoryTest {
     options.set(selectedFields, "word,word_count");
 
     ResolvedCatalogTable resolvedCatalogTable = getResolvedCatalogTable();
-    ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
-    MockDynamicTableContext contextObj =
+    MockDynamicTableContext mockDynamicTableContext =
         new MockDynamicTableContext(
-            tableIdentifier, resolvedCatalogTable, configOptions, options, classloader, false);
-    return contextObj;
+            tableIdentifier, resolvedCatalogTable, configOptions, options, classLoader, false);
+    return mockDynamicTableContext;
   }
 
   private ResolvedCatalogTable getResolvedCatalogTable() {
 
     List<String> fieldNames = Arrays.asList("id", "location");
     DataType intDT = DataTypes.BIGINT();
-    DataType chatDT = DataTypes.CHAR(10);
-    List<DataType> fieldDataTypes = Arrays.asList(intDT, chatDT);
+    DataType charDT = DataTypes.CHAR(10);
+    List<DataType> fieldDataTypes = Arrays.asList(intDT, charDT);
 
     Builder schemaBuilder = Schema.newBuilder();
     Schema tableSchema = schemaBuilder.fromFields(fieldNames, fieldDataTypes).build();

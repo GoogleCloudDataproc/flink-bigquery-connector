@@ -117,20 +117,20 @@ public class BigQueryDynamicTableSourceTest {
     options.set(selectedFields, "word,word_count");
 
     ResolvedCatalogTable resolvedCatalogTable = getResolvedCatalogTable();
-    ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
-    MockDynamicTableContext contextObj =
+    MockDynamicTableContext mockDynamicTableContext =
         new MockDynamicTableContext(
-            tableIdentifier, resolvedCatalogTable, configOptions, options, classloader, false);
-    return contextObj;
+            tableIdentifier, resolvedCatalogTable, configOptions, options, classLoader, false);
+    return mockDynamicTableContext;
   }
 
   private ResolvedCatalogTable getResolvedCatalogTable() {
 
     List<String> fieldNames = Arrays.asList("word", "word_count");
     DataType varDT = DataTypes.VARCHAR(20);
-    DataType chatDT = DataTypes.VARCHAR(10);
-    List<DataType> fieldDataTypes = Arrays.asList(varDT, chatDT);
+    DataType charDT = DataTypes.VARCHAR(10);
+    List<DataType> fieldDataTypes = Arrays.asList(varDT, charDT);
 
     Builder schemaBuilder = Schema.newBuilder();
     Schema tableSchema = schemaBuilder.fromFields(fieldNames, fieldDataTypes).build();

@@ -33,9 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
 
-/*
- * Set the configurations for http proxy
- */
+/** Set the configurations for http proxy */
 public class FlinkBigQueryProxyAndHttpConfig implements BigQueryProxyConfig, Serializable {
 
   private static final long serialVersionUID = 1L;

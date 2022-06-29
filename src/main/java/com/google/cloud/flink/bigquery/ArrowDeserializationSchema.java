@@ -40,9 +40,7 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- * Deserializing arrow format data received from BigQuery storage API.
- */
+/** Deserializing arrow format data received from BigQuery storage API. */
 public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, Serializable {
 
   private static final long serialVersionUID = 1L;

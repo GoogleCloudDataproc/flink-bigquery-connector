@@ -17,7 +17,11 @@ package com.google.cloud.flink.bigquery.common;
 
 import java.io.IOException;
 
-/** An internal version to Flink DataSource DataWriter interface */
+/**
+ * An internal version to Flink DataSource DataWriter interface
+ *
+ * @param <T>
+ */
 public interface DataWriterContext<T> {
 
   void write(T row) throws IOException;

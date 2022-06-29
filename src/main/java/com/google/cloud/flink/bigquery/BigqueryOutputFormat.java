@@ -46,7 +46,7 @@ public class BigqueryOutputFormat extends RichOutputFormat<RowData>
   private static final long serialVersionUID = 1L;
   final Logger logger = LoggerFactory.getLogger(BigqueryOutputFormat.class);
   private BigQueryClientFactory bigQueryWriteClientFactory;
-  private FlinkBigQueryConfig bqconfig;
+  private FlinkBigQueryConfig bqConfig;
   private BigQueryDirectDataWriterContext writeContext;
   private List<String> fieldNames;
   private List<DataType> fieldDataTypes;
@@ -60,7 +60,7 @@ public class BigqueryOutputFormat extends RichOutputFormat<RowData>
       ListAccumulator<WriterCommitMessageContext> accumulator) {
     this.fieldNames = fieldNames;
     this.fieldDataTypes = fieldDataTypes;
-    this.bqconfig = bqconfig;
+    this.bqConfig = bqconfig;
     this.bigQueryWriteClientFactory = bigQueryWriteClientFactory;
     BigqueryOutputFormat.accumulator = accumulator;
   }
@@ -116,7 +116,7 @@ public class BigqueryOutputFormat extends RichOutputFormat<RowData>
     try {
       this.writeContext =
           new BigQueryDirectDataWriterContext(
-              taskNumber, fieldNames, fieldDataTypes, bqconfig, bigQueryWriteClientFactory);
+              taskNumber, fieldNames, fieldDataTypes, bqConfig, bigQueryWriteClientFactory);
     } catch (JSQLParserException e) {
       logger.error("Error while parsing write stream");
       throw new FlinkBigQueryException("Error while parsing write stream ", e);

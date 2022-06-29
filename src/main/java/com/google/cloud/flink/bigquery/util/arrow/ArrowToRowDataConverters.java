@@ -42,7 +42,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
-/** Tool class used to convert from Arrow {@link GenericRecord} to {@link RowData}. * */
+/** Tool class used to convert from Arrow {@link GenericRecord} to {@link RowData} */
 @Internal
 public class ArrowToRowDataConverters {
 

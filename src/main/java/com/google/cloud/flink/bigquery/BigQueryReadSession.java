@@ -42,49 +42,49 @@ public class BigQueryReadSession {
 
   public static ReadSession getReadsession(
       Credentials credentials,
-      FlinkBigQueryConfig bqconfig,
+      FlinkBigQueryConfig bqConfig,
       BigQueryClientFactory bigQueryReadClientFactory)
       throws FileNotFoundException, IOException, JSQLParserException {
 
-    final BigQuery bigquery =
+    final BigQuery bigQuery =
         BigQueryOptions.newBuilder().setCredentials(credentials).build().getService();
     Optional<String> materializationProject =
-        bqconfig.getQuery().isPresent()
-            ? Optional.of(bqconfig.getParentProjectId())
+        bqConfig.getQuery().isPresent()
+            ? Optional.of(bqConfig.getParentProjectId())
             : Optional.empty();
     Optional<String> materializationDataset =
-        bqconfig.getQuery().isPresent() ? bqconfig.getMaterializationDataset() : Optional.empty();
+        bqConfig.getQuery().isPresent() ? bqConfig.getMaterializationDataset() : Optional.empty();
     Cache<String, TableInfo> destinationTableCache =
         CacheBuilder.newBuilder()
-            .expireAfterWrite(bqconfig.getCacheExpirationTimeInMinutes(), TimeUnit.MINUTES)
+            .expireAfterWrite(bqConfig.getCacheExpirationTimeInMinutes(), TimeUnit.MINUTES)
             .maximumSize(1000)
             .build();
     BigQueryClient bigQueryClient =
         new BigQueryClient(
-            bigquery,
+            bigQuery,
             materializationProject,
             materializationDataset,
             destinationTableCache,
-            bqconfig.getBigQueryJobLabels());
-    ReadSessionCreatorConfig readSessionCreatorConfig = bqconfig.toReadSessionCreatorConfig();
+            bqConfig.getBigQueryJobLabels());
+    ReadSessionCreatorConfig readSessionCreatorConfig = bqConfig.toReadSessionCreatorConfig();
     ReadSessionCreator readSessionCreator =
         new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryReadClientFactory);
 
     TableId tabId = null;
-    if (bqconfig.getQuery().isPresent()) {
+    if (bqConfig.getQuery().isPresent()) {
 
-      int expirationTimeInMinutes = bqconfig.getMaterializationExpirationTimeInMinutes();
+      int expirationTimeInMinutes = bqConfig.getMaterializationExpirationTimeInMinutes();
       TableInfo tableInfo =
           bigQueryClient.materializeQueryToTable(
-              bqconfig.getQuery().get(), expirationTimeInMinutes);
+              bqConfig.getQuery().get(), expirationTimeInMinutes);
       tabId = tableInfo.getTableId();
     }
 
-    TableId tableId = bqconfig.getQuery().isPresent() ? tabId : bqconfig.getTableId();
+    TableId tableId = bqConfig.getQuery().isPresent() ? tabId : bqConfig.getTableId();
     ImmutableList<String> selectedFields =
-        ImmutableList.copyOf(Arrays.asList(bqconfig.getSelectedFields().split(",")));
+        ImmutableList.copyOf(Arrays.asList(bqConfig.getSelectedFields().split(",")));
     Optional<String> filter =
-        bqconfig.getFilter().isPresent() ? bqconfig.getFilter() : Optional.empty();
+        bqConfig.getFilter().isPresent() ? bqConfig.getFilter() : Optional.empty();
     ReadSessionResponse response = readSessionCreator.create(tableId, selectedFields, filter);
     return response.getReadSession();
   }

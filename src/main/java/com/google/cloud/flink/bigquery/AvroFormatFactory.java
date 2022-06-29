@@ -35,7 +35,7 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 
 /** Create decoding format for avro format */
 public class AvroFormatFactory implements DeserializationFormatFactory, SerializationFormatFactory {
-  public static final String IDENTIFIER = "avro";
+  private static final String IDENTIFIER = "avro";
   private String selectedFields = null;
 
   @Override

@@ -39,12 +39,11 @@ public class ArrowRowDataDeserializationSchema
     implements DeserializationSchema<RowData>, Serializable {
 
   public static final long serialVersionUID = 1L;
-  public TypeInformation<RowData> typeInfo;
+  private TypeInformation<RowData> typeInfo;
   private DeserializationSchema<VectorSchemaRoot> nestedSchema;
   private ArrowToRowDataConverters.ArrowToRowDataConverter runtimeConverter;
   final List<String> readSessionFieldNames = new ArrayList<String>();
-  public String arrowReadSessionSchema;
-  public String arrowSchemaJson;
+  private String arrowSchemaJson;
 
   public ArrowRowDataDeserializationSchema(
       RowType rowType,

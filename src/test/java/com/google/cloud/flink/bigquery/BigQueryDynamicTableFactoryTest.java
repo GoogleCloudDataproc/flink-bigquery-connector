@@ -114,9 +114,9 @@ public class BigQueryDynamicTableFactoryTest {
   public void createDynamicTableSourceTestSuccess() {
 
     BigQueryDynamicTableFactory bigQueryDynamicTableFactory = new BigQueryDynamicTableFactory();
-    MockDynamicTableContext MockDynamicTableContext = createContextObject();
+    MockDynamicTableContext mockDynamicTableContext = createContextObject();
     FactoryUtil.TableFactoryHelper inputHelperObject =
-        FactoryUtil.createTableFactoryHelper(bigQueryDynamicTableFactory, MockDynamicTableContext);
+        FactoryUtil.createTableFactoryHelper(bigQueryDynamicTableFactory, mockDynamicTableContext);
     ReadableConfig options = inputHelperObject.getOptions();
     try {
       inputHelperObject.validate();
@@ -141,9 +141,9 @@ public class BigQueryDynamicTableFactoryTest {
   @Test
   public void createDynamicTableSourceTestFailure() {
     BigQueryDynamicTableFactory bigQueryDynamicTableFactory = new BigQueryDynamicTableFactory();
-    MockDynamicTableContext MockDynamicTableContext = createIncorrectContextObject();
+    MockDynamicTableContext mockDynamicTableContext = createIncorrectContextObject();
     FactoryUtil.TableFactoryHelper inputHelperObject =
-        FactoryUtil.createTableFactoryHelper(bigQueryDynamicTableFactory, MockDynamicTableContext);
+        FactoryUtil.createTableFactoryHelper(bigQueryDynamicTableFactory, mockDynamicTableContext);
     assertThrows(
         "One or more required options are missing",
         ValidationException.class,
@@ -167,18 +167,17 @@ public class BigQueryDynamicTableFactoryTest {
     Configuration options = new Configuration();
 
     ResolvedCatalogTable resolvedCatalogTable = getResolvedCatalogTable();
-    ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
-    MockDynamicTableContext contextObj =
+    MockDynamicTableContext mockDynamicTableContext =
         new MockDynamicTableContext(
-            tableIdentifier, resolvedCatalogTable, configOptions, options, classloader, false);
-    return contextObj;
+            tableIdentifier, resolvedCatalogTable, configOptions, options, classLoader, false);
+    return mockDynamicTableContext;
   }
 
   private MockDynamicTableContext createIncorrectContextObject() {
     ObjectIdentifier tableIdentifier =
         ObjectIdentifier.of("default-catalog", "default-dataset", "flink-table");
-    List<String> partitionColumnList = new ArrayList<String>();
     DescriptorProperties tableSchemaProps = new DescriptorProperties(true);
     TableSchema tableSchema =
         tableSchemaProps
@@ -195,19 +194,12 @@ public class BigQueryDynamicTableFactoryTest {
     configOptions.put(FactoryUtil.CONNECTOR.key(), "bigquery");
     configOptions.put("filter", "word_count>100");
     Configuration options = new Configuration();
-    /*
-     * CatalogTable catalogTable = (CatalogTable) new CatalogTableImpl( tableSchema,
-     * partitionColumnList, configOptions, "sample table creation");
-     * CatalogTableImpl resolvedCatalogTable = new
-     * CatalogTableImpl(catalogTable.getSchema(), configOptions,
-     * "comments for table");
-     */
-    ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 
-    MockDynamicTableContext contextObj =
+    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+    MockDynamicTableContext mockDynamicTableContext =
         new MockDynamicTableContext(
-            tableIdentifier, getResolvedCatalogTable(), configOptions, options, classloader, false);
-    return contextObj;
+            tableIdentifier, getResolvedCatalogTable(), configOptions, options, classLoader, false);
+    return mockDynamicTableContext;
   }
 
   private String ensureExpectedException(String exceptionString, ReadableConfig options) {
@@ -238,8 +230,8 @@ public class BigQueryDynamicTableFactoryTest {
 
     List<String> fieldNames = Arrays.asList("id", "location");
     DataType intDT = DataTypes.BIGINT();
-    DataType chatDT = DataTypes.CHAR(10);
-    List<DataType> fieldDataTypes = Arrays.asList(intDT, chatDT);
+    DataType charDT = DataTypes.CHAR(10);
+    List<DataType> fieldDataTypes = Arrays.asList(intDT, charDT);
 
     Builder schemaBuilder = Schema.newBuilder();
     Schema tableSchema = schemaBuilder.fromFields(fieldNames, fieldDataTypes).build();

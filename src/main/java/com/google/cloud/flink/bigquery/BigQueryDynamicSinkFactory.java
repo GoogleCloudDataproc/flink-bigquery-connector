@@ -55,9 +55,7 @@ import org.apache.flink.table.types.logical.RowType.RowField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- * Interface for configuring a dynamic table sink connector for BigQuery from catalog
- */
+/** Interface for configuring a dynamic table sink connector for BigQuery from catalog */
 public final class BigQueryDynamicSinkFactory implements DynamicTableSinkFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicSinkFactory.class);
@@ -89,7 +87,7 @@ public final class BigQueryDynamicSinkFactory implements DynamicTableSinkFactory
       ConfigOptions.key("partitionExpirationMs").stringType().defaultValue("");
   public static final ConfigOption<String> PARTITION_REQUIRE_FILTER =
       ConfigOptions.key("partitionRequireFilter").stringType().defaultValue("");
-  private FlinkBigQueryConfig bqconfig;
+  private FlinkBigQueryConfig bqConfig;
   private BigQueryClientFactory bigQueryWriteClientFactory;
   private BigQueryClient bigQueryClient;
   private List<DataType> fieldDataTypes;
@@ -149,7 +147,7 @@ public final class BigQueryDynamicSinkFactory implements DynamicTableSinkFactory
     return new BigQueryDynamicTableSink(
         fieldNames,
         fieldDataTypes,
-        bqconfig,
+        bqConfig,
         bigQueryWriteClientFactory,
         partitionKeys,
         accumulator);
@@ -157,7 +155,7 @@ public final class BigQueryDynamicSinkFactory implements DynamicTableSinkFactory
 
   private void createBigQueryConfig(ReadableConfig tableOptions) {
     ImmutableMap<String, String> defaultOptions = ImmutableMap.of("bqWrite", "bqWrite");
-    bqconfig =
+    bqConfig =
         FlinkBigQueryConfig.from(
             requiredOptions(),
             optionalOptions(),
@@ -170,9 +168,9 @@ public final class BigQueryDynamicSinkFactory implements DynamicTableSinkFactory
             Optional.empty());
     BigQueryCredentialsSupplier bigQueryCredentialsSupplier =
         new BigQueryCredentialsSupplier(
-            bqconfig.getAccessToken(),
-            bqconfig.getCredentialsKey(),
-            bqconfig.getCredentialsFile(),
+            bqConfig.getAccessToken(),
+            bqConfig.getCredentialsKey(),
+            bqConfig.getCredentialsFile(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty());
@@ -182,27 +180,27 @@ public final class BigQueryDynamicSinkFactory implements DynamicTableSinkFactory
     UserAgentHeaderProvider userAgentHeaderProvider =
         new UserAgentHeaderProvider(agentProvider.getUserAgent());
     this.bigQueryWriteClientFactory =
-        new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
+        new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqConfig);
   }
 
   void createBigQueryTable() throws JSQLParserException {
-    TableId tableId = bqconfig.getTableId();
+    TableId tableId = bqConfig.getTableId();
     if (bigQueryClient == null) {
       final BigQuery bigquery =
           BigQueryOptions.newBuilder()
-              .setCredentials(bqconfig.createCredentials())
+              .setCredentials(bqConfig.createCredentials())
               .build()
               .getService();
       Cache<String, TableInfo> destinationTableCache =
           CacheBuilder.newBuilder()
-              .expireAfterWrite(bqconfig.getCacheExpirationTimeInMinutes(), TimeUnit.MINUTES)
+              .expireAfterWrite(bqConfig.getCacheExpirationTimeInMinutes(), TimeUnit.MINUTES)
               .maximumSize(1000)
               .build();
       bigQueryClient =
           new BigQueryClient(
               bigquery,
-              Optional.of(bqconfig.getTableId().getProject()),
-              Optional.of(bqconfig.getTableId().getDataset()),
+              Optional.of(bqConfig.getTableId().getProject()),
+              Optional.of(bqConfig.getTableId().getDataset()),
               destinationTableCache,
               ImmutableMap.of());
     }

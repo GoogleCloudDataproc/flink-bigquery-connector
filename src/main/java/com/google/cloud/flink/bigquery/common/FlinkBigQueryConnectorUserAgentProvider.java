@@ -33,7 +33,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import scala.util.Properties;
 
-/** Provides the versions of the client environment in an anonymous way. */
+/** Provides the versions of the client environment in an anonymous way */
 public class FlinkBigQueryConnectorUserAgentProvider implements UserAgentProvider {
 
   @VisibleForTesting
@@ -48,7 +48,7 @@ public class FlinkBigQueryConnectorUserAgentProvider implements UserAgentProvide
   private static String FLINK_VERSION;
   private static String JAVA_VERSION = System.getProperty("java.runtime.version");
   private static String SCALA_VERSION = Properties.versionNumberString();
-  static final String USER_AGENT =
+  private static final String USER_AGENT =
       format(
           "flink-bigquery-connector/%s flink/%s java/%s scala/%s%s%s",
           FlinkBigQueryUtil.CONNECTOR_VERSION,

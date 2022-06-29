@@ -62,9 +62,9 @@ public class FlinkReadFromQueryIntegrationTest extends FlinkBigQueryIntegrationT
             + "'\n"
             + ")");
     final Table sourceTable = flinkTableEnv.from(flinkSrcTable);
-    TableResult datatable = sourceTable.execute();
-    assertNotNull(datatable);
-    assertEquals(2, datatable.getTableSchema().getFieldCount());
+    TableResult dataTable = sourceTable.execute();
+    assertNotNull(dataTable);
+    assertEquals(2, dataTable.getTableSchema().getFieldCount());
   }
 
   @Test

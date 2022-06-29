@@ -27,8 +27,7 @@ import org.apache.flink.configuration.Configuration;
 /** Flink utilities */
 public class FlinkBigQueryUtil {
 
-  static final Properties BUILD_PROPERTIES = loadBuildProperties();
-
+  private static final Properties BUILD_PROPERTIES = loadBuildProperties();
   static final String CONNECTOR_VERSION = BUILD_PROPERTIES.getProperty("connector.version");
 
   private static Properties loadBuildProperties() {

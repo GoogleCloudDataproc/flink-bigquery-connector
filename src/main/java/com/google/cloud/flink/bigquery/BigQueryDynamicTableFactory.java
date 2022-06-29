@@ -54,13 +54,14 @@ import org.apache.flink.table.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- * Interface for configuring a dynamic table connector for BigQuery from catalog and session information.
+/**
+ * Interface for configuring a dynamic table connector for BigQuery from catalog and session
+ * information.
  */
 public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
-  private FlinkBigQueryConfig bqconfig;
+  private FlinkBigQueryConfig bqConfig;
   private BigQueryClientFactory bigQueryReadClientFactory;
 
   public static final ConfigOption<String> PARENT_PROJECT =
@@ -175,8 +176,8 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       }
     }
     ArrayList<String> readStreams = getReadStreamNames(options);
-    context.getCatalogTable().getOptions().put("selectedFields", bqconfig.getSelectedFields());
-    if (bqconfig.getReadDataFormat().equals(DataFormat.ARROW)) {
+    context.getCatalogTable().getOptions().put("selectedFields", bqConfig.getSelectedFields());
+    if (bqConfig.getReadDataFormat().equals(DataFormat.ARROW)) {
       context
           .getCatalogTable()
           .getOptions()
@@ -208,7 +209,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
       ImmutableMap<String, String> defaultOptions =
           ImmutableMap.of("flinkVersion", EnvironmentInformation.getVersion());
 
-      bqconfig =
+      bqConfig =
           FlinkBigQueryConfig.from(
               requiredOptions(),
               optionalOptions(),
@@ -220,12 +221,12 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
               flinkVersion,
               Optional.empty());
 
-      Credentials credentials = bqconfig.createCredentials();
+      Credentials credentials = bqConfig.createCredentials();
       bigQueryCredentialsSupplier =
           new BigQueryCredentialsSupplier(
-              bqconfig.getAccessToken(),
-              bqconfig.getCredentialsKey(),
-              bqconfig.getCredentialsFile(),
+              bqConfig.getAccessToken(),
+              bqConfig.getCredentialsKey(),
+              bqConfig.getCredentialsFile(),
               Optional.empty(),
               Optional.empty(),
               Optional.empty());
@@ -234,16 +235,16 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
           new FlinkBigQueryConnectorUserAgentProvider(flinkVersion);
       userAgentHeaderProvider = new UserAgentHeaderProvider(agentProvider.getUserAgent());
       bigQueryReadClientFactory =
-          new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqconfig);
+          new BigQueryClientFactory(bigQueryCredentialsSupplier, userAgentHeaderProvider, bqConfig);
 
       // Create read session
       ReadSession readSession =
-          BigQueryReadSession.getReadsession(credentials, bqconfig, bigQueryReadClientFactory);
+          BigQueryReadSession.getReadsession(credentials, bqConfig, bigQueryReadClientFactory);
       List<ReadStream> readsessionList = readSession.getStreamsList();
       for (ReadStream stream : readsessionList) {
         readStreamNames.add(stream.getName());
       }
-      if (bqconfig.getReadDataFormat().equals(DataFormat.ARROW)) {
+      if (bqConfig.getReadDataFormat().equals(DataFormat.ARROW)) {
         Schema arrowSchema =
             MessageSerializer.deserializeSchema(
                 new ReadChannel(
@@ -254,7 +255,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
                 field -> {
                   this.arrowFields = arrowFields + field.getName() + ",";
                 });
-      } else if (bqconfig.getReadDataFormat().equals(DataFormat.AVRO)) {
+      } else if (bqConfig.getReadDataFormat().equals(DataFormat.AVRO)) {
         avroSchema =
             new org.apache.avro.Schema.Parser().parse(readSession.getAvroSchema().getSchema());
         avroSchema.getFields().stream()

@@ -38,7 +38,7 @@ import org.junit.Test;
 
 public class FlinkBQConfigTest {
   public static final int DEFAULT_PARALLELISM = 10;
-  public static final String FLINK_VERSION = "1.11.0";
+  public static final String FLINK_VERSION = "1.13.1";
   ImmutableMap<String, String> defaultOptions = ImmutableMap.of("table", "dataset.table");
 
   @Test
@@ -150,7 +150,7 @@ public class FlinkBQConfigTest {
     options.set(partitionType, "DAY");
     options.set(partitionExpirationMS, "999");
     options.set(partitionRequireFilter, "true");
-    options.set(flink_version, "1.11.0");
+    options.set(flink_version, "1.13.1");
     options.set(maxParallelism, 99);
     options.set(selectedFields, "word,word_count");
     options.set(materializationProject, "vmp");
