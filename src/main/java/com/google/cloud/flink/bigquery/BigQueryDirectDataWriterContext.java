@@ -45,8 +45,9 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** Setting up the context for write and initialize the writer helper */
 public class BigQueryDirectDataWriterContext implements DataWriterContext<Row>, Serializable {
-  /** */
+
   private static final long serialVersionUID = 1L;
 
   final Logger logger = LoggerFactory.getLogger(BigQueryDirectDataWriterContext.class);

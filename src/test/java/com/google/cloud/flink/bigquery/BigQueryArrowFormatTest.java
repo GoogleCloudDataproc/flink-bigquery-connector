@@ -93,7 +93,7 @@ public class BigQueryArrowFormatTest {
 
     List<String> fieldNames = Arrays.asList("id", "location");
     DataType intDT = DataTypes.BIGINT();
-    DataType chatDT = DataTypes.CHAR(10);
+    DataType chatDT = DataTypes.VARCHAR(10);
     List<DataType> fieldDataTypes = Arrays.asList(intDT, chatDT);
     ResolvedSchema physical = ResolvedSchema.physical(fieldNames, fieldDataTypes);
 

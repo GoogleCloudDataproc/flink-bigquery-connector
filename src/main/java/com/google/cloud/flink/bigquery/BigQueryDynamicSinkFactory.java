@@ -55,6 +55,9 @@ import org.apache.flink.table.types.logical.RowType.RowField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*
+ * Interface for configuring a dynamic table sink connector for BigQuery from catalog
+ */
 public final class BigQueryDynamicSinkFactory implements DynamicTableSinkFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicSinkFactory.class);

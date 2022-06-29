@@ -36,6 +36,9 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.types.DataType;
 
+/*
+ * Source that provides runtime implementation for reading data from BigQuery
+ */
 public final class BigQueryDynamicTableSource
     implements ScanTableSource,
         SupportsProjectionPushDown,
@@ -51,7 +54,7 @@ public final class BigQueryDynamicTableSource
   private int[][] projectedFields;
   private long limit;
   private List<Map<String, String>> remainingPartitions;
-  private ArrayList filters;
+  private ArrayList<ResolvedExpression> filters;
 
   public BigQueryDynamicTableSource(
       DecodingFormat<DeserializationSchema<RowData>> decodingFormat,

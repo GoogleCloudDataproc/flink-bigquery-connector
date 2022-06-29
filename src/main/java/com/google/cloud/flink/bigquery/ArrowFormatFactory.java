@@ -33,6 +33,7 @@ import org.apache.flink.table.factories.DynamicTableFactory.Context;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 
+/** Create decoding format for arrow format */
 public class ArrowFormatFactory
     implements DeserializationFormatFactory, SerializationFormatFactory {
   public static final String IDENTIFIER = "arrow";

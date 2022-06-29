@@ -19,6 +19,7 @@ import java.io.IOException;
 
 /** An internal version to Flink DataSource DataWriter interface */
 public interface DataWriterContext<T> {
+
   void write(T row) throws IOException;
 
   WriterCommitMessageContext commit() throws IOException;

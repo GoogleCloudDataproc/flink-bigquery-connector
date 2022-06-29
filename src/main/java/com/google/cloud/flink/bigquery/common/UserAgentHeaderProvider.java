@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.Serializable;
 import java.util.Map;
 
+/** Setting up the user agent headers */
 public class UserAgentHeaderProvider implements HeaderProvider, Serializable {
 
   private static final long serialVersionUID = 1L;

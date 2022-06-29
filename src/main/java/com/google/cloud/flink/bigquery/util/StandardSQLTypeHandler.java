@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 
+/** Sql type handler */
 public class StandardSQLTypeHandler {
 
   static ImmutableMap<LogicalTypeRoot, StandardSQLTypeName> bqStandardSQLTypes =

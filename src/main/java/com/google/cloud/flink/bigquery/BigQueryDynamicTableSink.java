@@ -35,6 +35,9 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.RowKind;
 
+/*
+ * Sink that provides runtime implementation for write data to BigQuery
+ */
 public class BigQueryDynamicTableSink
     implements DynamicTableSink, SupportsOverwrite, SupportsPartitioning {
   private List<String> fieldNames;

@@ -25,6 +25,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
+/** Generate runtime decoder for avro format */
 public class BigQueryAvroFormat implements DecodingFormat<DeserializationSchema<RowData>> {
   private List<String> selectedFieldList;
   private List<String> avroFieldList;

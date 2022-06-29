@@ -34,6 +34,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.Collector;
 
+/** Reading the deserialized arrow data and converting into flink RowData */
 public class ArrowRowDataDeserializationSchema
     implements DeserializationSchema<RowData>, Serializable {
 

@@ -151,13 +151,13 @@ public class ArrowToRowDataConverters {
       case TIMESTAMP_WITHOUT_TIME_ZONE:
       case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
         return ArrowToRowDataConverters::convertToTimestamp;
-      case BOOLEAN: // boolean
-      case INTEGER: // int
-      case INTERVAL_YEAR_MONTH: // long
-      case BIGINT: // long
-      case INTERVAL_DAY_TIME: // long
-      case FLOAT: // float
-      case DOUBLE: // double
+      case BOOLEAN:
+      case INTEGER:
+      case INTERVAL_YEAR_MONTH:
+      case BIGINT:
+      case INTERVAL_DAY_TIME:
+      case FLOAT:
+      case DOUBLE:
         return arrowObject -> arrowObject;
       case CHAR:
       case VARCHAR:

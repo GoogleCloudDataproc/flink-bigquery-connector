@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import net.sf.jsqlparser.JSQLParserException;
 
+/** Instantiating big query read session */
 public class BigQueryReadSession {
 
   public static ReadSession getReadsession(

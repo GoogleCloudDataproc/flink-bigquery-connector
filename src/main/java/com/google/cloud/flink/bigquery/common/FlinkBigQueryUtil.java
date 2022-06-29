@@ -24,7 +24,7 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 
-/** Flink related utilities */
+/** Flink utilities */
 public class FlinkBigQueryUtil {
 
   static final Properties BUILD_PROPERTIES = loadBuildProperties();

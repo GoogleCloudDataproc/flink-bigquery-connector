@@ -40,6 +40,7 @@ import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeDefaultVisitor;
 
+/** Converter for logical types to Arrow types */
 public class LogicalTypeToArrowTypeConverter extends LogicalTypeDefaultVisitor<ArrowType> {
 
   @Override

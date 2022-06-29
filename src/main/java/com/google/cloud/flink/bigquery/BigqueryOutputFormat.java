@@ -40,6 +40,7 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** Runtime execution that writes data to big query using write streams */
 public class BigqueryOutputFormat extends RichOutputFormat<RowData>
     implements FinalizeOnMaster, Serializable {
   private static final long serialVersionUID = 1L;

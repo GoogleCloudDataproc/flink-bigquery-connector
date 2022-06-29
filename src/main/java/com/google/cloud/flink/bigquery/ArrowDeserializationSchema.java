@@ -40,6 +40,9 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*
+ * Deserializing arrow format data received from BigQuery storage API.
+ */
 public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, Serializable {
 
   private static final long serialVersionUID = 1L;
@@ -67,11 +70,14 @@ public class ArrowDeserializationSchema<T> implements DeserializationSchema<T>, 
     return new ArrowDeserializationSchema<>(VectorSchemaRoot.class, schemaJsonString, typeInfo);
   }
 
+  /** Deserialization */
   @Override
   public T deserialize(byte[] responseByteMessage) throws IOException {
+
     ReadRowsResponse response = ReadRowsResponse.parseFrom(responseByteMessage);
     byte[] arrowRecordBatchMessage =
         response.getArrowRecordBatch().getSerializedRecordBatch().toByteArray();
+
     if (arrowRecordBatchMessage == null) {
       throw new FlinkBigQueryException("Deserializing message is empty");
     }

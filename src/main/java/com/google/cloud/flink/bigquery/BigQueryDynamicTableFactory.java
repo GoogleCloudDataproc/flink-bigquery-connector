@@ -54,6 +54,9 @@ import org.apache.flink.table.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*
+ * Interface for configuring a dynamic table connector for BigQuery from catalog and session information.
+ */
 public final class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
 
   private static final Logger log = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
@@ -156,6 +159,7 @@ public final class BigQueryDynamicTableFactory implements DynamicTableSourceFact
   DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
   private org.apache.avro.Schema avroSchema;
 
+  /** */
   @Override
   public DynamicTableSource createDynamicTableSource(Context context) {
     CatalogTable catalogTable = context.getCatalogTable();

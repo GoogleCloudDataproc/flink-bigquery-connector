@@ -25,6 +25,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
+/** Generate runtime decoder for arrow format */
 public class BigQueryArrowFormat implements DecodingFormat<DeserializationSchema<RowData>> {
   private List<String> selectedFieldList;
   private List<String> arrowFieldList;

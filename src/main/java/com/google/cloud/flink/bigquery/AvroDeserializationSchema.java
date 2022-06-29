@@ -35,6 +35,9 @@ import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.formats.avro.utils.MutableByteArrayInputStream;
 import org.apache.flink.util.Preconditions;
 
+/*
+ * Deserializing avro format data received from BigQuery storage API.
+ */
 public class AvroDeserializationSchema<T> implements DeserializationSchema<T> {
   public static AvroDeserializationSchema<GenericRecord> forGeneric(Schema schema) {
     return new AvroDeserializationSchema<>(GenericRecord.class, schema);

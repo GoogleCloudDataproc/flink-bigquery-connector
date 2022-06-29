@@ -117,7 +117,7 @@ public class ProtobufUtilsTest {
             .getLogicalType()
             .accept(new ProtobufUtils.LogicalTypeToProtoTypeConverter());
     assertThat(fieldType).isNotNull();
-    assertThat(fieldType.getTypeName().toString()).isEqualTo("ARRAY");
+    assertThat(fieldType.getTypeName().toString()).isEqualTo("BASIC_ARRAY");
 
     fieldType =
         DataTypes.BOOLEAN()

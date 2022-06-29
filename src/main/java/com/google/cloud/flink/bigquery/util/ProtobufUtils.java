@@ -437,7 +437,7 @@ public final class ProtobufUtils {
     if (flinkType instanceof TinyIntType
         || flinkType instanceof SmallIntType
         || flinkType instanceof IntType
-        || flinkType instanceof BigIntType) { // || flinkType instanceof TimestampType) {
+        || flinkType instanceof BigIntType) {
       return ((Number) flinkValue).longValue();
     }
     if (flinkType instanceof TimestampType) {

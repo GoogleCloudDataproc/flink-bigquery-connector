@@ -97,8 +97,6 @@ public class BigQueryDynamicTableSourceTest {
 
     ObjectIdentifier tableIdentifier = ObjectIdentifier.of("csvcatalog", "default", "csvtable");
 
-    List<String> partitionColumnList = new ArrayList<String>();
-
     Map<String, String> configOptions = new HashMap<>();
     configOptions.put("table", bigqueryReadTable);
     configOptions.put(FactoryUtil.FORMAT.key(), "arrow");
@@ -109,14 +107,14 @@ public class BigQueryDynamicTableSourceTest {
     ConfigOption<String> query = ConfigOptions.key("query").stringType().noDefaultValue();
     ConfigOption<String> filter = ConfigOptions.key("filter").stringType().defaultValue("");
     ConfigOption<String> format = ConfigOptions.key("format").stringType().defaultValue("");
-    ConfigOption<String> selected_fields =
+    ConfigOption<String> selectedFields =
         ConfigOptions.key("selectedFields").stringType().noDefaultValue();
 
     options.set(table, bigqueryReadTable);
     options.set(format, "arrow");
     options.set(query, "select word,word_count from table");
     options.set(filter, "word_count>100");
-    options.set(selected_fields, "word,word_count");
+    options.set(selectedFields, "word,word_count");
 
     ResolvedCatalogTable resolvedCatalogTable = getResolvedCatalogTable();
     ClassLoader classloader = Thread.currentThread().getContextClassLoader();
@@ -129,10 +127,10 @@ public class BigQueryDynamicTableSourceTest {
 
   private ResolvedCatalogTable getResolvedCatalogTable() {
 
-    List<String> fieldNames = Arrays.asList("id", "location");
-    DataType intDT = DataTypes.BIGINT();
-    DataType chatDT = DataTypes.CHAR(10);
-    List<DataType> fieldDataTypes = Arrays.asList(intDT, chatDT);
+    List<String> fieldNames = Arrays.asList("word", "word_count");
+    DataType varDT = DataTypes.VARCHAR(20);
+    DataType chatDT = DataTypes.VARCHAR(10);
+    List<DataType> fieldDataTypes = Arrays.asList(varDT, chatDT);
 
     Builder schemaBuilder = Schema.newBuilder();
     Schema tableSchema = schemaBuilder.fromFields(fieldNames, fieldDataTypes).build();
@@ -144,7 +142,7 @@ public class BigQueryDynamicTableSourceTest {
     configOptions.put(FactoryUtil.CONNECTOR.key(), "bigquery");
     configOptions.put("selectedFields", "word,word_count");
     configOptions.put("filter", "word_count>100");
-    configOptions.put("arrowFields", "id,location");
+    configOptions.put("arrowFields", "word,word_count");
     CatalogTable catalogTable =
         CatalogTable.of(
             tableSchema, "sample table creation", new ArrayList<String>(), configOptions);

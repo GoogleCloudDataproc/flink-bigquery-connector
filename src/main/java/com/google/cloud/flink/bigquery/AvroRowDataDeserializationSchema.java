@@ -33,6 +33,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.Collector;
 
+/** Reading the deserialized avro data and converting into flink RowData */
 public class AvroRowDataDeserializationSchema
     implements DeserializationSchema<RowData>, Serializable {
 
@@ -48,6 +49,7 @@ public class AvroRowDataDeserializationSchema
       List<String> selectedFieldList,
       List<String> avroFieldList,
       String readAvroSchema) {
+
     this.typeInfo = typeInfo;
     Parser avroSchemaParser = new Schema.Parser();
     Schema avroSchema = avroSchemaParser.parse(readAvroSchema);
