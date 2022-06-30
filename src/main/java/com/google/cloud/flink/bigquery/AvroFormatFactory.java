@@ -33,10 +33,9 @@ import org.apache.flink.table.factories.DynamicTableFactory.Context;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 
-/** Create decoding format for arrow format */
-public class ArrowFormatFactory
-    implements DeserializationFormatFactory, SerializationFormatFactory {
-  public static final String IDENTIFIER = "arrow";
+/** Create decoding format for avro format */
+public class AvroFormatFactory implements DeserializationFormatFactory, SerializationFormatFactory {
+  private static final String IDENTIFIER = "avro";
   private String selectedFields = null;
 
   @Override
@@ -50,14 +49,13 @@ public class ArrowFormatFactory
           selectedFields.substring(0, selectedFields.length() - 1).replace("selectedFields=", "");
     }
     List<String> selectedFieldList = new ArrayList<String>();
-    List<String> arrowFieldList = new ArrayList<String>();
-    if (options.get("arrowFields") != null) {
-      arrowFieldList = Arrays.asList(options.get("arrowFields").split(","));
-    }
+    List<String> avroFieldList = new ArrayList<String>();
+    avroFieldList = Arrays.asList(options.get("avroFields").split(","));
+    String avroSchema = options.get("avroSchema");
     if (selectedFields != null) {
       selectedFieldList = Arrays.asList(selectedFields.split(","));
     }
-    return new BigQueryArrowFormat(selectedFieldList, arrowFieldList);
+    return new BigQueryAvroFormat(selectedFieldList, avroFieldList, avroSchema);
   }
 
   @Override

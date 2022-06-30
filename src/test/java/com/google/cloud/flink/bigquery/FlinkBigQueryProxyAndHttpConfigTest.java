@@ -22,6 +22,8 @@ import com.google.api.client.http.apache.v2.ApacheHttpTransport;
 import com.google.api.core.ApiFunction;
 import com.google.auth.http.HttpTransportFactory;
 import com.google.cloud.bigquery.connector.common.BigQueryProxyTransporterBuilder;
+import com.google.cloud.flink.bigquery.util.FlinkBigQueryConfig;
+import com.google.cloud.flink.bigquery.util.FlinkBigQueryProxyAndHttpConfig;
 import com.google.common.collect.ImmutableMap;
 import io.grpc.ManagedChannelBuilder;
 import java.io.ByteArrayOutputStream;

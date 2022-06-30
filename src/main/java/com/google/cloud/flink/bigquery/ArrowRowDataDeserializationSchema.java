@@ -15,8 +15,9 @@
  */
 package com.google.cloud.flink.bigquery;
 
-import com.google.cloud.flink.bigquery.arrow.util.ArrowSchemaConverter;
-import com.google.cloud.flink.bigquery.arrow.util.ArrowToRowDataConverters;
+import com.google.cloud.flink.bigquery.exception.FlinkBigQueryException;
+import com.google.cloud.flink.bigquery.util.arrow.ArrowSchemaConverter;
+import com.google.cloud.flink.bigquery.util.arrow.ArrowToRowDataConverters;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -33,19 +34,16 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.Collector;
 
+/** Reading the deserialized arrow data and converting into flink RowData */
 public class ArrowRowDataDeserializationSchema
     implements DeserializationSchema<RowData>, Serializable {
 
   public static final long serialVersionUID = 1L;
-  public TypeInformation<RowData> typeInfo;
-  public DeserializationSchema<VectorSchemaRoot> nestedSchema;
-  public ArrowToRowDataConverters.ArrowToRowDataConverter runtimeConverter;
-  public List<GenericRowData> rowDataList;
-  public List<String> selectedFields = new ArrayList<String>();
-  public String selectedFieldString;
+  private TypeInformation<RowData> typeInfo;
+  private DeserializationSchema<VectorSchemaRoot> nestedSchema;
+  private ArrowToRowDataConverters.ArrowToRowDataConverter runtimeConverter;
   final List<String> readSessionFieldNames = new ArrayList<String>();
-  public String arrowReadSessionSchema;
-  public String arrowSchemaJson;
+  private String arrowSchemaJson;
 
   public ArrowRowDataDeserializationSchema(
       RowType rowType,

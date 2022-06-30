@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery;
+package com.google.cloud.flink.bigquery.util;
 
 import static com.google.cloud.bigquery.connector.common.BigQueryUtil.firstPresent;
 import static com.google.common.base.Optional.fromJavaUtil;
@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
 
+/** Set the configurations for http proxy */
 public class FlinkBigQueryProxyAndHttpConfig implements BigQueryProxyConfig, Serializable {
 
   private static final long serialVersionUID = 1L;

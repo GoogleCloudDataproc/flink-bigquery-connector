@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.cloud.flink.bigquery.arrow.util;
+package com.google.cloud.flink.bigquery.util.arrow;
 
 import java.math.BigDecimal;
 import org.apache.arrow.vector.types.DateUnit;
@@ -40,15 +40,16 @@ import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeDefaultVisitor;
 
+/** Converter for logical types to Arrow types */
 public class LogicalTypeToArrowTypeConverter extends LogicalTypeDefaultVisitor<ArrowType> {
 
   @Override
   protected ArrowType defaultMethod(LogicalType logicalType) {
     if (logicalType instanceof LegacyTypeInformationType) {
       Class<?> typeClass =
-          ((LegacyTypeInformationType) logicalType).getTypeInformation().getTypeClass();
+          ((LegacyTypeInformationType<?>) logicalType).getTypeInformation().getTypeClass();
       if (typeClass == BigDecimal.class) {
-        return new ArrowType.Decimal(38, 18);
+        return new ArrowType.Decimal(38, 18, 128);
       }
     }
     throw new UnsupportedOperationException(
@@ -107,7 +108,7 @@ public class LogicalTypeToArrowTypeConverter extends LogicalTypeDefaultVisitor<A
 
   @Override
   public ArrowType visit(DecimalType decimalType) {
-    return new ArrowType.Decimal(decimalType.getPrecision(), decimalType.getScale());
+    return new ArrowType.Decimal(decimalType.getPrecision(), decimalType.getScale(), 128);
   }
 
   @Override

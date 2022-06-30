@@ -15,19 +15,23 @@
  */
 package com.google.cloud.flink.bigquery.common;
 
+/** Setting up the context for write finalized stream */
 public class BigQueryDirectWriterCommitMessageContext implements WriterCommitMessageContext {
 
   private static final long serialVersionUID = -1562914502592461805L;
   private final String writeStreamName;
-
   private final String tablePath;
   private final long rowCount;
+  private int taskNumber;
+  private Boolean isFailed;
 
   public BigQueryDirectWriterCommitMessageContext(
-      String writeStreamName, String tablePath, long rowCount) {
+      String writeStreamName, String tablePath, long rowCount, int taskNumber, Boolean isFailed) {
     this.writeStreamName = writeStreamName;
     this.tablePath = tablePath;
     this.rowCount = rowCount;
+    this.taskNumber = taskNumber;
+    this.isFailed = isFailed;
   }
 
   public String getWriteStreamName() {
@@ -42,8 +46,21 @@ public class BigQueryDirectWriterCommitMessageContext implements WriterCommitMes
     return rowCount;
   }
 
+  public Boolean getStatus() {
+    return isFailed;
+  }
+
   @Override
   public String toString() {
-    return "BigQueryWriterCommitMessage{tableId='" + tablePath + '\'' + '}';
+    return "BigQueryWriterCommitMessage{taskId="
+        + taskNumber
+        + ", tableId='"
+        + tablePath
+        + '\''
+        + ", rowCount='"
+        + getRowCount()
+        + ", writeStreamName='"
+        + writeStreamName
+        + '}';
   }
 }

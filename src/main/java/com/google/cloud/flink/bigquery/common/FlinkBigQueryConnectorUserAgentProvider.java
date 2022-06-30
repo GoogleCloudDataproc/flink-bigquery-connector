@@ -19,7 +19,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.cloud.bigquery.connector.common.UserAgentProvider;
-import com.google.cloud.flink.bigquery.FlinkBigQueryException;
+import com.google.cloud.flink.bigquery.exception.FlinkBigQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.CharStreams;
 import com.google.common.io.Closeables;
@@ -33,7 +33,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import scala.util.Properties;
 
-/** Provides the versions of the client environment in an anonymous way. */
+/** Provides the versions of the client environment in an anonymous way */
 public class FlinkBigQueryConnectorUserAgentProvider implements UserAgentProvider {
 
   @VisibleForTesting
@@ -48,7 +48,7 @@ public class FlinkBigQueryConnectorUserAgentProvider implements UserAgentProvide
   private static String FLINK_VERSION;
   private static String JAVA_VERSION = System.getProperty("java.runtime.version");
   private static String SCALA_VERSION = Properties.versionNumberString();
-  static final String USER_AGENT =
+  private static final String USER_AGENT =
       format(
           "flink-bigquery-connector/%s flink/%s java/%s scala/%s%s%s",
           FlinkBigQueryUtil.CONNECTOR_VERSION,
