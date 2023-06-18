@@ -1,0 +1,172 @@
+/*
+ * Copyright (C) 2023 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+package org.apache.flink.connector.bigquery.source.config;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
+import org.apache.flink.util.Preconditions;
+
+import com.google.auto.value.AutoValue;
+import org.threeten.bp.Instant;
+
+import javax.annotation.Nullable;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+/** The options available to read data from BigQuery. */
+@AutoValue
+@PublicEvolving
+public abstract class BigQueryReadOptions implements Serializable {
+
+    public abstract List<String> getColumnNames();
+
+    public abstract String getRowRestriction();
+
+    @Nullable
+    public abstract Long getSnapshotTimestampInMillis();
+
+    public abstract Integer getMaxStreamCount();
+
+    public abstract BigQueryConnectOptions getBigQueryConnectOptions();
+
+    @Override
+    public int hashCode() {
+        int hash = 5;
+        hash = 61 * hash + Objects.hashCode(getColumnNames());
+        hash = 61 * hash + Objects.hashCode(getRowRestriction());
+        hash = 61 * hash + Objects.hashCode(getSnapshotTimestampInMillis());
+        hash = 61 * hash + Objects.hashCode(getMaxStreamCount());
+        hash = 61 * hash + Objects.hashCode(getBigQueryConnectOptions());
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final BigQueryReadOptions other = (BigQueryReadOptions) obj;
+        if (!Objects.equals(this.getColumnNames(), other.getColumnNames())) {
+            return false;
+        }
+        if (!Objects.equals(this.getRowRestriction(), other.getRowRestriction())) {
+            return false;
+        }
+        if (!Objects.equals(
+                this.getSnapshotTimestampInMillis(), other.getSnapshotTimestampInMillis())) {
+            return false;
+        }
+        if (!Objects.equals(this.getMaxStreamCount(), other.getMaxStreamCount())) {
+            return false;
+        }
+        return Objects.equals(this.getBigQueryConnectOptions(), other.getBigQueryConnectOptions());
+    }
+
+    /**
+     * Transforms the instance into a builder instance for property modification.
+     *
+     * @return A {@link Builder} instance for the type.
+     */
+    public abstract Builder toBuilder();
+
+    /**
+     * Creates a builder instance with all the default values set.
+     *
+     * @return A {@link Builder} for the type.
+     */
+    public static Builder builder() {
+        return new AutoValue_BigQueryReadOptions.Builder()
+                .setRowRestriction("")
+                .setColumnNames(new ArrayList<>())
+                .setMaxStreamCount(0)
+                .setSnapshotTimestampInMillis(null);
+    }
+
+    /** Builder class for {@link BigQueryReadOptions}. */
+    @AutoValue.Builder
+    public abstract static class Builder {
+
+        /**
+         * Sets the restriction the rows in the BigQuery table must comply to be returned by the
+         * source.
+         *
+         * @param rowRestriction A {@link String} containing the row restrictions.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setRowRestriction(String rowRestriction);
+
+        /**
+         * Sets the column names that will be projected from the table's retrieved data.
+         *
+         * @param colNames The names of the columns as a list of strings.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setColumnNames(List<String> colNames);
+
+        /**
+         * Sets the snapshot time (in milliseconds since epoch) for the BigQuery table, if not set
+         * {@code now()} is used.
+         *
+         * @param snapshotTs The snapshot's time in milliseconds since epoch.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setSnapshotTimestampInMillis(Long snapshotTs);
+
+        /**
+         * Sets the maximum number of read streams that BigQuery should create to retrieve data from
+         * the table. BigQuery can return a lower number than the specified.
+         *
+         * @param maxStreamCount The maximum number of read streams.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setMaxStreamCount(Integer maxStreamCount);
+
+        /**
+         * Sets the {@link BigQueryConnectOptions} instance.
+         *
+         * @param connect The {@link BigQueryConnectOptions} instance.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setBigQueryConnectOptions(BigQueryConnectOptions connect);
+
+        abstract BigQueryReadOptions autoBuild();
+
+        /** @return A fully initialized {@link BigQueryReadOptions} instance. */
+        public final BigQueryReadOptions build() {
+            BigQueryReadOptions readOptions = autoBuild();
+            Preconditions.checkState(
+                    readOptions.getMaxStreamCount() >= 0,
+                    "The max number of streams should be zero or positive.");
+            Preconditions.checkState(
+                    readOptions.getSnapshotTimestampInMillis() != null
+                            ? readOptions.getSnapshotTimestampInMillis()
+                                    >= Instant.EPOCH.toEpochMilli()
+                            : true,
+                    "The oldest timestamp should be equal or bigger than epoch.");
+            return readOptions;
+        }
+    }
+}
