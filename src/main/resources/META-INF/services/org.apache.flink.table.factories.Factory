@@ -1,2 +1,0 @@
-com.google.cloud.flink.bigquery.BigQueryDynamicTableFactory
-com.google.cloud.flink.bigquery.ArrowFormatFactory
