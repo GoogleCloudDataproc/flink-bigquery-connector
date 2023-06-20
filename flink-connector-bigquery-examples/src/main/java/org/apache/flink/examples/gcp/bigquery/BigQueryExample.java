@@ -36,7 +36,7 @@ import java.util.List;
 /**
  * A simple BigQuery example.
  *
- * <p>The flink pipeline will try to read the specified BigQuery table, limiting the element count
+ * <p>The Flink pipeline will try to read the specified BigQuery table, limiting the element count
  * to 10 and collect the results.
  */
 public class BigQueryExample {
@@ -49,8 +49,9 @@ public class BigQueryExample {
         if (parameterTool.getNumberOfParameters() < 3) {
             LOG.error(
                     "Missing parameters!\n"
-                            + "Usage: flink run BigQuery.jar --gcp-project <gcp-project>"
-                            + " --bq-dataset <dataset name> --bq-table <table name> ");
+                            + "Usage: flink run <additional runtime params> BigQuery.jar"
+                            + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
+                            + " --bq-table <table name>");
             return;
         }
 
@@ -64,23 +65,27 @@ public class BigQueryExample {
     private static void runFlinkJob(String projectName, String datasetName, String tableName)
             throws Exception {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(1000L);
+        env.enableCheckpointing(5000L);
 
-        env.fromSource(
-                        BigQuerySource.readAvro()
-                                .setLimit(10)
-                                .setReadOptions(
-                                        BigQueryReadOptions.builder()
-                                                .setBigQueryConnectOptions(
-                                                        BigQueryConnectOptions.builder()
-                                                                .setProjectId(projectName)
-                                                                .setDataset(datasetName)
-                                                                .setTable(tableName)
-                                                                .build())
+        // we will be reading avro generic records from BigQuery, and in this case we are assuming
+        // the
+        // GOOGLE_APPLICATION_CREDENTIALS env variable will be present in the execution runtime. In
+        // case
+        // of needing authenticate differently, the credentials builder (part of the
+        // BigQueryConnectOptions) should enable capturing the credentials from various sources.
+        BigQuerySource<GenericRecord> bqSource =
+                BigQuerySource.readAvros(
+                        BigQueryReadOptions.builder()
+                                .setBigQueryConnectOptions(
+                                        BigQueryConnectOptions.builder()
+                                                .setProjectId(projectName)
+                                                .setDataset(datasetName)
+                                                .setTable(tableName)
                                                 .build())
                                 .build(),
-                        WatermarkStrategy.noWatermarks(),
-                        "BigQuerySource")
+                        10);
+
+        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuerySource")
                 .map(BigQueryExample::printAndReturn)
                 .disableChaining()
                 .addSink(new CollectSink());

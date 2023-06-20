@@ -18,94 +18,111 @@ specific language governing permissions and limitations
 under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-	<modelVersion>4.0.0</modelVersion>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-	<parent>
-		<groupId>org.apache.flink</groupId>
-		<artifactId>flink-connector-bigquery-parent</artifactId>
-		<version>1.1-SNAPSHOT</version>
-	</parent>
+    <parent>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-connector-bigquery-parent</artifactId>
+        <version>1.1-SNAPSHOT</version>
+    </parent>
 
-	<artifactId>flink-connector-bigquery-examples</artifactId>
-	<name>Flink : Connectors : Google BigQuery Examples</name>
-	<packaging>jar</packaging>
+    <artifactId>flink-connector-bigquery-examples</artifactId>
+    <name>Flink : Connectors : Google BigQuery Examples</name>
+    <packaging>jar</packaging>
 
-	<properties>
-		<japicmp.skip>true</japicmp.skip>
-	</properties>
+    <properties>
+        <japicmp.skip>true</japicmp.skip>
+    </properties>
 
-	<dependencies>
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-connector-bigquery</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-streaming-java</artifactId>
-			<version>${flink.version}</version>
-		</dependency>
-	</dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-bigquery</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-java</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+    </dependencies>
 
-	<build>
-		<finalName>BigQuery</finalName>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-deploy-plugin</artifactId>
-				<configuration>
-					<skip>true</skip>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-shade-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>shade-flink</id>
-						<phase>package</phase>
-						<goals>
-							<goal>shade</goal>
-						</goals>
-						<configuration>
-							<shadedArtifactAttached>false</shadedArtifactAttached>
-							<createDependencyReducedPom>false</createDependencyReducedPom>
-							<transformers>
-								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>org.apache.flink.examples.gcp.bigquery.BigQueryExample</mainClass>
-								</transformer>
-							</transformers>
-							<artifactSet>
-								<includes>
+    <build>
+        <finalName>BigQueryExample</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>shade-flink</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <resources>
+                                <resource>
+                                    <directory>src/test/resources</directory>
+                                </resource>
+                            </resources>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.apache.flink.examples.gcp.bigquery.BigQueryExample</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                                    <resource>log4j2-bqexample.properties</resource>
+                                    <file>src/main/resources/log4j2-bqexample.properties</file>
+                                </transformer>
+                            </transformers>
+                            <artifactSet>
+                                <includes>
 									<include>org.apache.flink:flink-connector-bigquery</include>
+									<include>org.apache.flink:flink-avro</include>
 									<include>com.google.cloud:google-cloud-bigquerystorage</include>
 									<include>com.google.*:*</include>
+                                    <include>commons-codec:commons-codec</include>                                    
+                                    <include>org.apache.avro:*</include>
+                                    <include>org.apache.httpcomponents:*</include>
+                                    <include>org.codehaus.mojo:animal-sniffer-annotations</include>
+                                    <include>org.conscrypt:*</include>
+                                    <include>com.fasterxml.jackson.*:*</include>
 									<include>org.threeten:*</include>
 									<include>org.checkerframework:*</include>
 									<include>io.grpc:*</include>
 									<include>io.opencensus:*</include>
-								</includes>
-							</artifactSet>
-							<relocations>
-								<relocation>
-									<pattern>com.google</pattern>
-									<shadedPattern>org.apache.flink.examples.gcp.bigquery.shaded.com.google</shadedPattern>
-								</relocation>
-							</relocations>
+									<include>io.perfmark:*</include>
+                                </includes>
+                            </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.google</pattern>
+                                    <shadedPattern>org.apache.flink.examples.gcp.bigquery.shaded.com.google</shadedPattern>
+                                </relocation>
+                            </relocations>
 
-							<filters>
-								<filter>
-									<artifact>org.apache.flink:flink-connector-bigquery-examples*</artifact>
-									<includes>
-										<include>org/apache/flink/examples/gcp/bigquery/**</include>
-									</includes>
-								</filter>
-							</filters>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
-	</build>
+                            <filters>
+                                <filter>
+                                    <artifact>org.apache.flink:flink-connector-bigquery-examples*</artifact>
+                                    <includes>
+                                        <include>org/apache/flink/examples/gcp/bigquery/**</include>
+                                    </includes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
