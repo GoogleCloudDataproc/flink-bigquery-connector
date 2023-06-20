@@ -28,6 +28,9 @@ import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
+import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
+import org.apache.flink.connector.bigquery.common.utils.SchemaTransform;
+import org.apache.flink.connector.bigquery.services.BigQueryServicesFactory;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.connector.bigquery.source.emitter.BigQueryRecordEmitter;
 import org.apache.flink.connector.bigquery.source.enumerator.BigQuerySourceEnumState;
@@ -43,6 +46,7 @@ import org.apache.flink.connector.bigquery.source.split.BigQuerySourceSplitSeria
 import org.apache.flink.connector.bigquery.source.split.reader.BigQuerySourceSplitReader;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auto.value.AutoValue;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
@@ -60,9 +64,7 @@ import java.util.function.Supplier;
  *
  * <pre>{@code
  * BigQuerySource<GenericRecord> source =
- *       BigQuerySource.readAvro()
- *         .setLimit(1000)
- *         .setReadOptions(
+ *       BigQuerySource.readAvros(
  *           BigQueryReadOptions.builder()
  *             .setColumnNames(Lists.newArrayList("col1", "col2"))
  *             .setRowRestriction(
@@ -73,8 +75,7 @@ import java.util.function.Supplier;
  *                 .setDataset("some-bq-dataset")
  *                 .setTable("some-bq-table")
  *                 .build())
- *             .build())
- *         .build();
+ *             .build(), 1000);
  * }</pre>
  *
  * <p>Review the option classes and their builders for more details on the configurable options.
@@ -155,6 +156,13 @@ public abstract class BigQuerySource<OUT>
     }
 
     /**
+     * Transforms the instance into a builder instance for property modification.
+     *
+     * @return A {@link Builder} instance for the type.
+     */
+    public abstract Builder<OUT> toBuilder();
+
+    /**
      * Creates an instance of this class builder.
      *
      * @param <OUT> The expected return type of this source.
@@ -165,15 +173,39 @@ public abstract class BigQuerySource<OUT>
     }
 
     /**
-     * Creates an instance of this class builder, setting Avro {@link GenericRecord} as the return
-     * type for the data.
+     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
+     * the data (mimicking the table's schema).In case of projecting the columns of the table a new
+     * de-serialization schema should be provided (considering the new result projected schema).
      *
-     * @return the BigQuerySource builder instance.
+     * @param readOptions The read options for this source
+     * @param limit the max quantity of records to be returned.
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
      */
-    public static Builder<GenericRecord> readAvro() {
-        return new AutoValue_BigQuerySource.Builder<GenericRecord>()
-                .setLimit(-1)
-                .setDeserializationSchema(new AvroDeserializationSchema());
+    public static BigQuerySource<GenericRecord> readAvros(
+            BigQueryReadOptions readOptions, Integer limit) {
+        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
+        TableSchema tableSchema =
+                BigQueryServicesFactory.instance(connectOptions)
+                        .queryClient(connectOptions.getCredentialsOptions())
+                        .getTableSchema(
+                                connectOptions.getProjectId(),
+                                connectOptions.getDataset(),
+                                connectOptions.getTable());
+        return BigQuerySource.<GenericRecord>builder()
+                .setDeserializationSchema(
+                        new AvroDeserializationSchema(
+                                SchemaTransform.toGenericAvroSchema(
+                                                String.format(
+                                                        "%s.%s.%s",
+                                                        connectOptions.getProjectId(),
+                                                        connectOptions.getDataset(),
+                                                        connectOptions.getTable()),
+                                                tableSchema.getFields())
+                                        .toString()))
+                .setLimit(limit)
+                .setReadOptions(readOptions)
+                .build();
     }
 
     /**

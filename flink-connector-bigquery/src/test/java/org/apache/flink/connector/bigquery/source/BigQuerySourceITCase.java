@@ -20,9 +20,9 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.connector.bigquery.fakes.StorageClientFaker;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.connector.bigquery.table.serde.AvroToRowDataDeserializationSchema;
-import org.apache.flink.connector.bigquery.utils.StorageClientMocker;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
@@ -68,10 +68,10 @@ public class BigQuerySourceITCase {
     public void beforeTest() throws Exception {
         // init the read options for BQ
         readOptions =
-                StorageClientMocker.createReadOptions(
+                StorageClientFaker.createReadOptions(
                         TOTAL_ROW_COUNT_PER_STREAM,
                         2,
-                        StorageClientMocker.SIMPLE_AVRO_SCHEMA_STRING);
+                        StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
     }
 
     private BigQuerySource.Builder<RowData> defaultSourceBuilder() {

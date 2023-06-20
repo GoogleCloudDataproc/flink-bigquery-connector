@@ -33,9 +33,6 @@ import java.util.Optional;
 /** A utility class to supply credentials given the multiple possible configuration sources. */
 @Internal
 public class GoogleCredentialsSupplier {
-    public static final String CLOUD_PLATFORM_SCOPE =
-            "https://www.googleapis.com/auth/cloud-platform";
-
     private GoogleCredentialsSupplier() {}
 
     /**

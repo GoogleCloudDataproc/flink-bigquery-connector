@@ -19,10 +19,10 @@ package org.apache.flink.connector.bigquery.source.split.reader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
+import org.apache.flink.connector.bigquery.fakes.StorageClientFaker;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.connector.bigquery.source.reader.BigQuerySourceReaderContext;
 import org.apache.flink.connector.bigquery.source.split.BigQuerySourceSplit;
-import org.apache.flink.connector.bigquery.utils.StorageClientMocker;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
@@ -43,8 +43,8 @@ public class BigQuerySourceSplitReaderTest {
     public void beforeTest() throws Exception {
         // init the read options for BQ
         this.readOptions =
-                StorageClientMocker.createReadOptions(
-                        10, 2, StorageClientMocker.SIMPLE_AVRO_SCHEMA_STRING);
+                StorageClientFaker.createReadOptions(
+                        10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
     }
 
     @Test

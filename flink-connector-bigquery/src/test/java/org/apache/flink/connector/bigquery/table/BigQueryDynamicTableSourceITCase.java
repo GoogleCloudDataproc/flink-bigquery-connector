@@ -16,8 +16,8 @@
 
 package org.apache.flink.connector.bigquery.table;
 
+import org.apache.flink.connector.bigquery.fakes.StorageClientFaker;
 import org.apache.flink.connector.bigquery.table.config.BigQueryConnectorOptions;
-import org.apache.flink.connector.bigquery.utils.StorageClientMocker;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
@@ -95,7 +95,7 @@ public class BigQueryDynamicTableSourceITCase {
     @BeforeAll
     public static void beforeTest() throws Exception {
         // create a data generator based on the test schema
-        SerializableFunction<StorageClientMocker.RecordGenerationParams, List<GenericRecord>>
+        SerializableFunction<StorageClientFaker.RecordGenerationParams, List<GenericRecord>>
                 dataGenerator =
                         params -> {
                             Schema schema = new Schema.Parser().parse(params.getAvroSchemaString());
@@ -142,7 +142,7 @@ public class BigQueryDynamicTableSourceITCase {
 
         // init the testing services and inject them into the table factory
         BigQueryDynamicTableFactory.setTestingServices(
-                StorageClientMocker.createReadOptions(
+                StorageClientFaker.createReadOptions(
                                 TOTAL_ROW_COUNT_PER_STREAM,
                                 STREAM_COUNT,
                                 AVRO_SCHEMA.toString(),

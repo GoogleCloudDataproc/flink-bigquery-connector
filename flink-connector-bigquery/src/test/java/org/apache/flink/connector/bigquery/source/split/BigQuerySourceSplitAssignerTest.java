@@ -16,9 +16,9 @@
 
 package org.apache.flink.connector.bigquery.source.split;
 
+import org.apache.flink.connector.bigquery.fakes.StorageClientFaker;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.connector.bigquery.source.enumerator.BigQuerySourceEnumState;
-import org.apache.flink.connector.bigquery.utils.StorageClientMocker;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
@@ -37,8 +37,8 @@ public class BigQuerySourceSplitAssignerTest {
     @Before
     public void beforeTest() throws IOException {
         this.readOptions =
-                StorageClientMocker.createReadOptions(
-                        0, 2, StorageClientMocker.SIMPLE_AVRO_SCHEMA_STRING);
+                StorageClientFaker.createReadOptions(
+                        0, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
     }
 
     @Test

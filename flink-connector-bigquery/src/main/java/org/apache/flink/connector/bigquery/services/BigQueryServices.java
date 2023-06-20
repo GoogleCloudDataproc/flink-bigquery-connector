@@ -17,8 +17,11 @@
 package org.apache.flink.connector.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.bigquery.common.config.CredentialsOptions;
 
+import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -26,6 +29,8 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Interface defining the behavior to access and operate the needed BigQuery services. This
@@ -33,14 +38,23 @@ import java.io.Serializable;
  */
 @Internal
 public interface BigQueryServices extends Serializable {
+
     /**
-     * Returns a real, mock, or fake {@link StorageClient}.
+     * Retrieves a real, mock or fake {@link QueryDataClient}.
      *
-     * @param readOptions The options for the read operation.
-     * @return a storage read client object.
-     * @throws java.io.IOException
+     * @param credentialsOptions The options for the read operation.
+     * @return a Query data client for BigQuery.
      */
-    StorageReadClient getStorageClient(CredentialsOptions readOptions) throws IOException;
+    QueryDataClient getQueryDataClient(CredentialsOptions credentialsOptions);
+
+    /**
+     * Returns a real, mock, or fake {@link StorageReadClient}.
+     *
+     * @param credentialsOptions The options for the read operation.
+     * @return a storage read client object.
+     * @throws IOException
+     */
+    StorageReadClient getStorageClient(CredentialsOptions credentialsOptions) throws IOException;
 
     /**
      * Container for reading data from streaming endpoints.
@@ -84,5 +98,42 @@ public interface BigQueryServices extends Serializable {
          */
         @Override
         void close();
+    }
+
+    /**
+     * An interface representing the client interactions needed to retrieve data from BigQuery using
+     * SQL queries.
+     */
+    interface QueryDataClient extends Serializable {
+        /**
+         * Returns a list with the table's existing partitions.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table.
+         * @return A list of the partition identifiers.
+         */
+        List<String> retrieveTablePartitions(String project, String dataset, String table);
+
+        /**
+         * Returns, in case of having one, the partition column name of the table and its type.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table.
+         * @return The partition column name and its type, if it has one.
+         */
+        Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
+                String project, String dataset, String table);
+
+        /**
+         * Returns the {@link TableSchema} of the specified BigQuery table.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table.
+         * @return The BigQuery table {@link TableSchema}.
+         */
+        TableSchema getTableSchema(String project, String dataset, String table);
     }
 }

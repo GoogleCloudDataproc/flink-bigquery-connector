@@ -39,3 +39,4 @@ tools/japicmp-output
 java.header
 .java-version
 nb-*
+**nbproject

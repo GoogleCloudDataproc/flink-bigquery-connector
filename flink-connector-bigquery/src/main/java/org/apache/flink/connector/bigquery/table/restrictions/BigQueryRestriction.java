@@ -14,7 +14,7 @@
  * the License.
  */
 
-package org.apache.flink.connector.bigquery.table;
+package org.apache.flink.connector.bigquery.table.restrictions;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.expressions.CallExpression;
@@ -44,9 +44,9 @@ import java.util.regex.Pattern;
  * implementation.
  */
 @Internal
-public class BigQueryExpression {
+public class BigQueryRestriction {
 
-    private BigQueryExpression() {}
+    private BigQueryRestriction() {}
 
     private static final Pattern STARTS_WITH_PATTERN = Pattern.compile("([^%]+)%");
 
@@ -143,7 +143,7 @@ public class BigQueryExpression {
 
                 case NOT:
                     return onlyChildAs(call, CallExpression.class)
-                            .flatMap(BigQueryExpression::convert)
+                            .flatMap(BigQueryRestriction::convert)
                             .map(field -> "NOT " + field);
 
                 case AND:

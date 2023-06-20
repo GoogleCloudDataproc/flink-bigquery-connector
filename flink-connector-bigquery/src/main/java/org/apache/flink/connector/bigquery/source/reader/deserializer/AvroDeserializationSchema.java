@@ -18,7 +18,9 @@ package org.apache.flink.connector.bigquery.source.reader.deserializer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 
 import java.io.IOException;
@@ -31,6 +33,12 @@ import java.io.IOException;
 public class AvroDeserializationSchema
         implements BigQueryDeserializationSchema<GenericRecord, GenericRecord> {
 
+    private final String avroSchemaString;
+
+    public AvroDeserializationSchema(String avroSchemaString) {
+        this.avroSchemaString = avroSchemaString;
+    }
+
     @Override
     public GenericRecord deserialize(GenericRecord record) throws IOException {
         return record;
@@ -38,6 +46,6 @@ public class AvroDeserializationSchema
 
     @Override
     public TypeInformation<GenericRecord> getProducedType() {
-        return TypeInformation.of(GenericRecord.class);
+        return new GenericRecordAvroTypeInfo(new Schema.Parser().parse(avroSchemaString));
     }
 }

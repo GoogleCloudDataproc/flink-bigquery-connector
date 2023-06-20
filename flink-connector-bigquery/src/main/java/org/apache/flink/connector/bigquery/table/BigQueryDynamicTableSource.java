@@ -20,8 +20,13 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
+import org.apache.flink.connector.bigquery.services.BigQueryServices;
+import org.apache.flink.connector.bigquery.services.BigQueryServicesFactory;
 import org.apache.flink.connector.bigquery.source.BigQuerySource;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
+import org.apache.flink.connector.bigquery.table.restrictions.BigQueryPartition;
+import org.apache.flink.connector.bigquery.table.restrictions.BigQueryRestriction;
 import org.apache.flink.connector.bigquery.table.serde.AvroToRowDataDeserializationSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.source.DynamicTableSource;
@@ -29,6 +34,7 @@ import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsLimitPushDown;
+import org.apache.flink.table.connector.source.abilities.SupportsPartitionPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.expressions.ResolvedExpression;
@@ -37,6 +43,7 @@ import org.apache.flink.table.types.logical.RowType;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,7 +56,8 @@ public class BigQueryDynamicTableSource
         implements ScanTableSource,
                 SupportsProjectionPushDown,
                 SupportsLimitPushDown,
-                SupportsFilterPushDown {
+                SupportsFilterPushDown,
+                SupportsPartitionPushDown {
 
     private BigQueryReadOptions readOptions;
     private DataType producedDataType;
@@ -119,7 +127,7 @@ public class BigQueryDynamicTableSource
                         .map(
                                 exp ->
                                         Tuple2.<ResolvedExpression, Optional<String>>of(
-                                                exp, BigQueryExpression.convert(exp)))
+                                                exp, BigQueryRestriction.convert(exp)))
                         .map(
                                 transExp ->
                                         Tuple3.<Boolean, String, ResolvedExpression>of(
@@ -169,5 +177,65 @@ public class BigQueryDynamicTableSource
             return false;
         }
         return Objects.equals(this.limit, other.limit);
+    }
+
+    @Override
+    public Optional<List<Map<String, String>>> listPartitions() {
+        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
+        BigQueryServices.QueryDataClient dataClient =
+                BigQueryServicesFactory.instance(connectOptions)
+                        .queryClient(connectOptions.getCredentialsOptions());
+        return dataClient
+                // get the column name that is a partition, maybe none.
+                .retrievePartitionColumnName(
+                        connectOptions.getProjectId(),
+                        connectOptions.getDataset(),
+                        connectOptions.getTable())
+                .map(
+                        tuple -> {
+                            // we retrieve the existing partition ids and transform them into valid
+                            // values given the column data type
+                            return BigQueryPartition.partitionValuesFromIdAndDataType(
+                                            dataClient.retrieveTablePartitions(
+                                                    connectOptions.getProjectId(),
+                                                    connectOptions.getDataset(),
+                                                    connectOptions.getTable()),
+                                            tuple.f1)
+                                    .stream()
+                                    // for each of those valid partition values we create an map
+                                    // with the column name and the value
+                                    .map(
+                                            pValue -> {
+                                                Map<String, String> partitionColAndValue =
+                                                        new HashMap<>();
+                                                partitionColAndValue.put(tuple.f0, pValue);
+                                                return partitionColAndValue;
+                                            })
+                                    .collect(Collectors.toList());
+                        });
+    }
+
+    @Override
+    public void applyPartitions(List<Map<String, String>> remainingPartitions) {
+        this.readOptions =
+                this.readOptions
+                        .toBuilder()
+                        .setRowRestriction(
+                                // lets set the row restriction concating previously set restriction
+                                // (coming from the table definition) with the partition restriction
+                                // sent by Flink planner.
+                                this.readOptions.getRowRestriction()
+                                        + " AND "
+                                        + remainingPartitions.stream()
+                                                .flatMap(map -> map.entrySet().stream())
+                                                .map(
+                                                        entry ->
+                                                                "("
+                                                                        + entry.getKey()
+                                                                        + "="
+                                                                        + entry.getValue()
+                                                                        + ")")
+                                                .collect(Collectors.joining(" AND ")))
+                        .build();
     }
 }

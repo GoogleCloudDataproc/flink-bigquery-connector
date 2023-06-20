@@ -14,8 +14,9 @@
  * the License.
  */
 
-package org.apache.flink.connector.bigquery.utils;
+package org.apache.flink.connector.bigquery.fakes;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
 import org.apache.flink.connector.bigquery.common.config.CredentialsOptions;
 import org.apache.flink.connector.bigquery.services.BigQueryServices;
@@ -24,6 +25,8 @@ import org.apache.flink.util.function.SerializableFunction;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
+import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.AvroSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
@@ -44,15 +47,17 @@ import org.apache.avro.util.RandomData;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /** Utility class to generate mocked objects for the BQ storage client. */
-public class StorageClientMocker {
+public class StorageClientFaker {
 
     /** Implementation for the BigQuery services for testing purposes. */
     public static class FakeBigQueryServices implements BigQueryServices {
@@ -67,6 +72,28 @@ public class StorageClientMocker {
         public StorageReadClient getStorageClient(CredentialsOptions readOptions)
                 throws IOException {
             return storageReadClient;
+        }
+
+        @Override
+        public QueryDataClient getQueryDataClient(CredentialsOptions readOptions) {
+            return new QueryDataClient() {
+                @Override
+                public List<String> retrieveTablePartitions(
+                        String project, String dataset, String table) {
+                    return new ArrayList<>();
+                }
+
+                @Override
+                public Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
+                        String project, String dataset, String table) {
+                    return Optional.empty();
+                }
+
+                @Override
+                public TableSchema getTableSchema(String project, String dataset, String table) {
+                    return new TableSchema();
+                }
+            };
         }
 
         /** Implementation of the server stream for testing purposes. */
@@ -249,7 +276,7 @@ public class StorageClientMocker {
                 expectedRowCount,
                 expectedReadStreamCount,
                 avroSchemaString,
-                params -> StorageClientMocker.createRecordList(params));
+                params -> StorageClientFaker.createRecordList(params));
     }
 
     public static BigQueryReadOptions createReadOptions(
@@ -264,12 +291,13 @@ public class StorageClientMocker {
                                 .setDataset("dataset")
                                 .setProjectId("project")
                                 .setTable("table")
+                                .setCredentialsOptions(null)
                                 .setTestingBigQueryServices(
                                         () -> {
-                                            return new StorageClientMocker.FakeBigQueryServices(
-                                                    new StorageClientMocker.FakeBigQueryServices
+                                            return new StorageClientFaker.FakeBigQueryServices(
+                                                    new StorageClientFaker.FakeBigQueryServices
                                                             .FakeBigQueryStorageReadClient(
-                                                            StorageClientMocker.fakeReadSession(
+                                                            StorageClientFaker.fakeReadSession(
                                                                     expectedRowCount,
                                                                     expectedReadStreamCount,
                                                                     avroSchemaString),

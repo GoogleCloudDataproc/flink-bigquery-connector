@@ -93,7 +93,8 @@ public abstract class BigQueryConnectOptions implements Serializable {
      * @throws java.io.IOException
      */
     public static Builder builder() throws IOException {
-        return new AutoValue_BigQueryConnectOptions.Builder();
+        return new AutoValue_BigQueryConnectOptions.Builder()
+                .setCredentialsOptions(CredentialsOptions.builder().build());
     }
 
     /** Builder class for BigQueryConnectOptions. */

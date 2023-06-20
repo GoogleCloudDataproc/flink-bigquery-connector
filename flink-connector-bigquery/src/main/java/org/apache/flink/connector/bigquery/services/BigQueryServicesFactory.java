@@ -68,6 +68,19 @@ public class BigQueryServicesFactory {
         return SERVICES.getStorageClient(credentialsOptions);
     }
 
+    /**
+     * Returns a BigQuery query data client, given the factory's current internal state.
+     *
+     * @param credentialsOptions The GCP auth credentials options.
+     * @return A BigQuery query data client.
+     */
+    public BigQueryServices.QueryDataClient queryClient(CredentialsOptions credentialsOptions) {
+        if (isTestingEnabled) {
+            return testingServices.getQueryDataClient(credentialsOptions);
+        }
+        return SERVICES.getQueryDataClient(credentialsOptions);
+    }
+
     @VisibleForTesting
     BigQueryServicesFactory withTestingServices(BigQueryServices testingServices) {
         Preconditions.checkNotNull(testingServices);
