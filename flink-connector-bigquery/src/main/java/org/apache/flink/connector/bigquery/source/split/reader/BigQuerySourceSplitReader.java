@@ -90,7 +90,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             return respBuilder.build();
         }
 
-        BigQuerySourceSplit currentSplit = assignedSplits.peek();
+        BigQuerySourceSplit assignedSplit = assignedSplits.peek();
 
         try (StorageReadClient client =
                 BigQueryServicesFactory.instance(readOptions.getBigQueryConnectOptions())
@@ -98,16 +98,24 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                                 readOptions.getBigQueryConnectOptions().getCredentialsOptions())) {
             ReadRowsRequest readRequest =
                     ReadRowsRequest.newBuilder()
-                            .setReadStream(currentSplit.getStreamName())
-                            .setOffset(currentSplit.getOffset())
+                            .setReadStream(assignedSplit.getStreamName())
+                            .setOffset(assignedSplit.getOffset())
                             .build();
 
             BigQueryServerStream<ReadRowsResponse> stream = client.readRows(readRequest);
+            int limit = readOptions.getMaxRecordsPerSplitFetch();
+            int read = 0;
+            Boolean truncated = false;
             GenericRecordReader reader = null;
             for (ReadRowsResponse response : stream) {
-                Preconditions.checkState(response.hasAvroRows());
-                Preconditions.checkState(response.hasAvroSchema());
+                if (!response.hasAvroRows()) {
+                    LOG.debug("The response contained no avro records, finishing split.");
+                }
                 if (reader == null) {
+                    Preconditions.checkState(
+                            response.hasAvroSchema(),
+                            "The response does not contain an Avro schema,"
+                                    + " which is needed to decode records.");
                     reader =
                             new GenericRecordReader(
                                     new Schema.Parser()
@@ -115,25 +123,42 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 }
 
                 for (GenericRecord record : reader.processRows(response.getAvroRows())) {
-                    respBuilder.add(currentSplit, record);
+                    respBuilder.add(assignedSplit, record);
                     readerContext.getReadCount().incrementAndGet();
                     if (readerContext.isOverLimit()) {
+                        break;
+                    }
+                    if (++read == limit) {
+                        truncated = true;
                         break;
                     }
                 }
                 if (readerContext.isOverLimit()) {
                     break;
                 }
+                if (read == limit) {
+                    break;
+                }
             }
-            respBuilder.addFinishedSplit(currentSplit.splitId());
             assignedSplits.poll();
+            if (!truncated) {
+                respBuilder.addFinishedSplit(assignedSplit.splitId());
+            } else {
+                BigQuerySourceSplit inProcess =
+                        new BigQuerySourceSplit(
+                                assignedSplit.getStreamName(), assignedSplit.getOffset() + read);
+                assignedSplits.add(inProcess);
+            }
             return respBuilder.build();
         } catch (Exception ex) {
             throw new IOException(
                     String.format(
-                            "Problems while reading stream %s from BigQuery with connection info %s.",
-                            Optional.ofNullable(currentSplit.getStreamName()).orElse("NA"),
-                            readOptions.toString()),
+                            "Problems while reading stream %s from BigQuery with connection"
+                                    + " info %s. Current split offset %d, read session offset %d.",
+                            Optional.ofNullable(assignedSplit.getStreamName()).orElse("NA"),
+                            readOptions.toString(),
+                            assignedSplit.getOffset(),
+                            readerContext.getReadCount().get()),
                     ex);
         }
     }
@@ -169,14 +194,11 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     static class GenericRecordReader {
 
-        private final DatumReader<GenericRecord> datumReader;
-
-        // Decoder object will be reused to avoid re-allocation and too much garbage collection.
-        private BinaryDecoder decoder = null;
+        private final Schema schema;
 
         public GenericRecordReader(Schema schema) {
             Preconditions.checkNotNull(schema);
-            datumReader = new GenericDatumReader<>(schema);
+            this.schema = schema;
         }
 
         /**
@@ -185,11 +207,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
          * @param avroRows object returned from the ReadRowsResponse.
          */
         public List<GenericRecord> processRows(AvroRows avroRows) throws IOException {
-            decoder =
+            BinaryDecoder decoder =
                     DecoderFactory.get()
-                            .binaryDecoder(
-                                    avroRows.getSerializedBinaryRows().toByteArray(), decoder);
-
+                            .binaryDecoder(avroRows.getSerializedBinaryRows().toByteArray(), null);
+            DatumReader<GenericRecord> datumReader = new GenericDatumReader<>(schema);
             List<GenericRecord> records = new ArrayList<>();
             GenericRecord row;
             while (!decoder.isEnd()) {

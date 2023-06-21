@@ -44,6 +44,8 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract Integer getMaxStreamCount();
 
+    public abstract Integer getMaxRecordsPerSplitFetch();
+
     public abstract BigQueryConnectOptions getBigQueryConnectOptions();
 
     @Override
@@ -101,7 +103,8 @@ public abstract class BigQueryReadOptions implements Serializable {
         return new AutoValue_BigQueryReadOptions.Builder()
                 .setRowRestriction("")
                 .setColumnNames(new ArrayList<>())
-                .setMaxStreamCount(0)
+                .setMaxStreamCount(10000)
+                .setMaxRecordsPerSplitFetch(10000)
                 .setSnapshotTimestampInMillis(null);
     }
 
@@ -143,6 +146,16 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @return This {@link Builder} instance.
          */
         public abstract Builder setMaxStreamCount(Integer maxStreamCount);
+
+        /**
+         * Sets the maximum number of records to read from a streams once a fetch has been requested
+         * from a particular split. Configuring this number too high may cause memory pressure in
+         * the task manager, depending on the BigQuery record's size and total rows on the stream.
+         *
+         * @param maxStreamCount The maximum number records to read from a split at a time.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setMaxRecordsPerSplitFetch(Integer maxStreamCount);
 
         /**
          * Sets the {@link BigQueryConnectOptions} instance.

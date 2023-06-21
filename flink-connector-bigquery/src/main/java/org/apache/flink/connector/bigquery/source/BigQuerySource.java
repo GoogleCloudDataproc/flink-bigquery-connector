@@ -173,9 +173,10 @@ public abstract class BigQuerySource<OUT>
     }
 
     /**
-     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
-     * the data (mimicking the table's schema).In case of projecting the columns of the table a new
-     * de-serialization schema should be provided (considering the new result projected schema).
+     * Creates an instance of the source, limiting the record retrieval to the provided limit and
+     * setting Avro {@link GenericRecord} as the return type for the data (mimicking the table's
+     * schema). In case of projecting the columns of the table a new de-serialization schema should
+     * be provided (considering the new result projected schema).
      *
      * @param readOptions The read options for this source
      * @param limit the max quantity of records to be returned.
@@ -206,6 +207,19 @@ public abstract class BigQuerySource<OUT>
                 .setLimit(limit)
                 .setReadOptions(readOptions)
                 .build();
+    }
+
+    /**
+     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
+     * the data (mimicking the table's schema).In case of projecting the columns of the table a new
+     * de-serialization schema should be provided (considering the new result projected schema).
+     *
+     * @param readOptions The read options for this source
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> readAvros(BigQueryReadOptions readOptions) {
+        return readAvros(readOptions, -1);
     }
 
     /**

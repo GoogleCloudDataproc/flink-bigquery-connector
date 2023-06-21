@@ -178,6 +178,7 @@ public class BigQueryServiceImpl implements BigQueryServices {
                                                 "  `%s.%s.INFORMATION_SCHEMA.PARTITIONS`",
                                                 project, dataset),
                                         "WHERE",
+                                        " partition_id <> '__STREAMING_UNPARTITIONED__'",
                                         String.format(" table_catalog = '%s'", project),
                                         String.format(" AND table_schema = '%s'", dataset),
                                         String.format(" AND table_name = '%s'", table),

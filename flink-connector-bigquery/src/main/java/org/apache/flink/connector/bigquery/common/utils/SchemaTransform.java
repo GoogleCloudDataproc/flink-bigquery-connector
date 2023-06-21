@@ -200,7 +200,12 @@ public class SchemaTransform {
                                                                         field
                                                                                 .getDefaultValueExpression())
                                                                 .setCollation(field.getCollation())
-                                                                .setMode(field.getMode().name())
+                                                                .setMode(
+                                                                        Optional.ofNullable(
+                                                                                        field
+                                                                                                .getMode())
+                                                                                .map(m -> m.name())
+                                                                                .orElse(null))
                                                                 .setType(field.getType().name())
                                                                 .setFields(
                                                                         fieldListToListOfTableFieldSchema(
