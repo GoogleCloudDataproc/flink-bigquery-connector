@@ -103,7 +103,7 @@ public abstract class BigQueryReadOptions implements Serializable {
         return new AutoValue_BigQueryReadOptions.Builder()
                 .setRowRestriction("")
                 .setColumnNames(new ArrayList<>())
-                .setMaxStreamCount(10000)
+                .setMaxStreamCount(0)
                 .setMaxRecordsPerSplitFetch(10000)
                 .setSnapshotTimestampInMillis(null);
     }
