@@ -18,12 +18,15 @@
 package org.apache.flink.examples.gcp.bigquery;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
 import org.apache.flink.connector.bigquery.source.BigQuerySource;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.util.Collector;
 
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
@@ -51,21 +54,24 @@ public class BigQueryExample {
                     "Missing parameters!\n"
                             + "Usage: flink run <additional runtime params> BigQuery.jar"
                             + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
-                            + " --bq-table <table name>");
+                            + " --bq-table <table name> --limit <# records>");
             return;
         }
 
         String projectName = parameterTool.getRequired("gcp-project");
         String datasetName = parameterTool.getRequired("bq-dataset");
         String tableName = parameterTool.getRequired("bq-table");
+        Integer recordLimit = Integer.valueOf(parameterTool.getRequired("limit"));
 
-        runFlinkJob(projectName, datasetName, tableName);
+        runFlinkJob(projectName, datasetName, tableName, recordLimit);
     }
 
-    private static void runFlinkJob(String projectName, String datasetName, String tableName)
+    private static void runFlinkJob(
+            String projectName, String datasetName, String tableName, Integer limit)
             throws Exception {
+
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(5000L);
+        env.enableCheckpointing(60000L);
 
         // we will be reading avro generic records from BigQuery, and in this case we are assuming
         // the
@@ -82,31 +88,42 @@ public class BigQueryExample {
                                                 .setDataset(datasetName)
                                                 .setTable(tableName)
                                                 .build())
+                                .setRowRestriction(
+                                        "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'")
                                 .build(),
-                        10);
+                        limit);
+
+        CollectSink sink = new CollectSink();
+        sink.VALUES.clear();
 
         env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                .map(BigQueryExample::printAndReturn)
-                .disableChaining()
-                .addSink(new CollectSink());
+                .flatMap(new FlatMapper())
+                .keyBy(t -> t.f0)
+                .max("f1")
+                .addSink(sink);
 
         env.execute("Flink BigQuery Reader");
-        LOG.info("Retrieved data from table: {}", CollectSink.VALUES.toString());
+        LOG.info("Retrieved most utilized uuid key from table: {}", CollectSink.VALUES.toString());
     }
 
-    private static String printAndReturn(GenericRecord record) {
-        String stringRecord = record.toString();
-        LOG.info("Processed message with payload: " + stringRecord);
-        return stringRecord;
+    static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
+
+        @Override
+        public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
+                throws Exception {
+            out.collect(Tuple2.<String, Integer>of((String) record.get("uuid").toString(), 1));
+        }
     }
 
     // Simple sink that accumulates in a static variable the read records as strings
-    private static class CollectSink implements SinkFunction<String> {
+    private static class CollectSink implements SinkFunction<Tuple2<String, Integer>> {
 
-        public static final List<String> VALUES = Collections.synchronizedList(new ArrayList<>());
+        public static final List<Tuple2<String, Integer>> VALUES =
+                Collections.synchronizedList(new ArrayList<>());
 
         @Override
-        public void invoke(String value, SinkFunction.Context context) throws Exception {
+        public void invoke(Tuple2<String, Integer> value, SinkFunction.Context context)
+                throws Exception {
             VALUES.add(value);
         }
     }
