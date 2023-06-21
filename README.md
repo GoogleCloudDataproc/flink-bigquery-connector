@@ -18,7 +18,7 @@ Prerequisites:
 * Java 11
 
 ```
-git clone <yet-to-be-defined-repository>
+git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
 cd flink-connector-bigquery
 mvn clean package -DskipTests
 ```
