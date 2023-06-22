@@ -139,7 +139,7 @@ public class SchemaTransform {
         Schema fieldSchema;
         if (bigQueryField.getMode() == null || "NULLABLE".equals(bigQueryField.getMode())) {
             fieldSchema = Schema.createUnion(Schema.create(Type.NULL), elementSchema);
-        } else if ("REQUIRED".equals(bigQueryField.getMode())) {
+        } else if (Objects.equals(bigQueryField.getMode(), "REQUIRED")) {
             fieldSchema = elementSchema;
         } else if ("REPEATED".equals(bigQueryField.getMode())) {
             fieldSchema = Schema.createArray(elementSchema);
