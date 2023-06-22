@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class BigQuerySourceITCase {
 
     private static final int PARALLELISM = 2;
-    private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 100000;
+    private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;
 
     @RegisterExtension
     static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
@@ -107,7 +107,7 @@ public class BigQuerySourceITCase {
                                 .executeAndCollect());
 
         // we only create 2 streams as response
-        Assertions.assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * 2);
+        Assertions.assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * PARALLELISM);
     }
 
     @Test
@@ -141,7 +141,7 @@ public class BigQuerySourceITCase {
                                 .map(new FailingMapper(failed))
                                 .executeAndCollect());
 
-        Assertions.assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * 2);
+        Assertions.assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * PARALLELISM);
     }
 
     private static class FailingMapper

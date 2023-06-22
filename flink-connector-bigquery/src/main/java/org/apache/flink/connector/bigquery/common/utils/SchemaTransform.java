@@ -26,8 +26,6 @@ import com.google.cloud.bigquery.FieldList;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.apache.avro.Schema.Field;
-import org.apache.avro.Schema.Type;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -36,7 +34,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** */
+/**
+ * A utility class that helps on the transformation of BigQuery {@link TableSchema} into Avro {@link
+ * Schema}. Some methods are heavily influenced on the Apache Beam implementation (not externally
+ * accessible methods).
+ */
 public class SchemaTransform {
 
     static final String NAMESPACE = "org.apache.flink.connector.bigquery";
@@ -46,28 +48,28 @@ public class SchemaTransform {
      * <p>Some BigQuery types are duplicated here since slightly different Avro records are produced
      * when exporting data in Avro format and when reading data directly using the read API.
      */
-    static final ImmutableMultimap<String, Type> BIG_QUERY_TO_AVRO_TYPES =
-            ImmutableMultimap.<String, Type>builder()
-                    .put("STRING", Type.STRING)
-                    .put("GEOGRAPHY", Type.STRING)
-                    .put("BYTES", Type.BYTES)
-                    .put("INTEGER", Type.LONG)
-                    .put("INT64", Type.LONG)
-                    .put("FLOAT", Type.DOUBLE)
-                    .put("FLOAT64", Type.DOUBLE)
-                    .put("NUMERIC", Type.BYTES)
-                    .put("BIGNUMERIC", Type.BYTES)
-                    .put("BOOLEAN", Type.BOOLEAN)
-                    .put("BOOL", Type.BOOLEAN)
-                    .put("TIMESTAMP", Type.LONG)
-                    .put("RECORD", Type.RECORD)
-                    .put("STRUCT", Type.RECORD)
-                    .put("DATE", Type.STRING)
-                    .put("DATE", Type.INT)
-                    .put("DATETIME", Type.STRING)
-                    .put("TIME", Type.STRING)
-                    .put("TIME", Type.LONG)
-                    .put("JSON", Type.STRING)
+    static final ImmutableMultimap<String, Schema.Type> BIG_QUERY_TO_AVRO_TYPES =
+            ImmutableMultimap.<String, Schema.Type>builder()
+                    .put("STRING", Schema.Type.STRING)
+                    .put("GEOGRAPHY", Schema.Type.STRING)
+                    .put("BYTES", Schema.Type.BYTES)
+                    .put("INTEGER", Schema.Type.LONG)
+                    .put("INT64", Schema.Type.LONG)
+                    .put("FLOAT", Schema.Type.DOUBLE)
+                    .put("FLOAT64", Schema.Type.DOUBLE)
+                    .put("NUMERIC", Schema.Type.BYTES)
+                    .put("BIGNUMERIC", Schema.Type.BYTES)
+                    .put("BOOLEAN", Schema.Type.BOOLEAN)
+                    .put("BOOL", Schema.Type.BOOLEAN)
+                    .put("TIMESTAMP", Schema.Type.LONG)
+                    .put("RECORD", Schema.Type.RECORD)
+                    .put("STRUCT", Schema.Type.RECORD)
+                    .put("DATE", Schema.Type.STRING)
+                    .put("DATE", Schema.Type.INT)
+                    .put("DATETIME", Schema.Type.STRING)
+                    .put("TIME", Schema.Type.STRING)
+                    .put("TIME", Schema.Type.LONG)
+                    .put("JSON", Schema.Type.STRING)
                     .build();
 
     public static Schema toGenericAvroSchema(
@@ -76,7 +78,7 @@ public class SchemaTransform {
         String nextNamespace =
                 namespace == null ? null : String.format("%s.%s", namespace, schemaName);
 
-        List<Field> avroFields = new ArrayList<>();
+        List<Schema.Field> avroFields = new ArrayList<>();
         for (TableFieldSchema bigQueryField : fieldSchemas) {
             avroFields.add(convertField(bigQueryField, nextNamespace));
         }
@@ -118,8 +120,9 @@ public class SchemaTransform {
     @SuppressWarnings({
         "nullness" // Avro library not annotated
     })
-    private static Field convertField(TableFieldSchema bigQueryField, String namespace) {
-        ImmutableCollection<Type> avroTypes = BIG_QUERY_TO_AVRO_TYPES.get(bigQueryField.getType());
+    private static Schema.Field convertField(TableFieldSchema bigQueryField, String namespace) {
+        ImmutableCollection<Schema.Type> avroTypes =
+                BIG_QUERY_TO_AVRO_TYPES.get(bigQueryField.getType());
         if (avroTypes.isEmpty()) {
             throw new IllegalArgumentException(
                     "Unable to map BigQuery field type "
@@ -127,9 +130,9 @@ public class SchemaTransform {
                             + " to avro type.");
         }
 
-        Type avroType = avroTypes.iterator().next();
+        Schema.Type avroType = avroTypes.iterator().next();
         Schema elementSchema;
-        if (avroType == Type.RECORD) {
+        if (avroType == Schema.Type.RECORD) {
             elementSchema =
                     toGenericAvroSchema(
                             bigQueryField.getName(), bigQueryField.getFields(), namespace);
@@ -138,7 +141,7 @@ public class SchemaTransform {
         }
         Schema fieldSchema;
         if (bigQueryField.getMode() == null || "NULLABLE".equals(bigQueryField.getMode())) {
-            fieldSchema = Schema.createUnion(Schema.create(Type.NULL), elementSchema);
+            fieldSchema = Schema.createUnion(Schema.create(Schema.Type.NULL), elementSchema);
         } else if ("REQUIRED".equals(bigQueryField.getMode())) {
             fieldSchema = elementSchema;
         } else if ("REPEATED".equals(bigQueryField.getMode())) {
@@ -147,14 +150,15 @@ public class SchemaTransform {
             throw new IllegalArgumentException(
                     String.format("Unknown BigQuery Field Mode: %s", bigQueryField.getMode()));
         }
-        return new Field(
+        return new Schema.Field(
                 bigQueryField.getName(),
                 fieldSchema,
                 bigQueryField.getDescription(),
                 (Object) null /* Cast to avoid deprecated JsonNode constructor. */);
     }
 
-    private static Schema handleAvroLogicalTypes(TableFieldSchema bigQueryField, Type avroType) {
+    private static Schema handleAvroLogicalTypes(
+            TableFieldSchema bigQueryField, Schema.Type avroType) {
         String bqType = bigQueryField.getType();
         switch (bqType) {
             case "NUMERIC":
@@ -164,7 +168,7 @@ public class SchemaTransform {
                         Optional.ofNullable(bigQueryField.getPrecision()).orElse(38L).intValue();
                 int scale = Optional.ofNullable(bigQueryField.getScale()).orElse(9L).intValue();
                 return LogicalTypes.decimal(precision, scale)
-                        .addToSchema(Schema.create(Type.BYTES));
+                        .addToSchema(Schema.create(Schema.Type.BYTES));
             case "BIGNUMERIC":
                 // Default value based on
                 // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#decimal_types
@@ -173,11 +177,11 @@ public class SchemaTransform {
                 int scaleBigNumeric =
                         Optional.ofNullable(bigQueryField.getScale()).orElse(38L).intValue();
                 return LogicalTypes.decimal(precisionBigNumeric, scaleBigNumeric)
-                        .addToSchema(Schema.create(Type.BYTES));
+                        .addToSchema(Schema.create(Schema.Type.BYTES));
             case "TIMESTAMP":
-                return LogicalTypes.timestampMicros().addToSchema(Schema.create(Type.LONG));
+                return LogicalTypes.timestampMicros().addToSchema(Schema.create(Schema.Type.LONG));
             case "GEOGRAPHY":
-                Schema geoSchema = Schema.create(Type.STRING);
+                Schema geoSchema = Schema.create(Schema.Type.STRING);
                 geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
                 return geoSchema;
             default:

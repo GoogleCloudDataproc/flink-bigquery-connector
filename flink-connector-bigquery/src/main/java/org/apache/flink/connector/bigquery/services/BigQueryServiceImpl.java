@@ -44,6 +44,7 @@ import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
+import org.threeten.bp.Duration;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -117,9 +118,9 @@ public class BigQueryServiceImpl implements BigQueryServices {
                     createReadSessionSettings
                             .getRetrySettings()
                             .toBuilder()
-                            .setInitialRpcTimeout(org.threeten.bp.Duration.ofHours(2))
-                            .setMaxRpcTimeout(org.threeten.bp.Duration.ofHours(2))
-                            .setTotalTimeout(org.threeten.bp.Duration.ofHours(2))
+                            .setInitialRpcTimeout(Duration.ofHours(2))
+                            .setMaxRpcTimeout(Duration.ofHours(2))
+                            .setTotalTimeout(Duration.ofHours(2))
                             .build());
 
             UnaryCallSettings.Builder<SplitReadStreamRequest, SplitReadStreamResponse>
@@ -130,9 +131,9 @@ public class BigQueryServiceImpl implements BigQueryServices {
                     splitReadStreamSettings
                             .getRetrySettings()
                             .toBuilder()
-                            .setInitialRpcTimeout(org.threeten.bp.Duration.ofSeconds(30))
-                            .setMaxRpcTimeout(org.threeten.bp.Duration.ofSeconds(30))
-                            .setTotalTimeout(org.threeten.bp.Duration.ofSeconds(30))
+                            .setInitialRpcTimeout(Duration.ofSeconds(30))
+                            .setMaxRpcTimeout(Duration.ofSeconds(30))
+                            .setTotalTimeout(Duration.ofSeconds(30))
                             .build());
 
             this.client = BigQueryReadClient.create(settingsBuilder.build());

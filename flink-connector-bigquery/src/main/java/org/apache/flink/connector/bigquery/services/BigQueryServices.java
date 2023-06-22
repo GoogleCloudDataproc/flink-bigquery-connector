@@ -85,8 +85,8 @@ public interface BigQueryServices extends Serializable {
         /**
          * Read rows in the context of a specific read stream.
          *
-         * @param request
-         * @return
+         * @param request The request for the storage API
+         * @return a server stream response with the read rows.
          */
         BigQueryServerStream<ReadRowsResponse> readRows(ReadRowsRequest request);
 

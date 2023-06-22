@@ -142,6 +142,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             }
             assignedSplits.poll();
             if (!truncated) {
+                LOG.info("Completing read for split: {}", assignedSplit.splitId());
                 respBuilder.addFinishedSplit(assignedSplit.splitId());
             } else {
                 BigQuerySourceSplit inProcess =

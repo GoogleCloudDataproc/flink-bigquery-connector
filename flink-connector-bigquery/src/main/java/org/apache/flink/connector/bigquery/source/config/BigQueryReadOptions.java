@@ -20,6 +20,8 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
+
 import com.google.auto.value.AutoValue;
 import org.threeten.bp.Instant;
 
@@ -35,7 +37,7 @@ import java.util.Objects;
 @PublicEvolving
 public abstract class BigQueryReadOptions implements Serializable {
 
-    public abstract List<String> getColumnNames();
+    public abstract ImmutableList<String> getColumnNames();
 
     public abstract String getRowRestriction();
 
@@ -49,7 +51,7 @@ public abstract class BigQueryReadOptions implements Serializable {
     public abstract BigQueryConnectOptions getBigQueryConnectOptions();
 
     @Override
-    public int hashCode() {
+    public final int hashCode() {
         int hash = 5;
         hash = 61 * hash + Objects.hashCode(getColumnNames());
         hash = 61 * hash + Objects.hashCode(getRowRestriction());
@@ -60,7 +62,7 @@ public abstract class BigQueryReadOptions implements Serializable {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public final boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
@@ -167,7 +169,11 @@ public abstract class BigQueryReadOptions implements Serializable {
 
         abstract BigQueryReadOptions autoBuild();
 
-        /** @return A fully initialized {@link BigQueryReadOptions} instance. */
+        /**
+         * A fully initialized {@link BigQueryReadOptions} instance.
+         *
+         * @return A {@link BigQueryReadOptions} instance.
+         */
         public final BigQueryReadOptions build() {
             BigQueryReadOptions readOptions = autoBuild();
             Preconditions.checkState(

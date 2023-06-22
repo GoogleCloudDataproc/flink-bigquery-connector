@@ -23,6 +23,8 @@ import org.apache.flink.connector.bigquery.services.BigQueryServicesFactory;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.connector.bigquery.source.enumerator.BigQuerySourceEnumState;
 
+import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
+
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
@@ -33,7 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,18 +51,18 @@ public class BigQuerySourceSplitAssigner {
 
     private final BigQueryReadOptions readOptions;
 
-    private final LinkedList<String> remainingTableStreams;
+    private final ArrayDeque<String> remainingTableStreams;
     private final List<String> alreadyProcessedTableStreams;
-    private final LinkedList<BigQuerySourceSplit> remainingSourceSplits;
+    private final ArrayDeque<BigQuerySourceSplit> remainingSourceSplits;
     private final Map<String, BigQuerySourceSplit> assignedSourceSplits;
     private boolean initialized;
 
     public BigQuerySourceSplitAssigner(
             BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
         this.readOptions = readOptions;
-        this.remainingTableStreams = new LinkedList<>(sourceEnumState.getRemaniningTableStreams());
+        this.remainingTableStreams = new ArrayDeque<>(sourceEnumState.getRemaniningTableStreams());
         this.alreadyProcessedTableStreams = sourceEnumState.getCompletedTableStreams();
-        this.remainingSourceSplits = new LinkedList<>(sourceEnumState.getRemainingSourceSplits());
+        this.remainingSourceSplits = new ArrayDeque<>(sourceEnumState.getRemainingSourceSplits());
         this.assignedSourceSplits = sourceEnumState.getAssignedSourceSplits();
         this.initialized = sourceEnumState.isInitialized();
     }
@@ -138,20 +140,18 @@ public class BigQuerySourceSplitAssigner {
 
     public void addSplitsBack(List<BigQuerySourceSplit> splits) {
         for (BigQuerySourceSplit split : splits) {
-            if (split instanceof BigQuerySourceSplit) {
-                remainingSourceSplits.add((BigQuerySourceSplit) split);
-                // we should remove the add-backed splits from the assigned list,
-                // because they are failed
-                assignedSourceSplits.remove(split.splitId());
-            }
+            remainingSourceSplits.add((BigQuerySourceSplit) split);
+            // we should remove the add-backed splits from the assigned list,
+            // because they are failed
+            assignedSourceSplits.remove(split.splitId());
         }
     }
 
     public BigQuerySourceEnumState snapshotState(long checkpointId) {
         return new BigQuerySourceEnumState(
-                remainingTableStreams,
+                Lists.newArrayList(remainingTableStreams),
                 alreadyProcessedTableStreams,
-                remainingSourceSplits,
+                Lists.newArrayList(remainingSourceSplits),
                 assignedSourceSplits,
                 initialized);
     }
