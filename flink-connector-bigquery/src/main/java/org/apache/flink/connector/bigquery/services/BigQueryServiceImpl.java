@@ -16,6 +16,7 @@
 
 package org.apache.flink.connector.bigquery.services;
 
+import com.google.api.client.http.HttpRequestInitializer;
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -29,9 +30,13 @@ import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.api.gax.rpc.ServerStream;
 import com.google.api.gax.rpc.UnaryCallSettings;
+import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableId;
@@ -52,6 +57,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.flink.runtime.util.EnvironmentInformation;
+import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
 
 /** Implementation of the {@link BigQueryServices} interface that wraps the actual clients. */
 @Internal
@@ -115,9 +122,7 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().createReadSessionSettings();
 
             createReadSessionSettings.setRetrySettings(
-                    createReadSessionSettings
-                            .getRetrySettings()
-                            .toBuilder()
+                    createReadSessionSettings.getRetrySettings().toBuilder()
                             .setInitialRpcTimeout(Duration.ofHours(2))
                             .setMaxRpcTimeout(Duration.ofHours(2))
                             .setTotalTimeout(Duration.ofHours(2))
@@ -128,9 +133,7 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().splitReadStreamSettings();
 
             splitReadStreamSettings.setRetrySettings(
-                    splitReadStreamSettings
-                            .getRetrySettings()
-                            .toBuilder()
+                    splitReadStreamSettings.getRetrySettings().toBuilder()
                             .setInitialRpcTimeout(Duration.ofSeconds(30))
                             .setMaxRpcTimeout(Duration.ofSeconds(30))
                             .setTotalTimeout(Duration.ofSeconds(30))
@@ -167,6 +170,15 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             .getService();
         }
 
+         private static Bigquery.Builder newBigQueryClient(CredentialsOptions options) {
+
+
+    return new Bigquery.Builder(
+            Transport.getTransport(), Transport.getJsonFactory(), new HttpCredentialsAdapter(options.getCredentials()))
+        .setApplicationName("BigQuery Connector for Apache Flink version " + EnvironmentInformation.getVersion());
+  }
+        
+        
         @Override
         public List<String> retrieveTablePartitions(String project, String dataset, String table) {
             try {
@@ -255,6 +267,23 @@ public class BigQueryServiceImpl implements BigQueryServices {
                     bigQuery.getTable(TableId.of(project, dataset, table))
                             .getDefinition()
                             .getSchema());
+        }
+        
+        public static class QueryResultInfo implements Serializable {
+            
+            p
+        }
+
+        public Optional<> runQuery(String query) {
+            Job job =
+                    bigQuery.create(
+                            JobInfo.of(
+                                    QueryJobConfiguration.newBuilder(query)
+                                            .setUseQueryCache(true)
+                                            .build()));
+            job = job.waitFor();
+            job.getStatus().
+            if(job == null) 
         }
     }
 }
