@@ -106,23 +106,19 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             int limit = readOptions.getMaxRecordsPerSplitFetch();
             int read = 0;
             Boolean truncated = false;
-            GenericRecordReader reader = null;
+            Schema avroSchema = null;
             for (ReadRowsResponse response : stream) {
                 if (!response.hasAvroRows()) {
                     LOG.debug("The response contained no avro records, finishing split.");
                 }
-                if (reader == null) {
-                    Preconditions.checkState(
-                            response.hasAvroSchema(),
-                            "The response does not contain an Avro schema,"
-                                    + " which is needed to decode records.");
-                    reader =
-                            new GenericRecordReader(
-                                    new Schema.Parser()
-                                            .parse(response.getAvroSchema().getSchema()));
+                if (response.hasAvroSchema()) {
+                    // this will happen only the first time we read from a particular stream
+                    avroSchema = new Schema.Parser().parse(response.getAvroSchema().getSchema());
                 }
 
-                for (GenericRecord record : reader.processRows(response.getAvroRows())) {
+                for (GenericRecord record :
+                        GenericRecordReader.create(avroSchema)
+                                .processRows(response.getAvroRows())) {
                     respBuilder.add(assignedSplit, record);
                     readerContext.getReadCount().incrementAndGet();
                     if (readerContext.isOverLimit()) {
@@ -197,9 +193,13 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
         private final Schema schema;
 
-        public GenericRecordReader(Schema schema) {
-            Preconditions.checkNotNull(schema);
+        private GenericRecordReader(Schema schema) {
+            Preconditions.checkNotNull(schema, "The provided avro schema reference is null.");
             this.schema = schema;
+        }
+
+        public static GenericRecordReader create(Schema schema) {
+            return new GenericRecordReader(schema);
         }
 
         /**
