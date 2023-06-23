@@ -25,24 +25,29 @@ import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
 import org.apache.flink.connector.bigquery.source.BigQuerySource;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.util.Collector;
 
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 /**
- * A simple BigQuery example.
+ * A simple BigQuery table read example with Flink's DataStream API.
  *
- * <p>The Flink pipeline will try to read the specified BigQuery table, limiting the element count
- * to 10 and collect the results.
+ * <p>The Flink pipeline will try to read the specified BigQuery table, potentially limiting the
+ * element count to the specified row restriction and limit count, returning {@link GenericRecord}
+ * representing the rows, to finally prints out some aggregated values given the provided payload's
+ * field.
+ *
+ * <p>Note on row restriction: In case of including a restriction with a temporal reference,
+ * something like {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'"}, and
+ * launching the job from Flink's Rest API is known the single quotes are not supported and will
+ * make the pipeline fail. As a workaround for that case using \u0027 as a replacement will make it
+ * work, example {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = \u00272023-06-20
+ * 19:00:00\u0027"}.
  */
 public class BigQueryExample {
+
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryExample.class);
 
     public static void main(String[] args) throws Exception {
@@ -54,31 +59,46 @@ public class BigQueryExample {
                     "Missing parameters!\n"
                             + "Usage: flink run <additional runtime params> BigQuery.jar"
                             + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
-                            + " --bq-table <table name> --limit <# records>");
+                            + " --bq-table <table name> --agg-prop <payload's property>"
+                            + " --restriction <single-quoted string with row predicate>"
+                            + " --limit <optional: limit records returned>");
             return;
         }
 
         String projectName = parameterTool.getRequired("gcp-project");
         String datasetName = parameterTool.getRequired("bq-dataset");
         String tableName = parameterTool.getRequired("bq-table");
-        Integer recordLimit = Integer.valueOf(parameterTool.getRequired("limit"));
+        String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
+        Integer recordLimit = parameterTool.getInt("limit", 1000000);
+        String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
-        runFlinkJob(projectName, datasetName, tableName, recordLimit);
+        runFlinkJob(
+                projectName,
+                datasetName,
+                tableName,
+                recordPropertyToAggregate,
+                rowRestriction,
+                recordLimit);
     }
 
     private static void runFlinkJob(
-            String projectName, String datasetName, String tableName, Integer limit)
+            String projectName,
+            String datasetName,
+            String tableName,
+            String recordPropertyToAggregate,
+            String rowRestriction,
+            Integer limit)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(60000L);
 
-        // we will be reading avro generic records from BigQuery, and in this case we are assuming
-        // the
-        // GOOGLE_APPLICATION_CREDENTIALS env variable will be present in the execution runtime. In
-        // case
-        // of needing authenticate differently, the credentials builder (part of the
-        // BigQueryConnectOptions) should enable capturing the credentials from various sources.
+        /**
+         * we will be reading avro generic records from BigQuery, and in this case we are assuming
+         * the GOOGLE_APPLICATION_CREDENTIALS env variable will be present in the execution runtime.
+         * In case of needing authenticate differently, the credentials builder (part of the
+         * BigQueryConnectOptions) should enable capturing the credentials from various sources.
+         */
         BigQuerySource<GenericRecord> bqSource =
                 BigQuerySource.readAvros(
                         BigQueryReadOptions.builder()
@@ -88,43 +108,34 @@ public class BigQueryExample {
                                                 .setDataset(datasetName)
                                                 .setTable(tableName)
                                                 .build())
-                                .setRowRestriction(
-                                        "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'")
+                                .setRowRestriction(rowRestriction)
                                 .build(),
                         limit);
 
-        CollectSink sink = new CollectSink();
-        sink.VALUES.clear();
-
         env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                .flatMap(new FlatMapper())
+                .disableChaining()
+                .flatMap(new FlatMapper(recordPropertyToAggregate))
                 .keyBy(t -> t.f0)
                 .max("f1")
-                .addSink(sink);
+                .print();
 
         env.execute("Flink BigQuery Reader");
-        LOG.info("Retrieved most utilized uuid key from table: {}", CollectSink.VALUES.toString());
     }
 
     static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
 
+        private final String recordPropertyToAggregate;
+
+        public FlatMapper(String recordPropertyToAggregate) {
+            this.recordPropertyToAggregate = recordPropertyToAggregate;
+        }
+
         @Override
         public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
-            out.collect(Tuple2.<String, Integer>of((String) record.get("uuid").toString(), 1));
-        }
-    }
-
-    // Simple sink that accumulates in a static variable the read records as strings
-    private static class CollectSink implements SinkFunction<Tuple2<String, Integer>> {
-
-        public static final List<Tuple2<String, Integer>> VALUES =
-                Collections.synchronizedList(new ArrayList<>());
-
-        @Override
-        public void invoke(Tuple2<String, Integer> value, SinkFunction.Context context)
-                throws Exception {
-            VALUES.add(value);
+            out.collect(
+                    Tuple2.<String, Integer>of(
+                            (String) record.get(recordPropertyToAggregate).toString(), 1));
         }
     }
 }
