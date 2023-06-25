@@ -113,13 +113,12 @@ public class BigQueryExample {
                         limit);
 
         env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                .disableChaining()
                 .flatMap(new FlatMapper(recordPropertyToAggregate))
                 .keyBy(t -> t.f0)
                 .max("f1")
                 .print();
 
-        env.execute("Flink BigQuery Reader");
+        env.execute("Flink BigQuery Example");
     }
 
     static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
