@@ -28,8 +28,11 @@ import org.apache.flink.connector.bigquery.services.BigQueryServicesFactory;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.connector.bigquery.source.reader.BigQuerySourceReaderContext;
 import org.apache.flink.connector.bigquery.source.split.BigQuerySourceSplit;
+import org.apache.flink.dropwizard.metrics.DropwizardHistogramWrapper;
+import org.apache.flink.metrics.Histogram;
 import org.apache.flink.util.Preconditions;
 
+import com.codahale.metrics.SlidingWindowReservoir;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -43,8 +46,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
@@ -57,14 +60,53 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     private final BigQueryReadOptions readOptions;
     private final BigQuerySourceReaderContext readerContext;
+    private final transient Optional<Histogram> readPartialTimeMetric;
+    private final transient Optional<Histogram> readSplitTimeMetric;
+    private final Queue<BigQuerySourceSplit> assignedSplits = new ArrayDeque<>();
 
     private Boolean closed = false;
-    private final Queue<BigQuerySourceSplit> assignedSplits = new LinkedList<>();
+    private Integer readSoFar = 0;
+    private Long splitStartFetch;
 
     public BigQuerySourceSplitReader(
             BigQueryReadOptions readOptions, BigQuerySourceReaderContext readerContext) {
         this.readOptions = readOptions;
         this.readerContext = readerContext;
+        this.readPartialTimeMetric =
+                Optional.ofNullable(readerContext.metricGroup())
+                        .map(
+                                mgroup ->
+                                        mgroup.histogram(
+                                                "bq.split.read.partial.time.ms",
+                                                new DropwizardHistogramWrapper(
+                                                        new com.codahale.metrics.Histogram(
+                                                                new SlidingWindowReservoir(500)))));
+        this.readSplitTimeMetric =
+                Optional.ofNullable(readerContext.metricGroup())
+                        .map(
+                                mgroup ->
+                                        mgroup.histogram(
+                                                "bq.split.read.time.ms",
+                                                new DropwizardHistogramWrapper(
+                                                        new com.codahale.metrics.Histogram(
+                                                                new SlidingWindowReservoir(500)))));
+    }
+
+    Integer offsetToFetch(BigQuerySourceSplit split) {
+        // honor what is coming as checkpointed
+        if (split.getOffset() > 0) {
+            readSoFar = split.getOffset();
+            splitStartFetch = System.currentTimeMillis();
+        } else if (readSoFar == 0) {
+            // will start reading the stream from the beginning
+            splitStartFetch = System.currentTimeMillis();
+        }
+        LOG.info(
+                "[subtask #{}] Offset to fetch from {} for stream {}.",
+                readerContext.getIndexOfSubtask(),
+                readSoFar,
+                split.getStreamName());
+        return readSoFar;
     }
 
     @Override
@@ -80,8 +122,11 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             return respBuilder.build();
         }
 
-        // return when current read count is over limit
-        if (readerContext.isOverLimit()) {
+        // return when current read count is already over limit
+        if (readerContext.willItBeOverLimit(0)) {
+            LOG.info(
+                    "Completing reading because we are over limit (context reader count {})",
+                    readerContext.currentReadCount());
             respBuilder.addFinishedSplits(
                     assignedSplits.stream()
                             .map(split -> split.splitId())
@@ -91,6 +136,9 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         }
 
         BigQuerySourceSplit assignedSplit = assignedSplits.peek();
+        int maxRecordsPerSplitFetch = readOptions.getMaxRecordsPerSplitFetch();
+        int read = 0;
+        Boolean truncated = false;
 
         try (StorageReadClient client =
                 BigQueryServicesFactory.instance(readOptions.getBigQueryConnectOptions())
@@ -99,17 +147,18 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             ReadRowsRequest readRequest =
                     ReadRowsRequest.newBuilder()
                             .setReadStream(assignedSplit.getStreamName())
-                            .setOffset(assignedSplit.getOffset())
+                            .setOffset(offsetToFetch(assignedSplit))
                             .build();
 
             BigQueryServerStream<ReadRowsResponse> stream = client.readRows(readRequest);
-            int limit = readOptions.getMaxRecordsPerSplitFetch();
-            int read = 0;
-            Boolean truncated = false;
             Schema avroSchema = null;
+            Long itStarTime = System.currentTimeMillis();
             for (ReadRowsResponse response : stream) {
                 if (!response.hasAvroRows()) {
-                    LOG.debug("The response contained no avro records, finishing split.");
+                    LOG.info(
+                            "[subtask #{}] The response contained no avro records for stream {}.",
+                            readerContext.getIndexOfSubtask(),
+                            assignedSplit.getStreamName());
                 }
                 if (response.hasAvroSchema()) {
                     // this will happen only the first time we read from a particular stream
@@ -120,42 +169,53 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                         GenericRecordReader.create(avroSchema)
                                 .processRows(response.getAvroRows())) {
                     respBuilder.add(assignedSplit, record);
-                    readerContext.getReadCount().incrementAndGet();
-                    if (readerContext.isOverLimit()) {
+                    read++;
+                    // check if the read count will be over the limit
+                    if (readerContext.willItBeOverLimit(read)) {
                         break;
                     }
-                    if (++read == limit) {
+                    if (read == maxRecordsPerSplitFetch) {
                         truncated = true;
                         break;
                     }
                 }
-                if (readerContext.isOverLimit()) {
+                // in case of going over any of the limits
+                if (readerContext.willItBeOverLimit(read)) {
                     break;
                 }
-                if (read == limit) {
+                if (read == maxRecordsPerSplitFetch) {
                     break;
                 }
             }
-            assignedSplits.poll();
+            this.readPartialTimeMetric.ifPresent(
+                    m -> m.update(System.currentTimeMillis() - itStarTime));
+            readSoFar += read;
+            // check if we finished to read the stream to finalize the split
             if (!truncated) {
-                LOG.info("Completing read for split: {}", assignedSplit.splitId());
+                readerContext.updateReadCount(read);
+                LOG.info(
+                        "[subtask #{}] Completed reading {} records for split {}.",
+                        readerContext.getIndexOfSubtask(),
+                        readSoFar,
+                        assignedSplit.splitId());
+                readSoFar = 0;
+                assignedSplits.poll();
                 respBuilder.addFinishedSplit(assignedSplit.splitId());
-            } else {
-                BigQuerySourceSplit inProcess =
-                        new BigQuerySourceSplit(
-                                assignedSplit.getStreamName(), assignedSplit.getOffset() + read);
-                assignedSplits.add(inProcess);
+                this.readSplitTimeMetric.ifPresent(
+                        m -> m.update(System.currentTimeMillis() - splitStartFetch));
             }
             return respBuilder.build();
         } catch (Exception ex) {
             throw new IOException(
                     String.format(
-                            "Problems while reading stream %s from BigQuery with connection"
-                                    + " info %s. Current split offset %d, read session offset %d.",
+                            "[subtask #%d] Problems while reading stream %s from BigQuery"
+                                    + " with connection info %s. Current split offset %d,"
+                                    + " reader offset %d.",
+                            readerContext.getIndexOfSubtask(),
                             Optional.ofNullable(assignedSplit.getStreamName()).orElse("NA"),
                             readOptions.toString(),
                             assignedSplit.getOffset(),
-                            readerContext.getReadCount().get()),
+                            readSoFar),
                     ex);
         }
     }
@@ -176,15 +236,16 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     @Override
     public void wakeUp() {
-        LOG.debug("Wake up called.");
+        LOG.info("Wake up called.");
         // do nothing, for now
     }
 
     @Override
     public void close() throws Exception {
-        LOG.debug("Close called.");
+        LOG.info("Close called, assigned splits {}.", assignedSplits.toString());
         if (!closed) {
             closed = true;
+            readSoFar = 0;
             // complete closing with what may be needed
         }
     }

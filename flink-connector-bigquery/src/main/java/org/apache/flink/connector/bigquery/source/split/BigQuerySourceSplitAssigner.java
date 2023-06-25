@@ -126,6 +126,15 @@ public class BigQuerySourceSplitAssigner {
 
                 // request the session
                 ReadSession session = client.createReadSession(builder.build());
+                LOG.info(
+                        "BigQuery Storage Read session, name: {},"
+                                + " estimated row count {}, estimated scanned bytes {},"
+                                + " streams count {}, expired time {} (seconds after epoch).",
+                        session.getName(),
+                        session.getEstimatedRowCount(),
+                        session.getEstimatedTotalBytesScanned(),
+                        session.getStreamsCount(),
+                        session.getExpireTime().getSeconds());
                 // get all the stream names added to the initialized state
                 remainingTableStreams.addAll(
                         session.getStreamsList().stream()
@@ -133,7 +142,8 @@ public class BigQuerySourceSplitAssigner {
                                 .collect(Collectors.toList()));
                 initialized = true;
             } catch (IOException ex) {
-                throw new RuntimeException("Problems creating the BigQuery read client", ex);
+                throw new RuntimeException(
+                        "Problems creating the BigQuery Storage Read session.", ex);
             }
         }
     }

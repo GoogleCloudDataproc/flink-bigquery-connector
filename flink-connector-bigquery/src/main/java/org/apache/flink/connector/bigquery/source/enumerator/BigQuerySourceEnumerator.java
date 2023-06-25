@@ -84,7 +84,7 @@ public class BigQuerySourceEnumerator
     @Override
     public BigQuerySourceEnumState snapshotState(long checkpointId) throws Exception {
         BigQuerySourceEnumState state = splitAssigner.snapshotState(checkpointId);
-        LOG.debug("Checkpointing state {}", state);
+        LOG.info("Checkpointing state {}", state);
         return state;
     }
 
