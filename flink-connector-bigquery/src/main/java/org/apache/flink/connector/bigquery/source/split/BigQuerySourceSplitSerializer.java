@@ -79,7 +79,7 @@ public class BigQuerySourceSplitSerializer
     public BigQuerySourceSplit deserializeBigQuerySourceSplit(int version, DataInputStream in)
             throws IOException {
         switch (version) {
-            case 0:
+            case CURRENT_VERSION:
                 String streamName = in.readUTF();
                 int offset = in.readInt();
                 return new BigQuerySourceSplit(streamName, offset);

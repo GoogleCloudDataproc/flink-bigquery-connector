@@ -73,14 +73,14 @@ public class BigQuerySourceReader<OUT>
     protected void onSplitFinished(Map<String, BigQuerySourceSplitState> finishedSplitIds) {
         for (BigQuerySourceSplitState splitState : finishedSplitIds.values()) {
             BigQuerySourceSplit sourceSplit = splitState.toBigQuerySourceSplit();
-            LOG.info("Split {} is finished.", sourceSplit.splitId());
+            LOG.info("Read for split {} is completed.", sourceSplit.splitId());
         }
         context.sendSplitRequest();
     }
 
     @Override
-    protected BigQuerySourceSplitState initializedState(BigQuerySourceSplit splitt) {
-        return new BigQuerySourceSplitState(splitt);
+    protected BigQuerySourceSplitState initializedState(BigQuerySourceSplit split) {
+        return new BigQuerySourceSplitState(split);
     }
 
     @Override
