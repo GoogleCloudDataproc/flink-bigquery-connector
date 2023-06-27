@@ -1,0 +1,12 @@
+github:
+  enabled_merge_buttons:
+    squash: true
+    merge: false
+    rebase: true
+  labels:
+    - flink
+    - bigquery
+    - connector
+  autolink_jira: FLINK
+  collaborators:
+    - flinkbot
