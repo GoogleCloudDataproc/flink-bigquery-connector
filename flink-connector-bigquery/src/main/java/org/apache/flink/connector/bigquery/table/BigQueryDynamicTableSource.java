@@ -183,8 +183,7 @@ public class BigQueryDynamicTableSource
     public Optional<List<Map<String, String>>> listPartitions() {
         BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
         BigQueryServices.QueryDataClient dataClient =
-                BigQueryServicesFactory.instance(connectOptions)
-                        .queryClient(connectOptions.getCredentialsOptions());
+                BigQueryServicesFactory.instance(connectOptions).queryClient();
         return dataClient
                 // get the column name that is a partition, maybe none.
                 .retrievePartitionColumnName(

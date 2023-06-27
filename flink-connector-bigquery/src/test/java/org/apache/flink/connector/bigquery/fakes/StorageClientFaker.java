@@ -20,11 +20,13 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
 import org.apache.flink.connector.bigquery.common.config.CredentialsOptions;
 import org.apache.flink.connector.bigquery.services.BigQueryServices;
+import org.apache.flink.connector.bigquery.services.QueryResultInfo;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.util.function.SerializableFunction;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
+import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
@@ -92,6 +94,16 @@ public class StorageClientFaker {
                 @Override
                 public TableSchema getTableSchema(String project, String dataset, String table) {
                     return new TableSchema();
+                }
+
+                @Override
+                public Optional<QueryResultInfo> runQuery(String projectId, String query) {
+                    return Optional.of(QueryResultInfo.succeed("", "", ""));
+                }
+
+                @Override
+                public Job dryRunQuery(String projectId, String query) {
+                    return null;
                 }
             };
         }

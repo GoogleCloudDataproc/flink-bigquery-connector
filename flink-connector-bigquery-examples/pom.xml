@@ -87,23 +87,24 @@ under the License.
                             </transformers>
                             <artifactSet>
                                 <includes>
-									<include>org.apache.flink:flink-connector-bigquery</include>
-									<include>org.apache.flink:flink-avro</include>
-									<include>org.apache.flink:flink-metrics-dropwizard</include>
-									<include>com.google.cloud:google-cloud-bigquerystorage</include>
-									<include>com.google.*:*</include>
-                                    <include>commons-codec:commons-codec</include>                                    
+                                    <include>org.apache.flink:flink-connector-bigquery</include>
+                                    <include>org.apache.flink:flink-avro</include>
+                                    <include>org.apache.flink:flink-metrics-dropwizard</include>
+                                    <include>com.google.cloud:google-cloud-bigquerystorage</include>
+                                    <include>com.google.*:*</include>
+                                    <include>commons-codec:commons-codec</include>    
+                                    <include>dev.failsafe:*</include>                                
                                     <include>org.apache.avro:*</include>
                                     <include>org.apache.httpcomponents:*</include>
                                     <include>org.codehaus.mojo:animal-sniffer-annotations</include>
                                     <include>org.conscrypt:*</include>
                                     <include>com.fasterxml.jackson.*:*</include>
-									<include>org.threeten:*</include>
-									<include>org.checkerframework:*</include>
-									<include>io.dropwizard.metrics:*</include>
-									<include>io.grpc:*</include>
-									<include>io.opencensus:*</include>
-									<include>io.perfmark:*</include>
+                                    <include>org.threeten:*</include>
+                                    <include>org.checkerframework:*</include>
+                                    <include>io.dropwizard.metrics:*</include>
+                                    <include>io.grpc:*</include>
+                                    <include>io.opencensus:*</include>
+                                    <include>io.perfmark:*</include>
                                 </includes>
                             </artifactSet>
                             <relocations>

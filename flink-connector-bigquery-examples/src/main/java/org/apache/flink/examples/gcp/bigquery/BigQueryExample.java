@@ -54,7 +54,7 @@ public class BigQueryExample {
         // parse input arguments
         final ParameterTool parameterTool = ParameterTool.fromArgs(args);
 
-        if (parameterTool.getNumberOfParameters() < 3) {
+        if (parameterTool.getNumberOfParameters() < 4) {
             LOG.error(
                     "Missing parameters!\n"
                             + "Usage: flink run <additional runtime params> BigQuery.jar"
@@ -69,7 +69,7 @@ public class BigQueryExample {
         String datasetName = parameterTool.getRequired("bq-dataset");
         String tableName = parameterTool.getRequired("bq-table");
         String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
-        Integer recordLimit = parameterTool.getInt("limit", 1000000);
+        Integer recordLimit = parameterTool.getInt("limit", -1);
         String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
         runFlinkJob(

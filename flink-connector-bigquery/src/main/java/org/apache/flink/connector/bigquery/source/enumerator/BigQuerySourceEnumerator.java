@@ -56,8 +56,6 @@ public class BigQuerySourceEnumerator
 
     @Override
     public void start() {
-        
-        
         splitAssigner.open();
     }
 

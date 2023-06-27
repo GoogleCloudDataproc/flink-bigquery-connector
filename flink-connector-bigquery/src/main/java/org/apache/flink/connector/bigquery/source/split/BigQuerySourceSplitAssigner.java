@@ -20,6 +20,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
 import org.apache.flink.connector.bigquery.services.BigQueryServices.StorageReadClient;
 import org.apache.flink.connector.bigquery.services.BigQueryServicesFactory;
+import org.apache.flink.connector.bigquery.services.QueryResultInfo;
 import org.apache.flink.connector.bigquery.source.config.BigQueryReadOptions;
 import org.apache.flink.connector.bigquery.source.enumerator.BigQuerySourceEnumState;
 
@@ -67,13 +68,64 @@ public class BigQuerySourceSplitAssigner {
         this.initialized = sourceEnumState.isInitialized();
     }
 
+    /**
+     * Reviews the read options argument and see if a query has been configured, in that case run
+     * that query and then return a modified version of the connect options pointing to the
+     * temporary location (project, dataset and table) of the query results.
+     *
+     * @param readOptions The configured read options.
+     * @return The BigQuery connect options with the right project, dataset and table given the
+     *     specified configuration.
+     */
+    BigQueryConnectOptions checkOptionsAndRunQueryIfNeededReturningModifiedOptions() {
+        return Optional.ofNullable(this.readOptions.getQuery())
+                // if query is available, execute it using the configured GCP project and gather the
+                // results
+                .flatMap(
+                        query ->
+                                BigQueryServicesFactory.instance(
+                                                this.readOptions.getBigQueryConnectOptions())
+                                        .queryClient()
+                                        .runQuery(
+                                                this.readOptions.getQueryExecutionProject(), query))
+                // with the query results return the new connection options, fail if the query
+                // failed
+                .map(
+                        result -> {
+                            if (result.getStatus().equals(QueryResultInfo.Status.FAILED)) {
+                                throw new IllegalStateException(
+                                        "The BigQuery query execution failed with errors: "
+                                                + result.getErrorMessages()
+                                                        .orElse(Lists.newArrayList()));
+                            }
+                            String projectId = result.getDestinationProject().get();
+                            String dataset = result.getDestinationDataset().get();
+                            String table = result.getDestinationTable().get();
+                            LOG.info(
+                                    "After BigQuery query execution, switching connect options"
+                                            + " to read from table {}.{}.{}",
+                                    projectId,
+                                    dataset,
+                                    table);
+                            return this.readOptions
+                                    .getBigQueryConnectOptions()
+                                    .toBuilder()
+                                    .setProjectId(projectId)
+                                    .setDataset(dataset)
+                                    .setTable(table)
+                                    .build();
+                        })
+                // in case no query configured, just return the configured options.
+                .orElse(this.readOptions.getBigQueryConnectOptions());
+    }
+
     public void open() {
         LOG.info("BigQuery source split assigner is opening.");
         if (!initialized) {
-            BigQueryConnectOptions connectionOptions = this.readOptions.getBigQueryConnectOptions();
+            BigQueryConnectOptions connectionOptions =
+                    checkOptionsAndRunQueryIfNeededReturningModifiedOptions();
             try (StorageReadClient client =
-                    BigQueryServicesFactory.instance(connectionOptions)
-                            .storageRead(connectionOptions.getCredentialsOptions())) {
+                    BigQueryServicesFactory.instance(connectionOptions).storageRead()) {
                 String parent = String.format("projects/%s", connectionOptions.getProjectId());
 
                 String srcTable =

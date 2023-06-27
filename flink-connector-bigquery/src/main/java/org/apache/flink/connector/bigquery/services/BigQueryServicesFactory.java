@@ -19,7 +19,6 @@ package org.apache.flink.connector.bigquery.services;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
-import org.apache.flink.connector.bigquery.common.config.CredentialsOptions;
 import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
@@ -37,6 +36,7 @@ public class BigQueryServicesFactory {
 
     private Boolean isTestingEnabled = false;
     private BigQueryServices testingServices;
+    private BigQueryConnectOptions bqConnectOptions;
 
     private BigQueryServicesFactory() {}
 
@@ -47,6 +47,7 @@ public class BigQueryServicesFactory {
      * @return A factory instance.
      */
     public static BigQueryServicesFactory instance(BigQueryConnectOptions options) {
+        INSTANCE.bqConnectOptions = options;
         if (options.getTestingBigQueryServices() == null) {
             return INSTANCE.defaultImplementation();
         } else {
@@ -57,28 +58,25 @@ public class BigQueryServicesFactory {
     /**
      * Returns a BigQuery storage read client, given the factory's current internal state.
      *
-     * @param credentialsOptions The GCP auth credentials options.
      * @return A BigQuery storage read client.
      */
-    public BigQueryServices.StorageReadClient storageRead(CredentialsOptions credentialsOptions)
-            throws IOException {
+    public BigQueryServices.StorageReadClient storageRead() throws IOException {
         if (isTestingEnabled) {
-            return testingServices.getStorageClient(credentialsOptions);
+            return testingServices.getStorageClient(bqConnectOptions.getCredentialsOptions());
         }
-        return SERVICES.getStorageClient(credentialsOptions);
+        return SERVICES.getStorageClient(bqConnectOptions.getCredentialsOptions());
     }
 
     /**
      * Returns a BigQuery query data client, given the factory's current internal state.
      *
-     * @param credentialsOptions The GCP auth credentials options.
      * @return A BigQuery query data client.
      */
-    public BigQueryServices.QueryDataClient queryClient(CredentialsOptions credentialsOptions) {
+    public BigQueryServices.QueryDataClient queryClient() {
         if (isTestingEnabled) {
-            return testingServices.getQueryDataClient(credentialsOptions);
+            return testingServices.getQueryDataClient(bqConnectOptions.getCredentialsOptions());
         }
-        return SERVICES.getQueryDataClient(credentialsOptions);
+        return SERVICES.getQueryDataClient(bqConnectOptions.getCredentialsOptions());
     }
 
     @VisibleForTesting

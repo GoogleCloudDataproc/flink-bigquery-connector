@@ -18,6 +18,7 @@ package org.apache.flink.connector.bigquery.source.config;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.bigquery.common.config.BigQueryConnectOptions;
+import org.apache.flink.connector.bigquery.common.config.CredentialsOptions;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
@@ -27,10 +28,12 @@ import org.threeten.bp.Instant;
 
 import javax.annotation.Nullable;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /** The options available to read data from BigQuery. */
 @AutoValue
@@ -43,6 +46,12 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     @Nullable
     public abstract Long getSnapshotTimestampInMillis();
+
+    @Nullable
+    public abstract String getQuery();
+
+    @Nullable
+    public abstract String getQueryExecutionProject();
 
     public abstract Integer getMaxStreamCount();
 
@@ -115,6 +124,61 @@ public abstract class BigQueryReadOptions implements Serializable {
     public abstract static class Builder {
 
         /**
+         * Prepares this builder to execute a query driven read using the default credentials
+         * configuration.
+         *
+         * @param query A BigQuery standard SQL query.
+         * @param projectId A GCP project where the query will run.
+         * @return This {@link Builder} instance.
+         * @throws IOException
+         */
+        public Builder setQueryAndExecutionProject(String query, String projectId)
+                throws IOException {
+            return setQueryWithExecutionProjectAndCredentialsOptions(
+                    query, projectId, CredentialsOptions.builder().build());
+        }
+
+        /**
+         * Prepares this builder to execute a query driven read.
+         *
+         * @param query A BigQuery standard SQL query.
+         * @param projectId A GCP project where the query will run.
+         * @param credentialsOptions The GCP credentials options.
+         * @return This {@link Builder} instance.
+         * @throws IOException
+         */
+        public Builder setQueryWithExecutionProjectAndCredentialsOptions(
+                String query, String projectId, CredentialsOptions credentialsOptions)
+                throws IOException {
+            this.setQuery(query);
+            this.setQueryExecutionProject(projectId);
+            this.setBigQueryConnectOptions(
+                    BigQueryConnectOptions.builderForQuerySource()
+                            .setCredentialsOptions(credentialsOptions)
+                            .build());
+            return this;
+        }
+
+        /**
+         * Sets a BigQuery query which will be run first, storing its result in a temporary table,
+         * and Flink will read the query results from that temporary table. This is an optional
+         * argument.
+         *
+         * @param query A BigQuery standard SQL query.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setQuery(String query);
+
+        /**
+         * Sets the GCP project where the configured query will be run. In case the query
+         * configuration is not set this configuration is discarded.
+         *
+         * @param projectId A GCP project.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setQueryExecutionProject(String projectId);
+
+        /**
          * Sets the restriction the rows in the BigQuery table must comply to be returned by the
          * source.
          *
@@ -180,11 +244,20 @@ public abstract class BigQueryReadOptions implements Serializable {
                     readOptions.getMaxStreamCount() >= 0,
                     "The max number of streams should be zero or positive.");
             Preconditions.checkState(
-                    readOptions.getSnapshotTimestampInMillis() != null
-                            ? readOptions.getSnapshotTimestampInMillis()
-                                    >= Instant.EPOCH.toEpochMilli()
-                            : true,
+                    !Optional.ofNullable(readOptions.getSnapshotTimestampInMillis())
+                            // see if the value is lower than the epoch
+                            .filter(timeInMillis -> timeInMillis < Instant.EPOCH.toEpochMilli())
+                            // if present, then fail
+                            .isPresent(),
                     "The oldest timestamp should be equal or bigger than epoch.");
+            Preconditions.checkState(
+                    !Optional.ofNullable(readOptions.getQuery())
+                            // if the project was not configured
+                            .filter(q -> readOptions.getQueryExecutionProject() == null)
+                            // if present fail
+                            .isPresent(),
+                    "If a query is configured, then a GCP projec should be provided.");
+
             return readOptions;
         }
     }

@@ -16,7 +16,6 @@
 
 package org.apache.flink.connector.bigquery.services;
 
-import com.google.api.client.http.HttpRequestInitializer;
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -31,12 +30,14 @@ import com.google.api.gax.rpc.HeaderProvider;
 import com.google.api.gax.rpc.ServerStream;
 import com.google.api.gax.rpc.UnaryCallSettings;
 import com.google.api.services.bigquery.Bigquery;
+import com.google.api.services.bigquery.model.Dataset;
+import com.google.api.services.bigquery.model.ErrorProto;
+import com.google.api.services.bigquery.model.Job;
+import com.google.api.services.bigquery.model.JobConfigurationQuery;
+import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableSchema;
-import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.bigquery.Job;
-import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableId;
@@ -57,8 +58,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import org.apache.flink.runtime.util.EnvironmentInformation;
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
 
 /** Implementation of the {@link BigQueryServices} interface that wraps the actual clients. */
 @Internal
@@ -122,7 +121,9 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().createReadSessionSettings();
 
             createReadSessionSettings.setRetrySettings(
-                    createReadSessionSettings.getRetrySettings().toBuilder()
+                    createReadSessionSettings
+                            .getRetrySettings()
+                            .toBuilder()
                             .setInitialRpcTimeout(Duration.ofHours(2))
                             .setMaxRpcTimeout(Duration.ofHours(2))
                             .setTotalTimeout(Duration.ofHours(2))
@@ -133,7 +134,9 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().splitReadStreamSettings();
 
             splitReadStreamSettings.setRetrySettings(
-                    splitReadStreamSettings.getRetrySettings().toBuilder()
+                    splitReadStreamSettings
+                            .getRetrySettings()
+                            .toBuilder()
                             .setInitialRpcTimeout(Duration.ofSeconds(30))
                             .setMaxRpcTimeout(Duration.ofSeconds(30))
                             .setTotalTimeout(Duration.ofSeconds(30))
@@ -161,6 +164,7 @@ public class BigQueryServiceImpl implements BigQueryServices {
     /** A wrapper implementation for the BigQuery service client library methods. */
     public static class QueryDataClientImpl implements QueryDataClient {
         private final BigQuery bigQuery;
+        private final Bigquery bigquery;
 
         public QueryDataClientImpl(CredentialsOptions options) {
             bigQuery =
@@ -168,17 +172,9 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             .setCredentials(options.getCredentials())
                             .build()
                             .getService();
+            bigquery = BigQueryUtils.newBigqueryBuilder(options).build();
         }
 
-         private static Bigquery.Builder newBigQueryClient(CredentialsOptions options) {
-
-
-    return new Bigquery.Builder(
-            Transport.getTransport(), Transport.getJsonFactory(), new HttpCredentialsAdapter(options.getCredentials()))
-        .setApplicationName("BigQuery Connector for Apache Flink version " + EnvironmentInformation.getVersion());
-  }
-        
-        
         @Override
         public List<String> retrieveTablePartitions(String project, String dataset, String table) {
             try {
@@ -268,22 +264,85 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             .getDefinition()
                             .getSchema());
         }
-        
-        public static class QueryResultInfo implements Serializable {
-            
-            p
+
+        @Override
+        public Job dryRunQuery(String projectId, String query) {
+            try {
+                JobConfigurationQuery queryConfiguration =
+                        new JobConfigurationQuery()
+                                .setQuery(query)
+                                .setUseQueryCache(true)
+                                .setUseLegacySql(false);
+                /** first we need to execute a dry-run to understand the expected query location. */
+                return BigQueryUtils.dryRunQuery(bigquery, projectId, queryConfiguration, null);
+
+            } catch (Exception ex) {
+                throw new RuntimeException(
+                        "Problems occurred while trying to dry-run a BigQuery query job.", ex);
+            }
         }
 
-        public Optional<> runQuery(String query) {
-            Job job =
-                    bigQuery.create(
-                            JobInfo.of(
-                                    QueryJobConfiguration.newBuilder(query)
-                                            .setUseQueryCache(true)
-                                            .build()));
-            job = job.waitFor();
-            job.getStatus().
-            if(job == null) 
+        @Override
+        public Optional<QueryResultInfo> runQuery(String projectId, String query) {
+            try {
+                JobConfigurationQuery queryConfiguration =
+                        new JobConfigurationQuery()
+                                .setQuery(query)
+                                .setUseQueryCache(true)
+                                .setUseLegacySql(false);
+                /** first we need to execute a dry-run to understand the expected query location. */
+                Job dryRun =
+                        BigQueryUtils.dryRunQuery(bigquery, projectId, queryConfiguration, null);
+
+                if (dryRun.getStatus().getErrors() != null) {
+                    return Optional.of(dryRun.getStatus().getErrors())
+                            .map(errors -> processErrorMessages(errors))
+                            .map(errors -> QueryResultInfo.failed(errors));
+                }
+                List<TableReference> referencedTables =
+                        dryRun.getStatistics().getQuery().getReferencedTables();
+                TableReference firstTable = referencedTables.get(0);
+                Dataset dataset =
+                        BigQueryUtils.datasetInfo(
+                                bigquery, firstTable.getProjectId(), firstTable.getDatasetId());
+
+                /**
+                 * Then we run the query and check the results to provide errors or a set of
+                 * project, dataset and table to be read.
+                 */
+                Job job =
+                        BigQueryUtils.runQuery(
+                                bigquery, projectId, queryConfiguration, dataset.getLocation());
+
+                TableReference queryDestTable =
+                        job.getConfiguration().getQuery().getDestinationTable();
+
+                return Optional.of(
+                        Optional.ofNullable(job.getStatus())
+                                .flatMap(s -> Optional.ofNullable(s.getErrors()))
+                                .map(errors -> processErrorMessages(errors))
+                                .map(errors -> QueryResultInfo.failed(errors))
+                                .orElse(
+                                        QueryResultInfo.succeed(
+                                                queryDestTable.getProjectId(),
+                                                queryDestTable.getDatasetId(),
+                                                queryDestTable.getTableId())));
+            } catch (Exception ex) {
+                throw new RuntimeException(
+                        "Problems occurred while trying to run a BigQuery query job.", ex);
+            }
+        }
+
+        static List<String> processErrorMessages(List<ErrorProto> errors) {
+            return errors.stream()
+                    .map(
+                            error ->
+                                    String.format(
+                                            "Message: '%s'," + " reason: '%s'," + " location: '%s'",
+                                            error.getMessage(),
+                                            error.getReason(),
+                                            error.getLocation()))
+                    .collect(Collectors.toList());
         }
     }
 }

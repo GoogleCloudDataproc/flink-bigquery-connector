@@ -97,6 +97,21 @@ public abstract class BigQueryConnectOptions implements Serializable {
                 .setCredentialsOptions(CredentialsOptions.builder().build());
     }
 
+    public static Builder builderForQuerySource() throws IOException {
+        return new AutoValue_BigQueryConnectOptions.Builder()
+                .setCredentialsOptions(CredentialsOptions.builder().build())
+                .setProjectId("")
+                .setDataset("")
+                .setTable("");
+    }
+
+    /**
+     * Transforms the instance into a builder instance for property modification.
+     *
+     * @return A {@link Builder} instance for the type.
+     */
+    public abstract Builder toBuilder();
+
     /** Builder class for BigQueryConnectOptions. */
     @AutoValue.Builder
     public abstract static class Builder {

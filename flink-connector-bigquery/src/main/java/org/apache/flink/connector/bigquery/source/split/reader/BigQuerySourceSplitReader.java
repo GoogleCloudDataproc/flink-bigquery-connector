@@ -106,8 +106,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             throws IOException {
         try (StorageReadClient client =
                 BigQueryServicesFactory.instance(readOptions.getBigQueryConnectOptions())
-                        .storageRead(
-                                readOptions.getBigQueryConnectOptions().getCredentialsOptions())) {
+                        .storageRead()) {
             ReadRowsRequest readRequest =
                     ReadRowsRequest.newBuilder()
                             .setReadStream(split.getStreamName())
