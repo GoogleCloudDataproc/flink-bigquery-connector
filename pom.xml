@@ -58,8 +58,8 @@ under the License.
         <japicmp.referenceVersion>3.0.0-1.16</japicmp.referenceVersion>
         <jacoco.version>0.8.10</jacoco.version>
 
-        <slf4j.version>2.0.7</slf4j.version>
-        <log4j.version>2.20.0</log4j.version>
+        <slf4j.version>1.7.36</slf4j.version>
+        <log4j.version>2.17.2</log4j.version>
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
     </properties>

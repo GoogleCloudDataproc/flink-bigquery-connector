@@ -22,6 +22,7 @@ import org.apache.flink.util.function.SerializableFunction;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 import com.google.api.services.bigquery.model.Job;
+import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
@@ -49,7 +50,6 @@ import org.apache.avro.util.RandomData;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -81,7 +81,7 @@ public class StorageClientFaker {
                 @Override
                 public List<String> retrieveTablePartitions(
                         String project, String dataset, String table) {
-                    return new ArrayList<>();
+                    return Lists.newArrayList();
                 }
 
                 @Override
@@ -92,7 +92,7 @@ public class StorageClientFaker {
 
                 @Override
                 public TableSchema getTableSchema(String project, String dataset, String table) {
-                    return new TableSchema();
+                    return SIMPLE_BQ_TABLE_SCHEMA;
                 }
 
                 @Override
@@ -192,6 +192,19 @@ public class StorageClientFaker {
 
     public static final Schema SIMPLE_AVRO_SCHEMA =
             new Schema.Parser().parse(SIMPLE_AVRO_SCHEMA_STRING);
+
+    public static final TableSchema SIMPLE_BQ_TABLE_SCHEMA =
+            new TableSchema()
+                    .setFields(
+                            Lists.newArrayList(
+                                    new TableFieldSchema()
+                                            .setName("name")
+                                            .setType("STRING")
+                                            .setMode("REQUIRED"),
+                                    new TableFieldSchema()
+                                            .setName("number")
+                                            .setType("INTEGER")
+                                            .setMode("REQUIRED")));
 
     /** Represents the parameters needed for the Avro data generation. */
     public static class RecordGenerationParams implements Serializable {
