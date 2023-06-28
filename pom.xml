@@ -45,21 +45,21 @@ under the License.
     </licenses>
 
     <properties>
-        <google-lib-bom.version>26.15.0</google-lib-bom.version>
+        <google-lib-bom.version>26.16.0</google-lib-bom.version>
 
-        <flink.version>1.17.0</flink.version>
-        <flink.shaded.version>16.1</flink.shaded.version>
+        <flink.version>1.17.1</flink.version>
+        <flink.shaded.version>17.0</flink.shaded.version>
 
-        <junit5.version>5.8.1</junit5.version>
-        <assertj.version>3.21.0</assertj.version>
-        <testcontainers.version>1.17.2</testcontainers.version>
-        <mockito.version>3.4.6</mockito.version>
+        <junit5.version>5.9.3</junit5.version>
+        <assertj.version>3.24.2</assertj.version>
+        <mockito.version>5.2.0</mockito.version>
 
         <japicmp.skip>false</japicmp.skip>
         <japicmp.referenceVersion>3.0.0-1.16</japicmp.referenceVersion>
+        <jacoco.version>0.8.10</jacoco.version>
 
-        <slf4j.version>1.7.36</slf4j.version>
-        <log4j.version>2.17.2</log4j.version>
+        <slf4j.version>2.0.7</slf4j.version>
+        <log4j.version>2.20.0</log4j.version>
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
     </properties>
@@ -130,12 +130,6 @@ under the License.
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <type>jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -340,13 +334,6 @@ under the License.
                 <version>2.1</version>
             </dependency>
 
-            <dependency>
-                <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers-bom</artifactId>
-                <version>${testcontainers.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -412,6 +399,11 @@ under the License.
             <plugin>
                 <groupId>org.commonjava.maven.plugins</groupId>
                 <artifactId>directory-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
             </plugin>
         </plugins>
     </build>
