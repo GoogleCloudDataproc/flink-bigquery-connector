@@ -66,6 +66,8 @@ under the License.
 
     <modules>
         <module>flink-connector-bigquery</module>
+        <module>flink-sql-connector-bigquery</module>
+        <module>flink-connector-bigquery-examples</module>
     </modules>
 
     <dependencies>
