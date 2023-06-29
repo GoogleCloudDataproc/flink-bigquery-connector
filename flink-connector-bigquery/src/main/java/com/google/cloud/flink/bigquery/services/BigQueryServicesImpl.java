@@ -205,7 +205,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
             } catch (Exception ex) {
                 throw new RuntimeException(
                         String.format(
-                                "Problems while trying to retrieve table partitions (table: %s.%s.%s).",
+                                "Problems while trying to retrieve table partitions"
+                                        + " (table: %s.%s.%s).",
                                 project, dataset, table),
                         ex);
             }
@@ -252,7 +253,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
             } catch (Exception ex) {
                 throw new RuntimeException(
                         String.format(
-                                "Problems while trying to retrieve table partition's column name (table: %s.%s.%s).",
+                                "Problems while trying to retrieve table partition's"
+                                        + " column name (table: %s.%s.%s).",
                                 project, dataset, table),
                         ex);
             }
@@ -260,10 +262,15 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
         @Override
         public TableSchema getTableSchema(String project, String dataset, String table) {
-            return SchemaTransform.bigQuerySchemaToTableSchema(
-                    bigQuery.getTable(TableId.of(project, dataset, table))
-                            .getDefinition()
-                            .getSchema());
+            return Optional.ofNullable(bigQuery.getTable(TableId.of(project, dataset, table)))
+                    .map(t -> t.getDefinition().getSchema())
+                    .map(schema -> SchemaTransform.bigQuerySchemaToTableSchema(schema))
+                    .orElseThrow(
+                            () ->
+                                    new IllegalArgumentException(
+                                            String.format(
+                                                    "The provided table %s.%s.%s does not exists.",
+                                                    project, dataset, table)));
         }
 
         @Override
