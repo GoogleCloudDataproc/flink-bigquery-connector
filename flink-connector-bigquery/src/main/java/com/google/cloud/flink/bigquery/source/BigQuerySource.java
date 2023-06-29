@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.source;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
@@ -204,6 +205,27 @@ public abstract class BigQuerySource<OUT>
                         .setQueryAndExecutionProject(query, gcpProject)
                         .build();
 
+        return readAvrosFromQuery(readOptions, query, gcpProject, limit);
+    }
+
+    /**
+     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
+     * the data (mimicking the table's schema), limiting the record retrieval to the provided limit
+     * and reading data from the provided query which will be executed using the provided GCP
+     * project.
+     *
+     * @param readOptions The BigQuery read options to execute
+     * @param query A BigQuery standard SQL query.
+     * @param gcpProject The GCP project where the provided query will execute.
+     * @param limit the max quantity of records to be returned.
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the BigQuery query results.
+     * @throws IOException
+     */
+    @VisibleForTesting
+    static BigQuerySource<GenericRecord> readAvrosFromQuery(
+            BigQueryReadOptions readOptions, String query, String gcpProject, Integer limit)
+            throws IOException {
         BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
         TableSchema tableSchema =
                 BigQueryServicesFactory.instance(connectOptions)

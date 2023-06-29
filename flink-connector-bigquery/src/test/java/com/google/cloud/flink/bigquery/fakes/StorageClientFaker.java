@@ -22,6 +22,8 @@ import org.apache.flink.util.function.SerializableFunction;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 import com.google.api.services.bigquery.model.Job;
+import com.google.api.services.bigquery.model.JobStatistics;
+import com.google.api.services.bigquery.model.JobStatistics2;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
@@ -81,13 +83,13 @@ public class StorageClientFaker {
                 @Override
                 public List<String> retrieveTablePartitions(
                         String project, String dataset, String table) {
-                    return Lists.newArrayList();
+                    return Lists.newArrayList("2023062811");
                 }
 
                 @Override
                 public Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
                         String project, String dataset, String table) {
-                    return Optional.empty();
+                    return Optional.of(Tuple2.of("number", StandardSQLTypeName.INT64));
                 }
 
                 @Override
@@ -102,7 +104,12 @@ public class StorageClientFaker {
 
                 @Override
                 public Job dryRunQuery(String projectId, String query) {
-                    return null;
+                    return new Job()
+                            .setStatistics(
+                                    new JobStatistics()
+                                            .setQuery(
+                                                    new JobStatistics2()
+                                                            .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
                 }
             };
         }
@@ -180,16 +187,26 @@ public class StorageClientFaker {
         }
     }
 
-    public static final String SIMPLE_AVRO_SCHEMA_STRING =
-            "{\"namespace\": \"example.avro\",\n"
-                    + " \"type\": \"record\",\n"
-                    + " \"name\": \"RowRecord\",\n"
-                    + " \"fields\": [\n"
+    public static final String SIMPLE_AVRO_SCHEMA_FIELDS_STRING =
+            " \"fields\": [\n"
                     + "     {\"name\": \"name\", \"type\": \"string\"},\n"
                     + "     {\"name\": \"number\", \"type\": \"long\"}\n"
-                    + " ]\n"
+                    + " ]\n";
+    public static final String SIMPLE_AVRO_SCHEMA_STRING =
+            "{\"namespace\": \"project.dataset\",\n"
+                    + " \"type\": \"record\",\n"
+                    + " \"name\": \"table\",\n"
+                    + " \"doc\": \"Translated Avro Schema for project.dataset.table\",\n"
+                    + SIMPLE_AVRO_SCHEMA_FIELDS_STRING
                     + "}";
-
+    public static final String SIMPLE_AVRO_SCHEMA_FORQUERY_STRING =
+            "{\"namespace\": \"project.dataset\",\n"
+                    + " \"type\": \"record\",\n"
+                    + " \"name\": \"queryresultschema\",\n"
+                    + " \"namespace\": \"org.apache.flink.connector.bigquery\",\n"
+                    + " \"doc\": \"Translated Avro Schema for queryresultschema\",\n"
+                    + SIMPLE_AVRO_SCHEMA_FIELDS_STRING
+                    + "}";
     public static final Schema SIMPLE_AVRO_SCHEMA =
             new Schema.Parser().parse(SIMPLE_AVRO_SCHEMA_STRING);
 
