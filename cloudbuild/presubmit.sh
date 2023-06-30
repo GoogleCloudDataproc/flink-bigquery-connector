@@ -30,18 +30,13 @@ cd /workspace
 case $STEP in
   # Download maven and all the dependencies
   init)
-    $MVN install -DskipTests
+    $MVN clean install -DskipTests
     exit
     ;;
 
-  # Run unit tests
-  unittest)
-    $MVN test jacoco:report jacoco:report-aggregate -Pcoverage
-    ;;
-
-  # Run integration tests
-  integrationtest)
-    $MVN failsafe:integration-test failsafe:verify jacoco:report jacoco:report-aggregate -Pcoverage,integration
+  # Run unit & integration tests
+  tests)
+    $MVN mvn clean clover:setup verify clover:aggregate clover:clover -Pclover -pl flink-connector-bigquery
     ;;
 
   *)

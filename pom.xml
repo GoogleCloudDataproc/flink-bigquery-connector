@@ -56,12 +56,13 @@ under the License.
 
         <japicmp.skip>false</japicmp.skip>
         <japicmp.referenceVersion>3.0.0-1.16</japicmp.referenceVersion>
-        <jacoco.version>0.8.10</jacoco.version>
+        <clover.version>4.4.1</clover.version>
 
         <slf4j.version>1.7.36</slf4j.version>
         <log4j.version>2.17.2</log4j.version>
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
+        <surefire.and.failsafe.report.dir>target/test-report</surefire.and.failsafe.report.dir>
     </properties>
 
     <modules>
@@ -402,11 +403,47 @@ under the License.
                 <groupId>org.commonjava.maven.plugins</groupId>
                 <artifactId>directory-maven-plugin</artifactId>
             </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>${jacoco.version}</version>
-            </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>clover</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.openclover</groupId>
+                        <artifactId>clover-maven-plugin</artifactId>
+                        <version>${clover.version}</version>
+                        <configuration>
+                            <!-- Use custom report descriptor -->
+                            <reportDescriptor>${maven.multiModuleProjectDirectory}/tools/maven/clover.xml</reportDescriptor>
+                            <targetPercentage>55%</targetPercentage>
+                            <excludes> 
+                                <exclude>**/com/google/cloud/flink/bigquery/common/config/*</exclude>
+                                <exclude>**/com/google/cloud/flink/bigquery/common/utils/GoogleCredentialsSupplier.*</exclude>
+                                <exclude>**/com/google/cloud/flink/bigquery/services/**Impl.*</exclude>
+                                <exclude>**/com/google/cloud/flink/bigquery/source/config/*</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <reportsDirectory>${surefire.and.failsafe.report.dir}</reportsDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            <reporting>
+                <plugins>
+                    <plugin>
+                        <groupId>org.openclover</groupId>
+                        <artifactId>clover-maven-plugin</artifactId>
+                        <version>${clover.version}</version>
+                    </plugin>
+                </plugins>
+            </reporting>
+        </profile>
+    </profiles>
 </project>

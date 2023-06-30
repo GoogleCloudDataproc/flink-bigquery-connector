@@ -52,6 +52,8 @@ import org.apache.avro.util.RandomData;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -80,16 +82,18 @@ public class StorageClientFaker {
         @Override
         public QueryDataClient getQueryDataClient(CredentialsOptions readOptions) {
             return new QueryDataClient() {
+
                 @Override
                 public List<String> retrieveTablePartitions(
                         String project, String dataset, String table) {
-                    return Lists.newArrayList("2023062811");
+                    return Lists.newArrayList(
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHH")));
                 }
 
                 @Override
                 public Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
                         String project, String dataset, String table) {
-                    return Optional.of(Tuple2.of("number", StandardSQLTypeName.INT64));
+                    return Optional.of(Tuple2.of("ts", StandardSQLTypeName.TIMESTAMP));
                 }
 
                 @Override
@@ -189,8 +193,9 @@ public class StorageClientFaker {
 
     public static final String SIMPLE_AVRO_SCHEMA_FIELDS_STRING =
             " \"fields\": [\n"
-                    + "     {\"name\": \"name\", \"type\": \"string\"},\n"
-                    + "     {\"name\": \"number\", \"type\": \"long\"}\n"
+                    + "   {\"name\": \"name\", \"type\": \"string\"},\n"
+                    + "   {\"name\": \"number\", \"type\": \"long\"},\n"
+                    + "   {\"name\" : \"ts\", \"type\" : {\"type\" : \"long\",\"logicalType\" : \"timestamp-micros\"}}\n"
                     + " ]\n";
     public static final String SIMPLE_AVRO_SCHEMA_STRING =
             "{\"namespace\": \"project.dataset\",\n"
@@ -221,6 +226,10 @@ public class StorageClientFaker {
                                     new TableFieldSchema()
                                             .setName("number")
                                             .setType("INTEGER")
+                                            .setMode("REQUIRED"),
+                                    new TableFieldSchema()
+                                            .setName("ts")
+                                            .setType("TIMESTAMP")
                                             .setMode("REQUIRED")));
 
     /** Represents the parameters needed for the Avro data generation. */
