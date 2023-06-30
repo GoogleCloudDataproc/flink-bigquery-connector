@@ -13,26 +13,14 @@ steps:
     env:
     - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
 
-# 3. Run unit tests
+# 3. Run unit & integration tests
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit'
     id: 'unit-tests'
     waitFor: ['init']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/presubmit.sh', 'unittest']
+    args: ['/workspace/cloudbuild/presubmit.sh', 'tests']
     env:
     - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
-
-# 4. Run integration tests concurrently with unit tests
-# Commeneted out until integration tests are ported
-#  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit'
-#    id: 'integration-tests'
-#    waitFor: ['unit-tests']
-#    entrypoint: 'bash'
-#    args: ['/workspace/cloudbuild/presubmit.sh', 'integrationtest']
-#    env:
-#    - 'GOOGLE_CLOUD_PROJECT=${_GOOGLE_CLOUD_PROJECT}'
-#    - 'TEMPORARY_GCS_BUCKET=${_TEMPORARY_GCS_BUCKET}'
-#    - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
 
 # Tests take around 20 mins in general.
 timeout: 1800s

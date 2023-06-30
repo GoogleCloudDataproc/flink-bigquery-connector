@@ -1,0 +1,45 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<project name="Clover Report" default="current">
+    <!-- Initialize Clover -->
+    <clover-setup initString="${cloverdb}"/>
+    <target name="historical">
+        <!-- Empty as we're not interested in historical reports right now -->
+    </target>
+    <target name="current">
+        <clover-report>
+            <current outfile="${output}" title="${title}">
+                <format type="html"/>
+                <!-- Declare naming convention in order to have test classes listed on the "Test" tab in HTML report -->
+                <testsources dir="src/test">
+                    <!-- Use Maven-Failsafe-Plugin naming convention -->
+                    <include name="**/IT*.java"/>
+                    <include name="**/*IT.java"/>
+                    <include name="**/*ITCase.java"/>
+                    <!-- Use Maven-Surefire-Pugin naming convention -->
+                    <include name="**/Test*.java"/>
+                    <include name="**/*Test.java"/>
+                    <include name="**/*TestCase.java"/>
+                </testsources>
+                <!-- Tell Clover to get test results directory as defined in pom.xml. They will be listed on "Results" tab -->
+                <testresults dir="target/test-report" includes="TEST-*.xml"/>
+            </current>
+        </clover-report>
+    </target>
+</project>

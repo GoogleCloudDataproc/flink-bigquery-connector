@@ -32,6 +32,8 @@ public class BigQuerySourceSplitStateTest {
 
         BigQuerySourceSplitState splitState = new BigQuerySourceSplitState(originalSplit);
         assertThat(splitState.toBigQuerySourceSplit()).isEqualTo(originalSplit);
+        assertThat(splitState)
+                .isEqualTo(new BigQuerySourceSplitState(splitState.toBigQuerySourceSplit()));
     }
 
     @Test

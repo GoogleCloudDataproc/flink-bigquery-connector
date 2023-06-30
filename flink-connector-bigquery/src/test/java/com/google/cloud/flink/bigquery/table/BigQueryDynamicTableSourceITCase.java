@@ -211,7 +211,12 @@ public class BigQueryDynamicTableSourceITCase {
 
     @Test
     public void testRestriction() {
-        String sqlFilter = "id = 0 AND NOT optString IS NULL";
+        String sqlFilter =
+                "id = 0"
+                        + " AND NOT optString IS NULL"
+                        + " AND optString LIKE 's%'"
+                        + " AND optDouble > -1"
+                        + " AND optDouble <= 1.0 ";
         tEnv.executeSql(createTestDDl(null));
 
         Iterator<Row> collected =
