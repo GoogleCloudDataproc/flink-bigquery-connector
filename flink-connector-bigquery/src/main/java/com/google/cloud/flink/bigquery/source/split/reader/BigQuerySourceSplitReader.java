@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.source.split.reader;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.source.reader.RecordsBySplits;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
@@ -62,6 +63,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
     private final BigQuerySourceReaderContext readerContext;
     private final transient Optional<Histogram> readSplitTimeMetric;
     private final Queue<BigQuerySourceSplit> assignedSplits = new ArrayDeque<>();
+    private final Configuration configuration;
 
     private Boolean closed = false;
     private Schema avroSchema = null;
@@ -73,6 +75,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             BigQueryReadOptions readOptions, BigQuerySourceReaderContext readerContext) {
         this.readOptions = readOptions;
         this.readerContext = readerContext;
+        this.configuration = readerContext.getConfiguration();
         this.readSplitTimeMetric =
                 Optional.ofNullable(readerContext.metricGroup())
                         .map(
@@ -116,10 +119,11 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         } catch (Exception ex) {
             throw new IOException(
                     String.format(
-                            "[subtask #%d] Problems while opening the stream %s from BigQuery"
-                                    + " with connection info %s. Current split offset %d,"
-                                    + " reader offset %d.",
+                            "[subtask #%d][hostname %s] Problems while opening the stream %s"
+                                    + " from BigQuery with connection info %s."
+                                    + " Current split offset %d, reader offset %d.",
                             readerContext.getIndexOfSubtask(),
+                            readerContext.getLocalHostName(),
                             Optional.ofNullable(split.getStreamName()).orElse("NA"),
                             readOptions.toString(),
                             split.getOffset(),
@@ -169,8 +173,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 ReadRowsResponse response = readStreamIterator.next();
                 if (!response.hasAvroRows()) {
                     LOG.info(
-                            "[subtask #{}] The response contained no avro records for stream {}.",
+                            "[subtask #{}][hostname %s] The response contained"
+                                    + " no avro records for stream {}.",
                             readerContext.getIndexOfSubtask(),
+                            readerContext.getLocalHostName(),
                             assignedSplit.getStreamName());
                 }
                 if (avroSchema == null && response.hasAvroSchema()) {
@@ -185,7 +191,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                         GenericRecordReader.create(avroSchema).processRows(response.getAvroRows());
                 Long decodeTimeMS = System.currentTimeMillis() - decodeStart;
                 LOG.debug(
-                        "[subtask #{}] Iteration decoded records in {}ms from stream {}.",
+                        "[subtask #{}][hostname %s] Iteration decoded records in {}ms from stream {}.",
                         readerContext.getIndexOfSubtask(),
                         decodeTimeMS,
                         assignedSplit.getStreamName());
@@ -204,9 +210,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 }
                 Long itTimeMs = System.currentTimeMillis() - itStartTime;
                 LOG.debug(
-                        "[subtask #{}] Completed reading iteration in {}ms,"
+                        "[subtask #{}][hostname %s] Completed reading iteration in {}ms,"
                                 + " so far read {} from stream {}.",
                         readerContext.getIndexOfSubtask(),
+                        readerContext.getLocalHostName(),
                         itTimeMs,
                         readSoFar + read,
                         assignedSplit.getStreamName());
@@ -230,8 +237,9 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 Long splitTimeMs = System.currentTimeMillis() - splitStartFetch;
                 this.readSplitTimeMetric.ifPresent(m -> m.update(splitTimeMs));
                 LOG.info(
-                        "[subtask #{}] Completed reading split, {} records in {}ms on stream {}.",
+                        "[subtask #{}][hostname %s] Completed reading split, {} records in {}ms on stream {}.",
                         readerContext.getIndexOfSubtask(),
+                        readerContext.getLocalHostName(),
                         readSoFar,
                         splitTimeMs,
                         assignedSplit.splitId());
@@ -242,9 +250,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             } else {
                 Long fetchTimeMs = System.currentTimeMillis() - fetchStartTime;
                 LOG.debug(
-                        "[subtask #{}] Completed a partial fetch in {}ms,"
+                        "[subtask #{}][hostname %s] Completed a partial fetch in {}ms,"
                                 + " so far read {} from stream {}.",
                         readerContext.getIndexOfSubtask(),
+                        readerContext.getLocalHostName(),
                         fetchTimeMs,
                         readSoFar,
                         assignedSplit.getStreamName());
@@ -253,14 +262,16 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         } catch (Exception ex) {
             throw new IOException(
                     String.format(
-                            "[subtask #%d] Problems while reading stream %s from BigQuery"
+                            "[subtask #%d][hostname %s] Problems while reading stream %s from BigQuery"
                                     + " with connection info %s. Current split offset %d,"
-                                    + " reader offset %d.",
+                                    + " reader offset %d. Flink options %s.",
                             readerContext.getIndexOfSubtask(),
+                            readerContext.getLocalHostName(),
                             Optional.ofNullable(assignedSplit.getStreamName()).orElse("NA"),
                             readOptions.toString(),
                             assignedSplit.getOffset(),
-                            readSoFar),
+                            readSoFar,
+                            configuration.toString()),
                     ex);
         }
     }
@@ -281,15 +292,18 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     @Override
     public void wakeUp() {
-        LOG.debug("[subtask #{}] Wake up called.", readerContext.getIndexOfSubtask());
+        LOG.debug(
+                "[subtask #{}][hostname %s] Wake up called.",
+                readerContext.getIndexOfSubtask(), readerContext.getLocalHostName());
         // do nothing, for now
     }
 
     @Override
     public void close() throws Exception {
         LOG.debug(
-                "[subtask #{}] Close called, assigned splits {}.",
+                "[subtask #{}][hostname %s] Close called, assigned splits {}.",
                 readerContext.getIndexOfSubtask(),
+                readerContext.getLocalHostName(),
                 assignedSplits.toString());
         if (!closed) {
             closed = true;

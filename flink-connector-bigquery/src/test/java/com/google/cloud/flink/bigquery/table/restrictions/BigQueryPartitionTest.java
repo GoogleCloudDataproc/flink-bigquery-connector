@@ -32,7 +32,7 @@ public class BigQueryPartitionTest {
         List<String> partitionIds = Lists.newArrayList("2023062822", "2023062823");
         // ISO formatted dates as single quote string literals at the beginning of the hour.
         List<String> expectedValues =
-                Lists.newArrayList("'2023-06-28 22:00:00'", "'2023-06-28 23:00:00'");
+                Lists.newArrayList("2023-06-28 22:00:00", "2023-06-28 23:00:00");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.TIMESTAMP);
@@ -44,7 +44,7 @@ public class BigQueryPartitionTest {
     public void testPartitionDay() {
         List<String> partitionIds = Lists.newArrayList("20230628", "20230628");
         // ISO formatted dates as single quote string literals.
-        List<String> expectedValues = Lists.newArrayList("'2023-06-28'", "'2023-06-28'");
+        List<String> expectedValues = Lists.newArrayList("2023-06-28", "2023-06-28");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.DATETIME);
@@ -56,7 +56,7 @@ public class BigQueryPartitionTest {
     public void testPartitionMonth() {
         List<String> partitionIds = Lists.newArrayList("202306", "202307");
         // ISO formatted dates as single quote string literals
-        List<String> expectedValues = Lists.newArrayList("'2023-06'", "'2023-07'");
+        List<String> expectedValues = Lists.newArrayList("2023-06", "2023-07");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.DATE);
@@ -68,7 +68,7 @@ public class BigQueryPartitionTest {
     public void testPartitionYear() {
         List<String> partitionIds = Lists.newArrayList("2023", "2022");
         // ISO formatted dates as single quote string literals
-        List<String> expectedValues = Lists.newArrayList("'2023'", "'2022'");
+        List<String> expectedValues = Lists.newArrayList("2023", "2022");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.TIMESTAMP);
@@ -168,9 +168,49 @@ public class BigQueryPartitionTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void testWrongNumeriPartition() {
+    public void testWrongNumericPartition() {
         List<String> partitionIds = Lists.newArrayList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.NUMERIC);
+    }
+
+    @Test
+    public void testPartitionValueInteger() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.INT64))
+                .isEqualTo("2023");
+    }
+
+    @Test
+    public void testPartitionValueDate() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.DATE))
+                .isEqualTo("'2023'");
+    }
+
+    @Test
+    public void testPartitionValueDateTime() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.DATETIME))
+                .isEqualTo("'2023'");
+    }
+
+    @Test
+    public void testPartitionValueTimestamp() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.TIMESTAMP))
+                .isEqualTo("'2023'");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPartitionValueFailsWithOtherType() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.NUMERIC))
+                .isEqualTo("'2023'");
     }
 }

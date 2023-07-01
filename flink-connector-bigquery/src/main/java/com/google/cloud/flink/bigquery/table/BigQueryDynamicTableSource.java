@@ -38,11 +38,14 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataDeserializationSchema;
 import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import com.google.cloud.flink.bigquery.table.restrictions.BigQueryRestriction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +62,7 @@ public class BigQueryDynamicTableSource
                 SupportsLimitPushDown,
                 SupportsFilterPushDown,
                 SupportsPartitionPushDown {
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryDynamicTableSource.class);
 
     private BigQueryReadOptions readOptions;
     private DataType producedDataType;
@@ -67,6 +71,19 @@ public class BigQueryDynamicTableSource
     public BigQueryDynamicTableSource(BigQueryReadOptions readOptions, DataType producedDataType) {
         this.readOptions = readOptions;
         this.producedDataType = producedDataType;
+    }
+
+    Optional<TablePartitionInfo> retrievePartitionInfo() {
+        BigQueryConnectOptions connectOptions = this.readOptions.getBigQueryConnectOptions();
+        BigQueryServices.QueryDataClient dataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient();
+        // store partition colum for needed later value - type translations
+        return dataClient
+                // get the column name that is a partition, maybe none.
+                .retrievePartitionColumnInfo(
+                connectOptions.getProjectId(),
+                connectOptions.getDataset(),
+                connectOptions.getTable());
     }
 
     @Override
@@ -138,11 +155,20 @@ public class BigQueryDynamicTableSource
                         .collect(
                                 Collectors.groupingBy(
                                         (Tuple3<Boolean, String, ResolvedExpression> t) -> t.f0));
-        String rowRestriction =
+        String rowRestrictionByFilters =
                 translatedFilters.getOrDefault(true, Lists.newArrayList()).stream()
                         .map(t -> t.f1)
                         .collect(Collectors.joining(" AND "));
-        this.readOptions = this.readOptions.toBuilder().setRowRestriction(rowRestriction).build();
+        String newRowRestriction = this.readOptions.getRowRestriction();
+        if (!rowRestrictionByFilters.isEmpty()) {
+            if (newRowRestriction.isEmpty()) {
+                newRowRestriction = rowRestrictionByFilters;
+            } else {
+                newRowRestriction = newRowRestriction + " AND " + rowRestrictionByFilters;
+            }
+        }
+        this.readOptions =
+                this.readOptions.toBuilder().setRowRestriction(newRowRestriction).build();
         return Result.of(
                 translatedFilters.getOrDefault(true, Lists.newArrayList()).stream()
                         .map(t -> t.f2)
@@ -185,57 +211,64 @@ public class BigQueryDynamicTableSource
         BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
         BigQueryServices.QueryDataClient dataClient =
                 BigQueryServicesFactory.instance(connectOptions).queryClient();
-        return dataClient
-                // get the column name that is a partition, maybe none.
-                .retrievePartitionColumnName(
-                        connectOptions.getProjectId(),
-                        connectOptions.getDataset(),
-                        connectOptions.getTable())
-                .map(
-                        tuple -> {
-                            // we retrieve the existing partition ids and transform them into valid
-                            // values given the column data type
-                            return BigQueryPartition.partitionValuesFromIdAndDataType(
-                                            dataClient.retrieveTablePartitions(
-                                                    connectOptions.getProjectId(),
-                                                    connectOptions.getDataset(),
-                                                    connectOptions.getTable()),
-                                            tuple.f1)
-                                    .stream()
-                                    // for each of those valid partition values we create an map
-                                    // with the column name and the value
-                                    .map(
-                                            pValue -> {
-                                                Map<String, String> partitionColAndValue =
-                                                        new HashMap<>();
-                                                partitionColAndValue.put(tuple.f0, pValue);
-                                                return partitionColAndValue;
-                                            })
-                                    .collect(Collectors.toList());
-                        });
+
+        Optional<List<Map<String, String>>> ret =
+                retrievePartitionInfo()
+                        .map(
+                                partitionInfo -> {
+                                    /**
+                                     * we retrieve the existing partition ids and transform them
+                                     * into valid values given the column data type
+                                     */
+                                    return BigQueryPartition.partitionValuesFromIdAndDataType(
+                                                    dataClient.retrieveTablePartitions(
+                                                            connectOptions.getProjectId(),
+                                                            connectOptions.getDataset(),
+                                                            connectOptions.getTable()),
+                                                    partitionInfo.getColumnType())
+                                            .stream()
+                                            /**
+                                             * for each of those valid partition values we create an
+                                             * map with the column name and the value
+                                             */
+                                            .map(
+                                                    pValue -> {
+                                                        Map<String, String> partitionColAndValue =
+                                                                new HashMap<>();
+                                                        partitionColAndValue.put(
+                                                                partitionInfo.getColumnName(),
+                                                                pValue);
+                                                        return partitionColAndValue;
+                                                    })
+                                            .collect(Collectors.toList());
+                                });
+        LOG.info("Partitions with data on the BigQuery table {},", ret.toString());
+        return ret;
     }
 
     @Override
     public void applyPartitions(List<Map<String, String>> remainingPartitions) {
+        Optional<TablePartitionInfo> partitionInfo = retrievePartitionInfo();
         this.readOptions =
                 this.readOptions
                         .toBuilder()
                         .setRowRestriction(
-                                // lets set the row restriction concating previously set restriction
-                                // (coming from the table definition) with the partition restriction
-                                // sent by Flink planner.
-                                this.readOptions.getRowRestriction()
-                                        + " AND "
-                                        + remainingPartitions.stream()
-                                                .flatMap(map -> map.entrySet().stream())
-                                                .map(
-                                                        entry ->
-                                                                "("
-                                                                        + entry.getKey()
-                                                                        + "="
-                                                                        + entry.getValue()
-                                                                        + ")")
-                                                .collect(Collectors.joining(" AND ")))
+                                /**
+                                 * given the specification, the partition restriction comes before
+                                 * than the filter application, so we just set here the row
+                                 * restriction.
+                                 */
+                                remainingPartitions.stream()
+                                        .flatMap(map -> map.entrySet().stream())
+                                        .map(
+                                                entry ->
+                                                        BigQueryPartition
+                                                                .formatPartitionRestrictionBasedOnInfo(
+                                                                        partitionInfo,
+                                                                        entry.getKey(),
+                                                                        entry.getValue()))
+                                        .collect(Collectors.joining(" AND ")))
                         .build();
+        LOG.info("Partitions to be used {}.", remainingPartitions.toString());
     }
 }

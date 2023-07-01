@@ -40,6 +40,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -61,6 +63,11 @@ public class BigQueryDynamicTableSourceITCase {
                     .requiredInt("id")
                     .optionalDouble("optDouble")
                     .optionalString("optString")
+                    .name("ts")
+                    .type(
+                            LogicalTypes.timestampMillis()
+                                    .addToSchema(Schema.create(Schema.Type.LONG)))
+                    .noDefault()
                     .name("reqSubRecord")
                     .type(
                             SchemaBuilder.record("reqSubRecord")
@@ -108,6 +115,7 @@ public class BigQueryDynamicTableSourceITCase {
                                                 record.put("id", i);
                                                 record.put("optDouble", (double) i * 2);
                                                 record.put("optString", "s" + i);
+                                                record.put("ts", Instant.now().toEpochMilli());
 
                                                 GenericData.Record reqSubRecord =
                                                         new GenericData.Record(
@@ -211,12 +219,27 @@ public class BigQueryDynamicTableSourceITCase {
 
     @Test
     public void testRestriction() {
+        String anHourFromNow =
+                Instant.now()
+                        .atOffset(ZoneOffset.UTC)
+                        .plusHours(1)
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        String anHourBefore =
+                Instant.now()
+                        .atOffset(ZoneOffset.UTC)
+                        .minusHours(1)
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         String sqlFilter =
                 "id = 0"
                         + " AND NOT optString IS NULL"
                         + " AND optString LIKE 's%'"
                         + " AND optDouble > -1"
-                        + " AND optDouble <= 1.0 ";
+                        + " AND optDouble <= 1.0 "
+                        + " AND ts BETWEEN '"
+                        + anHourBefore
+                        + "' AND '"
+                        + anHourFromNow
+                        + "' ";
         tEnv.executeSql(createTestDDl(null));
 
         Iterator<Row> collected =
@@ -225,7 +248,6 @@ public class BigQueryDynamicTableSourceITCase {
                                         + "FROM bigquery_source "
                                         + "WHERE "
                                         + sqlFilter
-                                        + " "
                                         + "LIMIT 1")
                         .collect();
         List<String> result =
@@ -263,9 +285,10 @@ public class BigQueryDynamicTableSourceITCase {
                         "  id INTEGER,",
                         "  optDouble DOUBLE,",
                         "  optString VARCHAR,",
+                        "  ts TIMESTAMP,",
                         "  reqSubRecord ROW<reqBoolean BOOLEAN, reqTs TIMESTAMP>,",
                         "  optArraySubRecords ARRAY<ROW<reqLong BIGINT, optBytes BINARY>>",
-                        ") WITH (",
+                        ") PARTITIONED BY (ts) WITH (",
                         optionString,
                         ")"));
     }
