@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.fakes;
 
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.SerializableFunction;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
@@ -60,6 +61,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -129,18 +131,60 @@ public class StorageClientFaker {
             };
         }
 
+        static class FaultyIterator<T> implements Iterator<T> {
+
+            private final Iterator<T> realIterator;
+            private final Double errorPercentage;
+            private final Random random = new Random();
+
+            public FaultyIterator(Iterator<T> realIterator, Double errorPercentage) {
+                this.realIterator = realIterator;
+                Preconditions.checkState(
+                        0 <= errorPercentage && errorPercentage <= 100,
+                        "The error percentage should be between 0 and 100");
+                this.errorPercentage = errorPercentage;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return realIterator.hasNext();
+            }
+
+            @Override
+            public T next() {
+                if (random.nextDouble() * 100 < errorPercentage) {
+                    throw new RuntimeException(
+                            "Faulty iterator has failed, it will happen with a chance of: "
+                                    + errorPercentage);
+                }
+                return realIterator.next();
+            }
+
+            @Override
+            public void remove() {
+                realIterator.remove();
+            }
+
+            @Override
+            public void forEachRemaining(Consumer<? super T> action) {
+                realIterator.forEachRemaining(action);
+            }
+        }
+
         /** Implementation of the server stream for testing purposes. */
         public static class FakeBigQueryServerStream
                 implements BigQueryServices.BigQueryServerStream<ReadRowsResponse> {
 
             private final List<ReadRowsResponse> toReturn;
+            private final Double errorPercentage;
 
             public FakeBigQueryServerStream(
                     SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
                     String schema,
                     String dataPrefix,
                     Long size,
-                    Long offset) {
+                    Long offset,
+                    Double errorPercentage) {
                 this.toReturn =
                         createResponse(
                                 schema,
@@ -151,11 +195,12 @@ public class StorageClientFaker {
                                         .collect(Collectors.toList()),
                                 0,
                                 size);
+                this.errorPercentage = errorPercentage;
             }
 
             @Override
             public Iterator<ReadRowsResponse> iterator() {
-                return toReturn.iterator();
+                return new FaultyIterator<>(toReturn.iterator(), errorPercentage);
             }
 
             @Override
@@ -168,13 +213,22 @@ public class StorageClientFaker {
             private final ReadSession session;
             private final SerializableFunction<RecordGenerationParams, List<GenericRecord>>
                     dataGenerator;
+            private final Double errorPercentage;
 
             public FakeBigQueryStorageReadClient(
                     ReadSession session,
                     SerializableFunction<RecordGenerationParams, List<GenericRecord>>
                             dataGenerator) {
+                this(session, dataGenerator, 0D);
+            }
+
+            public FakeBigQueryStorageReadClient(
+                    ReadSession session,
+                    SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+                    Double errorPercentage) {
                 this.session = session;
                 this.dataGenerator = dataGenerator;
+                this.errorPercentage = errorPercentage;
             }
 
             @Override
@@ -194,7 +248,8 @@ public class StorageClientFaker {
                         session.getAvroSchema().getSchema(),
                         request.getReadStream(),
                         session.getEstimatedRowCount(),
-                        request.getOffset());
+                        request.getOffset(),
+                        errorPercentage);
             }
 
             @Override
@@ -362,6 +417,17 @@ public class StorageClientFaker {
             String avroSchemaString,
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator)
             throws IOException {
+        return createReadOptions(
+                expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D);
+    }
+
+    public static BigQueryReadOptions createReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            Double errorPercentage)
+            throws IOException {
         return BigQueryReadOptions.builder()
                 .setBigQueryConnectOptions(
                         BigQueryConnectOptions.builder()
@@ -378,7 +444,8 @@ public class StorageClientFaker {
                                                                     expectedRowCount,
                                                                     expectedReadStreamCount,
                                                                     avroSchemaString),
-                                                            dataGenerator));
+                                                            dataGenerator,
+                                                            errorPercentage));
                                         })
                                 .build())
                 .build();

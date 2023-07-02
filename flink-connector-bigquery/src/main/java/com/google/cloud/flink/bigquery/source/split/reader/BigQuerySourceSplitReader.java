@@ -173,7 +173,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 ReadRowsResponse response = readStreamIterator.next();
                 if (!response.hasAvroRows()) {
                     LOG.info(
-                            "[subtask #{}][hostname %s] The response contained"
+                            "[subtask #{}][hostname {}] The response contained"
                                     + " no avro records for stream {}.",
                             readerContext.getIndexOfSubtask(),
                             readerContext.getLocalHostName(),
@@ -210,7 +210,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 }
                 Long itTimeMs = System.currentTimeMillis() - itStartTime;
                 LOG.debug(
-                        "[subtask #{}][hostname %s] Completed reading iteration in {}ms,"
+                        "[subtask #{}][hostname {}] Completed reading iteration in {}ms,"
                                 + " so far read {} from stream {}.",
                         readerContext.getIndexOfSubtask(),
                         readerContext.getLocalHostName(),
@@ -237,7 +237,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 Long splitTimeMs = System.currentTimeMillis() - splitStartFetch;
                 this.readSplitTimeMetric.ifPresent(m -> m.update(splitTimeMs));
                 LOG.info(
-                        "[subtask #{}][hostname %s] Completed reading split, {} records in {}ms on stream {}.",
+                        "[subtask #{}][hostname {}] Completed reading split, {} records in {}ms on stream {}.",
                         readerContext.getIndexOfSubtask(),
                         readerContext.getLocalHostName(),
                         readSoFar,
@@ -250,7 +250,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             } else {
                 Long fetchTimeMs = System.currentTimeMillis() - fetchStartTime;
                 LOG.debug(
-                        "[subtask #{}][hostname %s] Completed a partial fetch in {}ms,"
+                        "[subtask #{}][hostname {}] Completed a partial fetch in {}ms,"
                                 + " so far read {} from stream {}.",
                         readerContext.getIndexOfSubtask(),
                         readerContext.getLocalHostName(),
@@ -260,13 +260,15 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             }
             return respBuilder.build();
         } catch (Exception ex) {
+            // release the iterator just in case
+            readStreamIterator = null;
             throw new IOException(
                     String.format(
                             "[subtask #%d][hostname %s] Problems while reading stream %s from BigQuery"
                                     + " with connection info %s. Current split offset %d,"
                                     + " reader offset %d. Flink options %s.",
                             readerContext.getIndexOfSubtask(),
-                            readerContext.getLocalHostName(),
+                            Optional.ofNullable(readerContext.getLocalHostName()).orElse("NA"),
                             Optional.ofNullable(assignedSplit.getStreamName()).orElse("NA"),
                             readOptions.toString(),
                             assignedSplit.getOffset(),
@@ -293,7 +295,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
     @Override
     public void wakeUp() {
         LOG.debug(
-                "[subtask #{}][hostname %s] Wake up called.",
+                "[subtask #{}][hostname %{}] Wake up called.",
                 readerContext.getIndexOfSubtask(), readerContext.getLocalHostName());
         // do nothing, for now
     }
@@ -301,7 +303,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
     @Override
     public void close() throws Exception {
         LOG.debug(
-                "[subtask #{}][hostname %s] Close called, assigned splits {}.",
+                "[subtask #{}][hostname {}] Close called, assigned splits {}.",
                 readerContext.getIndexOfSubtask(),
                 readerContext.getLocalHostName(),
                 assignedSplits.toString());
