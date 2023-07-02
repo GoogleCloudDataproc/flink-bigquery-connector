@@ -233,7 +233,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             readSoFar += read;
             // check if we finished to read the stream to finalize the split
             if (!truncated) {
-                readerContext.updateReadCount(read);
+                readerContext.updateReadCount(readSoFar);
                 Long splitTimeMs = System.currentTimeMillis() - splitStartFetch;
                 this.readSplitTimeMetric.ifPresent(m -> m.update(splitTimeMs));
                 LOG.info(
@@ -260,9 +260,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             }
             return respBuilder.build();
         } catch (Exception ex) {
-            // release the iterator just in case
-            readStreamIterator = null;
-            throw new IOException(
+            LOG.error(
                     String.format(
                             "[subtask #%d][hostname %s] Problems while reading stream %s from BigQuery"
                                     + " with connection info %s. Current split offset %d,"
@@ -275,6 +273,13 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             readSoFar,
                             configuration.toString()),
                     ex);
+            // release the iterator just in case
+            readStreamIterator = null;
+            /**
+             * return an empty one, since we may need to re since last set offset (locally or from
+             * checkpoint)
+             */
+            return new RecordsBySplits.Builder<GenericRecord>().build();
         }
     }
 
