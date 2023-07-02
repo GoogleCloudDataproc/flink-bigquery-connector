@@ -36,7 +36,7 @@ case $STEP in
 
   # Run unit & integration tests
   tests)
-    $MVN mvn clean clover:setup verify clover:aggregate clover:clover -Pclover -pl flink-connector-bigquery
+    $MVN mvn clean clover:setup verify clover:aggregate clover:clover -Pclover
     ;;
 
   *)
@@ -45,5 +45,9 @@ case $STEP in
     ;;
 esac
 
+pushd flink-bigquery-connector
+
 # Upload test coverage report to Codecov
 bash <(curl -s https://codecov.io/bash) -K -F "${STEP}"
+
+popd

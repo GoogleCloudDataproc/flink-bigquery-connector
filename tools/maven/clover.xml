@@ -38,7 +38,7 @@ under the License.
                     <include name="**/*TestCase.java"/>
                 </testsources>
                 <!-- Tell Clover to get test results directory as defined in pom.xml. They will be listed on "Results" tab -->
-                <testresults dir="target/test-report" includes="TEST-*.xml"/>
+                <testresults dir="${maven.multiModuleProjectDirectory}/target/test-report" includes="TEST-*.xml"/>
             </current>
         </clover-report>
     </target>

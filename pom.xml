@@ -27,7 +27,7 @@ under the License.
         <version>1.0.0</version>
     </parent>
 
-    <groupId>org.apache.flink</groupId>
+    <groupId>com.google.cloud.flink</groupId>
     <artifactId>flink-connector-bigquery-parent</artifactId>
     <version>1.1-SNAPSHOT</version>
 
@@ -62,7 +62,7 @@ under the License.
         <log4j.version>2.17.2</log4j.version>
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
-        <surefire.and.failsafe.report.dir>target/test-report</surefire.and.failsafe.report.dir>
+        <surefire.report.dir>${maven.multiModuleProjectDirectory}/target/test-report</surefire.report.dir>
     </properties>
 
     <modules>
@@ -398,10 +398,25 @@ under the License.
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
             </plugin>
-
             <plugin>
                 <groupId>org.commonjava.maven.plugins</groupId>
                 <artifactId>directory-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>directories</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>directory-of</goal>
+                        </goals>
+                        <configuration>
+                            <property>rootDir</property>
+                            <project>
+                                <groupId>com.google.cloud.flink</groupId>
+                                <artifactId>flink-connector-bigquery-parent</artifactId>
+                            </project>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
@@ -424,6 +439,7 @@ under the License.
                                 <exclude>**/com/google/cloud/flink/bigquery/services/**Impl.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/source/config/*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/table/config/BigQueryConnectorOptions.*</exclude>
+                                <exclude>**/com/google/cloud/flink/bigquery/examples/**</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -431,7 +447,7 @@ under the License.
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <reportsDirectory>${surefire.and.failsafe.report.dir}</reportsDirectory>
+                            <reportsDirectory>${surefire.report.dir}</reportsDirectory>
                         </configuration>
                     </plugin>
                 </plugins>
