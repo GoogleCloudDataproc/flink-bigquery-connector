@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
  */
 public class SchemaTransform {
 
-    static final String NAMESPACE = "org.apache.flink.connector.bigquery";
+    static final String NAMESPACE = "com.google.cloud.flink.bigquery";
     /**
      * Defines the valid mapping between BigQuery types and native Avro types.
      *
