@@ -36,7 +36,7 @@ case $STEP in
 
   # Run unit & integration tests
   tests)
-    $MVN mvn clean clover:setup verify clover:aggregate clover:clover -Pclover -pl flink-connector-bigquery
+    $MVN clean clover:setup verify clover:aggregate clover:clover -Pclover -pl flink-connector-bigquery
     ;;
 
   *)
