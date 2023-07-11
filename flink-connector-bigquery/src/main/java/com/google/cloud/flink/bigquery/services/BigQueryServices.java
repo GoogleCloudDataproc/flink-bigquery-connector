@@ -73,11 +73,10 @@ public interface BigQueryServices extends Serializable {
     /** An interface representing a client object for making calls to the BigQuery Storage API. */
     interface StorageReadClient extends AutoCloseable {
         /**
-         * Create a new read session against an existing table.This method variant collects request
-         * count metric, table id in the request.
+         * Create a new BigQuery storage read session against an existing table.
          *
-         * @param request
-         * @return
+         * @param request the create session request object.
+         * @return A BigQuery storage read session.
          */
         ReadSession createReadSession(CreateReadSessionRequest request);
 
