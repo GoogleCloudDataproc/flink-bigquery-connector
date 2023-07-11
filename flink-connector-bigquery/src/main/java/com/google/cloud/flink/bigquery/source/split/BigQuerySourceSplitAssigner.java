@@ -73,7 +73,6 @@ public class BigQuerySourceSplitAssigner {
      * that query and then return a modified version of the connect options pointing to the
      * temporary location (project, dataset and table) of the query results.
      *
-     * @param readOptions The configured read options.
      * @return The BigQuery connect options with the right project, dataset and table given the
      *     specified configuration.
      */

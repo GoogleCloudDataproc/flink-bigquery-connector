@@ -130,7 +130,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param query A BigQuery standard SQL query.
          * @param projectId A GCP project where the query will run.
          * @return This {@link Builder} instance.
-         * @throws IOException
+         * @throws IOException In case of problems while setting up the credentials options.
          */
         public Builder setQueryAndExecutionProject(String query, String projectId)
                 throws IOException {
@@ -145,7 +145,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param projectId A GCP project where the query will run.
          * @param credentialsOptions The GCP credentials options.
          * @return This {@link Builder} instance.
-         * @throws IOException
+         * @throws IOException In case of problems while setting up the credentials options.
          */
         public Builder setQueryWithExecutionProjectAndCredentialsOptions(
                 String query, String projectId, CredentialsOptions credentialsOptions)
