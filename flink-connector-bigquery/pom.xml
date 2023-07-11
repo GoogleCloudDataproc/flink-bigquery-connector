@@ -199,13 +199,6 @@ under the License.
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>**/com/google/cloud/flink/bigquery/common/config/*</exclude>
-                        <exclude>**/com/google/cloud/flink/bigquery/common/utils/GoogleCredentialsSupplier.class</exclude>
-                        <exclude>**/com/google/cloud/flink/bigquery/services/**Impl.class</exclude>
-                    </excludes>
-                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
