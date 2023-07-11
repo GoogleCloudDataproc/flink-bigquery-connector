@@ -36,12 +36,12 @@ case $STEP in
 
   # Run unit tests
   unittest)
-    $MVN test jacoco:report jacoco:report-aggregate -Pcoverage
+    $MVN test jacoco:report jacoco:report-aggregate 
     ;;
 
   # Run integration tests
   integrationtest)
-    $MVN failsafe:integration-test failsafe:verify jacoco:report jacoco:report-aggregate -Pcoverage,integration
+    $MVN failsafe:integration-test failsafe:verify jacoco:report jacoco:report-aggregate 
     ;;
 
   *)
