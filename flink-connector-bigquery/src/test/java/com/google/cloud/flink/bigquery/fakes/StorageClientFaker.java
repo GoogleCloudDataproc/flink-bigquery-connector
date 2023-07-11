@@ -38,6 +38,7 @@ import com.google.cloud.bigquery.storage.v1.ReadStream;
 import com.google.cloud.bigquery.storage.v1.StreamStats;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -203,7 +204,9 @@ public class StorageClientFaker {
             "{\"namespace\": \"project.dataset\",\n"
                     + " \"type\": \"record\",\n"
                     + " \"name\": \"queryresultschema\",\n"
-                    + " \"namespace\": \"org.apache.flink.connector.bigquery\",\n"
+                    + " \"namespace\": \""
+                    + SchemaTransform.DEFAULT_NAMESPACE
+                    + "\",\n"
                     + " \"doc\": \"Translated Avro Schema for queryresultschema\",\n"
                     + SIMPLE_AVRO_SCHEMA_FIELDS_STRING
                     + "}";
