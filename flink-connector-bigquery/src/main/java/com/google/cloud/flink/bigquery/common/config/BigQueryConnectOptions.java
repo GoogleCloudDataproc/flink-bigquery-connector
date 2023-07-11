@@ -46,14 +46,14 @@ public abstract class BigQueryConnectOptions implements Serializable {
     public abstract SerializableSupplier<BigQueryServices> getTestingBigQueryServices();
 
     @Override
-    public String toString() {
+    public final String toString() {
         return String.format(
                 "[project : %s, dataset : %s, table : %s]",
                 getProjectId(), getDataset(), getTable());
     }
 
     @Override
-    public int hashCode() {
+    public final int hashCode() {
         int hash = 5;
         hash = 61 * hash + Objects.hashCode(getProjectId());
         hash = 61 * hash + Objects.hashCode(getDataset());
@@ -63,7 +63,7 @@ public abstract class BigQueryConnectOptions implements Serializable {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public final boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
