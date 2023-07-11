@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
  */
 public class SchemaTransform {
 
-    static final String NAMESPACE = "org.apache.flink.connector.bigquery";
+    static final String NAMESPACE = "com.google.cloud.flink.bigquery";
     /**
      * Defines the valid mapping between BigQuery types and native Avro types.
      *
@@ -105,7 +105,7 @@ public class SchemaTransform {
         List<TableFieldSchema> fieldsToCheck = new ArrayList<>();
         for (fieldsToCheck.addAll(fieldSchemas); !fieldsToCheck.isEmpty(); ) {
             TableFieldSchema field = fieldsToCheck.remove(0);
-            if ("STRUCT".equals(field.getType()) || "RECORD".equals(field.getType())) {
+            if (field.getType().equals("STRUCT") || field.getType().equals("RECORD")) {
                 if (recordTypeFieldNames.contains(field.getName())) {
                     return true;
                 }
@@ -141,11 +141,11 @@ public class SchemaTransform {
             elementSchema = handleAvroLogicalTypes(bigQueryField, avroType);
         }
         Schema fieldSchema;
-        if (bigQueryField.getMode() == null || "NULLABLE".equals(bigQueryField.getMode())) {
+        if (bigQueryField.getMode() == null || bigQueryField.getMode().equals("NULLABLE")) {
             fieldSchema = Schema.createUnion(Schema.create(Schema.Type.NULL), elementSchema);
         } else if (Objects.equals(bigQueryField.getMode(), "REQUIRED")) {
             fieldSchema = elementSchema;
-        } else if ("REPEATED".equals(bigQueryField.getMode())) {
+        } else if (bigQueryField.getMode().equals("REPEATED")) {
             fieldSchema = Schema.createArray(elementSchema);
         } else {
             throw new IllegalArgumentException(
