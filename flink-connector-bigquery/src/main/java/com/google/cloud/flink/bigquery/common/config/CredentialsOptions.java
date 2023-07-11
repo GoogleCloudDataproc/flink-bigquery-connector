@@ -55,7 +55,7 @@ public abstract class CredentialsOptions implements Serializable {
     }
 
     @Override
-    public int hashCode() {
+    public final int hashCode() {
         int hash = 5;
         hash = 61 * hash + Objects.hashCode(getCredentialsFile());
         hash = 61 * hash + Objects.hashCode(getCredentialsKey());
@@ -64,7 +64,7 @@ public abstract class CredentialsOptions implements Serializable {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public final boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
