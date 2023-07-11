@@ -41,7 +41,7 @@ public class BigQueryPartition {
 
     private BigQueryPartition() {}
 
-    /** */
+    /** Represents the partition types the BigQuery can use in partitioned tables. */
     public enum PartitionType {
         HOUR,
         DAY,
