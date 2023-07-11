@@ -178,7 +178,7 @@ public class SchemaTransformTest {
                                 Schema.createRecord(
                                         "scion",
                                         "Translated Avro Schema for scion",
-                                        SchemaTransform.NAMESPACE,
+                                        SchemaTransform.DEFAULT_NAMESPACE,
                                         false,
                                         ImmutableList.of(
                                                 new Schema.Field(
@@ -194,7 +194,7 @@ public class SchemaTransformTest {
                                 Schema.createRecord(
                                         "associates",
                                         "Translated Avro Schema for associates",
-                                        SchemaTransform.NAMESPACE,
+                                        SchemaTransform.DEFAULT_NAMESPACE,
                                         false,
                                         ImmutableList.of(
                                                 new Schema.Field(
