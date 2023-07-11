@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
  */
 public class SchemaTransform {
 
-    static final String NAMESPACE = "com.google.cloud.flink.bigquery";
+    public static final String DEFAULT_NAMESPACE = "com.google.cloud.flink.bigquery";
     /**
      * Defines the valid mapping between BigQuery types and native Avro types.
      *
@@ -86,7 +86,7 @@ public class SchemaTransform {
         return Schema.createRecord(
                 schemaName,
                 "Translated Avro Schema for " + schemaName,
-                namespace == null ? NAMESPACE : namespace,
+                namespace == null ? DEFAULT_NAMESPACE : namespace,
                 false,
                 avroFields);
     }
@@ -94,7 +94,9 @@ public class SchemaTransform {
     public static Schema toGenericAvroSchema(
             String schemaName, List<TableFieldSchema> fieldSchemas) {
         return toGenericAvroSchema(
-                schemaName, fieldSchemas, hasNamespaceCollision(fieldSchemas) ? NAMESPACE : null);
+                schemaName,
+                fieldSchemas,
+                hasNamespaceCollision(fieldSchemas) ? DEFAULT_NAMESPACE : null);
     }
 
     // To maintain backwards compatibility we only disambiguate collisions in the field namespaces
