@@ -117,7 +117,7 @@ public class BigQueryUtils {
 
     static <T> T executeOperation(
             FailsafeExecutor<T> failsafeExecutor, CheckedSupplier<T> operation) {
-        return failsafeExecutor.get(() -> operation.get());
+        return failsafeExecutor.get(operation);
     }
 
     static Job runInsertJob(Bigquery client, String projectId, Job job) throws IOException {

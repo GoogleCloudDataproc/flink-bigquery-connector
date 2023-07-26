@@ -49,8 +49,8 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
-import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import org.threeten.bp.Duration;
 
 import java.io.IOException;
@@ -122,9 +122,7 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().createReadSessionSettings();
 
             createReadSessionSettings.setRetrySettings(
-                    createReadSessionSettings
-                            .getRetrySettings()
-                            .toBuilder()
+                    createReadSessionSettings.getRetrySettings().toBuilder()
                             .setInitialRpcTimeout(Duration.ofHours(2))
                             .setMaxRpcTimeout(Duration.ofHours(2))
                             .setTotalTimeout(Duration.ofHours(2))
@@ -135,9 +133,7 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().splitReadStreamSettings();
 
             splitReadStreamSettings.setRetrySettings(
-                    splitReadStreamSettings
-                            .getRetrySettings()
-                            .toBuilder()
+                    splitReadStreamSettings.getRetrySettings().toBuilder()
                             .setInitialRpcTimeout(Duration.ofSeconds(30))
                             .setMaxRpcTimeout(Duration.ofSeconds(30))
                             .setTotalTimeout(Duration.ofSeconds(30))
@@ -214,6 +210,60 @@ public class BigQueryServiceImpl implements BigQueryServices {
             }
         }
 
+        PartitionIdWithInfoAndStatus checkPartitionCompleted(PartitionIdWithInfo partition) {
+            switch (partition.getInfo().getPartitionType()) {
+                case HOUR:
+                    {
+                        return null;
+                    }
+                case DAY:
+                    {
+                        return null;
+                    }
+                case MONTH:
+                    {
+                        return null;
+                    }
+                case YEAR:
+                    {
+                        return null;
+                    }
+                case INT_RANGE:
+                    return new PartitionIdWithInfoAndStatus(
+                            partition.getPartitionId(),
+                            partition.getInfo(),
+                            BigQueryPartition.PartitionStatus.COMPLETED);
+                default:
+                    throw new IllegalArgumentException(
+                            "Partition type not supported: "
+                                    + partition.getInfo().getPartitionType());
+            }
+        }
+
+        public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
+                String project, String dataset, String table) {
+            try {
+                return retrievePartitionColumnInfo(project, dataset, table)
+                        .map(
+                                info ->
+                                        info
+                                                .toPartitionsWithInfo(
+                                                        retrieveTablePartitions(
+                                                                project, dataset, table))
+                                                .stream()
+                                                .map(pInfo -> checkPartitionCompleted(pInfo))
+                                                .collect(Collectors.toList()))
+                        .orElse(Lists.newArrayList());
+            } catch (Exception ex) {
+                throw new RuntimeException(
+                        String.format(
+                                "Problems while trying to retrieve table partitions status"
+                                        + " (table: %s.%s.%s).",
+                                project, dataset, table),
+                        ex);
+            }
+        }
+
         @Override
         public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
                 String project, String dataset, String table) {
@@ -276,7 +326,6 @@ public class BigQueryServiceImpl implements BigQueryServices {
                                 .setUseLegacySql(false);
                 /** first we need to execute a dry-run to understand the expected query location. */
                 return BigQueryUtils.dryRunQuery(bigquery, projectId, queryConfiguration, null);
-
             } catch (Exception ex) {
                 throw new RuntimeException(
                         "Problems occurred while trying to dry-run a BigQuery query job.", ex);

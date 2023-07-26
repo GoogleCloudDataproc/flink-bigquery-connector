@@ -19,7 +19,11 @@ package com.google.cloud.flink.bigquery.services;
 import org.apache.flink.annotation.Internal;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.PartitionType;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 /** Represents the information of the BigQuery table's partition. */
 @Internal
@@ -27,12 +31,10 @@ public class TablePartitionInfo {
 
     private final String columnName;
     private final StandardSQLTypeName columnType;
-    private final BigQueryPartition.PartitionType partitionType;
+    private final PartitionType partitionType;
 
     public TablePartitionInfo(
-            String columnName,
-            BigQueryPartition.PartitionType partitionType,
-            StandardSQLTypeName columnType) {
+            String columnName, PartitionType partitionType, StandardSQLTypeName columnType) {
         this.columnName = columnName;
         this.columnType = columnType;
         this.partitionType = partitionType;
@@ -46,8 +48,18 @@ public class TablePartitionInfo {
         return columnType;
     }
 
-    public BigQueryPartition.PartitionType getPartitionType() {
+    public PartitionType getPartitionType() {
         return partitionType;
+    }
+
+    public List<PartitionIdWithInfo> toPartitionsWithInfo(List<String> partitionIds) {
+        return Optional.ofNullable(partitionIds)
+                .map(
+                        ps ->
+                                ps.stream()
+                                        .map(id -> new PartitionIdWithInfo(id, this))
+                                        .collect(Collectors.toList()))
+                .orElse(Lists.newArrayList());
     }
 
     @Override

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.table.restrictions;
+package com.google.cloud.flink.bigquery.common.utils;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;
@@ -39,6 +39,16 @@ import java.util.stream.Collectors;
 @Internal
 public class BigQueryPartition {
 
+    private static final SimpleDateFormat FROM_HOUR_FORMAT = new SimpleDateFormat("");
+    private static final SimpleDateFormat FROM_DAY_FORMAT = new SimpleDateFormat("");
+    private static final SimpleDateFormat FROM_MONTH_FORMAT = new SimpleDateFormat("");
+    private static final SimpleDateFormat FROM_YEAR_FORMAT = new SimpleDateFormat("");
+
+    private static final SimpleDateFormat TO_HOUR_FORMAT = new SimpleDateFormat("");
+    private static final SimpleDateFormat TO_DAY_FORMAT = new SimpleDateFormat("");
+    private static final SimpleDateFormat TO_MONTH_FORMAT = new SimpleDateFormat("");
+    private static final SimpleDateFormat TO_YEAR_FORMAT = new SimpleDateFormat("");
+
     private BigQueryPartition() {}
 
     /** Represents the partition types the BigQuery can use in partitioned tables. */
@@ -48,6 +58,12 @@ public class BigQueryPartition {
         MONTH,
         YEAR,
         INT_RANGE
+    }
+
+    /** represents the completion status of a BigQuery partition */
+    public enum PartitionStatus {
+        IN_PROGRESS,
+        COMPLETED
     }
 
     public static StandardSQLTypeName retrievePartitionColumnType(
@@ -257,6 +273,8 @@ public class BigQueryPartition {
                         })
                 .orElse(String.format("%s = %s", columnNameFromSQL, valueFromSQL));
     }
+    
+    static String
 
     public static List<String> partitionValuesFromIdAndDataType(
             List<String> partitionIds, StandardSQLTypeName dataType) {
@@ -284,7 +302,7 @@ public class BigQueryPartition {
                 switch (firstId.length()) {
                     case 4:
                         // we have yearly partitions
-                        partitionValues.addAll(partitionIds.stream().collect(Collectors.toList()));
+                        partitionValues.addAll(partitionIds);
                         break;
                     case 6:
                         // we have monthly partitions
