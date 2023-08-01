@@ -61,7 +61,7 @@ import java.util.stream.StreamSupport;
 
 /** Implementation of the {@link BigQueryServices} interface that wraps the actual clients. */
 @Internal
-public class BigQueryServiceImpl implements BigQueryServices {
+public class BigQueryServicesImpl implements BigQueryServices {
 
     @Override
     public StorageReadClient getStorageClient(CredentialsOptions credentialsOptions)
