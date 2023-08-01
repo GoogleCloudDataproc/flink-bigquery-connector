@@ -210,36 +210,6 @@ public class BigQueryServiceImpl implements BigQueryServices {
             }
         }
 
-        PartitionIdWithInfoAndStatus checkPartitionCompleted(PartitionIdWithInfo partition) {
-            switch (partition.getInfo().getPartitionType()) {
-                case HOUR:
-                    {
-                        return null;
-                    }
-                case DAY:
-                    {
-                        return null;
-                    }
-                case MONTH:
-                    {
-                        return null;
-                    }
-                case YEAR:
-                    {
-                        return null;
-                    }
-                case INT_RANGE:
-                    return new PartitionIdWithInfoAndStatus(
-                            partition.getPartitionId(),
-                            partition.getInfo(),
-                            BigQueryPartition.PartitionStatus.COMPLETED);
-                default:
-                    throw new IllegalArgumentException(
-                            "Partition type not supported: "
-                                    + partition.getInfo().getPartitionType());
-            }
-        }
-
         public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
                 String project, String dataset, String table) {
             try {
@@ -251,7 +221,11 @@ public class BigQueryServiceImpl implements BigQueryServices {
                                                         retrieveTablePartitions(
                                                                 project, dataset, table))
                                                 .stream()
-                                                .map(pInfo -> checkPartitionCompleted(pInfo))
+                                                .map(
+                                                        pInfo ->
+                                                                BigQueryPartition
+                                                                        .checkPartitionCompleted(
+                                                                                pInfo))
                                                 .collect(Collectors.toList()))
                         .orElse(Lists.newArrayList());
             } catch (Exception ex) {

@@ -21,15 +21,16 @@ import org.apache.flink.util.Preconditions;
 
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.flink.bigquery.services.PartitionIdWithInfo;
+import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import org.apache.commons.lang3.StringUtils;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -39,15 +40,27 @@ import java.util.stream.Collectors;
 @Internal
 public class BigQueryPartition {
 
-    private static final SimpleDateFormat FROM_HOUR_FORMAT = new SimpleDateFormat("");
-    private static final SimpleDateFormat FROM_DAY_FORMAT = new SimpleDateFormat("");
-    private static final SimpleDateFormat FROM_MONTH_FORMAT = new SimpleDateFormat("");
-    private static final SimpleDateFormat FROM_YEAR_FORMAT = new SimpleDateFormat("");
+    private static final String BQPARTITION_HOUR_FORMAT_STRING = "yyyyMMddHH";
+    private static final String BQPARTITION_DAY_FORMAT_STRING = "yyyyMMdd";
+    private static final String BQPARTITION_MONTH_FORMAT_STRING = "yyyyMM";
 
-    private static final SimpleDateFormat TO_HOUR_FORMAT = new SimpleDateFormat("");
-    private static final SimpleDateFormat TO_DAY_FORMAT = new SimpleDateFormat("");
-    private static final SimpleDateFormat TO_MONTH_FORMAT = new SimpleDateFormat("");
-    private static final SimpleDateFormat TO_YEAR_FORMAT = new SimpleDateFormat("");
+    private static final String SQL_HOUR_FORMAT_STRING = "yyyy-MM-dd HH:00:00";
+    private static final String SQL_DAY_FORMAT_STRING = "yyyy-MM-dd";
+    private static final String SQL_MONTH_FORMAT_STRING = "yyyy-MM";
+
+    private static final DateTimeFormatter BQPARTITION_HOUR_FORMAT =
+            DateTimeFormatter.ofPattern(BQPARTITION_HOUR_FORMAT_STRING);
+    private static final DateTimeFormatter BQPARTITION_DAY_FORMAT =
+            DateTimeFormatter.ofPattern(BQPARTITION_DAY_FORMAT_STRING);
+    private static final DateTimeFormatter BQPARTITION_MONTH_FORMAT =
+            DateTimeFormatter.ofPattern(BQPARTITION_MONTH_FORMAT_STRING);
+
+    private static final DateTimeFormatter SQL_HOUR_FORMAT =
+            DateTimeFormatter.ofPattern(SQL_HOUR_FORMAT_STRING);
+    private static final DateTimeFormatter SQL_DAY_FORMAT =
+            DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING);
+    private static final DateTimeFormatter SQL_MONTH_FORMAT =
+            DateTimeFormatter.ofPattern(SQL_MONTH_FORMAT_STRING);
 
     private BigQueryPartition() {}
 
@@ -86,16 +99,13 @@ public class BigQueryPartition {
     }
 
     static List<String> partitionIdToDateFormat(
-            List<String> partitions, String fromFormat, String toFormat) {
-        SimpleDateFormat parseFormat = new SimpleDateFormat(fromFormat);
-        SimpleDateFormat printFormat = new SimpleDateFormat(toFormat);
-
+            List<String> partitions, DateTimeFormatter parseFormat, DateTimeFormatter printFormat) {
         return partitions.stream()
                 .map(
                         id -> {
                             try {
                                 return parseFormat.parse(id);
-                            } catch (ParseException ex) {
+                            } catch (DateTimeParseException ex) {
                                 throw new RuntimeException(
                                         "Problems parsing the temporal value: " + id);
                             }
@@ -273,8 +283,36 @@ public class BigQueryPartition {
                         })
                 .orElse(String.format("%s = %s", columnNameFromSQL, valueFromSQL));
     }
-    
-    static String
+
+    public static PartitionIdWithInfoAndStatus checkPartitionCompleted(
+            PartitionIdWithInfo partition) {
+        switch (partition.getInfo().getPartitionType()) {
+            case HOUR:
+                {
+                    return null;
+                }
+            case DAY:
+                {
+                    return null;
+                }
+            case MONTH:
+                {
+                    return null;
+                }
+            case YEAR:
+                {
+                    return null;
+                }
+            case INT_RANGE:
+                return new PartitionIdWithInfoAndStatus(
+                        partition.getPartitionId(),
+                        partition.getInfo(),
+                        BigQueryPartition.PartitionStatus.COMPLETED);
+            default:
+                throw new IllegalArgumentException(
+                        "Partition type not supported: " + partition.getInfo().getPartitionType());
+        }
+    }
 
     public static List<String> partitionValuesFromIdAndDataType(
             List<String> partitionIds, StandardSQLTypeName dataType) {
@@ -307,18 +345,20 @@ public class BigQueryPartition {
                     case 6:
                         // we have monthly partitions
                         partitionValues.addAll(
-                                partitionIdToDateFormat(partitionIds, "yyyyMM", "yyyy-MM"));
+                                partitionIdToDateFormat(
+                                        partitionIds, BQPARTITION_MONTH_FORMAT, SQL_MONTH_FORMAT));
                         break;
                     case 8:
                         // we have daily partitions
                         partitionValues.addAll(
-                                partitionIdToDateFormat(partitionIds, "yyyyMMdd", "yyyy-MM-dd"));
+                                partitionIdToDateFormat(
+                                        partitionIds, BQPARTITION_DAY_FORMAT, SQL_DAY_FORMAT));
                         break;
                     case 10:
                         // we have hourly partitions
                         partitionValues.addAll(
                                 partitionIdToDateFormat(
-                                        partitionIds, "yyyyMMddHH", "yyyy-MM-dd HH:mm:ss"));
+                                        partitionIds, BQPARTITION_HOUR_FORMAT, SQL_HOUR_FORMAT));
                         break;
                     default:
                         throw new IllegalArgumentException(
