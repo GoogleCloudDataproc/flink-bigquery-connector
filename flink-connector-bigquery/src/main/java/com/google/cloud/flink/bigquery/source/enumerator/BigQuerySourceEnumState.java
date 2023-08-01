@@ -114,17 +114,17 @@ public class BigQuerySourceEnumState {
 
     @Override
     public String toString() {
-        return "BigQuerySourceEnumState{"
-                + "remaniningTableStreams="
-                + remaniningTableStreams
-                + ", completedTableStreams="
-                + completedTableStreams
-                + ", remainingSourceSplits="
-                + remainingSourceSplits
-                + ", assignedSourceSplits="
-                + assignedSourceSplits
-                + ", initialized="
-                + initialized
-                + '}';
+        return String.format(
+                "BigQuerySourceEnumState{"
+                        + "remaniningTableStreams=%s"
+                        + ", completedTableStreams=%s"
+                        + ", remainingSourceSplits=%s"
+                        + ", assignedSourceSplits=%s"
+                        + ", initialized=%s}",
+                remaniningTableStreams,
+                completedTableStreams,
+                remainingSourceSplits,
+                assignedSourceSplits,
+                initialized);
     }
 }
