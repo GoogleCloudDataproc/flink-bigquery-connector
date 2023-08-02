@@ -26,11 +26,12 @@ import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import org.apache.commons.lang3.StringUtils;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +41,8 @@ import java.util.stream.Collectors;
 @Internal
 public class BigQueryPartition {
 
+    private static final ZoneId ZONE = ZoneId.of("UTC");
+
     private static final String BQPARTITION_HOUR_FORMAT_STRING = "yyyyMMddHH";
     private static final String BQPARTITION_DAY_FORMAT_STRING = "yyyyMMdd";
     private static final String BQPARTITION_MONTH_FORMAT_STRING = "yyyyMM";
@@ -48,19 +51,19 @@ public class BigQueryPartition {
     private static final String SQL_DAY_FORMAT_STRING = "yyyy-MM-dd";
     private static final String SQL_MONTH_FORMAT_STRING = "yyyy-MM";
 
-    private static final DateTimeFormatter BQPARTITION_HOUR_FORMAT =
-            DateTimeFormatter.ofPattern(BQPARTITION_HOUR_FORMAT_STRING);
-    private static final DateTimeFormatter BQPARTITION_DAY_FORMAT =
-            DateTimeFormatter.ofPattern(BQPARTITION_DAY_FORMAT_STRING);
-    private static final DateTimeFormatter BQPARTITION_MONTH_FORMAT =
-            DateTimeFormatter.ofPattern(BQPARTITION_MONTH_FORMAT_STRING);
+    private static final SimpleDateFormat BQPARTITION_HOUR_FORMAT =
+            new SimpleDateFormat(BQPARTITION_HOUR_FORMAT_STRING);
+    private static final SimpleDateFormat BQPARTITION_DAY_FORMAT =
+            new SimpleDateFormat(BQPARTITION_DAY_FORMAT_STRING);
+    private static final SimpleDateFormat BQPARTITION_MONTH_FORMAT =
+            new SimpleDateFormat(BQPARTITION_MONTH_FORMAT_STRING);
 
-    private static final DateTimeFormatter SQL_HOUR_FORMAT =
-            DateTimeFormatter.ofPattern(SQL_HOUR_FORMAT_STRING);
-    private static final DateTimeFormatter SQL_DAY_FORMAT =
-            DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING);
-    private static final DateTimeFormatter SQL_MONTH_FORMAT =
-            DateTimeFormatter.ofPattern(SQL_MONTH_FORMAT_STRING);
+    private static final SimpleDateFormat SQL_HOUR_FORMAT =
+            new SimpleDateFormat(SQL_HOUR_FORMAT_STRING);
+    private static final SimpleDateFormat SQL_DAY_FORMAT =
+            new SimpleDateFormat(SQL_DAY_FORMAT_STRING);
+    private static final SimpleDateFormat SQL_MONTH_FORMAT =
+            new SimpleDateFormat(SQL_MONTH_FORMAT_STRING);
 
     private BigQueryPartition() {}
 
@@ -73,7 +76,7 @@ public class BigQueryPartition {
         INT_RANGE
     }
 
-    /** represents the completion status of a BigQuery partition */
+    /** Represents the completion status of a BigQuery partition. */
     public enum PartitionStatus {
         IN_PROGRESS,
         COMPLETED
@@ -99,15 +102,15 @@ public class BigQueryPartition {
     }
 
     static List<String> partitionIdToDateFormat(
-            List<String> partitions, DateTimeFormatter parseFormat, DateTimeFormatter printFormat) {
+            List<String> partitions, SimpleDateFormat parseFormat, SimpleDateFormat printFormat) {
         return partitions.stream()
                 .map(
                         id -> {
                             try {
                                 return parseFormat.parse(id);
-                            } catch (DateTimeParseException ex) {
+                            } catch (ParseException ex) {
                                 throw new RuntimeException(
-                                        "Problems parsing the temporal value: " + id);
+                                        "Problems parsing the temporal value: " + id, ex);
                             }
                         })
                 .map(date -> printFormat.format(date))
@@ -140,7 +143,7 @@ public class BigQueryPartition {
             PartitionType partitionType, String columnName, String valueFromSQL) {
         ZonedDateTime parsedDateTime =
                 LocalDateTime.parse(valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        .atZone(ZoneId.of("UTC"));
+                        .atZone(ZONE);
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
         switch (partitionType) {
             case DAY:
@@ -190,7 +193,7 @@ public class BigQueryPartition {
         ZonedDateTime parsedDateTime =
                 LocalDateTime.parse(
                                 valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                        .atZone(ZoneId.of("UTC"));
+                        .atZone(ZONE);
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
         switch (partitionType) {
             case HOUR:

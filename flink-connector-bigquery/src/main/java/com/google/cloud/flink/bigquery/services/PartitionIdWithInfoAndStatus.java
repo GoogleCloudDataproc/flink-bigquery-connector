@@ -13,11 +13,14 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package com.google.cloud.flink.bigquery.services;
 
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
-import java.util.Objects;
 import org.apache.flink.annotation.Internal;
+
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+
+import java.util.Objects;
 
 /** */
 @Internal

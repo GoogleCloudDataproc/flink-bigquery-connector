@@ -18,12 +18,14 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
 
+import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
+
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.PartitionType;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 /** Represents the information of the BigQuery table's partition. */
 @Internal

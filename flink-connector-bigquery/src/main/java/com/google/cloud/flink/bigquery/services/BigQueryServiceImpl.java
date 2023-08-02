@@ -122,7 +122,9 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().createReadSessionSettings();
 
             createReadSessionSettings.setRetrySettings(
-                    createReadSessionSettings.getRetrySettings().toBuilder()
+                    createReadSessionSettings
+                            .getRetrySettings()
+                            .toBuilder()
                             .setInitialRpcTimeout(Duration.ofHours(2))
                             .setMaxRpcTimeout(Duration.ofHours(2))
                             .setTotalTimeout(Duration.ofHours(2))
@@ -133,7 +135,9 @@ public class BigQueryServiceImpl implements BigQueryServices {
                             settingsBuilder.getStubSettingsBuilder().splitReadStreamSettings();
 
             splitReadStreamSettings.setRetrySettings(
-                    splitReadStreamSettings.getRetrySettings().toBuilder()
+                    splitReadStreamSettings
+                            .getRetrySettings()
+                            .toBuilder()
                             .setInitialRpcTimeout(Duration.ofSeconds(30))
                             .setMaxRpcTimeout(Duration.ofSeconds(30))
                             .setTotalTimeout(Duration.ofSeconds(30))
