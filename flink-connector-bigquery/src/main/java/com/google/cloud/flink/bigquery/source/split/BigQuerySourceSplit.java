@@ -27,14 +27,14 @@ import java.util.Objects;
 public class BigQuerySourceSplit implements SourceSplit, Serializable {
 
     private final String streamName;
-    private final Integer offset;
+    private final Long offset;
 
     public BigQuerySourceSplit(String streamName) {
         this.streamName = streamName;
-        this.offset = 0;
+        this.offset = 0L;
     }
 
-    public BigQuerySourceSplit(String streamName, Integer offset) {
+    public BigQuerySourceSplit(String streamName, Long offset) {
         this.streamName = streamName;
         this.offset = offset;
     }
@@ -48,7 +48,7 @@ public class BigQuerySourceSplit implements SourceSplit, Serializable {
         return streamName;
     }
 
-    public Integer getOffset() {
+    public Long getOffset() {
         return offset;
     }
 
