@@ -45,7 +45,7 @@ public class BigQuerySourceEnumStateSerializer
 
     @Override
     public int getVersion() {
-        return BigQuerySourceSplitSerializer.CURRENT_VERSION;
+        return BigQuerySourceSplitSerializer.VERSION;
     }
 
     @Override
