@@ -51,9 +51,9 @@ public class PartitionIdWithInfoAndStatus {
     @Override
     public int hashCode() {
         int hash = 7;
-        hash = 17 * hash + Objects.hashCode(this.partitionId);
-        hash = 17 * hash + Objects.hashCode(this.info);
-        hash = 17 * hash + Objects.hashCode(this.status);
+        hash = 17 * hash + Objects.hashCode(this.getPartitionId());
+        hash = 17 * hash + Objects.hashCode(this.getInfo());
+        hash = 17 * hash + Objects.hashCode(this.getStatus());
         return hash;
     }
 
@@ -69,13 +69,13 @@ public class PartitionIdWithInfoAndStatus {
             return false;
         }
         final PartitionIdWithInfoAndStatus other = (PartitionIdWithInfoAndStatus) obj;
-        if (!Objects.equals(this.partitionId, other.partitionId)) {
+        if (!Objects.equals(this.getPartitionId(), other.getPartitionId())) {
             return false;
         }
-        if (!Objects.equals(this.info, other.info)) {
+        if (!Objects.equals(this.getInfo(), other.getInfo())) {
             return false;
         }
-        return this.status == other.status;
+        return this.getStatus() == other.getStatus();
     }
 
     @Override

@@ -54,6 +54,7 @@ import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import org.threeten.bp.Duration;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -252,6 +253,11 @@ public class BigQueryServiceImpl implements BigQueryServices {
                         && tableInfo.getTimePartitioning() == null) {
                     return Optional.empty();
                 }
+                Instant bqStreamingBufferOldestEntryTime =
+                        Optional.ofNullable(tableInfo.getStreamingBuffer())
+                                .map(sbuffer -> sbuffer.getOldestEntryTime().longValue())
+                                .map(millisFromEpoch -> Instant.ofEpochMilli(millisFromEpoch))
+                                .orElse(Instant.MAX);
                 return Optional.ofNullable(tableInfo.getTimePartitioning())
                         .map(
                                 tp ->
@@ -263,14 +269,16 @@ public class BigQueryServiceImpl implements BigQueryServices {
                                                         BigQueryPartition
                                                                 .retrievePartitionColumnType(
                                                                         tableInfo.getSchema(),
-                                                                        tp.getField()))))
+                                                                        tp.getField()),
+                                                        bqStreamingBufferOldestEntryTime)))
                         .orElseGet(
                                 () ->
                                         Optional.of(
                                                 new TablePartitionInfo(
                                                         tableInfo.getRangePartitioning().getField(),
                                                         BigQueryPartition.PartitionType.INT_RANGE,
-                                                        StandardSQLTypeName.INT64)));
+                                                        StandardSQLTypeName.INT64,
+                                                        bqStreamingBufferOldestEntryTime)));
             } catch (Exception ex) {
                 throw new RuntimeException(
                         String.format(

@@ -23,6 +23,7 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.PartitionType;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -34,12 +35,17 @@ public class TablePartitionInfo {
     private final String columnName;
     private final StandardSQLTypeName columnType;
     private final PartitionType partitionType;
+    private final Instant streamingBufferOldestEntryTime;
 
     public TablePartitionInfo(
-            String columnName, PartitionType partitionType, StandardSQLTypeName columnType) {
+            String columnName,
+            PartitionType partitionType,
+            StandardSQLTypeName columnType,
+            Instant sbOldestEntryTime) {
         this.columnName = columnName;
         this.columnType = columnType;
         this.partitionType = partitionType;
+        this.streamingBufferOldestEntryTime = sbOldestEntryTime;
     }
 
     public String getColumnName() {
@@ -52,6 +58,10 @@ public class TablePartitionInfo {
 
     public PartitionType getPartitionType() {
         return partitionType;
+    }
+
+    public Instant getStreamingBufferOldestEntryTime() {
+        return streamingBufferOldestEntryTime;
     }
 
     public List<PartitionIdWithInfo> toPartitionsWithInfo(List<String> partitionIds) {

@@ -19,6 +19,8 @@ package com.google.cloud.flink.bigquery.common.utils;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
+
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfo;
@@ -28,28 +30,40 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Utility class to handle the BigQuery partition conversions to Flink types and structures. */
 @Internal
 public class BigQueryPartition {
 
+    static final Integer HOUR_SECONDS = 3600;
+    static final Integer DAY_SECONDS = 86400;
+    static final Integer MONTH_SECONDS = 2629746;
+    static final Integer YEAR_SECONDS = 31536000;
+
     private static final ZoneId ZONE = ZoneId.of("UTC");
 
     private static final String BQPARTITION_HOUR_FORMAT_STRING = "yyyyMMddHH";
     private static final String BQPARTITION_DAY_FORMAT_STRING = "yyyyMMdd";
     private static final String BQPARTITION_MONTH_FORMAT_STRING = "yyyyMM";
+    private static final String BQPARTITION_YEAR_FORMAT_STRING = "yyyy";
 
     private static final String SQL_HOUR_FORMAT_STRING = "yyyy-MM-dd HH:00:00";
     private static final String SQL_DAY_FORMAT_STRING = "yyyy-MM-dd";
-    private static final String SQL_MONTH_FORMAT_STRING = "yyyy-MM";
+    private static final String SQL_MONTH_FORMAT_STRING = "yyyy-MM-01";
+    private static final String SQL_YEAR_FORMAT_STRING = "yyyy-01-01";
 
     private static final SimpleDateFormat BQPARTITION_HOUR_FORMAT =
             new SimpleDateFormat(BQPARTITION_HOUR_FORMAT_STRING);
@@ -57,6 +71,8 @@ public class BigQueryPartition {
             new SimpleDateFormat(BQPARTITION_DAY_FORMAT_STRING);
     private static final SimpleDateFormat BQPARTITION_MONTH_FORMAT =
             new SimpleDateFormat(BQPARTITION_MONTH_FORMAT_STRING);
+    private static final SimpleDateFormat BQPARTITION_YEAR_FORMAT =
+            new SimpleDateFormat(BQPARTITION_YEAR_FORMAT_STRING);
 
     private static final SimpleDateFormat SQL_HOUR_FORMAT =
             new SimpleDateFormat(SQL_HOUR_FORMAT_STRING);
@@ -64,6 +80,8 @@ public class BigQueryPartition {
             new SimpleDateFormat(SQL_DAY_FORMAT_STRING);
     private static final SimpleDateFormat SQL_MONTH_FORMAT =
             new SimpleDateFormat(SQL_MONTH_FORMAT_STRING);
+    private static final SimpleDateFormat SQL_YEAR_FORMAT =
+            new SimpleDateFormat(SQL_YEAR_FORMAT_STRING);
 
     private BigQueryPartition() {}
 
@@ -141,50 +159,69 @@ public class BigQueryPartition {
 
     static String dateRestrictionFromPartitionType(
             PartitionType partitionType, String columnName, String valueFromSQL) {
-        ZonedDateTime parsedDateTime =
-                LocalDateTime.parse(valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        .atZone(ZONE);
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
-        switch (partitionType) {
-            case DAY:
-                {
-                    // extract a date from the value and restrict
-                    // between previous and next day
-                    DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                    return String.format(
-                            temporalFormat,
-                            columnName,
-                            parsedDateTime.format(dayFormatter),
-                            parsedDateTime.plusDays(1).format(dayFormatter));
-                }
-            case MONTH:
-                {
-                    // extract a date from the value and restrict
-                    // between previous and next month
-                    DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
-                    return String.format(
-                            temporalFormat,
-                            columnName,
-                            parsedDateTime.format(monthFormatter),
-                            parsedDateTime.plusMonths(1).format(monthFormatter));
-                }
-            case YEAR:
-                {
-                    // extract a date from the value and restrict
-                    // between previous and next year
-                    DateTimeFormatter yearFormatter = DateTimeFormatter.ofPattern("yyyy");
-                    return String.format(
-                            temporalFormat,
-                            columnName,
-                            parsedDateTime.format(yearFormatter),
-                            parsedDateTime.plusYears(1).format(yearFormatter));
-                }
-            default:
-                throw new IllegalArgumentException(
-                        String.format(
-                                "The provided partition type %s is not supported as a"
-                                        + " temporal based partition for the column %s.",
-                                partitionType, columnName));
+        try {
+            switch (partitionType) {
+                case DAY:
+                    {
+                        // extract a date from the value and restrict
+                        // between previous and next day
+                        Date day = SQL_DAY_FORMAT.parse(valueFromSQL);
+                        return String.format(
+                                temporalFormat,
+                                columnName,
+                                SQL_DAY_FORMAT.format(day),
+                                SQL_DAY_FORMAT.format(
+                                        Date.from(day.toInstant().plusSeconds(DAY_SECONDS))));
+                    }
+                case MONTH:
+                    {
+                        // extract a date from the value and restrict
+                        // between previous and next month
+                        Date day = SQL_MONTH_FORMAT.parse(valueFromSQL);
+                        return String.format(
+                                temporalFormat,
+                                columnName,
+                                SQL_MONTH_FORMAT.format(day),
+                                DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING)
+                                        .withZone(ZONE)
+                                        .format(
+                                                day.toInstant()
+                                                        .atZone(ZONE)
+                                                        .toLocalDate()
+                                                        .plusMonths(1)
+                                                        .atTime(LocalTime.MIDNIGHT)
+                                                        .toInstant(ZoneOffset.UTC)));
+                    }
+                case YEAR:
+                    {
+                        // extract a date from the value and restrict
+                        // between previous and next year
+                        Date day = SQL_YEAR_FORMAT.parse(valueFromSQL);
+                        return String.format(
+                                temporalFormat,
+                                columnName,
+                                SQL_YEAR_FORMAT.format(day),
+                                DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING)
+                                        .withZone(ZONE)
+                                        .format(
+                                                day.toInstant()
+                                                        .atZone(ZONE)
+                                                        .toLocalDate()
+                                                        .plusYears(1)
+                                                        .atTime(LocalTime.MIDNIGHT)
+                                                        .toInstant(ZoneOffset.UTC)));
+                    }
+                default:
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "The provided partition type %s is not supported as a"
+                                            + " temporal based partition for the column %s.",
+                                    partitionType, columnName));
+            }
+        } catch (ParseException ex) {
+            throw new IllegalArgumentException(
+                    "Problems while manipulating the temporal argument: " + valueFromSQL, ex);
         }
     }
 
@@ -212,7 +249,8 @@ public class BigQueryPartition {
                 {
                     // extract a date from the value and restrict
                     // between previous and next day
-                    DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                    DateTimeFormatter dayFormatter =
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd 00:00:00");
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -223,7 +261,8 @@ public class BigQueryPartition {
                 {
                     // extract a date from the value and restrict
                     // between previous and next month
-                    DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+                    DateTimeFormatter monthFormatter =
+                            DateTimeFormatter.ofPattern("yyyy-MM-01 00:00:00");
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -234,7 +273,8 @@ public class BigQueryPartition {
                 {
                     // extract a date from the value and restrict
                     // between previous and next year
-                    DateTimeFormatter yearFormatter = DateTimeFormatter.ofPattern("yyyy");
+                    DateTimeFormatter yearFormatter =
+                            DateTimeFormatter.ofPattern("yyyy-01-01 00:00:00");
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -287,24 +327,86 @@ public class BigQueryPartition {
                 .orElse(String.format("%s = %s", columnNameFromSQL, valueFromSQL));
     }
 
+    static PartitionIdWithInfoAndStatus retrievePartitionInfoWithStatus(
+            PartitionIdWithInfo partition, Function<String, Long> parseAndManipulateParitionTS) {
+        return partitionValuesFromIdAndDataType(
+                        Lists.newArrayList(partition.getPartitionId()),
+                        partition.getInfo().getColumnType())
+                .stream()
+                .map(parseAndManipulateParitionTS)
+                .filter(
+                        nextPartitionTs ->
+                                partition
+                                        .getInfo()
+                                        .getStreamingBufferOldestEntryTime()
+                                        .isAfter(Instant.ofEpochSecond(nextPartitionTs)))
+                .map(
+                        i ->
+                                new PartitionIdWithInfoAndStatus(
+                                        partition.getPartitionId(),
+                                        partition.getInfo(),
+                                        BigQueryPartition.PartitionStatus.COMPLETED))
+                .findFirst()
+                .orElse(
+                        new PartitionIdWithInfoAndStatus(
+                                partition.getPartitionId(),
+                                partition.getInfo(),
+                                BigQueryPartition.PartitionStatus.IN_PROGRESS));
+    }
+
+    static Instant retrieveEpochSecondsFromParsedTemporal(SimpleDateFormat sdf, String tsString) {
+        try {
+            return sdf.parse(tsString).toInstant();
+        } catch (ParseException ex) {
+            throw new RuntimeException(
+                    "Problems while parsing temporal info from: " + tsString, ex);
+        }
+    }
+
     public static PartitionIdWithInfoAndStatus checkPartitionCompleted(
             PartitionIdWithInfo partition) {
         switch (partition.getInfo().getPartitionType()) {
             case HOUR:
                 {
-                    return null;
+                    return retrievePartitionInfoWithStatus(
+                            partition,
+                            tsString ->
+                                    retrieveEpochSecondsFromParsedTemporal(
+                                                    SQL_HOUR_FORMAT, tsString)
+                                            // an hour
+                                            .plusSeconds(HOUR_SECONDS)
+                                            .getEpochSecond());
                 }
             case DAY:
                 {
-                    return null;
+                    return retrievePartitionInfoWithStatus(
+                            partition,
+                            tsString ->
+                                    retrieveEpochSecondsFromParsedTemporal(SQL_DAY_FORMAT, tsString)
+                                            // a day
+                                            .plusSeconds(DAY_SECONDS)
+                                            .getEpochSecond());
                 }
             case MONTH:
                 {
-                    return null;
+                    return retrievePartitionInfoWithStatus(
+                            partition,
+                            tsString ->
+                                    retrieveEpochSecondsFromParsedTemporal(
+                                                    SQL_MONTH_FORMAT, tsString)
+                                            // a month
+                                            .plusSeconds(MONTH_SECONDS)
+                                            .getEpochSecond());
                 }
             case YEAR:
                 {
-                    return null;
+                    return retrievePartitionInfoWithStatus(
+                            partition,
+                            tsString ->
+                                    retrieveEpochSecondsFromParsedTemporal(
+                                                    SQL_YEAR_FORMAT, tsString)
+                                            .plusSeconds(YEAR_SECONDS)
+                                            .getEpochSecond());
                 }
             case INT_RANGE:
                 return new PartitionIdWithInfoAndStatus(
@@ -343,7 +445,9 @@ public class BigQueryPartition {
                 switch (firstId.length()) {
                     case 4:
                         // we have yearly partitions
-                        partitionValues.addAll(partitionIds);
+                        partitionValues.addAll(
+                                partitionIdToDateFormat(
+                                        partitionIds, BQPARTITION_YEAR_FORMAT, SQL_YEAR_FORMAT));
                         break;
                     case 6:
                         // we have monthly partitions
@@ -370,18 +474,6 @@ public class BigQueryPartition {
                 }
                 break;
                 // non supported data types for partitions
-            case ARRAY:
-            case STRUCT:
-            case JSON:
-            case GEOGRAPHY:
-            case BIGNUMERIC:
-            case BOOL:
-            case BYTES:
-            case FLOAT64:
-            case STRING:
-            case TIME:
-            case INTERVAL:
-            case NUMERIC:
             default:
                 throw new IllegalArgumentException(
                         String.format(

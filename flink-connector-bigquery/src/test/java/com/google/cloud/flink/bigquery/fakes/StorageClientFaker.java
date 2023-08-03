@@ -107,7 +107,8 @@ public class StorageClientFaker {
                             new TablePartitionInfo(
                                     "ts",
                                     BigQueryPartition.PartitionType.HOUR,
-                                    StandardSQLTypeName.TIMESTAMP));
+                                    StandardSQLTypeName.TIMESTAMP,
+                                    Instant.now()));
                 }
 
                 @Override
