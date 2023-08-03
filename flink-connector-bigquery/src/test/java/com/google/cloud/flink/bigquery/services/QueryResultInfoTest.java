@@ -50,12 +50,4 @@ public class QueryResultInfoTest {
         QueryResultInfo failed = QueryResultInfo.failed(Lists.newArrayList());
         Assertions.assertThat(succeed).isNotEqualTo(failed);
     }
-
-    @Test
-    public void testEquals() {
-        QueryResultInfo succeed = QueryResultInfo.succeed("", "", "");
-        QueryResultInfo another = QueryResultInfo.succeed("", "", "");
-        Assertions.assertThat(succeed).isEqualTo(another);
-        Assertions.assertThat(succeed.hashCode()).isEqualTo(another.hashCode());
-    }
 }

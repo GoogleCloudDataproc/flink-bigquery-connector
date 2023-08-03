@@ -33,7 +33,7 @@ public class BigQuerySourceSplitSerializer
     public static final BigQuerySourceSplitSerializer INSTANCE =
             new BigQuerySourceSplitSerializer();
     // This version should be bumped after modifying the source split or the enum states.
-    public static final int CURRENT_VERSION = 0;
+    public static final int VERSION = 0;
 
     private BigQuerySourceSplitSerializer() {
         // singleton instance
@@ -41,7 +41,7 @@ public class BigQuerySourceSplitSerializer
 
     @Override
     public int getVersion() {
-        return CURRENT_VERSION;
+        return VERSION;
     }
 
     @Override
@@ -61,7 +61,7 @@ public class BigQuerySourceSplitSerializer
             throw new IllegalArgumentException(
                     String.format(
                             "The provided serializer version (%d) is not expected (expected : %s).",
-                            version, CURRENT_VERSION));
+                            version, VERSION));
         }
         // VERSION 0 deserialization
         try (ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
@@ -73,15 +73,15 @@ public class BigQuerySourceSplitSerializer
     public void serializeBigQuerySourceSplit(DataOutputStream out, BigQuerySourceSplit split)
             throws IOException {
         out.writeUTF(split.getStreamName());
-        out.writeInt(split.getOffset());
+        out.writeLong(split.getOffset());
     }
 
     public BigQuerySourceSplit deserializeBigQuerySourceSplit(int version, DataInputStream in)
             throws IOException {
         switch (version) {
-            case CURRENT_VERSION:
+            case VERSION:
                 String streamName = in.readUTF();
-                int offset = in.readInt();
+                long offset = in.readLong();
                 return new BigQuerySourceSplit(streamName, offset);
             default:
                 throw new IOException("Unknown version: " + version);

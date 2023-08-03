@@ -33,7 +33,7 @@ import java.io.IOException;
 public class BigQueryServicesFactory {
 
     private static final BigQueryServicesFactory INSTANCE = new BigQueryServicesFactory();
-    private static final BigQueryServices SERVICES = new BigQueryServiceImpl();
+    private static final BigQueryServices SERVICES = new BigQueryServicesImpl();
 
     private Boolean isTestingEnabled = false;
     private BigQueryServices testingServices;
