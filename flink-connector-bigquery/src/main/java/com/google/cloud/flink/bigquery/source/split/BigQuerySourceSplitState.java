@@ -24,7 +24,7 @@ import java.util.Objects;
 @Internal
 public class BigQuerySourceSplitState {
     private final BigQuerySourceSplit split;
-    private Integer offset;
+    private Long offset;
 
     public BigQuerySourceSplitState(BigQuerySourceSplit split) {
         this.split = split;

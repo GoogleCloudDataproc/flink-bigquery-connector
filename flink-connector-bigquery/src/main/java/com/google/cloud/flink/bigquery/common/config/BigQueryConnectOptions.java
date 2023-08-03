@@ -74,16 +74,10 @@ public abstract class BigQueryConnectOptions implements Serializable {
             return false;
         }
         final BigQueryConnectOptions other = (BigQueryConnectOptions) obj;
-        if (!Objects.equals(this.getProjectId(), other.getProjectId())) {
-            return false;
-        }
-        if (!Objects.equals(this.getDataset(), other.getDataset())) {
-            return false;
-        }
-        if (!Objects.equals(this.getTable(), other.getTable())) {
-            return false;
-        }
-        return Objects.equals(this.getCredentialsOptions(), other.getCredentialsOptions());
+        return Objects.equals(this.getProjectId(), other.getProjectId())
+                && Objects.equals(this.getDataset(), other.getDataset())
+                && Objects.equals(this.getTable(), other.getTable())
+                && Objects.equals(this.getCredentialsOptions(), other.getCredentialsOptions());
     }
 
     /**
