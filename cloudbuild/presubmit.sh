@@ -36,11 +36,7 @@ case $STEP in
 
   # Run unit & integration tests
   tests)
-<<<<<<< HEAD
-    $MVN mvn clean clover:setup verify clover:aggregate clover:clover -Pclover
-=======
-    $MVN clean clover:setup verify clover:aggregate clover:clover -Pclover -pl flink-connector-bigquery
->>>>>>> test_bqstoragereadapi_error
+    $MVN clean clover:setup verify clover:aggregate clover:clover -Pclover
     ;;
 
   *)
