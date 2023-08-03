@@ -75,13 +75,9 @@ public abstract class CredentialsOptions implements Serializable {
             return false;
         }
         final CredentialsOptions other = (CredentialsOptions) obj;
-        if (!Objects.equals(this.getCredentialsFile(), other.getCredentialsFile())) {
-            return false;
-        }
-        if (!Objects.equals(this.getCredentialsKey(), other.getCredentialsKey())) {
-            return false;
-        }
-        return Objects.equals(this.getAccessToken(), other.getAccessToken());
+        return Objects.equals(this.getCredentialsFile(), other.getCredentialsFile())
+                && Objects.equals(this.getCredentialsKey(), other.getCredentialsKey())
+                && Objects.equals(this.getAccessToken(), other.getAccessToken());
     }
 
     /**

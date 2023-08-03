@@ -52,7 +52,7 @@ under the License.
 
         <junit5.version>5.9.3</junit5.version>
         <assertj.version>3.24.2</assertj.version>
-        <mockito.version>5.2.0</mockito.version>
+        <mockito.version>4.11.0</mockito.version>
 
         <japicmp.skip>false</japicmp.skip>
         <japicmp.referenceVersion>3.0.0-1.16</japicmp.referenceVersion>
