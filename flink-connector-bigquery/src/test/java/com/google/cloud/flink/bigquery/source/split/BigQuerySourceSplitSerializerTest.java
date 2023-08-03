@@ -26,20 +26,20 @@ public class BigQuerySourceSplitSerializerTest {
 
     @Test
     public void testSplitSerializer() throws IOException {
-        BigQuerySourceSplit split = new BigQuerySourceSplit("some stream name", 10);
+        BigQuerySourceSplit split = new BigQuerySourceSplit("some stream name", 10L);
 
         byte[] serialized = BigQuerySourceSplitSerializer.INSTANCE.serialize(split);
 
         BigQuerySourceSplit split1 =
                 BigQuerySourceSplitSerializer.INSTANCE.deserialize(
-                        BigQuerySourceSplitSerializer.CURRENT_VERSION, serialized);
+                        BigQuerySourceSplitSerializer.VERSION, serialized);
 
         Assert.assertEquals(split, split1);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongSerializerVersion() throws IOException {
-        BigQuerySourceSplit split = new BigQuerySourceSplit("some stream name", 10);
+        BigQuerySourceSplit split = new BigQuerySourceSplit("some stream name", 10L);
 
         byte[] serialized = BigQuerySourceSplitSerializer.INSTANCE.serialize(split);
 
