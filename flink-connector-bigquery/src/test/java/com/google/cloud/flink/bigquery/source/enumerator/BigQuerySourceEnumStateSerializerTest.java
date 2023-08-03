@@ -42,7 +42,7 @@ public class BigQuerySourceEnumStateSerializerTest {
         completedTableStreams.add("first stream");
 
         List<BigQuerySourceSplit> remainingSourceSplits = new ArrayList<>();
-        remainingSourceSplits.add(new BigQuerySourceSplit("second stream", 0));
+        remainingSourceSplits.add(new BigQuerySourceSplit("second stream", 0L));
 
         Map<String, BigQuerySourceSplit> assignedSourceSplits = new TreeMap<>();
         assignedSourceSplits.put("key1", remainingSourceSplits.get(0));
@@ -63,7 +63,7 @@ public class BigQuerySourceEnumStateSerializerTest {
 
         BigQuerySourceEnumState enumState1 =
                 BigQuerySourceEnumStateSerializer.INSTANCE.deserialize(
-                        BigQuerySourceSplitSerializer.CURRENT_VERSION, serialized);
+                        BigQuerySourceSplitSerializer.VERSION, serialized);
 
         Assert.assertEquals(initialState, enumState1);
         Assert.assertEquals(initialState.hashCode(), enumState1.hashCode());
@@ -77,7 +77,7 @@ public class BigQuerySourceEnumStateSerializerTest {
 
         BigQuerySourceEnumState enumState1 =
                 BigQuerySourceEnumStateSerializer.INSTANCE.deserialize(
-                        BigQuerySourceSplitSerializer.CURRENT_VERSION, serialized);
+                        BigQuerySourceSplitSerializer.VERSION, serialized);
 
         Assert.assertEquals(enumState, enumState1);
     }

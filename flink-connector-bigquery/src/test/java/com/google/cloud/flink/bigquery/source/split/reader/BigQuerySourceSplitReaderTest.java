@@ -49,8 +49,8 @@ public class BigQuerySourceSplitReaderTest {
         reader.wakeUp();
 
         String splitName = "stream1";
-        BigQuerySourceSplit split = new BigQuerySourceSplit(splitName, 0);
-        BigQuerySourceSplit split2 = new BigQuerySourceSplit("stream2", 0);
+        BigQuerySourceSplit split = new BigQuerySourceSplit(splitName, 0L);
+        BigQuerySourceSplit split2 = new BigQuerySourceSplit("stream2", 0L);
         SplitsAddition<BigQuerySourceSplit> change =
                 new SplitsAddition<>(Lists.newArrayList(split, split2));
 
@@ -99,7 +99,7 @@ public class BigQuerySourceSplitReaderTest {
         reader.wakeUp();
 
         String splitName = "stream1";
-        BigQuerySourceSplit split = new BigQuerySourceSplit(splitName, 0);
+        BigQuerySourceSplit split = new BigQuerySourceSplit(splitName, 0L);
         SplitsAddition<BigQuerySourceSplit> change =
                 new SplitsAddition<>(Lists.newArrayList(split));
 
