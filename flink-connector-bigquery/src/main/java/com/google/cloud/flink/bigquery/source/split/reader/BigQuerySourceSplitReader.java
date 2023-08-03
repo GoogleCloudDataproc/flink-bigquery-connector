@@ -67,7 +67,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     private Boolean closed = false;
     private Schema avroSchema = null;
-    private Integer readSoFar = 0;
+    private Long readSoFar = 0L;
     private Long splitStartFetch;
     private Iterator<ReadRowsResponse> readStreamIterator = null;
 
@@ -87,7 +87,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                                                                 new SlidingWindowReservoir(500)))));
     }
 
-    Integer offsetToFetch(BigQuerySourceSplit split) {
+    Long offsetToFetch(BigQuerySourceSplit split) {
         // honor what is coming as checkpointed
         if (split.getOffset() > 0) {
             readSoFar = split.getOffset();
@@ -243,7 +243,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                         readSoFar,
                         splitTimeMs,
                         assignedSplit.splitId());
-                readSoFar = 0;
+                readSoFar = 0L;
                 assignedSplits.poll();
                 readStreamIterator = null;
                 respBuilder.addFinishedSplit(assignedSplit.splitId());
@@ -307,7 +307,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 assignedSplits.toString());
         if (!closed) {
             closed = true;
-            readSoFar = 0;
+            readSoFar = 0L;
             readStreamIterator = null;
             // complete closing with what may be needed
         }
