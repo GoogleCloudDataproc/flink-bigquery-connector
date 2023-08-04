@@ -41,7 +41,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * A bounded implementation for a split assigner based on the BigQuery {@link ReadSession} streams.
  */
 public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
-    private static final Logger LOG = LoggerFactory.getLogger(BigQuerySourceSplitAssigner.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BoundedSplitAssigner.class);
 
     BoundedSplitAssigner(BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
         super(readOptions, sourceEnumState);

@@ -1,0 +1,76 @@
+/*
+ * Copyright (C) 2023 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package com.google.cloud.flink.bigquery.source.split;
+
+import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
+import java.time.Duration;
+import java.util.List;
+import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/** */
+public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
+    private static final Logger LOG = LoggerFactory.getLogger(UnboundedSplitAssigner.class);
+    private static final Duration PARTITION_DISCOVERY_INTERVAL = Duration.ofMinutes(10);
+
+    private final SplitEnumeratorContext<BigQuerySourceSplit> context;
+
+    public UnboundedSplitAssigner(
+            SplitEnumeratorContext<BigQuerySourceSplit> context,
+            BigQueryReadOptions readOptions,
+            BigQuerySourceEnumState sourceEnumState) {
+        super(readOptions, sourceEnumState);
+        this.context = context;
+    }
+
+    private List<BigQuerySourceSplit> discoverNewSplits() {
+        return null;
+    }
+
+    private void handlePartitionSplitDiscovery(List<BigQuerySourceSplit> splits, Throwable t) {
+        if (t != null && assigner.listSplits().isEmpty()) {
+            // If this was the first split discovery and it failed, throw an error
+            throw new RuntimeException(t);
+        } else if (t != null) {
+            LOG.error("Failed to poll for new splits, continuing", t);
+            return;
+        }
+        if (splits.isEmpty()) {
+            return;
+        }
+        LOG.info("Discovered splits: {}", splits);
+        assigner.addSplits(splits);
+        updateAssignmentsForRegisteredReaders();
+    }
+
+    @Override
+    public void discoverSplits() {
+
+        this.context.callAsync(
+                this::discoverNewSplits,
+                this::handlePartitionSplitDiscovery,
+                0,
+                PARTITION_DISCOVERY_INTERVAL.toMillis());
+    }
+
+    @Override
+    public boolean noMoreSplits() {
+        // we will continue tracking for new partitions been added to the table.
+        return false;
+    }
+}
