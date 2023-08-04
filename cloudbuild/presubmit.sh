@@ -45,7 +45,7 @@ case $STEP in
     ;;
 esac
 
-pushd flink-bigquery-connector
+pushd flink-connector-bigquery
 
 # Upload test coverage report to Codecov
 bash <(curl -s https://codecov.io/bash) -K -F "${STEP}"
