@@ -46,7 +46,6 @@ import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroDeserializationSchema;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.BigQueryDeserializationSchema;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
-import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitAssigner;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitSerializer;
 import com.google.cloud.flink.bigquery.source.split.reader.BigQuerySourceSplitReader;
 import org.apache.avro.generic.GenericRecord;
@@ -109,9 +108,11 @@ public abstract class BigQuerySource<OUT>
     @Nullable
     public abstract Integer getLimit();
 
+    public abstract Boundedness getSourceBoundedness();
+
     @Override
     public Boundedness getBoundedness() {
-        return Boundedness.BOUNDED;
+        return getSourceBoundedness();
     }
 
     @Override
@@ -151,10 +152,11 @@ public abstract class BigQuerySource<OUT>
     @Override
     public SplitEnumerator<BigQuerySourceSplit, BigQuerySourceEnumState> createEnumerator(
             SplitEnumeratorContext<BigQuerySourceSplit> enumContext) throws Exception {
-        BigQuerySourceEnumState initialState = BigQuerySourceEnumState.initialState();
-        BigQuerySourceSplitAssigner assigner =
-                new BigQuerySourceSplitAssigner(getReadOptions(), initialState);
-        return new BigQuerySourceEnumerator(getBoundedness(), enumContext, assigner);
+        return new BigQuerySourceEnumerator(
+                getBoundedness(),
+                enumContext,
+                getReadOptions(),
+                BigQuerySourceEnumState.initialState());
     }
 
     @Override
@@ -163,9 +165,8 @@ public abstract class BigQuerySource<OUT>
             BigQuerySourceEnumState checkpoint)
             throws Exception {
         LOG.debug("Restoring enumerator with state {}", checkpoint);
-        BigQuerySourceSplitAssigner splitAssigner =
-                new BigQuerySourceSplitAssigner(getReadOptions(), checkpoint);
-        return new BigQuerySourceEnumerator(getBoundedness(), enumContext, splitAssigner);
+        return new BigQuerySourceEnumerator(
+                getBoundedness(), enumContext, getReadOptions(), checkpoint);
     }
 
     /**
@@ -182,7 +183,9 @@ public abstract class BigQuerySource<OUT>
      * @return the BigQuerySource builder instance.
      */
     public static <OUT> Builder<OUT> builder() {
-        return new AutoValue_BigQuerySource.Builder<OUT>().setLimit(-1);
+        return new AutoValue_BigQuerySource.Builder<OUT>()
+                .setLimit(-1)
+                .setSourceBoundedness(Boundedness.BOUNDED);
     }
 
     /**
@@ -342,6 +345,16 @@ public abstract class BigQuerySource<OUT>
          * @return the BigQuerySource builder instance.
          */
         public abstract Builder<OUT> setLimit(Integer limit);
+
+        /**
+         * Sets how the source will scan and read data from BigQuery, in batch fashion (once from a
+         * table, partition or query results) or continuously (reading new completed partitions as
+         * they appear).
+         *
+         * @param boundedness The boundedness of the source
+         * @return the BigQuerySource builder instance.
+         */
+        public abstract Builder<OUT> setSourceBoundedness(Boundedness boundedness);
 
         /**
          * Creates an instance of the {@link BigQuerySource}.

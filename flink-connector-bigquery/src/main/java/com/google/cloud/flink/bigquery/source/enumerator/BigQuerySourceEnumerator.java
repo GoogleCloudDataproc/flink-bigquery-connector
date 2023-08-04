@@ -21,6 +21,7 @@ import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
+import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitAssigner;
 import org.slf4j.Logger;
@@ -47,16 +48,30 @@ public class BigQuerySourceEnumerator
     public BigQuerySourceEnumerator(
             Boundedness boundedness,
             SplitEnumeratorContext<BigQuerySourceSplit> context,
-            BigQuerySourceSplitAssigner splitAssigner) {
+            BigQueryReadOptions readOptions,
+            BigQuerySourceEnumState sourceEnumState) {
         this.boundedness = boundedness;
         this.context = context;
-        this.splitAssigner = splitAssigner;
+        this.splitAssigner = createBigQuerySourceSplitAssigner(readOptions, sourceEnumState);
         this.readersAwaitingSplit = new TreeSet<>();
+    }
+
+    final BigQuerySourceSplitAssigner createBigQuerySourceSplitAssigner(
+            BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
+        switch (this.boundedness) {
+            case BOUNDED:
+                return BigQuerySourceSplitAssigner.createBounded(readOptions, sourceEnumState);
+            case CONTINUOUS_UNBOUNDED:
+                return BigQuerySourceSplitAssigner.createUnbounded(readOptions, sourceEnumState);
+            default:
+                throw new IllegalArgumentException(
+                        "Non supported boundedness: " + this.boundedness);
+        }
     }
 
     @Override
     public void start() {
-        splitAssigner.open();
+        splitAssigner.openAndDiscoverSplits();
     }
 
     @Override

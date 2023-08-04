@@ -44,10 +44,10 @@ public class BigQuerySourceSplitAssignerTest {
     public void testAssignment() {
         // initialize the assigner with default options since we are faking the bigquery services
         BigQuerySourceSplitAssigner assigner =
-                new BigQuerySourceSplitAssigner(
+                BigQuerySourceSplitAssigner.createBounded(
                         this.readOptions, BigQuerySourceEnumState.initialState());
         // request the retrieval of the bigquery table info
-        assigner.open();
+        assigner.openAndDiscoverSplits();
 
         // should retrieve the first split representing the firt stream
         Optional<BigQuerySourceSplit> maybeSplit = assigner.getNext();
