@@ -20,20 +20,21 @@ import org.apache.flink.annotation.Internal;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Maps;
+import org.apache.flink.shaded.guava30.com.google.common.collect.Queues;
+import org.apache.flink.shaded.guava30.com.google.common.collect.Sets;
 
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Deque;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 /** A base split assigner definition. */
 @Internal
@@ -43,9 +44,9 @@ public abstract class BigQuerySourceSplitAssigner {
 
     protected final BigQueryReadOptions readOptions;
     protected final Set<String> lastSeenPartitions;
-    protected final Deque<String> remainingTableStreams;
+    protected final Queue<String> remainingTableStreams;
     protected final List<String> alreadyProcessedTableStreams;
-    protected final Deque<BigQuerySourceSplit> remainingSourceSplits;
+    protected final Queue<BigQuerySourceSplit> remainingSourceSplits;
     protected final Map<String, BigQuerySourceSplit> assignedSourceSplits;
     protected boolean initialized;
 
@@ -63,14 +64,14 @@ public abstract class BigQuerySourceSplitAssigner {
             BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
         this.readOptions = readOptions;
         this.lastSeenPartitions =
-                new ConcurrentSkipListSet<>(sourceEnumState.getLastSeenPartitions());
+                Sets.newConcurrentHashSet(sourceEnumState.getLastSeenPartitions());
         this.remainingTableStreams =
-                new ConcurrentLinkedDeque<>(sourceEnumState.getRemaniningTableStreams());
-        this.alreadyProcessedTableStreams = sourceEnumState.getCompletedTableStreams();
+                Queues.newConcurrentLinkedQueue(sourceEnumState.getRemaniningTableStreams());
+        this.alreadyProcessedTableStreams =
+                new ArrayList<>(sourceEnumState.getCompletedTableStreams());
         this.remainingSourceSplits =
-                new ConcurrentLinkedDeque<>(sourceEnumState.getRemainingSourceSplits());
-        this.assignedSourceSplits =
-                new ConcurrentHashMap<>(sourceEnumState.getAssignedSourceSplits());
+                Queues.newArrayDeque(sourceEnumState.getRemainingSourceSplits());
+        this.assignedSourceSplits = new HashMap<>(sourceEnumState.getAssignedSourceSplits());
         this.initialized = sourceEnumState.isInitialized();
     }
 

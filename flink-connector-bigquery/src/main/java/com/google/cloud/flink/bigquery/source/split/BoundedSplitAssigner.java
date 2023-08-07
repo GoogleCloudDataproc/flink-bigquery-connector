@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.source.split;
 
+import org.apache.flink.annotation.Internal;
+
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 import com.google.cloud.bigquery.storage.v1.DataFormat;
@@ -29,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
-import org.apache.flink.annotation.Internal;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -97,7 +98,9 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
                                     projectId,
                                     dataset,
                                     table);
-                            return this.readOptions.getBigQueryConnectOptions().toBuilder()
+                            return this.readOptions
+                                    .getBigQueryConnectOptions()
+                                    .toBuilder()
                                     .setProjectId(projectId)
                                     .setDataset(dataset)
                                     .setTable(table)

@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.source.split;
 
+import org.apache.flink.annotation.Internal;
+
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
@@ -29,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.flink.annotation.Internal;
 
 /**
  * In charge of discover read splits (or read stream in BigQuery realm) to be processed. It can be

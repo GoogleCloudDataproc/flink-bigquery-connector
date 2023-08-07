@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.source.split;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
@@ -37,7 +38,6 @@ import java.util.stream.Collectors;
 
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.formatPartitionRestrictionBasedOnInfo;
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.partitionValuesFromIdAndDataType;
-import org.apache.flink.annotation.Internal;
 
 /** */
 @Internal
@@ -122,13 +122,13 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
             LOG.error("Failed to poll for new read streams, continuing", t);
             return;
         }
-        if (discovery.readStreams.isEmpty() && discovery.newPartitions.isEmpty()) {
+        if (discovery.getReadStreams().isEmpty() && discovery.getNewPartitions().isEmpty()) {
             return;
         }
-        LOG.info("Discovered new partitions: {}", discovery.newPartitions);
-        LOG.info("Discovered read streams: {}", discovery.readStreams);
-        this.lastSeenPartitions.addAll(discovery.newPartitions);
-        this.remainingTableStreams.addAll(discovery.readStreams);
+        LOG.info("Discovered new partitions: {}", discovery.getNewPartitions());
+        LOG.info("Discovered read streams: {}", discovery.getReadStreams());
+        this.lastSeenPartitions.addAll(discovery.getNewPartitions());
+        this.remainingTableStreams.addAll(discovery.getReadStreams());
     }
 
     @Override
@@ -149,12 +149,20 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
 
     static class DiscoveryResult {
 
-        final List<String> newPartitions;
-        final List<String> readStreams;
+        private final List<String> newPartitions;
+        private final List<String> readStreams;
 
         public DiscoveryResult(List<String> newPartitions, List<String> newStreams) {
             this.newPartitions = newPartitions;
             this.readStreams = newStreams;
+        }
+
+        public List<String> getNewPartitions() {
+            return newPartitions;
+        }
+
+        public List<String> getReadStreams() {
+            return readStreams;
         }
     }
 }
