@@ -132,6 +132,7 @@ public class BigQuerySourceEnumerator
                 context.registeredReaders().keySet().forEach(context::signalNoMoreSplits);
                 break;
             } else {
+                LOG.info("All splits have been assigned, will check later on.");
                 // there is no available splits by now, skip assigning
                 break;
             }

@@ -41,6 +41,7 @@ import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -129,6 +130,21 @@ public class StorageClientFaker {
                                             .setQuery(
                                                     new JobStatistics2()
                                                             .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
+                }
+
+                @Override
+                public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
+                        String project, String dataset, String table) {
+                    return retrieveTablePartitions(project, dataset, table).stream()
+                            .map(
+                                    pId ->
+                                            new PartitionIdWithInfoAndStatus(
+                                                    pId,
+                                                    retrievePartitionColumnInfo(
+                                                                    project, dataset, table)
+                                                            .get(),
+                                                    BigQueryPartition.PartitionStatus.COMPLETED))
+                            .collect(Collectors.toList());
                 }
             };
         }

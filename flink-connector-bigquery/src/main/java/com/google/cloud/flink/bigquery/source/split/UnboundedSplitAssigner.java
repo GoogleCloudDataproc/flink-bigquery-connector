@@ -13,20 +13,37 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package com.google.cloud.flink.bigquery.source.split;
 
+import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+
+import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
+
+import com.google.cloud.bigquery.storage.v1.DataFormat;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
+import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
-import java.time.Duration;
-import java.util.List;
-import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.formatPartitionRestrictionBasedOnInfo;
+import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.partitionValuesFromIdAndDataType;
+import org.apache.flink.annotation.Internal;
+
 /** */
+@Internal
 public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
     private static final Logger LOG = LoggerFactory.getLogger(UnboundedSplitAssigner.class);
-    private static final Duration PARTITION_DISCOVERY_INTERVAL = Duration.ofMinutes(10);
+    static final Duration PARTITION_DISCOVERY_INTERVAL = Duration.ofMinutes(10);
 
     private final SplitEnumeratorContext<BigQuerySourceSplit> context;
 
@@ -38,29 +55,85 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
         this.context = context;
     }
 
-    private List<BigQuerySourceSplit> discoverNewSplits() {
-        return null;
+    private DiscoveryResult discoverNewSplits() {
+        BigQueryConnectOptions options = this.readOptions.getBigQueryConnectOptions();
+        try {
+            BigQueryServices.QueryDataClient client =
+                    BigQueryServicesFactory.instance(options).queryClient();
+
+            List<PartitionIdWithInfoAndStatus> newPartitions =
+                    client
+                            .retrievePartitionsStatus(
+                                    options.getProjectId(),
+                                    options.getDataset(),
+                                    options.getTable())
+                            .stream()
+                            .filter(pIdStatus -> pIdStatus.isCompleted())
+                            .filter(
+                                    pIdStatus ->
+                                            !lastSeenPartitions.contains(
+                                                    pIdStatus.getPartitionId()))
+                            .collect(Collectors.toList());
+            return new DiscoveryResult(
+                    newPartitions.stream()
+                            .map(p -> p.getPartitionId())
+                            .collect(Collectors.toList()),
+                    newPartitions.stream()
+                            .map(
+                                    pId ->
+                                            formatPartitionRestrictionBasedOnInfo(
+                                                    Optional.of(pId.getInfo()),
+                                                    pId.getInfo().getColumnName(),
+                                                    partitionValuesFromIdAndDataType(
+                                                                    Lists.newArrayList(
+                                                                            pId.getPartitionId()),
+                                                                    pId.getInfo().getColumnType())
+                                                            .get(0)))
+                            .flatMap(
+                                    restriction ->
+                                            SplitDiscoverer.discoverSplits(
+                                                    options,
+                                                    DataFormat.AVRO,
+                                                    this.readOptions.getColumnNames(),
+                                                    shouldAppendRestriction(
+                                                            this.readOptions.getRowRestriction(),
+                                                            restriction),
+                                                    this.readOptions.getSnapshotTimestampInMillis(),
+                                                    this.readOptions.getMaxStreamCount())
+                                                    .stream())
+                            .collect(Collectors.toList()));
+        } catch (Exception ex) {
+            throw new RuntimeException("Problems while trying to discover new splits.", ex);
+        }
     }
 
-    private void handlePartitionSplitDiscovery(List<BigQuerySourceSplit> splits, Throwable t) {
-        if (t != null && assigner.listSplits().isEmpty()) {
+    private String shouldAppendRestriction(String existing, String newRestriction) {
+        if (existing.isEmpty() || existing.isBlank()) {
+            return newRestriction;
+        }
+        return existing + " AND " + newRestriction;
+    }
+
+    private void handlePartitionSplitDiscovery(DiscoveryResult discovery, Throwable t) {
+        if (t != null && this.remainingTableStreams.isEmpty()) {
             // If this was the first split discovery and it failed, throw an error
             throw new RuntimeException(t);
         } else if (t != null) {
-            LOG.error("Failed to poll for new splits, continuing", t);
+            LOG.error("Failed to poll for new read streams, continuing", t);
             return;
         }
-        if (splits.isEmpty()) {
+        if (discovery.readStreams.isEmpty() && discovery.newPartitions.isEmpty()) {
             return;
         }
-        LOG.info("Discovered splits: {}", splits);
-        assigner.addSplits(splits);
-        updateAssignmentsForRegisteredReaders();
+        LOG.info("Discovered new partitions: {}", discovery.newPartitions);
+        LOG.info("Discovered read streams: {}", discovery.readStreams);
+        this.lastSeenPartitions.addAll(discovery.newPartitions);
+        this.remainingTableStreams.addAll(discovery.readStreams);
     }
 
     @Override
     public void discoverSplits() {
-
+        // periodically schedule the discovery and processing of any new splits
         this.context.callAsync(
                 this::discoverNewSplits,
                 this::handlePartitionSplitDiscovery,
@@ -72,5 +145,16 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
     public boolean noMoreSplits() {
         // we will continue tracking for new partitions been added to the table.
         return false;
+    }
+
+    static class DiscoveryResult {
+
+        final List<String> newPartitions;
+        final List<String> readStreams;
+
+        public DiscoveryResult(List<String> newPartitions, List<String> newStreams) {
+            this.newPartitions = newPartitions;
+            this.readStreams = newStreams;
+        }
     }
 }

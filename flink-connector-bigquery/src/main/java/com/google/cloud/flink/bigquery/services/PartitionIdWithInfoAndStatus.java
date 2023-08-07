@@ -48,6 +48,10 @@ public class PartitionIdWithInfoAndStatus {
         return status;
     }
 
+    public Boolean isCompleted() {
+        return status.equals(BigQueryPartition.PartitionStatus.COMPLETED);
+    }
+
     @Override
     public int hashCode() {
         int hash = 7;

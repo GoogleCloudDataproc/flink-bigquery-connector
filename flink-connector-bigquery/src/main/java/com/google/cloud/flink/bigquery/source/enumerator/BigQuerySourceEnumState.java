@@ -30,6 +30,7 @@ import java.util.Objects;
 @PublicEvolving
 public class BigQuerySourceEnumState {
 
+    private final List<String> lastSeenPartitions;
     private final List<String> remaniningTableStreams;
     private final List<String> completedTableStreams;
     private final List<BigQuerySourceSplit> remainingSourceSplits;
@@ -37,16 +38,22 @@ public class BigQuerySourceEnumState {
     private final Boolean initialized;
 
     public BigQuerySourceEnumState(
+            List<String> lastSeenPartitions,
             List<String> remaniningTableStreams,
             List<String> completedTableStreams,
             List<BigQuerySourceSplit> remainingSourceSplits,
             Map<String, BigQuerySourceSplit> assignedSourceSplits,
             Boolean initialized) {
-        this.remaniningTableStreams = remaniningTableStreams;
-        this.completedTableStreams = completedTableStreams;
-        this.remainingSourceSplits = remainingSourceSplits;
-        this.assignedSourceSplits = assignedSourceSplits;
+        this.lastSeenPartitions = new ArrayList<>(lastSeenPartitions);
+        this.remaniningTableStreams = new ArrayList<>(remaniningTableStreams);
+        this.completedTableStreams = new ArrayList<>(completedTableStreams);
+        this.remainingSourceSplits = new ArrayList<>(remainingSourceSplits);
+        this.assignedSourceSplits = new HashMap<>(assignedSourceSplits);
         this.initialized = initialized;
+    }
+
+    public List<String> getLastSeenPartitions() {
+        return this.lastSeenPartitions;
     }
 
     public List<String> getRemaniningTableStreams() {
@@ -71,12 +78,18 @@ public class BigQuerySourceEnumState {
 
     public static BigQuerySourceEnumState initialState() {
         return new BigQuerySourceEnumState(
-                new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new HashMap<>(), false);
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new HashMap<>(),
+                false);
     }
 
     @Override
     public int hashCode() {
         int hash = 3;
+        hash = 29 * hash + Objects.hashCode(this.lastSeenPartitions);
         hash = 29 * hash + Objects.hashCode(this.remaniningTableStreams);
         hash = 29 * hash + Objects.hashCode(this.completedTableStreams);
         hash = 29 * hash + Objects.hashCode(this.remainingSourceSplits);
@@ -97,6 +110,9 @@ public class BigQuerySourceEnumState {
             return false;
         }
         final BigQuerySourceEnumState other = (BigQuerySourceEnumState) obj;
+        if (!Objects.equals(this.lastSeenPartitions, other.lastSeenPartitions)) {
+            return false;
+        }
         if (!Objects.equals(this.remaniningTableStreams, other.remaniningTableStreams)) {
             return false;
         }
@@ -116,11 +132,13 @@ public class BigQuerySourceEnumState {
     public String toString() {
         return String.format(
                 "BigQuerySourceEnumState{"
+                        + "lastSeenPartitions=%s"
                         + "remaniningTableStreams=%s"
                         + ", completedTableStreams=%s"
                         + ", remainingSourceSplits=%s"
                         + ", assignedSourceSplits=%s"
                         + ", initialized=%s}",
+                lastSeenPartitions,
                 remaniningTableStreams,
                 completedTableStreams,
                 remainingSourceSplits,

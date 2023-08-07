@@ -32,6 +32,10 @@ public class BigQuerySourceEnumStateSerializerTest {
 
     private BigQuerySourceEnumState create() {
 
+        List<String> partitions = new ArrayList<>();
+
+        partitions.add("20230801");
+
         List<String> remainingTableStreams = new ArrayList<>();
 
         remainingTableStreams.add("third stream");
@@ -48,6 +52,7 @@ public class BigQuerySourceEnumStateSerializerTest {
         assignedSourceSplits.put("key1", remainingSourceSplits.get(0));
 
         return new BigQuerySourceEnumState(
+                partitions,
                 remainingTableStreams,
                 completedTableStreams,
                 remainingSourceSplits,

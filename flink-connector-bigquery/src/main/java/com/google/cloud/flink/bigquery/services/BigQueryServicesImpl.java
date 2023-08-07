@@ -215,6 +215,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
             }
         }
 
+        @Override
         public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
                 String project, String dataset, String table) {
             try {
