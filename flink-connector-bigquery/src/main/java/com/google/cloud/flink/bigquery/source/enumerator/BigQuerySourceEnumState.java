@@ -76,13 +76,12 @@ public class BigQuerySourceEnumState {
 
     @Override
     public int hashCode() {
-        int hash = 3;
-        hash = 29 * hash + Objects.hashCode(this.remaniningTableStreams);
-        hash = 29 * hash + Objects.hashCode(this.completedTableStreams);
-        hash = 29 * hash + Objects.hashCode(this.remainingSourceSplits);
-        hash = 29 * hash + Objects.hashCode(this.assignedSourceSplits);
-        hash = 29 * hash + Objects.hashCode(this.initialized);
-        return hash;
+        return Objects.hash(
+                this.remaniningTableStreams,
+                this.completedTableStreams,
+                this.remainingSourceSplits,
+                this.assignedSourceSplits,
+                this.initialized);
     }
 
     @Override
