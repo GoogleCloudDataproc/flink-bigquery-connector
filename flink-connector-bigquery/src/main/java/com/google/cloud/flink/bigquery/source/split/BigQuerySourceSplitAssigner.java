@@ -17,7 +17,6 @@
 package com.google.cloud.flink.bigquery.source.split;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Maps;

@@ -28,10 +28,11 @@ import org.apache.flink.util.Collector;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
-import java.time.Duration;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
 
 /**
  * A simple BigQuery table read example with Flink's DataStream API.
@@ -61,10 +62,12 @@ public class BigQueryExample {
           "Missing parameters!\n"
               + "Usage: flink run <additional runtime params> BigQuery.jar"
               + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
-              + " --bq-table <table name> --agg-prop <payload's property>"
+              + " --bq-table <table name>"
+              + " --agg-prop <payload's property for aggregation purposes>"
               + " --restriction <single-quoted string with row predicate>"
               + " --limit <optional: limit records returned> --query <SQL>"
-              + " --streaming <optional: sets the source in streaming mode>");
+              + " --streaming <optional: sets the source in streaming mode>"
+              + " --ts-prop <optional: payload's property for timestamp extraction>");
       return;
     }
     /**
@@ -87,11 +90,13 @@ public class BigQueryExample {
       Boolean streaming = parameterTool.toMap().containsKey("streaming");
 
       if (streaming) {
+        String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
         runStreamingFlinkJob(
             projectName,
             datasetName,
             tableName,
             recordPropertyToAggregate,
+            recordPropertyForTimestamps,
             rowRestriction,
             recordLimit);
       } else {
@@ -172,6 +177,7 @@ public class BigQueryExample {
       String datasetName,
       String tableName,
       String recordPropertyToAggregate,
+      String recordPropertyForTimestamps,
       String rowRestriction,
       Integer limit)
       throws Exception {
@@ -193,6 +199,9 @@ public class BigQueryExample {
                 .build(),
             limit),
         WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(Duration.ofMinutes(10))
+            .withTimestampAssigner(
+                // timestamps in BigQuery are represented at microsecond level
+                (event, timestamp) -> ((Long) event.get(recordPropertyForTimestamps)) / 1000)
             .withIdleness(Duration.ofMinutes(20)),
         recordPropertyToAggregate);
 

@@ -193,7 +193,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                         String.format(" AND table_catalog = '%s'", project),
                                         String.format(" AND table_schema = '%s'", dataset),
                                         String.format(" AND table_name = '%s'", table),
-                                        "ORDER BY 1 DESC;")
+                                        "ORDER BY 1 ASC;")
                                 .stream()
                                 .collect(Collectors.joining("\n"));
 

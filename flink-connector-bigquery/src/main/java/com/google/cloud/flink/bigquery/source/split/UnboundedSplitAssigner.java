@@ -17,7 +17,6 @@
 package com.google.cloud.flink.bigquery.source.split;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
@@ -28,6 +27,7 @@ import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
+import com.google.cloud.flink.bigquery.source.enumerator.ContextAwareSplitObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +38,6 @@ import java.util.stream.Collectors;
 
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.formatPartitionRestrictionBasedOnInfo;
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.partitionValuesFromIdAndDataType;
-import com.google.cloud.flink.bigquery.source.enumerator.ContextAwareSplitObserver;
 
 /** */
 @Internal
