@@ -1,6 +1,6 @@
 # Apache Flink Google BigQuery Connector (Under Development)
 
-[![Code Quality: Java](https://img.shields.io/lgtm/grade/java/g/GoogleCloudDataproc/flink-bigquery-connector.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/GoogleCloudDataproc/flink-bigquery-connector/context:java)
+[![CodeQL](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml)
 [![codecov](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector)
 
 This repository contains the Apache Flink BigQuery connector.
