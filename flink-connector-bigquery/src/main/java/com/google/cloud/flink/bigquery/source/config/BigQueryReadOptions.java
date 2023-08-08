@@ -61,13 +61,12 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     @Override
     public final int hashCode() {
-        int hash = 5;
-        hash = 61 * hash + Objects.hashCode(getColumnNames());
-        hash = 61 * hash + Objects.hashCode(getRowRestriction());
-        hash = 61 * hash + Objects.hashCode(getSnapshotTimestampInMillis());
-        hash = 61 * hash + Objects.hashCode(getMaxStreamCount());
-        hash = 61 * hash + Objects.hashCode(getBigQueryConnectOptions());
-        return hash;
+        return Objects.hash(
+                getColumnNames(),
+                getRowRestriction(),
+                getSnapshotTimestampInMillis(),
+                getMaxStreamCount(),
+                getBigQueryConnectOptions());
     }
 
     @Override
@@ -82,20 +81,13 @@ public abstract class BigQueryReadOptions implements Serializable {
             return false;
         }
         final BigQueryReadOptions other = (BigQueryReadOptions) obj;
-        if (!Objects.equals(this.getColumnNames(), other.getColumnNames())) {
-            return false;
-        }
-        if (!Objects.equals(this.getRowRestriction(), other.getRowRestriction())) {
-            return false;
-        }
-        if (!Objects.equals(
-                this.getSnapshotTimestampInMillis(), other.getSnapshotTimestampInMillis())) {
-            return false;
-        }
-        if (!Objects.equals(this.getMaxStreamCount(), other.getMaxStreamCount())) {
-            return false;
-        }
-        return Objects.equals(this.getBigQueryConnectOptions(), other.getBigQueryConnectOptions());
+        return Objects.equals(this.getColumnNames(), other.getColumnNames())
+                && Objects.equals(this.getRowRestriction(), other.getRowRestriction())
+                && Objects.equals(
+                        this.getSnapshotTimestampInMillis(), other.getSnapshotTimestampInMillis())
+                && Objects.equals(this.getMaxStreamCount(), other.getMaxStreamCount())
+                && Objects.equals(
+                        this.getBigQueryConnectOptions(), other.getBigQueryConnectOptions());
     }
 
     /**

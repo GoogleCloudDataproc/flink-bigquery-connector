@@ -101,13 +101,12 @@ public class QueryResultInfo implements Serializable {
 
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 97 * hash + Objects.hashCode(this.status);
-        hash = 97 * hash + Objects.hashCode(this.errorMessages);
-        hash = 97 * hash + Objects.hashCode(this.destinationProject);
-        hash = 97 * hash + Objects.hashCode(this.destinationDataset);
-        hash = 97 * hash + Objects.hashCode(this.destinationTable);
-        return hash;
+        return Objects.hash(
+                getStatus(),
+                getErrorMessages(),
+                getDestinationProject(),
+                getDestinationDataset(),
+                getDestinationTable());
     }
 
     @Override
@@ -122,19 +121,11 @@ public class QueryResultInfo implements Serializable {
             return false;
         }
         final QueryResultInfo other = (QueryResultInfo) obj;
-        if (!Objects.equals(this.destinationProject, other.destinationProject)) {
-            return false;
-        }
-        if (!Objects.equals(this.destinationDataset, other.destinationDataset)) {
-            return false;
-        }
-        if (!Objects.equals(this.destinationTable, other.destinationTable)) {
-            return false;
-        }
-        if (this.status != other.status) {
-            return false;
-        }
-        return Objects.equals(this.errorMessages, other.errorMessages);
+        return Objects.equals(this.destinationProject, other.destinationProject)
+                && Objects.equals(this.destinationDataset, other.destinationDataset)
+                && Objects.equals(this.destinationTable, other.destinationTable)
+                && Objects.equals(this.status, other.status)
+                && Objects.equals(this.errorMessages, other.errorMessages);
     }
 
     @Override
