@@ -63,12 +63,12 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
                     BigQueryServicesFactory.instance(options).queryClient();
 
             List<PartitionIdWithInfoAndStatus> newPartitions =
-                    client
-                            .retrievePartitionsStatus(
-                                    options.getProjectId(),
-                                    options.getDataset(),
-                                    options.getTable())
-                            .stream()
+                    client.retrievePartitionsStatus(
+                            options.getProjectId(), options.getDataset(), options.getTable());
+
+            LOG.info("Table partitions and their status: {}", newPartitions);
+            newPartitions =
+                    newPartitions.stream()
                             .filter(pIdStatus -> pIdStatus.isCompleted())
                             .filter(
                                     pIdStatus ->
