@@ -152,11 +152,7 @@ public class BigQueryDynamicTableSource
 
     @Override
     public int hashCode() {
-        int hash = 5;
-        hash = 61 * hash + Objects.hashCode(this.readOptions);
-        hash = 61 * hash + Objects.hashCode(this.producedDataType);
-        hash = 61 * hash + Objects.hashCode(this.limit);
-        return hash;
+        return Objects.hash(this.readOptions, this.producedDataType, this.limit);
     }
 
     @Override
@@ -171,13 +167,9 @@ public class BigQueryDynamicTableSource
             return false;
         }
         final BigQueryDynamicTableSource other = (BigQueryDynamicTableSource) obj;
-        if (!Objects.equals(this.readOptions, other.readOptions)) {
-            return false;
-        }
-        if (!Objects.equals(this.producedDataType, other.producedDataType)) {
-            return false;
-        }
-        return Objects.equals(this.limit, other.limit);
+        return Objects.equals(this.readOptions, other.readOptions)
+                && Objects.equals(this.producedDataType, other.producedDataType)
+                && Objects.equals(this.limit, other.limit);
     }
 
     @Override

@@ -46,10 +46,7 @@ public class BigQuerySourceSplitState {
 
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 53 * hash + Objects.hashCode(this.split);
-        hash = 53 * hash + Objects.hashCode(this.offset);
-        return hash;
+        return Objects.hash(this.split, this.offset);
     }
 
     @Override
