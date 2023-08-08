@@ -173,12 +173,15 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             readerContext.getIndexOfSubtask(),
                             assignedSplit.getStreamName());
                 }
-                if (avroSchema == null && response.hasAvroSchema()) {
-                    // this will happen only the first time we read from a particular stream
-                    avroSchema = new Schema.Parser().parse(response.getAvroSchema().getSchema());
-                } else if (avroSchema == null && !response.hasAvroSchema()) {
-                    throw new IllegalArgumentException(
-                            "Avro schema not initialized and not available in the response.");
+                if (avroSchema == null) {
+                    if (response.hasAvroSchema()) {
+                        // this will happen only the first time we read from a particular stream
+                        avroSchema =
+                                new Schema.Parser().parse(response.getAvroSchema().getSchema());
+                    } else {
+                        throw new IllegalArgumentException(
+                                "Avro schema not initialized and not available in the response.");
+                    }
                 }
                 Long decodeStart = System.currentTimeMillis();
                 List<GenericRecord> recordList =
