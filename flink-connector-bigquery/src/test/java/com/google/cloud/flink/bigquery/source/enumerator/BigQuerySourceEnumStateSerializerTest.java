@@ -91,6 +91,6 @@ public class BigQuerySourceEnumStateSerializerTest {
         BigQuerySourceEnumStateSerializer.INSTANCE.deserialize(1000, serialized);
 
         // should never reach here
-        assert (true);
+        Assert.fail();
     }
 }

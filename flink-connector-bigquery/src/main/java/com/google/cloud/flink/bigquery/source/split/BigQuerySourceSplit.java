@@ -54,10 +54,7 @@ public class BigQuerySourceSplit implements SourceSplit, Serializable {
 
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 61 * hash + Objects.hashCode(this.streamName);
-        hash = 61 * hash + Objects.hashCode(this.offset);
-        return hash;
+        return Objects.hash(this.streamName, this.offset);
     }
 
     @Override
