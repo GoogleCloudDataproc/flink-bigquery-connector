@@ -36,7 +36,8 @@ import java.util.TreeSet;
 /** The enumerator class for {@link BigQuerySource}. */
 @Internal
 public class BigQuerySourceEnumerator
-        implements SplitEnumerator<BigQuerySourceSplit, BigQuerySourceEnumState> {
+        implements SplitEnumerator<BigQuerySourceSplit, BigQuerySourceEnumState>,
+                ContextAwareSplitObserver {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySourceEnumerator.class);
 
@@ -62,7 +63,8 @@ public class BigQuerySourceEnumerator
             case BOUNDED:
                 return BigQuerySourceSplitAssigner.createBounded(readOptions, sourceEnumState);
             case CONTINUOUS_UNBOUNDED:
-                return BigQuerySourceSplitAssigner.createUnbounded(readOptions, sourceEnumState);
+                return BigQuerySourceSplitAssigner.createUnbounded(
+                        this, readOptions, sourceEnumState);
             default:
                 throw new IllegalArgumentException(
                         "Non supported boundedness: " + this.boundedness);
@@ -137,5 +139,15 @@ public class BigQuerySourceEnumerator
                 break;
             }
         }
+    }
+
+    @Override
+    public SplitEnumeratorContext<BigQuerySourceSplit> context() {
+        return this.context;
+    }
+
+    @Override
+    public void notifyDiscovery() {
+        assignSplits();
     }
 }

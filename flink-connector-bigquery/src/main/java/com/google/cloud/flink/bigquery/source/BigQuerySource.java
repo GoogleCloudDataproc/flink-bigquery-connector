@@ -315,6 +315,48 @@ public abstract class BigQuerySource<OUT>
     }
 
     /**
+     * Creates an instance of an unbounded source, which will continuously be scanning for newly
+     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
+     * type for the data (mimicking the table's schema). In case of projecting the columns of the
+     * table a new de-serialization schema should be provided (considering the new result projected
+     * schema). In case of providing a row restriction in the {@link BigQueryReadOptions} it will be
+     * respected, but an explicit condition will be added for every new discovered partition; in
+     * consequence if the row restrictions already has a partition column restriction the results
+     * may not be the expected ones.
+     *
+     * @param readOptions The read options for this source
+     * @param limit the max quantity of records to be returned.
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> streamAvros(
+            BigQueryReadOptions readOptions, Integer limit) {
+        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
+        TableSchema tableSchema =
+                BigQueryServicesFactory.instance(connectOptions)
+                        .queryClient()
+                        .getTableSchema(
+                                connectOptions.getProjectId(),
+                                connectOptions.getDataset(),
+                                connectOptions.getTable());
+        return BigQuerySource.<GenericRecord>builder()
+                .setDeserializationSchema(
+                        new AvroDeserializationSchema(
+                                SchemaTransform.toGenericAvroSchema(
+                                                String.format(
+                                                        "%s.%s.%s",
+                                                        connectOptions.getProjectId(),
+                                                        connectOptions.getDataset(),
+                                                        connectOptions.getTable()),
+                                                tableSchema.getFields())
+                                        .toString()))
+                .setLimit(limit)
+                .setReadOptions(readOptions)
+                .setSourceBoundedness(Boundedness.CONTINUOUS_UNBOUNDED)
+                .build();
+    }
+
+    /**
      * Builder class for {@link BigQuerySource}.
      *
      * @param <OUT> The type of the data returned by this source implementation.

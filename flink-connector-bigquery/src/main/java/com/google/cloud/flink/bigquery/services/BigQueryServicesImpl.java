@@ -190,7 +190,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                                 project, dataset),
                                         "WHERE",
                                         " partition_id <> '__STREAMING_UNPARTITIONED__'",
-                                        String.format(" table_catalog = '%s'", project),
+                                        String.format(" AND table_catalog = '%s'", project),
                                         String.format(" AND table_schema = '%s'", dataset),
                                         String.format(" AND table_name = '%s'", table),
                                         "ORDER BY 1 DESC;")

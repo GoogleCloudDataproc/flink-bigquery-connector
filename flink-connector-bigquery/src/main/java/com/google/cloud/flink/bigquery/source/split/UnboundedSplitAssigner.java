@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.formatPartitionRestrictionBasedOnInfo;
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.partitionValuesFromIdAndDataType;
+import com.google.cloud.flink.bigquery.source.enumerator.ContextAwareSplitObserver;
 
 /** */
 @Internal
@@ -45,17 +46,18 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
     private static final Logger LOG = LoggerFactory.getLogger(UnboundedSplitAssigner.class);
     static final Duration PARTITION_DISCOVERY_INTERVAL = Duration.ofMinutes(10);
 
-    private final SplitEnumeratorContext<BigQuerySourceSplit> context;
+    private final ContextAwareSplitObserver observer;
 
     public UnboundedSplitAssigner(
-            SplitEnumeratorContext<BigQuerySourceSplit> context,
+            ContextAwareSplitObserver observer,
             BigQueryReadOptions readOptions,
             BigQuerySourceEnumState sourceEnumState) {
         super(readOptions, sourceEnumState);
-        this.context = context;
+        this.observer = observer;
     }
 
     private DiscoveryResult discoverNewSplits() {
+        LOG.info("Searching for new data to read.");
         BigQueryConnectOptions options = this.readOptions.getBigQueryConnectOptions();
         try {
             BigQueryServices.QueryDataClient client =
@@ -123,22 +125,26 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
             return;
         }
         if (discovery.getReadStreams().isEmpty() && discovery.getNewPartitions().isEmpty()) {
+            LOG.info("No new partitions for now.");
             return;
         }
         LOG.info("Discovered new partitions: {}", discovery.getNewPartitions());
-        LOG.info("Discovered read streams: {}", discovery.getReadStreams());
+        LOG.info("Discovered new read streams: {}", discovery.getReadStreams());
         this.lastSeenPartitions.addAll(discovery.getNewPartitions());
         this.remainingTableStreams.addAll(discovery.getReadStreams());
+        this.observer.notifyDiscovery();
     }
 
     @Override
     public void discoverSplits() {
         // periodically schedule the discovery and processing of any new splits
-        this.context.callAsync(
-                this::discoverNewSplits,
-                this::handlePartitionSplitDiscovery,
-                0,
-                PARTITION_DISCOVERY_INTERVAL.toMillis());
+        this.observer
+                .context()
+                .callAsync(
+                        this::discoverNewSplits,
+                        this::handlePartitionSplitDiscovery,
+                        0,
+                        PARTITION_DISCOVERY_INTERVAL.toMillis());
     }
 
     @Override

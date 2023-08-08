@@ -28,6 +28,7 @@ import org.apache.flink.util.Collector;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import java.time.Duration;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,132 +50,178 @@ import org.slf4j.LoggerFactory;
  */
 public class BigQueryExample {
 
-    private static final Logger LOG = LoggerFactory.getLogger(BigQueryExample.class);
+  private static final Logger LOG = LoggerFactory.getLogger(BigQueryExample.class);
 
-    public static void main(String[] args) throws Exception {
-        // parse input arguments
-        final ParameterTool parameterTool = ParameterTool.fromArgs(args);
+  public static void main(String[] args) throws Exception {
+    // parse input arguments
+    final ParameterTool parameterTool = ParameterTool.fromArgs(args);
 
-        if (parameterTool.getNumberOfParameters() < 1) {
-            LOG.error(
-                    "Missing parameters!\n"
-                            + "Usage: flink run <additional runtime params> BigQuery.jar"
-                            + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
-                            + " --bq-table <table name> --agg-prop <payload's property>"
-                            + " --restriction <single-quoted string with row predicate>"
-                            + " --limit <optional: limit records returned> --query <SQL>");
-            return;
-        }
+    if (parameterTool.getNumberOfParameters() < 1) {
+      LOG.error(
+          "Missing parameters!\n"
+              + "Usage: flink run <additional runtime params> BigQuery.jar"
+              + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
+              + " --bq-table <table name> --agg-prop <payload's property>"
+              + " --restriction <single-quoted string with row predicate>"
+              + " --limit <optional: limit records returned> --query <SQL>"
+              + " --streaming <optional: sets the source in streaming mode>");
+      return;
+    }
+    /**
+     * we will be reading avro generic records from BigQuery, and in this case we are assuming the
+     * GOOGLE_APPLICATION_CREDENTIALS env variable will be present in the execution runtime. In case
+     * of needing authenticate differently, the credentials builder (part of the
+     * BigQueryConnectOptions) should enable capturing the credentials from various sources.
+     */
+    String projectName = parameterTool.getRequired("gcp-project");
+    String query = parameterTool.get("query", "");
+    Integer recordLimit = parameterTool.getInt("limit", -1);
+    if (!query.isEmpty()) {
+      runFlinkQueryJob(projectName, query, recordLimit);
+    } else {
+      String datasetName = parameterTool.getRequired("bq-dataset");
+      String tableName = parameterTool.getRequired("bq-table");
+      String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
+      String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
-        String projectName = parameterTool.getRequired("gcp-project");
-        String query = parameterTool.get("query", "");
-        Integer recordLimit = parameterTool.getInt("limit", -1);
-        if (!query.isEmpty()) {
-            runFlinkQueryJob(projectName, query, recordLimit);
-        } else {
-            String datasetName = parameterTool.getRequired("bq-dataset");
-            String tableName = parameterTool.getRequired("bq-table");
-            String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
-            String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
+      Boolean streaming = parameterTool.toMap().containsKey("streaming");
 
-            runFlinkJob(
-                    projectName,
-                    datasetName,
-                    tableName,
-                    recordPropertyToAggregate,
-                    rowRestriction,
-                    recordLimit);
-        }
+      if (streaming) {
+        runStreamingFlinkJob(
+            projectName,
+            datasetName,
+            tableName,
+            recordPropertyToAggregate,
+            rowRestriction,
+            recordLimit);
+      } else {
+        runFlinkJob(
+            projectName,
+            datasetName,
+            tableName,
+            recordPropertyToAggregate,
+            rowRestriction,
+            recordLimit);
+      }
+    }
+  }
+
+  private static void setupPipeline(
+      StreamExecutionEnvironment env,
+      BigQuerySource<GenericRecord> bqSource,
+      WatermarkStrategy<GenericRecord> watermarkStrategy,
+      String recordPropertyToAggregate) {
+
+    env.fromSource(bqSource, watermarkStrategy, "BigQuerySource")
+        .flatMap(new FlatMapper(recordPropertyToAggregate))
+        .keyBy(t -> t.f0)
+        .sum("f1")
+        .print();
+  }
+
+  private static void runFlinkQueryJob(String projectName, String query, Integer limit)
+      throws Exception {
+
+    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    env.enableCheckpointing(60000L);
+
+    BigQuerySource<GenericRecord> bqSource =
+        BigQuerySource.readAvrosFromQuery(query, projectName, limit);
+
+    env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
+        .map(new PrintMapper())
+        .keyBy(t -> t.f0)
+        .max("f1")
+        .print();
+
+    env.execute("Flink BigQuery query example");
+  }
+
+  private static void runFlinkJob(
+      String projectName,
+      String datasetName,
+      String tableName,
+      String recordPropertyToAggregate,
+      String rowRestriction,
+      Integer limit)
+      throws Exception {
+
+    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    env.enableCheckpointing(60000L);
+
+    setupPipeline(
+        env,
+        BigQuerySource.readAvros(
+            BigQueryReadOptions.builder()
+                .setBigQueryConnectOptions(
+                    BigQueryConnectOptions.builder()
+                        .setProjectId(projectName)
+                        .setDataset(datasetName)
+                        .setTable(tableName)
+                        .build())
+                .setRowRestriction(rowRestriction)
+                .build(),
+            limit),
+        WatermarkStrategy.noWatermarks(),
+        recordPropertyToAggregate);
+    env.execute("Flink BigQuery example");
+  }
+
+  private static void runStreamingFlinkJob(
+      String projectName,
+      String datasetName,
+      String tableName,
+      String recordPropertyToAggregate,
+      String rowRestriction,
+      Integer limit)
+      throws Exception {
+
+    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    env.enableCheckpointing(60000L);
+
+    setupPipeline(
+        env,
+        BigQuerySource.streamAvros(
+            BigQueryReadOptions.builder()
+                .setBigQueryConnectOptions(
+                    BigQueryConnectOptions.builder()
+                        .setProjectId(projectName)
+                        .setDataset(datasetName)
+                        .setTable(tableName)
+                        .build())
+                .setRowRestriction(rowRestriction)
+                .build(),
+            limit),
+        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(Duration.ofMinutes(10))
+            .withIdleness(Duration.ofMinutes(20)),
+        recordPropertyToAggregate);
+
+    env.execute("Flink BigQuery streaming example");
+  }
+
+  static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
+
+    private final String recordPropertyToAggregate;
+
+    public FlatMapper(String recordPropertyToAggregate) {
+      this.recordPropertyToAggregate = recordPropertyToAggregate;
     }
 
-    private static void runFlinkQueryJob(String projectName, String query, Integer limit)
-            throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(60000L);
-
-        /**
-         * we will be reading avro generic records from BigQuery, and in this case we are assuming
-         * the GOOGLE_APPLICATION_CREDENTIALS env variable will be present in the execution runtime.
-         * In case of needing authenticate differently, the credentials builder (part of the
-         * BigQueryConnectOptions) should enable capturing the credentials from various sources.
-         */
-        BigQuerySource<GenericRecord> bqSource =
-                BigQuerySource.readAvrosFromQuery(query, projectName, limit);
-
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
-                .map(new PrintMapper())
-                .keyBy(t -> t.f0)
-                .max("f1")
-                .print();
-
-        env.execute("Flink BigQuery query example");
+    @Override
+    public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
+        throws Exception {
+      out.collect(Tuple2.of((String) record.get(recordPropertyToAggregate).toString(), 1));
     }
+  }
 
-    private static void runFlinkJob(
-            String projectName,
-            String datasetName,
-            String tableName,
-            String recordPropertyToAggregate,
-            String rowRestriction,
-            Integer limit)
-            throws Exception {
+  static class PrintMapper implements MapFunction<GenericRecord, Tuple2<String, Long>> {
 
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(60000L);
+    private static final Logger LOG = LoggerFactory.getLogger(PrintMapper.class);
 
-        /**
-         * we will be reading avro generic records from BigQuery, and in this case we are assuming
-         * the GOOGLE_APPLICATION_CREDENTIALS env variable will be present in the execution runtime.
-         * In case of needing authenticate differently, the credentials builder (part of the
-         * BigQueryConnectOptions) should enable capturing the credentials from various sources.
-         */
-        BigQuerySource<GenericRecord> bqSource =
-                BigQuerySource.readAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestriction)
-                                .build(),
-                        limit);
-
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(t -> t.f0)
-                .sum("f1")
-                .print();
-
-        env.execute("Flink BigQuery example");
+    @Override
+    public Tuple2<String, Long> map(GenericRecord record) throws Exception {
+      LOG.info(record.toString());
+      return Tuple2.of(record.get("partition_id").toString(), (Long) record.get("total_rows"));
     }
-
-    static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
-
-        private final String recordPropertyToAggregate;
-
-        public FlatMapper(String recordPropertyToAggregate) {
-            this.recordPropertyToAggregate = recordPropertyToAggregate;
-        }
-
-        @Override
-        public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
-                throws Exception {
-            out.collect(Tuple2.of((String) record.get(recordPropertyToAggregate).toString(), 1));
-        }
-    }
-
-    static class PrintMapper implements MapFunction<GenericRecord, Tuple2<String, Long>> {
-
-        private static final Logger LOG = LoggerFactory.getLogger(PrintMapper.class);
-
-        @Override
-        public Tuple2<String, Long> map(GenericRecord record) throws Exception {
-            LOG.info(record.toString());
-            return Tuple2.of(
-                    record.get("partition_id").toString(), (Long) record.get("total_rows"));
-        }
-    }
+  }
 }

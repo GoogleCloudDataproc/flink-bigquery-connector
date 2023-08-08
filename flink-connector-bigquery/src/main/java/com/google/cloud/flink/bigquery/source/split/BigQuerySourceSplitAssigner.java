@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.source.split;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Maps;
@@ -25,6 +26,7 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.Sets;
 
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
+import com.google.cloud.flink.bigquery.source.enumerator.ContextAwareSplitObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,8 +58,10 @@ public abstract class BigQuerySourceSplitAssigner {
     }
 
     public static BigQuerySourceSplitAssigner createUnbounded(
-            BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
-        return null;
+            ContextAwareSplitObserver observer,
+            BigQueryReadOptions readOptions,
+            BigQuerySourceEnumState sourceEnumState) {
+        return new UnboundedSplitAssigner(observer, readOptions, sourceEnumState);
     }
 
     BigQuerySourceSplitAssigner(
