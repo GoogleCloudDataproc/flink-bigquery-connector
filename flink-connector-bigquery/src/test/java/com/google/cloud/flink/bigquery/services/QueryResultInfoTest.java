@@ -18,8 +18,10 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
-import org.assertj.core.api.Assertions;
+import com.google.common.truth.Truth8;
 import org.junit.Test;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class QueryResultInfoTest {
@@ -27,27 +29,27 @@ public class QueryResultInfoTest {
     @Test
     public void testQueryResultInfoFailed() {
         QueryResultInfo qri = QueryResultInfo.failed(Lists.newArrayList());
-        Assertions.assertThat(qri.getStatus()).isEqualTo(QueryResultInfo.Status.FAILED);
-        Assertions.assertThat(qri.getDestinationProject()).isEmpty();
-        Assertions.assertThat(qri.getDestinationDataset()).isEmpty();
-        Assertions.assertThat(qri.getDestinationTable()).isEmpty();
-        Assertions.assertThat(qri.getErrorMessages()).isNotEmpty();
+        assertThat(qri.getStatus()).isEqualTo(QueryResultInfo.Status.FAILED);
+        Truth8.assertThat(qri.getDestinationProject()).isEmpty();
+        Truth8.assertThat(qri.getDestinationDataset()).isEmpty();
+        Truth8.assertThat(qri.getDestinationTable()).isEmpty();
+        Truth8.assertThat(qri.getErrorMessages()).isPresent();
     }
 
     @Test
     public void testQueryResultInfoSucceeded() {
         QueryResultInfo qri = QueryResultInfo.succeed("", "", "");
-        Assertions.assertThat(qri.getStatus()).isEqualTo(QueryResultInfo.Status.SUCCEED);
-        Assertions.assertThat(qri.getDestinationProject()).isNotEmpty();
-        Assertions.assertThat(qri.getDestinationDataset()).isNotEmpty();
-        Assertions.assertThat(qri.getDestinationTable()).isNotEmpty();
-        Assertions.assertThat(qri.getErrorMessages().get()).isEmpty();
+        assertThat(qri.getStatus()).isEqualTo(QueryResultInfo.Status.SUCCEED);
+        Truth8.assertThat(qri.getDestinationProject()).isPresent();
+        Truth8.assertThat(qri.getDestinationDataset()).isPresent();
+        Truth8.assertThat(qri.getDestinationTable()).isPresent();
+        assertThat(qri.getErrorMessages().get()).isEmpty();
     }
 
     @Test
     public void testNotEquals() {
         QueryResultInfo succeed = QueryResultInfo.succeed("", "", "");
         QueryResultInfo failed = QueryResultInfo.failed(Lists.newArrayList());
-        Assertions.assertThat(succeed).isNotEqualTo(failed);
+        assertThat(succeed).isNotEqualTo(failed);
     }
 }
