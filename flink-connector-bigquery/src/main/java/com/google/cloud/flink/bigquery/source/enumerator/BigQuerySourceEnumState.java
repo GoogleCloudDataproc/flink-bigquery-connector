@@ -88,14 +88,13 @@ public class BigQuerySourceEnumState {
 
     @Override
     public int hashCode() {
-        int hash = 3;
-        hash = 29 * hash + Objects.hashCode(this.lastSeenPartitions);
-        hash = 29 * hash + Objects.hashCode(this.remaniningTableStreams);
-        hash = 29 * hash + Objects.hashCode(this.completedTableStreams);
-        hash = 29 * hash + Objects.hashCode(this.remainingSourceSplits);
-        hash = 29 * hash + Objects.hashCode(this.assignedSourceSplits);
-        hash = 29 * hash + Objects.hashCode(this.initialized);
-        return hash;
+        return Objects.hash(
+                this.lastSeenPartitions,
+                this.remaniningTableStreams,
+                this.completedTableStreams,
+                this.remainingSourceSplits,
+                this.assignedSourceSplits,
+                this.initialized);
     }
 
     @Override
@@ -110,22 +109,12 @@ public class BigQuerySourceEnumState {
             return false;
         }
         final BigQuerySourceEnumState other = (BigQuerySourceEnumState) obj;
-        if (!Objects.equals(this.lastSeenPartitions, other.lastSeenPartitions)) {
-            return false;
-        }
-        if (!Objects.equals(this.remaniningTableStreams, other.remaniningTableStreams)) {
-            return false;
-        }
-        if (!Objects.equals(this.completedTableStreams, other.completedTableStreams)) {
-            return false;
-        }
-        if (!Objects.equals(this.remainingSourceSplits, other.remainingSourceSplits)) {
-            return false;
-        }
-        if (!Objects.equals(this.assignedSourceSplits, other.assignedSourceSplits)) {
-            return false;
-        }
-        return Objects.equals(this.initialized, other.initialized);
+        return Objects.equals(this.lastSeenPartitions, other.lastSeenPartitions)
+                && Objects.equals(this.remaniningTableStreams, other.remaniningTableStreams)
+                && Objects.equals(this.completedTableStreams, other.completedTableStreams)
+                && Objects.equals(this.remainingSourceSplits, other.remainingSourceSplits)
+                && Objects.equals(this.assignedSourceSplits, other.assignedSourceSplits)
+                && Objects.equals(this.initialized, other.initialized);
     }
 
     @Override
@@ -133,7 +122,7 @@ public class BigQuerySourceEnumState {
         return String.format(
                 "BigQuerySourceEnumState{"
                         + "lastSeenPartitions=%s"
-                        + "remaniningTableStreams=%s"
+                        + ", remaniningTableStreams=%s"
                         + ", completedTableStreams=%s"
                         + ", remainingSourceSplits=%s"
                         + ", assignedSourceSplits=%s"
