@@ -25,6 +25,7 @@ import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.PartitionT
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -41,11 +42,11 @@ public class TablePartitionInfo {
             String columnName,
             PartitionType partitionType,
             StandardSQLTypeName columnType,
-            Instant sbOldestEntryTime) {
+            Instant streamingBufferOldestEntryTime) {
         this.columnName = columnName;
         this.columnType = columnType;
         this.partitionType = partitionType;
-        this.streamingBufferOldestEntryTime = sbOldestEntryTime;
+        this.streamingBufferOldestEntryTime = streamingBufferOldestEntryTime;
     }
 
     public String getColumnName() {
@@ -64,14 +65,49 @@ public class TablePartitionInfo {
         return streamingBufferOldestEntryTime;
     }
 
-    public List<PartitionIdWithInfo> toPartitionsWithInfo(List<String> partitionIds) {
+    public List<PartitionIdWithInfo> toPartitionsWithInfo(
+            List<PartitionIdWithLastModification> partitionIds) {
         return Optional.ofNullable(partitionIds)
                 .map(
                         ps ->
                                 ps.stream()
-                                        .map(id -> new PartitionIdWithInfo(id, this))
+                                        .map(
+                                                id ->
+                                                        new PartitionIdWithInfo(
+                                                                id.getId(),
+                                                                this,
+                                                                id
+                                                                        .getLastModificationMillisFromEpoch()))
                                         .collect(Collectors.toList()))
                 .orElse(Lists.newArrayList());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                this.columnName,
+                this.columnType,
+                this.partitionType,
+                this.streamingBufferOldestEntryTime);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final TablePartitionInfo other = (TablePartitionInfo) obj;
+        return Objects.equals(this.columnName, other.columnName)
+                && this.columnType == other.columnType
+                && this.partitionType == other.partitionType
+                && Objects.equals(
+                        this.streamingBufferOldestEntryTime, other.streamingBufferOldestEntryTime);
     }
 
     @Override

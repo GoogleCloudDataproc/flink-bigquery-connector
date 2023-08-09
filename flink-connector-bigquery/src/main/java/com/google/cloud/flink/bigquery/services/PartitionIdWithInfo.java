@@ -25,10 +25,13 @@ import java.util.Objects;
 public class PartitionIdWithInfo {
     private final String partitionId;
     private final TablePartitionInfo info;
+    private final Long lastModifiedMillisFromEpoch;
 
-    public PartitionIdWithInfo(String partitionId, TablePartitionInfo info) {
+    public PartitionIdWithInfo(
+            String partitionId, TablePartitionInfo info, Long lastModifiedMillisFromEpoch) {
         this.partitionId = partitionId;
         this.info = info;
+        this.lastModifiedMillisFromEpoch = lastModifiedMillisFromEpoch;
     }
 
     public String getPartitionId() {
@@ -39,12 +42,13 @@ public class PartitionIdWithInfo {
         return info;
     }
 
+    public Long getLastModifiedMillisFromEpoch() {
+        return lastModifiedMillisFromEpoch;
+    }
+
     @Override
     public int hashCode() {
-        int hash = 5;
-        hash = 97 * hash + Objects.hashCode(this.getInfo());
-        hash = 97 * hash + Objects.hashCode(this.getPartitionId());
-        return hash;
+        return Objects.hash(this.partitionId, this.info, this.lastModifiedMillisFromEpoch);
     }
 
     @Override
@@ -59,14 +63,22 @@ public class PartitionIdWithInfo {
             return false;
         }
         final PartitionIdWithInfo other = (PartitionIdWithInfo) obj;
-        if (!Objects.equals(this.getPartitionId(), other.getPartitionId())) {
-            return false;
-        }
-        return Objects.equals(this.getInfo(), other.getInfo());
+        return Objects.equals(this.getPartitionId(), other.getPartitionId())
+                && Objects.equals(this.getInfo(), other.getInfo())
+                && Objects.equals(
+                        this.getLastModifiedMillisFromEpoch(),
+                        other.getLastModifiedMillisFromEpoch());
     }
 
     @Override
     public String toString() {
-        return "PartitionIdWithInfo{" + "partitionId=" + partitionId + ", info=" + info + '}';
+        return "PartitionIdWithInfo{"
+                + "partitionId="
+                + partitionId
+                + ", info="
+                + info
+                + ", lastModifiedMillisFromEpoch="
+                + lastModifiedMillisFromEpoch
+                + '}';
     }
 }

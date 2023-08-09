@@ -72,7 +72,11 @@ public class MetadataInfoTest {
                         BigQueryPartition.PartitionType.MONTH,
                         StandardSQLTypeName.DATE,
                         Instant.now());
-        List<String> partitions = Lists.newArrayList("202301", "202302");
+        List<PartitionIdWithLastModification> partitions =
+                Lists.newArrayList(
+                        new PartitionIdWithLastModification("202301", Instant.now().toEpochMilli()),
+                        new PartitionIdWithLastModification(
+                                "202302", Instant.now().toEpochMilli()));
         List<PartitionIdWithInfo> pIdInfo = tpInfo.toPartitionsWithInfo(partitions);
         Assertions.assertThat(pIdInfo).hasSize(2);
     }
@@ -85,12 +89,15 @@ public class MetadataInfoTest {
                         BigQueryPartition.PartitionType.MONTH,
                         StandardSQLTypeName.INT64,
                         Instant.EPOCH);
-        PartitionIdWithInfo original = new PartitionIdWithInfo("2023", info);
-        PartitionIdWithInfo next = new PartitionIdWithInfo("2022", info);
+        PartitionIdWithInfo original =
+                new PartitionIdWithInfo("2023", info, Instant.EPOCH.toEpochMilli());
+        PartitionIdWithInfo next =
+                new PartitionIdWithInfo("2022", info, Instant.EPOCH.toEpochMilli());
         Assertions.assertThat(original).isNotEqualTo(next);
         Assertions.assertThat(original.hashCode()).isNotEqualTo(next.hashCode());
 
-        PartitionIdWithInfo same = new PartitionIdWithInfo("2023", info);
+        PartitionIdWithInfo same =
+                new PartitionIdWithInfo("2023", info, Instant.EPOCH.toEpochMilli());
         Assertions.assertThat(original).isEqualTo(same);
         Assertions.assertThat(original.hashCode()).isEqualTo(same.hashCode());
     }

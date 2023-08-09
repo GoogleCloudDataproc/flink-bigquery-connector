@@ -213,10 +213,14 @@ public class BigQueryDynamicTableSource
                                      * into valid values given the column data type
                                      */
                                     return BigQueryPartition.partitionValuesFromIdAndDataType(
-                                                    dataClient.retrieveTablePartitions(
-                                                            connectOptions.getProjectId(),
-                                                            connectOptions.getDataset(),
-                                                            connectOptions.getTable()),
+                                                    dataClient
+                                                            .retrieveTablePartitions(
+                                                                    connectOptions.getProjectId(),
+                                                                    connectOptions.getDataset(),
+                                                                    connectOptions.getTable())
+                                                            .stream()
+                                                            .map(p -> p.getId())
+                                                            .collect(Collectors.toList()),
                                                     partitionInfo.getColumnType())
                                             .stream()
                                             /**

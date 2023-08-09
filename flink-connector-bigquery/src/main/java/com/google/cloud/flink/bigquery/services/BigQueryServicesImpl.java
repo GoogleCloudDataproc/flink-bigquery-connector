@@ -181,12 +181,13 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
 
         @Override
-        public List<String> retrieveTablePartitions(String project, String dataset, String table) {
+        public List<PartitionIdWithLastModification> retrieveTablePartitions(
+                String project, String dataset, String table) {
             try {
                 String query =
                         Lists.newArrayList(
                                         "SELECT",
-                                        "  partition_id",
+                                        "  partition_id as id, last_modified_time as ts",
                                         "FROM",
                                         String.format(
                                                 "  `%s.%s.INFORMATION_SCHEMA.PARTITIONS`",
@@ -204,10 +205,13 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
                 TableResult results = bigQuery.query(queryConfig);
 
-                List<String> result =
+                List<PartitionIdWithLastModification> result =
                         StreamSupport.stream(results.iterateAll().spliterator(), false)
-                                .flatMap(row -> row.stream())
-                                .map(fValue -> fValue.getStringValue())
+                                .map(
+                                        row ->
+                                                new PartitionIdWithLastModification(
+                                                        row.get("id").getStringValue(),
+                                                        row.get("ts").getLongValue()))
                                 .collect(Collectors.toList());
                 LOG.info("Table partitions: {}", result);
                 return result;

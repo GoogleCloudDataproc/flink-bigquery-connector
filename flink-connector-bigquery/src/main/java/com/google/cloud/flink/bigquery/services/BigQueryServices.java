@@ -111,7 +111,8 @@ public interface BigQueryServices extends Serializable {
          * @param table The BigQuery table.
          * @return A list of the partition identifiers.
          */
-        List<String> retrieveTablePartitions(String project, String dataset, String table);
+        List<PartitionIdWithLastModification> retrieveTablePartitions(
+                String project, String dataset, String table);
 
         /**
          * Returns, in case of having one, the partition column information for the table.

@@ -99,8 +99,8 @@ public class SplitDiscoverer {
             LOG.info(
                     "BigQuery Storage Read session, name: {},"
                             + " estimated row count {}, estimated scanned bytes {},"
-                            + " streams count {}, expired time {} (seconds after epoch). \n"
-                            + "Format: {}, column names: {}, row restriction: {},"
+                            + " streams count {}, expired time {} (seconds after epoch), "
+                            + " format: {}, column names: {}, row restriction: \"{}\","
                             + " snapshot time: {}, max stream count: {}.",
                     session.getName(),
                     session.getEstimatedRowCount(),
