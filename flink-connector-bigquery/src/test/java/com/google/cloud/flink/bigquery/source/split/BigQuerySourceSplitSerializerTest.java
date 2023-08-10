@@ -16,10 +16,11 @@
 
 package com.google.cloud.flink.bigquery.source.split;
 
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceSplitSerializerTest {
@@ -34,7 +35,7 @@ public class BigQuerySourceSplitSerializerTest {
                 BigQuerySourceSplitSerializer.INSTANCE.deserialize(
                         BigQuerySourceSplitSerializer.VERSION, serialized);
 
-        Assert.assertEquals(split, split1);
+        assertThat(split).isEqualTo(split1);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -46,6 +47,6 @@ public class BigQuerySourceSplitSerializerTest {
         BigQuerySourceSplitSerializer.INSTANCE.deserialize(1000, serialized);
 
         // should never reach here
-        assert (true);
+        assertThat(true).isFalse();
     }
 }

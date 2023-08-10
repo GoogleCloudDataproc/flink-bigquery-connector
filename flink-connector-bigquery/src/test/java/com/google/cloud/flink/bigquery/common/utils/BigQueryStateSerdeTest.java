@@ -19,7 +19,6 @@ package com.google.cloud.flink.bigquery.common.utils;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Maps;
 
-import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -30,6 +29,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQueryStateSerdeTest {
@@ -50,7 +51,7 @@ public class BigQueryStateSerdeTest {
                 List<String> deserialized =
                         BigQueryStateSerde.deserializeList(in, DataInput::readUTF);
 
-                Assertions.assertThat(original).isEqualTo(deserialized);
+                assertThat(original).isEqualTo(deserialized);
             }
         }
     }
@@ -76,7 +77,7 @@ public class BigQueryStateSerdeTest {
                         BigQueryStateSerde.deserializeMap(
                                 in, DataInput::readUTF, DataInput::readUTF);
 
-                Assertions.assertThat(original).isEqualTo(deserialized);
+                assertThat(original).isEqualTo(deserialized);
             }
         }
     }

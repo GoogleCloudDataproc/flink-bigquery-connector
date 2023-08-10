@@ -20,10 +20,11 @@ import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.io.IOException;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQueryServicesTest {
@@ -50,14 +51,14 @@ public class BigQueryServicesTest {
                                 .setTestingBigQueryServices(dummyServices)
                                 .build());
 
-        Assertions.assertThat(original.getIsTestingEnabled()).isTrue();
-        Assertions.assertThat(original.getTestingServices()).isNotNull();
-        Assertions.assertThat(original.queryClient()).isNull();
-        Assertions.assertThat(original.storageRead()).isNull();
+        assertThat(original.getIsTestingEnabled()).isTrue();
+        assertThat(original.getTestingServices()).isNotNull();
+        assertThat(original.queryClient()).isNull();
+        assertThat(original.storageRead()).isNull();
 
         original.defaultImplementation();
 
-        Assertions.assertThat(original.getIsTestingEnabled()).isFalse();
-        Assertions.assertThat(original.getTestingServices()).isNull();
+        assertThat(original.getIsTestingEnabled()).isFalse();
+        assertThat(original.getTestingServices()).isNull();
     }
 }
