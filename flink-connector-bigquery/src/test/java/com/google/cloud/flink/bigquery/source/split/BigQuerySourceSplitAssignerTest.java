@@ -21,12 +21,14 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
-import org.junit.Assert;
+import com.google.common.truth.Truth8;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Optional;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceSplitAssignerTest {
@@ -51,29 +53,29 @@ public class BigQuerySourceSplitAssignerTest {
 
         // should retrieve the first split representing the firt stream
         Optional<BigQuerySourceSplit> maybeSplit = assigner.getNext();
-        Assert.assertTrue(maybeSplit.isPresent());
+        Truth8.assertThat(maybeSplit).isPresent();
         // should retrieve the second split representing the second stream
         maybeSplit = assigner.getNext();
-        Assert.assertTrue(maybeSplit.isPresent());
+        Truth8.assertThat(maybeSplit).isPresent();
         BigQuerySourceSplit split = maybeSplit.get();
         // no more splits should be available
         maybeSplit = assigner.getNext();
-        Assert.assertTrue(!maybeSplit.isPresent());
-        Assert.assertTrue(assigner.noMoreSplits());
+        Truth8.assertThat(maybeSplit).isEmpty();
+        assertThat(assigner.noMoreSplits()).isTrue();
         // lets check on the enum state
         BigQuerySourceEnumState state = assigner.snapshotState(0);
-        Assert.assertTrue(state.getRemaniningTableStreams().isEmpty());
-        Assert.assertTrue(state.getRemainingSourceSplits().isEmpty());
+        assertThat(state.getRemaniningTableStreams()).isEmpty();
+        assertThat(state.getRemainingSourceSplits()).isEmpty();
         // add some splits back
         assigner.addSplitsBack(Lists.newArrayList(split));
         // check again on the enum state
         state = assigner.snapshotState(0);
-        Assert.assertTrue(state.getRemaniningTableStreams().isEmpty());
-        Assert.assertTrue(!state.getRemainingSourceSplits().isEmpty());
+        assertThat(state.getRemaniningTableStreams()).isEmpty();
+        assertThat(state.getRemainingSourceSplits()).isNotEmpty();
         // empty it again and check
         assigner.getNext();
         maybeSplit = assigner.getNext();
-        Assert.assertTrue(!maybeSplit.isPresent());
-        Assert.assertTrue(assigner.noMoreSplits());
+        Truth8.assertThat(maybeSplit).isEmpty();
+        assertThat(assigner.noMoreSplits()).isTrue();
     }
 }

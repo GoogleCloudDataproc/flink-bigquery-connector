@@ -23,10 +23,11 @@ import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.io.IOException;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceTest {
@@ -39,8 +40,7 @@ public class BigQuerySourceTest {
         BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(readOptions);
         TypeInformation<GenericRecord> expected =
                 new GenericRecordAvroTypeInfo(StorageClientFaker.SIMPLE_AVRO_SCHEMA);
-        Assertions.assertThat(source.getDeserializationSchema().getProducedType())
-                .isEqualTo(expected);
+        assertThat(source.getDeserializationSchema().getProducedType()).isEqualTo(expected);
     }
 
     @Test
@@ -55,7 +55,6 @@ public class BigQuerySourceTest {
                 new GenericRecordAvroTypeInfo(
                         new Schema.Parser()
                                 .parse(StorageClientFaker.SIMPLE_AVRO_SCHEMA_FORQUERY_STRING));
-        Assertions.assertThat(source.getDeserializationSchema().getProducedType())
-                .isEqualTo(expected);
+        assertThat(source.getDeserializationSchema().getProducedType()).isEqualTo(expected);
     }
 }
