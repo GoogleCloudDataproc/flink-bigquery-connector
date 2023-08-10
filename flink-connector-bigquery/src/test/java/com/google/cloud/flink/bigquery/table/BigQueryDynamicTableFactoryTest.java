@@ -29,7 +29,6 @@ import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
 import org.assertj.core.api.Assertions;
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -38,6 +37,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
 public class BigQueryDynamicTableFactoryTest {
@@ -61,7 +62,7 @@ public class BigQueryDynamicTableFactoryTest {
         BigQueryDynamicTableSource expectedSource =
                 new BigQueryDynamicTableSource(
                         getConnectorOptions(), SCHEMA.toPhysicalRowDataType());
-        Assert.assertEquals("The sources are not equals.", actualSource, expectedSource);
+        assertThat(actualSource).isEqualTo(expectedSource);
     }
 
     @Test
@@ -90,7 +91,7 @@ public class BigQueryDynamicTableFactoryTest {
         BigQueryDynamicTableSource expected =
                 new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType());
 
-        Assertions.assertThat(actual).isEqualTo(expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
