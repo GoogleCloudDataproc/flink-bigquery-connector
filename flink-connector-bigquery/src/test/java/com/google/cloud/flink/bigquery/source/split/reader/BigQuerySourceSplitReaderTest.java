@@ -27,11 +27,12 @@ import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 import org.apache.avro.generic.GenericRecord;
-import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceSplitReaderTest {
@@ -60,28 +61,28 @@ public class BigQuerySourceSplitReaderTest {
         // this should fetch us some data
         RecordsWithSplitIds<GenericRecord> records = reader.fetch();
         // there is one finished split and is named stream1
-        Assert.assertTrue(records.finishedSplits().size() == 1);
+        assertThat(records.finishedSplits()).hasSize(1);
 
         String firstSplit = records.nextSplit();
-        Assert.assertNotNull(firstSplit);
-        Assert.assertTrue(firstSplit.equals(splitName));
+        assertThat(firstSplit).isNotNull();
+        assertThat(firstSplit).isEqualTo(splitName);
 
         int i = 0;
         while (records.nextRecordFromSplit() != null) {
             i++;
         }
         // there were 10 generic records read
-        Assert.assertTrue(i == 10);
+        assertThat(i).isEqualTo(10);
         // there are no more splits
-        Assert.assertNull(records.nextSplit());
+        assertThat(records.nextSplit()).isNull();
 
         // now there should be another split to process
         records = reader.fetch();
-        Assert.assertTrue(!records.finishedSplits().isEmpty());
+        assertThat(records.finishedSplits()).isNotEmpty();
 
         // after processing no more splits can be retrieved
         records = reader.fetch();
-        Assert.assertTrue(records.finishedSplits().isEmpty());
+        assertThat(records.finishedSplits()).isEmpty();
     }
 
     @Test
@@ -109,27 +110,27 @@ public class BigQuerySourceSplitReaderTest {
         // this should fetch us some data
         RecordsWithSplitIds<GenericRecord> records = reader.fetch();
         // there shouldn't be a finished split
-        Assert.assertTrue(records.finishedSplits().isEmpty());
+        assertThat(records.finishedSplits()).isEmpty();
 
         String firstPartialSplit = records.nextSplit();
-        Assert.assertNotNull(firstPartialSplit);
-        Assert.assertTrue(firstPartialSplit.equals(splitName));
+        assertThat(firstPartialSplit).isNotNull();
+        assertThat(firstPartialSplit).isEqualTo(splitName);
 
         int i = 0;
         while (records.nextRecordFromSplit() != null) {
             i++;
         }
         // there were less than 10000 generic records read, the max per fetch
-        Assert.assertTrue(i <= 10000);
+        assertThat(i).isLessThan(10001);
         // there are no more splits
-        Assert.assertNull(records.nextSplit());
+        assertThat(records.nextSplit()).isNull();
 
         // now there should be more data in the split and now should be able to finalize it
         records = reader.fetch();
-        Assert.assertTrue(!records.finishedSplits().isEmpty());
+        assertThat(records.finishedSplits()).isNotEmpty();
 
         // after processing no more splits can be retrieved
         records = reader.fetch();
-        Assert.assertTrue(records.finishedSplits().isEmpty());
+        assertThat(records.finishedSplits()).isEmpty();
     }
 }
