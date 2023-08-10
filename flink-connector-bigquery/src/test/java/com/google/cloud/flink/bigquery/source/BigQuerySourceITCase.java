@@ -36,7 +36,6 @@ import org.apache.flink.util.CollectionUtil;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataDeserializationSchema;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -45,6 +44,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 @TestInstance(Lifecycle.PER_CLASS)
@@ -108,7 +109,7 @@ public class BigQuerySourceITCase {
                                 .executeAndCollect());
 
         // we only create 2 streams as response
-        Assertions.assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
     }
 
     @Test
@@ -122,7 +123,7 @@ public class BigQuerySourceITCase {
                 env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuery-Source")
                         .executeAndCollect(TOTAL_ROW_COUNT_PER_STREAM);
         // need to check on parallelism since the limit is triggered per task + reader contexts = 2
-        Assertions.assertThat(results).hasSize(limitSize * PARALLELISM);
+        assertThat(results).hasSize(limitSize * PARALLELISM);
     }
 
     @Test
@@ -142,7 +143,7 @@ public class BigQuerySourceITCase {
                                 .map(new FailingMapper(failed))
                                 .executeAndCollect());
 
-        Assertions.assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
     }
 
     @Test
@@ -181,7 +182,7 @@ public class BigQuerySourceITCase {
                                         "BigQuery-Source")
                                 .executeAndCollect());
 
-        Assertions.assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
     }
 
     private static class FailingMapper
