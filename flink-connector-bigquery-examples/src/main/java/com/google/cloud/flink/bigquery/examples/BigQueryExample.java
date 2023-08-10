@@ -67,7 +67,8 @@ public class BigQueryExample {
                             + " --restriction <single-quoted string with row predicate>"
                             + " --limit <optional: limit records returned> --query <SQL>"
                             + " --streaming <optional: sets the source in streaming mode>"
-                            + " --ts-prop <optional: payload's property for timestamp extraction>");
+                            + " --ts-prop <optional: payload's property for timestamp extraction>"
+                            + " --oldest-partition-id <optional: oldest partition id to read>");
             return;
         }
         /**
@@ -91,6 +92,7 @@ public class BigQueryExample {
 
             if (streaming) {
                 String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                String oldestPartition = parameterTool.get("oldest-partition-id", "");
                 runStreamingFlinkJob(
                         projectName,
                         datasetName,
@@ -98,7 +100,8 @@ public class BigQueryExample {
                         recordPropertyToAggregate,
                         recordPropertyForTimestamps,
                         rowRestriction,
-                        recordLimit);
+                        recordLimit,
+                        oldestPartition);
             } else {
                 runFlinkJob(
                         projectName,
@@ -179,7 +182,8 @@ public class BigQueryExample {
             String recordPropertyToAggregate,
             String recordPropertyForTimestamps,
             String rowRestriction,
-            Integer limit)
+            Integer limit,
+            String oldestPartition)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -196,6 +200,7 @@ public class BigQueryExample {
                                                 .setTable(tableName)
                                                 .build())
                                 .setRowRestriction(rowRestriction)
+                                .setOldestPartitionId(oldestPartition)
                                 .build(),
                         limit),
                 WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(Duration.ofMinutes(10))

@@ -65,19 +65,12 @@ public class TablePartitionInfo {
         return streamingBufferOldestEntryTime;
     }
 
-    public List<PartitionIdWithInfo> toPartitionsWithInfo(
-            List<PartitionIdWithLastModification> partitionIds) {
+    public List<PartitionIdWithInfo> toPartitionsWithInfo(List<String> partitionIds) {
         return Optional.ofNullable(partitionIds)
                 .map(
                         ps ->
                                 ps.stream()
-                                        .map(
-                                                id ->
-                                                        new PartitionIdWithInfo(
-                                                                id.getId(),
-                                                                this,
-                                                                id
-                                                                        .getLastModificationMillisFromEpoch()))
+                                        .map(id -> new PartitionIdWithInfo(id, this))
                                         .collect(Collectors.toList()))
                 .orElse(Lists.newArrayList());
     }
@@ -119,6 +112,8 @@ public class TablePartitionInfo {
                 + columnType
                 + ", partitionType="
                 + partitionType
+                + ", streamingBufferOldestEntryTime="
+                + streamingBufferOldestEntryTime
                 + '}';
     }
 }

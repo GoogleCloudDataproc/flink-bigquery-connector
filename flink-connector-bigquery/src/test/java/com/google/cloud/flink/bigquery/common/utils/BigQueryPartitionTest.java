@@ -239,8 +239,7 @@ public class BigQueryPartitionTest {
                                 BigQueryPartition.PartitionType.HOUR,
                                 StandardSQLTypeName.TIMESTAMP,
                                 // partition watermark is now
-                                Instant.now()),
-                        Instant.now().toEpochMilli());
+                                Instant.now()));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
@@ -259,8 +258,7 @@ public class BigQueryPartitionTest {
                                 BigQueryPartition.PartitionType.DAY,
                                 StandardSQLTypeName.DATE,
                                 // partition watermark is now
-                                Instant.now()),
-                        Instant.now().toEpochMilli());
+                                Instant.now()));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
@@ -279,8 +277,7 @@ public class BigQueryPartitionTest {
                                 BigQueryPartition.PartitionType.MONTH,
                                 StandardSQLTypeName.DATE,
                                 // partition watermark is now
-                                Instant.now()),
-                        Instant.now().toEpochMilli());
+                                Instant.now()));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
@@ -299,8 +296,7 @@ public class BigQueryPartitionTest {
                                 BigQueryPartition.PartitionType.YEAR,
                                 StandardSQLTypeName.DATE,
                                 // partition watermark is now
-                                Instant.now()),
-                        Instant.now().toEpochMilli());
+                                Instant.now()));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
@@ -319,8 +315,7 @@ public class BigQueryPartitionTest {
                                 BigQueryPartition.PartitionType.YEAR,
                                 StandardSQLTypeName.DATE,
                                 // partition watermark is now
-                                Instant.now()),
-                        Instant.now().toEpochMilli());
+                                Instant.now()));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
@@ -339,8 +334,7 @@ public class BigQueryPartitionTest {
                                 BigQueryPartition.PartitionType.INT_RANGE,
                                 StandardSQLTypeName.INT64,
                                 // partition watermark is now
-                                Instant.now()),
-                        Instant.now().toEpochMilli());
+                                Instant.now()));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);

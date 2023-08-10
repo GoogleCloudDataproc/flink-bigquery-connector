@@ -42,7 +42,6 @@ import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
-import com.google.cloud.flink.bigquery.services.PartitionIdWithLastModification;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -91,32 +90,15 @@ public class StorageClientFaker {
             return new QueryDataClient() {
 
                 @Override
-                public List<PartitionIdWithLastModification> retrieveTablePartitions(
+                public List<String> retrieveTablePartitions(
                         String project, String dataset, String table) {
                     DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
                     return Lists.newArrayList(
-                            new PartitionIdWithLastModification(
-                                    Instant.now()
-                                            .atOffset(ZoneOffset.UTC)
-                                            .minusHours(5)
-                                            .format(dtf),
-                                    Instant.now().toEpochMilli()),
-                            new PartitionIdWithLastModification(
-                                    Instant.now()
-                                            .atOffset(ZoneOffset.UTC)
-                                            .minusHours(4)
-                                            .format(dtf),
-                                    Instant.now().toEpochMilli()),
-                            new PartitionIdWithLastModification(
-                                    Instant.now()
-                                            .atOffset(ZoneOffset.UTC)
-                                            .minusHours(3)
-                                            .format(dtf),
-                                    Instant.now().toEpochMilli()),
-                            new PartitionIdWithLastModification(
-                                    Instant.now().atOffset(ZoneOffset.UTC).format(dtf),
-                                    Instant.now().toEpochMilli()));
+                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
+                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
+                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
+                            Instant.now().atOffset(ZoneOffset.UTC).format(dtf));
                 }
 
                 @Override
@@ -157,7 +139,7 @@ public class StorageClientFaker {
                             .map(
                                     pId ->
                                             new PartitionIdWithInfoAndStatus(
-                                                    pId.getId(),
+                                                    pId,
                                                     retrievePartitionColumnInfo(
                                                                     project, dataset, table)
                                                             .get(),

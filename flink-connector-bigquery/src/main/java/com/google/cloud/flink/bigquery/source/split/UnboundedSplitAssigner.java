@@ -43,7 +43,6 @@ import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.par
 @Internal
 public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
     private static final Logger LOG = LoggerFactory.getLogger(UnboundedSplitAssigner.class);
-    static final Duration PARTITION_DISCOVERY_INTERVAL = Duration.ofMinutes(10);
 
     private final ContextAwareSplitObserver observer;
 
@@ -67,12 +66,26 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
                             options.getProjectId(), options.getDataset(), options.getTable());
 
             LOG.info("Table partitions and their status: {}", newPartitions);
+            LOG.info("Already seen partition ids: {}", this.lastSeenPartitions);
             newPartitions =
                     newPartitions.stream()
+                            // if configured filter partitions older than the provided id
+                            .filter(
+                                    pIdStatus ->
+                                            Optional.ofNullable(
+                                                            this.readOptions.getOldestPartitionId())
+                                                    .map(
+                                                            oldestPartitionId ->
+                                                                    pIdStatus
+                                                                                    .getPartitionId()
+                                                                                    .compareTo(
+                                                                                            oldestPartitionId)
+                                                                            >= 0)
+                                                    .orElse(true))
                             .filter(pIdStatus -> pIdStatus.isCompleted())
                             .filter(
                                     pIdStatus ->
-                                            !lastSeenPartitions.contains(
+                                            !this.lastSeenPartitions.contains(
                                                     pIdStatus.getPartitionId()))
                             .collect(Collectors.toList());
             return new DiscoveryResult(
@@ -143,7 +156,10 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
                         this::discoverNewSplits,
                         this::handlePartitionSplitDiscovery,
                         0,
-                        PARTITION_DISCOVERY_INTERVAL.toMillis());
+                        Duration.ofMinutes(
+                                        this.readOptions
+                                                .getPartitionDiscoveryRefreshIntervalInMinutes())
+                                .toMillis());
     }
 
     @Override
