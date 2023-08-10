@@ -26,10 +26,11 @@ import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.util.List;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class SchemaTransformTest {
@@ -108,70 +109,70 @@ public class SchemaTransformTest {
         Schema avroSchema =
                 SchemaTransform.toGenericAvroSchema("testSchema", tableSchema.getFields());
 
-        Assertions.assertThat(avroSchema.getField("number").schema())
+        assertThat(avroSchema.getField("number").schema())
                 .isEqualTo(Schema.create(Schema.Type.LONG));
 
-        Assertions.assertThat(avroSchema.getField("species").schema())
+        assertThat(avroSchema.getField("species").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 Schema.create(Schema.Type.STRING)));
-        Assertions.assertThat(avroSchema.getField("quality").schema())
+        assertThat(avroSchema.getField("quality").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 Schema.create(Schema.Type.DOUBLE)));
-        Assertions.assertThat(avroSchema.getField("quantity").schema())
+        assertThat(avroSchema.getField("quantity").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.LONG)));
-        Assertions.assertThat(avroSchema.getField("birthday").schema())
+        assertThat(avroSchema.getField("birthday").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 LogicalTypes.timestampMicros()
                                         .addToSchema(Schema.create(Schema.Type.LONG))));
-        Assertions.assertThat(avroSchema.getField("birthdayMoney").schema())
+        assertThat(avroSchema.getField("birthdayMoney").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 LogicalTypes.decimal(38, 9)
                                         .addToSchema(Schema.create(Schema.Type.BYTES))));
-        Assertions.assertThat(avroSchema.getField("lotteryWinnings").schema())
+        assertThat(avroSchema.getField("lotteryWinnings").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 LogicalTypes.decimal(77, 38)
                                         .addToSchema(Schema.create(Schema.Type.BYTES))));
-        Assertions.assertThat(avroSchema.getField("flighted").schema())
+        assertThat(avroSchema.getField("flighted").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 Schema.create(Schema.Type.BOOLEAN)));
-        Assertions.assertThat(avroSchema.getField("sound").schema())
+        assertThat(avroSchema.getField("sound").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.BYTES)));
-        Assertions.assertThat(avroSchema.getField("anniversaryDate").schema())
+        assertThat(avroSchema.getField("anniversaryDate").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 Schema.create(Schema.Type.STRING)));
-        Assertions.assertThat(avroSchema.getField("anniversaryDatetime").schema())
+        assertThat(avroSchema.getField("anniversaryDatetime").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 Schema.create(Schema.Type.STRING)));
-        Assertions.assertThat(avroSchema.getField("anniversaryTime").schema())
+        assertThat(avroSchema.getField("anniversaryTime").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 Schema.create(Schema.Type.STRING)));
         Schema geoSchema = Schema.create(Schema.Type.STRING);
         geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
-        Assertions.assertThat(avroSchema.getField("geoPositions").schema())
+        assertThat(avroSchema.getField("geoPositions").schema())
                 .isEqualTo(Schema.createUnion(Schema.create(Schema.Type.NULL), geoSchema));
-        Assertions.assertThat(avroSchema.getField("scion").schema())
+        assertThat(avroSchema.getField("scion").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
@@ -188,7 +189,7 @@ public class SchemaTransformTest {
                                                                 Schema.create(Schema.Type.STRING)),
                                                         null,
                                                         (Object) null)))));
-        Assertions.assertThat(avroSchema.getField("associates").schema())
+        assertThat(avroSchema.getField("associates").schema())
                 .isEqualTo(
                         Schema.createArray(
                                 Schema.createRecord(
@@ -226,6 +227,6 @@ public class SchemaTransformTest {
 
         TableSchema transformed = SchemaTransform.bigQuerySchemaToTableSchema(schema);
 
-        Assertions.assertThat(transformed).isEqualTo(expected);
+        assertThat(transformed).isEqualTo(expected);
     }
 }
