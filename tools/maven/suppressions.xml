@@ -23,4 +23,7 @@ under the License.
 	"http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
 
 <suppressions>
+	<suppress checks="IllegalImport" files=".*test/java/.*Test.java"/>
+	<suppress checks="IllegalImport" files=".*test/java/.*ITCase.java"/>
+	<suppress checks="IllegalImport" files=".*test/java/.*IT.java"/>
 </suppressions>

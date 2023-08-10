@@ -18,7 +18,6 @@ package com.google.cloud.flink.bigquery.source.enumerator;
 
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitSerializer;
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -26,6 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceEnumStateSerializerTest {
@@ -70,8 +71,8 @@ public class BigQuerySourceEnumStateSerializerTest {
                 BigQuerySourceEnumStateSerializer.INSTANCE.deserialize(
                         BigQuerySourceSplitSerializer.VERSION, serialized);
 
-        Assert.assertEquals(initialState, enumState1);
-        Assert.assertEquals(initialState.hashCode(), enumState1.hashCode());
+        assertThat(initialState).isEqualTo(enumState1);
+        assertThat(initialState.hashCode()).isEqualTo(enumState1.hashCode());
     }
 
     @Test
@@ -84,7 +85,7 @@ public class BigQuerySourceEnumStateSerializerTest {
                 BigQuerySourceEnumStateSerializer.INSTANCE.deserialize(
                         BigQuerySourceSplitSerializer.VERSION, serialized);
 
-        Assert.assertEquals(enumState, enumState1);
+        assertThat(enumState).isEqualTo(enumState1);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -96,6 +97,6 @@ public class BigQuerySourceEnumStateSerializerTest {
         BigQuerySourceEnumStateSerializer.INSTANCE.deserialize(1000, serialized);
 
         // should never reach here
-        Assert.fail();
+        assertThat(false).isTrue();
     }
 }
