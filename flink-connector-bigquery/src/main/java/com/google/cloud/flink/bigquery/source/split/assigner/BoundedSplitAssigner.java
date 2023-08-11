@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.source.split;
+package com.google.cloud.flink.bigquery.source.split.assigner;
 
 import org.apache.flink.annotation.Internal;
 
@@ -27,6 +27,7 @@ import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
+import com.google.cloud.flink.bigquery.source.split.SplitDiscoverer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

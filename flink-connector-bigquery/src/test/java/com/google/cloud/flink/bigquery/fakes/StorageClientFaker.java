@@ -52,6 +52,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.util.RandomData;
+import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -73,10 +74,24 @@ public class StorageClientFaker {
     /** Implementation for the BigQuery services for testing purposes. */
     public static class FakeBigQueryServices implements BigQueryServices {
 
+        static FakeBigQueryServices instance = null;
+        static final Object LOCK = new Object();
+
         private final FakeBigQueryStorageReadClient storageReadClient;
 
-        public FakeBigQueryServices(FakeBigQueryStorageReadClient storageReadClient) {
+        private FakeBigQueryServices(FakeBigQueryStorageReadClient storageReadClient) {
             this.storageReadClient = storageReadClient;
+        }
+
+        static FakeBigQueryServices getInstance(FakeBigQueryStorageReadClient storageReadClient) {
+            if (instance == null) {
+                synchronized (LOCK) {
+                    if (instance == null) {
+                        instance = Mockito.spy(new FakeBigQueryServices(storageReadClient));
+                    }
+                }
+            }
+            return instance;
         }
 
         @Override
@@ -87,66 +102,74 @@ public class StorageClientFaker {
 
         @Override
         public QueryDataClient getQueryDataClient(CredentialsOptions readOptions) {
-            return new QueryDataClient() {
+            return FakeQueryDataClient.getInstance();
+        }
 
-                @Override
-                public List<String> retrieveTablePartitions(
-                        String project, String dataset, String table) {
-                    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
+        static class FakeQueryDataClient implements QueryDataClient {
 
-                    return Lists.newArrayList(
-                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
-                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
-                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
-                            Instant.now().atOffset(ZoneOffset.UTC).format(dtf));
-                }
+            static FakeQueryDataClient instance = Mockito.spy(new FakeQueryDataClient());
 
-                @Override
-                public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
-                        String project, String dataset, String table) {
-                    return Optional.of(
-                            new TablePartitionInfo(
-                                    "ts",
-                                    BigQueryPartition.PartitionType.HOUR,
-                                    StandardSQLTypeName.TIMESTAMP,
-                                    Instant.now()));
-                }
+            static QueryDataClient getInstance() {
+                return instance;
+            }
 
-                @Override
-                public TableSchema getTableSchema(String project, String dataset, String table) {
-                    return SIMPLE_BQ_TABLE_SCHEMA;
-                }
+            @Override
+            public List<String> retrieveTablePartitions(
+                    String project, String dataset, String table) {
+                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
-                @Override
-                public Optional<QueryResultInfo> runQuery(String projectId, String query) {
-                    return Optional.of(QueryResultInfo.succeed("", "", ""));
-                }
+                return Lists.newArrayList(
+                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
+                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
+                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
+                        Instant.now().atOffset(ZoneOffset.UTC).format(dtf));
+            }
 
-                @Override
-                public Job dryRunQuery(String projectId, String query) {
-                    return new Job()
-                            .setStatistics(
-                                    new JobStatistics()
-                                            .setQuery(
-                                                    new JobStatistics2()
-                                                            .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
-                }
+            @Override
+            public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
+                    String project, String dataset, String table) {
+                return Optional.of(
+                        new TablePartitionInfo(
+                                "ts",
+                                BigQueryPartition.PartitionType.HOUR,
+                                StandardSQLTypeName.TIMESTAMP,
+                                Instant.now()));
+            }
 
-                @Override
-                public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
-                        String project, String dataset, String table) {
-                    return retrieveTablePartitions(project, dataset, table).stream()
-                            .map(
-                                    pId ->
-                                            new PartitionIdWithInfoAndStatus(
-                                                    pId,
-                                                    retrievePartitionColumnInfo(
-                                                                    project, dataset, table)
-                                                            .get(),
-                                                    BigQueryPartition.PartitionStatus.COMPLETED))
-                            .collect(Collectors.toList());
-                }
-            };
+            @Override
+            public TableSchema getTableSchema(String project, String dataset, String table) {
+                return SIMPLE_BQ_TABLE_SCHEMA;
+            }
+
+            @Override
+            public Optional<QueryResultInfo> runQuery(String projectId, String query) {
+                return Optional.of(
+                        QueryResultInfo.succeed("some-project", "some-dataset", "some-table"));
+            }
+
+            @Override
+            public Job dryRunQuery(String projectId, String query) {
+                return new Job()
+                        .setStatistics(
+                                new JobStatistics()
+                                        .setQuery(
+                                                new JobStatistics2()
+                                                        .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
+            }
+
+            @Override
+            public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
+                    String project, String dataset, String table) {
+                return retrieveTablePartitions(project, dataset, table).stream()
+                        .map(
+                                pId ->
+                                        new PartitionIdWithInfoAndStatus(
+                                                pId,
+                                                retrievePartitionColumnInfo(project, dataset, table)
+                                                        .get(),
+                                                BigQueryPartition.PartitionStatus.COMPLETED))
+                        .collect(Collectors.toList());
+            }
         }
 
         static class FaultyIterator<T> implements Iterator<T> {
@@ -449,6 +472,7 @@ public class StorageClientFaker {
             Double errorPercentage)
             throws IOException {
         return BigQueryReadOptions.builder()
+                .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
                 .setBigQueryConnectOptions(
                         BigQueryConnectOptions.builder()
                                 .setDataset("dataset")
@@ -457,7 +481,7 @@ public class StorageClientFaker {
                                 .setCredentialsOptions(null)
                                 .setTestingBigQueryServices(
                                         () -> {
-                                            return new StorageClientFaker.FakeBigQueryServices(
+                                            return FakeBigQueryServices.getInstance(
                                                     new StorageClientFaker.FakeBigQueryServices
                                                             .FakeBigQueryStorageReadClient(
                                                             StorageClientFaker.fakeReadSession(

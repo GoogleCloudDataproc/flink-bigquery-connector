@@ -77,11 +77,15 @@ public class BigQuerySourceITCase {
     }
 
     private BigQuerySource.Builder<RowData> defaultSourceBuilder() {
+        return defaultSourceBuilder(readOptions);
+    }
+
+    private BigQuerySource.Builder<RowData> defaultSourceBuilder(BigQueryReadOptions rOptions) {
         RowType rowType = defaultSourceRowType();
         TypeInformation<RowData> typeInfo = InternalTypeInfo.of(rowType);
 
         return BigQuerySource.<RowData>builder()
-                .setReadOptions(readOptions)
+                .setReadOptions(rOptions)
                 .setDeserializationSchema(
                         new AvroToRowDataDeserializationSchema(rowType, typeInfo));
     }

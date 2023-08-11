@@ -49,7 +49,7 @@ public class BigQuerySourceTest {
                 StorageClientFaker.createReadOptions(
                         10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
         BigQuerySource<GenericRecord> source =
-                BigQuerySource.readAvrosFromQuery(readOptions, "SELECT 1", "someproject", -1);
+                BigQuerySource.readAvrosFromQuery(readOptions, "SELECT 1", -1);
 
         TypeInformation<GenericRecord> expected =
                 new GenericRecordAvroTypeInfo(

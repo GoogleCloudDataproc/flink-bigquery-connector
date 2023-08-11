@@ -14,9 +14,10 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.source.split;
+package com.google.cloud.flink.bigquery.source.split.assigner;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
@@ -27,7 +28,8 @@ import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
-import com.google.cloud.flink.bigquery.source.enumerator.ContextAwareSplitObserver;
+import com.google.cloud.flink.bigquery.source.split.ContextAwareSplitObserver;
+import com.google.cloud.flink.bigquery.source.split.SplitDiscoverer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +48,7 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
 
     private final ContextAwareSplitObserver observer;
 
-    public UnboundedSplitAssigner(
+    UnboundedSplitAssigner(
             ContextAwareSplitObserver observer,
             BigQueryReadOptions readOptions,
             BigQuerySourceEnumState sourceEnumState) {
@@ -54,7 +56,8 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
         this.observer = observer;
     }
 
-    private DiscoveryResult discoverNewSplits() {
+    @VisibleForTesting
+    DiscoveryResult discoverNewSplits() {
         LOG.info("Searching for new data to read.");
         BigQueryConnectOptions options = this.readOptions.getBigQueryConnectOptions();
         try {
@@ -121,14 +124,16 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
         }
     }
 
-    private String shouldAppendRestriction(String existing, String newRestriction) {
+    @VisibleForTesting
+    String shouldAppendRestriction(String existing, String newRestriction) {
         if (existing.isEmpty() || existing.isBlank()) {
             return newRestriction;
         }
         return existing + " AND " + newRestriction;
     }
 
-    private void handlePartitionSplitDiscovery(DiscoveryResult discovery, Throwable t) {
+    @VisibleForTesting
+    void handlePartitionSplitDiscovery(DiscoveryResult discovery, Throwable t) {
         if (t != null && this.remainingTableStreams.isEmpty()) {
             // If this was the first split discovery and it failed, throw an error
             throw new RuntimeException(t);

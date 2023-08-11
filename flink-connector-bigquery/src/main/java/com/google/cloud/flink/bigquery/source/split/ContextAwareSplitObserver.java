@@ -14,11 +14,9 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.source.enumerator;
+package com.google.cloud.flink.bigquery.source.split;
 
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
-
-import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 
 /**
  * Defines the behavior for those observers interested on getting notifications of the recently

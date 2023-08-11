@@ -208,7 +208,7 @@ public abstract class BigQuerySource<OUT>
                         .setQueryAndExecutionProject(query, gcpProject)
                         .build();
 
-        return readAvrosFromQuery(readOptions, query, gcpProject, limit);
+        return readAvrosFromQuery(readOptions, query, limit);
     }
 
     /**
@@ -219,7 +219,6 @@ public abstract class BigQuerySource<OUT>
      *
      * @param readOptions The BigQuery read options to execute
      * @param query A BigQuery standard SQL query.
-     * @param gcpProject The GCP project where the provided query will execute.
      * @param limit the max quantity of records to be returned.
      * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
      *     the BigQuery query results.
@@ -227,8 +226,7 @@ public abstract class BigQuerySource<OUT>
      */
     @VisibleForTesting
     static BigQuerySource<GenericRecord> readAvrosFromQuery(
-            BigQueryReadOptions readOptions, String query, String gcpProject, Integer limit)
-            throws IOException {
+            BigQueryReadOptions readOptions, String query, Integer limit) throws IOException {
         BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
         TableSchema tableSchema =
                 BigQueryServicesFactory.instance(connectOptions)

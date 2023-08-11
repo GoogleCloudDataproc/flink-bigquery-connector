@@ -23,7 +23,8 @@ import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
-import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitAssigner;
+import com.google.cloud.flink.bigquery.source.split.ContextAwareSplitObserver;
+import com.google.cloud.flink.bigquery.source.split.assigner.BigQuerySourceSplitAssigner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

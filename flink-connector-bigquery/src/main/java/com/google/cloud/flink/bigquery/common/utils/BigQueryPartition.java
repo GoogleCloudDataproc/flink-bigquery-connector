@@ -378,7 +378,7 @@ public class BigQueryPartition {
                                             .getEpochSecond());
                 }
             case DAY:
-                { 
+                {
                     return retrievePartitionInfoWithStatus(
                             partition,
                             tsString ->
