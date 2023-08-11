@@ -28,8 +28,8 @@ import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
-import com.google.cloud.flink.bigquery.source.split.ContextAwareSplitObserver;
 import com.google.cloud.flink.bigquery.source.split.SplitDiscoverer;
+import com.google.cloud.flink.bigquery.source.split.SplitDiscoveryScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,15 +41,20 @@ import java.util.stream.Collectors;
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.formatPartitionRestrictionBasedOnInfo;
 import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.partitionValuesFromIdAndDataType;
 
-/** */
+/**
+ * An unbounded implementation for a split assigner based on the BigQuery {@link ReadSession}
+ * streams. This assigner will use a reference to a {@link SplitDiscoveryScheduler} to schedule the
+ * frequency of the discovery process and to notify the completion of the process when retrieved new
+ * splits to be processed.
+ */
 @Internal
 public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
     private static final Logger LOG = LoggerFactory.getLogger(UnboundedSplitAssigner.class);
 
-    private final ContextAwareSplitObserver observer;
+    private final SplitDiscoveryScheduler observer;
 
     UnboundedSplitAssigner(
-            ContextAwareSplitObserver observer,
+            SplitDiscoveryScheduler observer,
             BigQueryReadOptions readOptions,
             BigQuerySourceEnumState sourceEnumState) {
         super(readOptions, sourceEnumState);
@@ -149,22 +154,18 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
         LOG.info("Discovered new read streams: {}", discovery.getReadStreams());
         this.lastSeenPartitions.addAll(discovery.getNewPartitions());
         this.remainingTableStreams.addAll(discovery.getReadStreams());
-        this.observer.notifyDiscovery();
+        this.observer.notifySplits();
     }
 
     @Override
     public void discoverSplits() {
         // periodically schedule the discovery and processing of any new splits
-        this.observer
-                .context()
-                .callAsync(
-                        this::discoverNewSplits,
-                        this::handlePartitionSplitDiscovery,
-                        0,
-                        Duration.ofMinutes(
-                                        this.readOptions
-                                                .getPartitionDiscoveryRefreshIntervalInMinutes())
-                                .toMillis());
+        this.observer.schedule(
+                this::discoverNewSplits,
+                this::handlePartitionSplitDiscovery,
+                0,
+                Duration.ofMinutes(this.readOptions.getPartitionDiscoveryRefreshIntervalInMinutes())
+                        .toMillis());
     }
 
     @Override

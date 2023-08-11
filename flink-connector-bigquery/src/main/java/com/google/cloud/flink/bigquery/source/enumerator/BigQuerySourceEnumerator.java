@@ -23,7 +23,7 @@ import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
-import com.google.cloud.flink.bigquery.source.split.ContextAwareSplitObserver;
+import com.google.cloud.flink.bigquery.source.split.SplitDiscoveryScheduler;
 import com.google.cloud.flink.bigquery.source.split.assigner.BigQuerySourceSplitAssigner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,12 +33,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.function.BiConsumer;
 
 /** The enumerator class for {@link BigQuerySource}. */
 @Internal
 public class BigQuerySourceEnumerator
         implements SplitEnumerator<BigQuerySourceSplit, BigQuerySourceEnumState>,
-                ContextAwareSplitObserver {
+                SplitDiscoveryScheduler {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySourceEnumerator.class);
 
@@ -122,7 +124,6 @@ public class BigQuerySourceEnumerator
                 awaitingReader.remove();
                 continue;
             }
-
             Optional<BigQuerySourceSplit> split = splitAssigner.getNext();
             if (split.isPresent()) {
                 final BigQuerySourceSplit bqSplit = split.get();
@@ -143,12 +144,16 @@ public class BigQuerySourceEnumerator
     }
 
     @Override
-    public SplitEnumeratorContext<BigQuerySourceSplit> context() {
-        return this.context;
+    public <T> void schedule(
+            Callable<T> callable,
+            BiConsumer<T, Throwable> handler,
+            long initialDelayMillis,
+            long periodMillis) {
+        this.context.callAsync(callable, handler, initialDelayMillis, periodMillis);
     }
 
     @Override
-    public void notifyDiscovery() {
+    public void notifySplits() {
         assignSplits();
     }
 }

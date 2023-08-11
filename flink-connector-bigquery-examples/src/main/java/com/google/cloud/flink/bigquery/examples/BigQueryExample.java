@@ -19,7 +19,6 @@ package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -136,13 +135,9 @@ public class BigQueryExample {
         BigQuerySource<GenericRecord> bqSource =
                 BigQuerySource.readAvrosFromQuery(query, projectName, limit);
 
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
-                .map(new PrintMapper())
-                .keyBy(t -> t.f0)
-                .max("f1")
-                .print();
+        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").print();
 
-        env.execute("Flink BigQuery query example");
+        env.execute("Flink BigQuery Query Example");
     }
 
     private static void runFlinkJob(
@@ -172,7 +167,7 @@ public class BigQueryExample {
                         limit),
                 WatermarkStrategy.noWatermarks(),
                 recordPropertyToAggregate);
-        env.execute("Flink BigQuery example");
+        env.execute("Flink BigQuery Bounded Read Example");
     }
 
     private static void runStreamingFlinkJob(
@@ -211,7 +206,7 @@ public class BigQueryExample {
                         .withIdleness(Duration.ofMinutes(20)),
                 recordPropertyToAggregate);
 
-        env.execute("Flink BigQuery streaming example");
+        env.execute("Flink BigQuery Unbounded Read Example");
     }
 
     static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
@@ -226,18 +221,6 @@ public class BigQueryExample {
         public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
             out.collect(Tuple2.of((String) record.get(recordPropertyToAggregate).toString(), 1));
-        }
-    }
-
-    static class PrintMapper implements MapFunction<GenericRecord, Tuple2<String, Long>> {
-
-        private static final Logger LOG = LoggerFactory.getLogger(PrintMapper.class);
-
-        @Override
-        public Tuple2<String, Long> map(GenericRecord record) throws Exception {
-            LOG.info(record.toString());
-            return Tuple2.of(
-                    record.get("partition_id").toString(), (Long) record.get("total_rows"));
         }
     }
 }

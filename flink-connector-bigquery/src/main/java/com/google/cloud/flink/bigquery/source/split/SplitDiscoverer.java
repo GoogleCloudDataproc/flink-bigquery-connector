@@ -40,6 +40,20 @@ import java.util.stream.Collectors;
 public class SplitDiscoverer {
     private static final Logger LOG = LoggerFactory.getLogger(SplitDiscoverer.class);
 
+    /**
+     * Given the provided connection options, the format, columns, restriction, snapshot time and
+     * the max expected stream count, this method will create a BigQuery read session, extract the
+     * read stream ids in a list and return it.
+     *
+     * @param connectionOptions The BigQuery connection options
+     * @param format The format of the data returned by BigQuery
+     * @param columnNames The names of the columns expected in the result set
+     * @param rowRestriction The row restriction applied for the read session
+     * @param snapshotTimeInMillis The storage snapshot time in millis since epoch, if null is
+     *     considered as now.
+     * @param maxStreamCount The max stream count required, -1 let BigQuery decide the stream count.
+     * @return A list with the read stream identifiers.
+     */
     public static List<String> discoverSplits(
             BigQueryConnectOptions connectionOptions,
             DataFormat format,

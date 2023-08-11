@@ -16,8 +16,6 @@
 
 package com.google.cloud.flink.bigquery.source.split.assigner;
 
-import org.apache.flink.api.connector.source.SplitEnumeratorContext;
-
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -26,7 +24,7 @@ import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
-import com.google.cloud.flink.bigquery.source.split.ContextAwareSplitObserver;
+import com.google.cloud.flink.bigquery.source.split.SplitDiscoveryScheduler;
 import com.google.common.truth.Truth8;
 import org.junit.Before;
 import org.junit.Test;
@@ -120,9 +118,9 @@ public class BigQuerySourceSplitAssignerTest {
         Mockito.verify(qdc, Mockito.times(1)).runQuery(queryProject, query);
     }
 
-    private ContextAwareSplitObserver createObserver() {
-        SplitEnumeratorContext<BigQuerySourceSplit> mockedContext =
-                Mockito.mock(SplitEnumeratorContext.class);
+    private SplitDiscoveryScheduler createObserver() {
+        // mock the observer to return our mocked context
+        SplitDiscoveryScheduler observer = Mockito.mock(SplitDiscoveryScheduler.class);
         // make the mocked context to call the discovery and handler methods, without errors when
         // async call is set in the assigner.
         Mockito.doAnswer(
@@ -134,15 +132,12 @@ public class BigQuerySourceSplitAssignerTest {
                             handler.accept(discoverCall.call(), null);
                             return null;
                         })
-                .when(mockedContext)
-                .callAsync(Mockito.any(), Mockito.any(), Mockito.anyLong(), Mockito.anyLong());
-        // mock the observer to return our mocked context
-        ContextAwareSplitObserver observer = Mockito.mock(ContextAwareSplitObserver.class);
-        Mockito.when(observer.context()).thenReturn(mockedContext);
+                .when(observer)
+                .schedule(Mockito.any(), Mockito.any(), Mockito.anyLong(), Mockito.anyLong());
         return observer;
     }
 
-    private UnboundedSplitAssigner createUnbounded(ContextAwareSplitObserver observer) {
+    private UnboundedSplitAssigner createUnbounded(SplitDiscoveryScheduler observer) {
         return (UnboundedSplitAssigner)
                 BigQuerySourceSplitAssigner.createUnbounded(
                         observer, readOptions, BigQuerySourceEnumState.initialState());
@@ -150,14 +145,15 @@ public class BigQuerySourceSplitAssignerTest {
 
     @Test
     public void testUnboundedAssignment() {
-        ContextAwareSplitObserver observer = createObserver();
+        SplitDiscoveryScheduler observer = createObserver();
         BigQuerySourceSplitAssigner assigner = createUnbounded(observer);
 
         assigner.discoverSplits();
         // we should validate that the context and notify methods were called in the observer during
         // the discovery process
-        Mockito.verify(observer, Mockito.times(1)).context();
-        Mockito.verify(observer, Mockito.times(1)).notifyDiscovery();
+        Mockito.verify(observer, Mockito.times(1))
+                .schedule(Mockito.any(), Mockito.any(), Mockito.anyLong(), Mockito.anyLong());
+        Mockito.verify(observer, Mockito.times(1)).notifySplits();
 
         BigQuerySourceEnumState state = assigner.snapshotState(0);
 
@@ -175,7 +171,7 @@ public class BigQuerySourceSplitAssignerTest {
 
     @Test(expected = RuntimeException.class)
     public void testRuntimeExWhenHandlingExceptionAndNoData() {
-        ContextAwareSplitObserver observer = createObserver();
+        SplitDiscoveryScheduler observer = createObserver();
         UnboundedSplitAssigner assigner = createUnbounded(observer);
 
         // no discovery has been done, so no data in assigner state
@@ -184,7 +180,7 @@ public class BigQuerySourceSplitAssignerTest {
 
     @Test()
     public void testNoObserverNotificationWhenNoData() {
-        ContextAwareSplitObserver observer = createObserver();
+        SplitDiscoveryScheduler observer = createObserver();
         UnboundedSplitAssigner assigner = createUnbounded(observer);
 
         // no data was discovered
@@ -193,12 +189,12 @@ public class BigQuerySourceSplitAssignerTest {
                         Lists.newLinkedList(), Lists.newArrayList()),
                 null);
         // so no notification should be triggered
-        Mockito.verify(observer, Mockito.times(0)).notifyDiscovery();
+        Mockito.verify(observer, Mockito.times(0)).notifySplits();
     }
 
     @Test()
     public void testAppendedRightRestrictionWhenPreviouslyExisting() {
-        ContextAwareSplitObserver observer = createObserver();
+        SplitDiscoveryScheduler observer = createObserver();
         UnboundedSplitAssigner assigner = createUnbounded(observer);
 
         String someRestriction = "adummyrestriction";

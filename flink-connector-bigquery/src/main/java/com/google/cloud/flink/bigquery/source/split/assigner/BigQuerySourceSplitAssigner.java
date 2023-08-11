@@ -26,12 +26,10 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.Sets;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
-import com.google.cloud.flink.bigquery.source.split.ContextAwareSplitObserver;
+import com.google.cloud.flink.bigquery.source.split.SplitDiscoveryScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,18 +45,33 @@ public abstract class BigQuerySourceSplitAssigner {
     protected final BigQueryReadOptions readOptions;
     protected final Set<String> lastSeenPartitions;
     protected final Queue<String> remainingTableStreams;
-    protected final List<String> alreadyProcessedTableStreams;
+    protected final Queue<String> alreadyProcessedTableStreams;
     protected final Queue<BigQuerySourceSplit> remainingSourceSplits;
     protected final Map<String, BigQuerySourceSplit> assignedSourceSplits;
     protected boolean initialized;
 
+    /**
+     * Creates a bounded version of the a split assigner.
+     *
+     * @param readOptions The read options
+     * @param sourceEnumState The initial enumerator state
+     * @return
+     */
     public static BigQuerySourceSplitAssigner createBounded(
             BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
         return new BoundedSplitAssigner(readOptions, sourceEnumState);
     }
 
+    /**
+     * Creates an unbounded version of the a split assigner.
+     *
+     * @param observer The split discovery scheduler reference
+     * @param readOptions The read options
+     * @param sourceEnumState The initial enumerator state
+     * @return
+     */
     public static BigQuerySourceSplitAssigner createUnbounded(
-            ContextAwareSplitObserver observer,
+            SplitDiscoveryScheduler observer,
             BigQueryReadOptions readOptions,
             BigQuerySourceEnumState sourceEnumState) {
         return new UnboundedSplitAssigner(observer, readOptions, sourceEnumState);
@@ -72,15 +85,21 @@ public abstract class BigQuerySourceSplitAssigner {
         this.remainingTableStreams =
                 Queues.newConcurrentLinkedQueue(sourceEnumState.getRemaniningTableStreams());
         this.alreadyProcessedTableStreams =
-                new ArrayList<>(sourceEnumState.getCompletedTableStreams());
+                Queues.newConcurrentLinkedQueue(sourceEnumState.getCompletedTableStreams());
         this.remainingSourceSplits =
-                Queues.newArrayDeque(sourceEnumState.getRemainingSourceSplits());
-        this.assignedSourceSplits = new HashMap<>(sourceEnumState.getAssignedSourceSplits());
+                Queues.newConcurrentLinkedQueue(sourceEnumState.getRemainingSourceSplits());
+        this.assignedSourceSplits = Maps.newConcurrentMap();
+        this.assignedSourceSplits.putAll(sourceEnumState.getAssignedSourceSplits());
         this.initialized = sourceEnumState.isInitialized();
     }
 
+    /**
+     * This method implements the split discovery, each of the existing assigner flavors will need
+     * to define it.
+     */
     public abstract void discoverSplits();
 
+    /** Opens the assigner's context and discovers splits. */
     public void openAndDiscoverSplits() {
         LOG.info("BigQuery source split assigner is opening.");
         if (!initialized) {
@@ -89,6 +108,12 @@ public abstract class BigQuerySourceSplitAssigner {
         }
     }
 
+    /**
+     * It will return the provided splits to the internal state, and have them ready to be
+     * reassigned.
+     *
+     * @param splits A list of splits to be added back as available for assignment.
+     */
     public void addSplitsBack(List<BigQuerySourceSplit> splits) {
         for (BigQuerySourceSplit split : splits) {
             remainingSourceSplits.add((BigQuerySourceSplit) split);
@@ -98,6 +123,13 @@ public abstract class BigQuerySourceSplitAssigner {
         }
     }
 
+    /**
+     * Transforms the internal assigner's state into an {@link BigQuerySourceEnumState} for
+     * checkpoint purposes.
+     *
+     * @param checkpointId The id of the checkpoint
+     * @return The enumeration state instance.
+     */
     public BigQuerySourceEnumState snapshotState(long checkpointId) {
         return new BigQuerySourceEnumState(
                 Lists.newArrayList(lastSeenPartitions),
@@ -108,11 +140,17 @@ public abstract class BigQuerySourceSplitAssigner {
                 initialized);
     }
 
+    /** Closes the assigner's execution. */
     public void close() {
-        // so far not much to be done here
+        // so far not much to be done on the base type.
         LOG.info("BigQuery source split assigner is closed.");
     }
 
+    /**
+     * Given the discovered splits, it will assign and return one, if there is any available.
+     *
+     * @return An Optional with value if there were splits assigned, empty otherwise.
+     */
     public Optional<BigQuerySourceSplit> getNext() {
         if (!remainingSourceSplits.isEmpty()) {
             // return remaining splits firstly
@@ -133,5 +171,10 @@ public abstract class BigQuerySourceSplitAssigner {
         }
     }
 
+    /**
+     * Returns if all the splits has been assigned.
+     *
+     * @return True if all the splits has been assigned, false otherwise.
+     */
     public abstract boolean noMoreSplits();
 }
