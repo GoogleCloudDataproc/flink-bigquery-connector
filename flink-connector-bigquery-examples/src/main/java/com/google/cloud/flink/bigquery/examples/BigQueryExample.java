@@ -22,6 +22,8 @@ import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -113,19 +115,6 @@ public class BigQueryExample {
         }
     }
 
-    private static void setupPipeline(
-            StreamExecutionEnvironment env,
-            BigQuerySource<GenericRecord> bqSource,
-            WatermarkStrategy<GenericRecord> watermarkStrategy,
-            String recordPropertyToAggregate) {
-
-        env.fromSource(bqSource, watermarkStrategy, "BigQuerySource")
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(t -> t.f0)
-                .sum("f1")
-                .print();
-    }
-
     private static void runFlinkQueryJob(String projectName, String query, Integer limit)
             throws Exception {
 
@@ -152,21 +141,25 @@ public class BigQueryExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(60000L);
 
-        setupPipeline(
-                env,
-                BigQuerySource.readAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestriction)
-                                .build(),
-                        limit),
-                WatermarkStrategy.noWatermarks(),
-                recordPropertyToAggregate);
+        env.fromSource(
+                        BigQuerySource.readAvros(
+                                BigQueryReadOptions.builder()
+                                        .setBigQueryConnectOptions(
+                                                BigQueryConnectOptions.builder()
+                                                        .setProjectId(projectName)
+                                                        .setDataset(datasetName)
+                                                        .setTable(tableName)
+                                                        .build())
+                                        .setRowRestriction(rowRestriction)
+                                        .build(),
+                                limit),
+                        WatermarkStrategy.noWatermarks(),
+                        "BigQuerySource")
+                .flatMap(new FlatMapper(recordPropertyToAggregate))
+                .keyBy(t -> t.f0)
+                .sum("f1")
+                .print();
+
         env.execute("Flink BigQuery Bounded Read Example");
     }
 
@@ -184,27 +177,34 @@ public class BigQueryExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(60000L);
 
-        setupPipeline(
-                env,
-                BigQuerySource.streamAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestriction)
-                                .setOldestPartitionId(oldestPartition)
-                                .build(),
-                        limit),
-                WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(Duration.ofMinutes(10))
-                        .withTimestampAssigner(
-                                // timestamps in BigQuery are represented at microsecond level
-                                (event, timestamp) ->
-                                        ((Long) event.get(recordPropertyForTimestamps)) / 1000)
-                        .withIdleness(Duration.ofMinutes(20)),
-                recordPropertyToAggregate);
+        env.fromSource(
+                        BigQuerySource.streamAvros(
+                                BigQueryReadOptions.builder()
+                                        .setBigQueryConnectOptions(
+                                                BigQueryConnectOptions.builder()
+                                                        .setProjectId(projectName)
+                                                        .setDataset(datasetName)
+                                                        .setTable(tableName)
+                                                        .build())
+                                        .setRowRestriction(rowRestriction)
+                                        .setOldestPartitionId(oldestPartition)
+                                        .build(),
+                                limit),
+                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
+                                        Duration.ofMinutes(10))
+                                .withTimestampAssigner(
+                                        // timestamps in BigQuery are represented at microsecond
+                                        // level
+                                        (event, timestamp) ->
+                                                ((Long) event.get(recordPropertyForTimestamps))
+                                                        / 1000)
+                                .withIdleness(Duration.ofMinutes(20)),
+                        "BigQueryStreamingSource")
+                .flatMap(new FlatMapper(recordPropertyToAggregate))
+                .keyBy(t -> t.f0)
+                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+                .sum("f1")
+                .print();
 
         env.execute("Flink BigQuery Unbounded Read Example");
     }
