@@ -355,6 +355,24 @@ public abstract class BigQuerySource<OUT>
     }
 
     /**
+     * Creates an instance of an unbounded source, which will continuously be scanning for newly
+     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
+     * type for the data (mimicking the table's schema). In case of projecting the columns of the
+     * table a new de-serialization schema should be provided (considering the new result projected
+     * schema). In case of providing a row restriction in the {@link BigQueryReadOptions} it will be
+     * respected, but an explicit condition will be added for every new discovered partition; in
+     * consequence if the row restrictions already has a partition column restriction the results
+     * may not be the expected ones.
+     *
+     * @param readOptions The read options for this source
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> streamAvros(BigQueryReadOptions readOptions) {
+        return streamAvros(readOptions, -1);
+    }
+
+    /**
      * Builder class for {@link BigQuerySource}.
      *
      * @param <OUT> The type of the data returned by this source implementation.
