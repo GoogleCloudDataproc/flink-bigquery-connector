@@ -19,6 +19,8 @@ package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.base.source.hybrid.HybridSource;
@@ -44,6 +46,10 @@ import java.time.Duration;
  * representing the rows, to finally prints out some aggregated values given the provided payload's
  * field.
  *
+ * <p>This example can run with 3 different modes, bounded/batch source, unbounded/streaming source
+ * or in hybrid mode (first reads data given a restriction in batch mode and then continue reading
+ * data from the provided partition in streaming mode).
+ *
  * <p>Note on row restriction: In case of including a restriction with a temporal reference,
  * something like {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'"}, and
  * launching the job from Flink's Rest API is known the single quotes are not supported and will
@@ -66,6 +72,7 @@ public class BigQueryExample {
                             + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
                             + " --bq-table <table name>"
                             + " --agg-prop <payload's property for aggregation purposes>"
+                            + " --agg-prop <payload's property for event timestamp extraction>"
                             + " --restriction <single-quoted string with row predicate>"
                             + " --limit <optional: limit records returned> --query <SQL>"
                             + " --streaming <optional: sets the source in streaming mode>"
@@ -89,12 +96,12 @@ public class BigQueryExample {
             String tableName = parameterTool.getRequired("bq-table");
             String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
             String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
+            String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
 
             Boolean streaming = parameterTool.toMap().containsKey("streaming");
             Boolean hybrid = parameterTool.toMap().containsKey("hybrid");
 
             if (streaming) {
-                String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
                 String oldestPartition = parameterTool.get("oldest-partition-id", "");
                 runStreamingFlinkJob(
                         projectName,
@@ -106,9 +113,7 @@ public class BigQueryExample {
                         recordLimit,
                         oldestPartition);
             } else if (hybrid) {
-                String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
                 String oldestPartition = parameterTool.getRequired("oldest-partition-id");
-
                 runHybridFlinkJob(
                         projectName,
                         datasetName,
@@ -123,6 +128,7 @@ public class BigQueryExample {
                         datasetName,
                         tableName,
                         recordPropertyToAggregate,
+                        recordPropertyForTimestamps,
                         rowRestriction,
                         recordLimit);
             }
@@ -143,38 +149,69 @@ public class BigQueryExample {
         env.execute("Flink BigQuery Query Example");
     }
 
-    private static void runFlinkJob(
-            String projectName,
-            String datasetName,
-            String tableName,
+    private static void runJob(
+            Source<GenericRecord, ?, ?> source,
+            TypeInformation<GenericRecord> typeInfo,
+            String sourceName,
+            String jobName,
             String recordPropertyToAggregate,
-            String rowRestriction,
-            Integer limit)
+            String recordPropertyForTimestamps)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(60000L);
 
         env.fromSource(
-                        BigQuerySource.readAvros(
-                                BigQueryReadOptions.builder()
-                                        .setBigQueryConnectOptions(
-                                                BigQueryConnectOptions.builder()
-                                                        .setProjectId(projectName)
-                                                        .setDataset(datasetName)
-                                                        .setTable(tableName)
-                                                        .build())
-                                        .setRowRestriction(rowRestriction)
-                                        .build(),
-                                limit),
-                        WatermarkStrategy.noWatermarks(),
-                        "BigQuerySource")
+                        source,
+                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
+                                        Duration.ofMinutes(10))
+                                .withTimestampAssigner(
+                                        // timestamps in BigQuery are represented at microsecond
+                                        // level
+                                        (event, timestamp) ->
+                                                ((Long) event.get(recordPropertyForTimestamps))
+                                                        / 1000)
+                                .withIdleness(Duration.ofMinutes(20)),
+                        sourceName,
+                        typeInfo)
                 .flatMap(new FlatMapper(recordPropertyToAggregate))
                 .keyBy(t -> t.f0)
+                .window(TumblingEventTimeWindows.of(Time.minutes(1)))
                 .sum("f1")
                 .print();
 
-        env.execute("Flink BigQuery Bounded Read Example");
+        env.execute(jobName);
+    }
+
+    private static void runFlinkJob(
+            String projectName,
+            String datasetName,
+            String tableName,
+            String recordPropertyToAggregate,
+            String recordPropertyForTimestamps,
+            String rowRestriction,
+            Integer limit)
+            throws Exception {
+
+        BigQuerySource<GenericRecord> source =
+                BigQuerySource.readAvros(
+                        BigQueryReadOptions.builder()
+                                .setBigQueryConnectOptions(
+                                        BigQueryConnectOptions.builder()
+                                                .setProjectId(projectName)
+                                                .setDataset(datasetName)
+                                                .setTable(tableName)
+                                                .build())
+                                .setRowRestriction(rowRestriction)
+                                .build(),
+                        limit);
+        runJob(
+                source,
+                source.getProducedType(),
+                "BigQuerySource",
+                "Flink BigQuery Bounded Read Example",
+                recordPropertyToAggregate,
+                recordPropertyForTimestamps);
     }
 
     private static void runStreamingFlinkJob(
@@ -188,39 +225,27 @@ public class BigQueryExample {
             String oldestPartition)
             throws Exception {
 
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(60000L);
+        BigQuerySource<GenericRecord> source =
+                BigQuerySource.streamAvros(
+                        BigQueryReadOptions.builder()
+                                .setBigQueryConnectOptions(
+                                        BigQueryConnectOptions.builder()
+                                                .setProjectId(projectName)
+                                                .setDataset(datasetName)
+                                                .setTable(tableName)
+                                                .build())
+                                .setRowRestriction(rowRestriction)
+                                .setOldestPartitionId(oldestPartition)
+                                .build(),
+                        limit);
 
-        env.fromSource(
-                        BigQuerySource.streamAvros(
-                                BigQueryReadOptions.builder()
-                                        .setBigQueryConnectOptions(
-                                                BigQueryConnectOptions.builder()
-                                                        .setProjectId(projectName)
-                                                        .setDataset(datasetName)
-                                                        .setTable(tableName)
-                                                        .build())
-                                        .setRowRestriction(rowRestriction)
-                                        .setOldestPartitionId(oldestPartition)
-                                        .build(),
-                                limit),
-                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
-                                        Duration.ofMinutes(10))
-                                .withTimestampAssigner(
-                                        // timestamps in BigQuery are represented at microsecond
-                                        // level
-                                        (event, timestamp) ->
-                                                ((Long) event.get(recordPropertyForTimestamps))
-                                                        / 1000)
-                                .withIdleness(Duration.ofMinutes(20)),
-                        "BigQueryStreamingSource")
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(t -> t.f0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
-                .sum("f1")
-                .print();
-
-        env.execute("Flink BigQuery Unbounded Read Example");
+        runJob(
+                source,
+                source.getProducedType(),
+                "BigQueryStreamingSource",
+                "Flink BigQuery Unbounded Read Example",
+                recordPropertyToAggregate,
+                recordPropertyForTimestamps);
     }
 
     private static void runHybridFlinkJob(
@@ -232,9 +257,6 @@ public class BigQueryExample {
             String rowRestrictionForBatch,
             String oldestPartitionForStreaming)
             throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(60000L);
 
         // we will be reading the historical batch data as the restriction shared from command line.
         BigQuerySource<GenericRecord> batchSource =
@@ -261,32 +283,20 @@ public class BigQueryExample {
                                                 .setTable(tableName)
                                                 .build())
                                 .setOldestPartitionId(oldestPartitionForStreaming)
+                                .setPartitionDiscoveryRefreshIntervalInMinutes(5)
                                 .build());
 
         // create an hybrid source with both batch and streaming flavors of the BigQuery source.
         HybridSource<GenericRecord> hybridSource =
                 HybridSource.builder(batchSource).addSource(streamingSource).build();
 
-        env.fromSource(
-                        hybridSource,
-                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
-                                        Duration.ofMinutes(10))
-                                .withTimestampAssigner(
-                                        // timestamps in BigQuery are represented at microsecond
-                                        // level
-                                        (event, timestamp) ->
-                                                ((Long) event.get(recordPropertyForTimestamps))
-                                                        / 1000)
-                                .withIdleness(Duration.ofMinutes(20)),
-                        "BigQueryHybridSource",
-                        streamingSource.getProducedType())
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(t -> t.f0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(5)))
-                .sum("f1")
-                .print();
-
-        env.execute("Flink BigQuery Hybrid Read Example");
+        runJob(
+                hybridSource,
+                streamingSource.getProducedType(),
+                "BigQueryHybridSource",
+                "Flink BigQuery Hybrid Read Example",
+                recordPropertyToAggregate,
+                recordPropertyForTimestamps);
     }
 
     static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {

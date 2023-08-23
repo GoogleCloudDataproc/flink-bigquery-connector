@@ -178,10 +178,10 @@ public abstract class BigQueryReadOptions implements Serializable {
 
         /**
          * Sets the oldest partition that will be considered for unbounded reads when using
-         * completed partitions. All temporal column partitions identifier can be lexicographically
-         * ordered, so we will be filtering out all the previous partitions. This configuration is
-         * optional, if not included all the partitions on the table will be read. Takes no action
-         * when using bounded source.
+         * completed partitions approach. All temporal column partitions identifier can be
+         * lexicographically ordered, so we will be filtering out all the previous partitions. This
+         * configuration is optional, if not included all the partitions on the table will be read.
+         * Takes no action when using bounded source.
          *
          * @param partitionId The oldest partition to read.
          * @return This {@link Builder} instance.
@@ -189,7 +189,7 @@ public abstract class BigQueryReadOptions implements Serializable {
         public abstract Builder setOldestPartitionId(String partitionId);
 
         /**
-         * Sets the periodicity of the partition discovery process.
+         * Sets the periodicity of the completed partition discovery process.
          *
          * @param refreshIntervalInMinutes The minutes to wait for the next partition discovery.
          * @return This {@link Builder} instance.
