@@ -248,7 +248,7 @@ public abstract class BigQueryReadOptions implements Serializable {
                             .filter(q -> readOptions.getQueryExecutionProject() == null)
                             // if present fail
                             .isPresent(),
-                    "If a query is configured, then a GCP projec should be provided.");
+                    "If a query is configured, then a GCP project should be provided.");
 
             return readOptions;
         }
