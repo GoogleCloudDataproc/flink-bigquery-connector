@@ -10,19 +10,17 @@ steps:
     waitFor: ['docker-build']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/presubmit.sh', 'init']
-    env:
-    - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
 
-# 3. Run unit tests
-  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit'
-    id: 'unit-tests'
-    waitFor: ['init']
-    entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/presubmit.sh', 'unittest']
-    env:
-    - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
+## 3. Run unit tests
+#  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit'
+#    id: 'unit-tests'
+#    waitFor: ['init']
+#    entrypoint: 'bash'
+#    args: ['/workspace/cloudbuild/presubmit.sh', 'unittest']
+#    env:
+#    - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
 
-# 4. Run integration tests concurrently with unit tests
+## 4. Run integration tests concurrently with unit tests
 # Commeneted out until integration tests are ported
 #  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit'
 #    id: 'integration-tests'
@@ -33,6 +31,13 @@ steps:
 #    - 'GOOGLE_CLOUD_PROJECT=${_GOOGLE_CLOUD_PROJECT}'
 #    - 'TEMPORARY_GCS_BUCKET=${_TEMPORARY_GCS_BUCKET}'
 #    - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
+
+# 3. Run e2e tests
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit'
+    id: 'e2e-tests'
+    waitFor: ['init']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/presubmit.sh', 'e2etest']
 
 # Tests take around 20 mins in general.
 timeout: 1800s

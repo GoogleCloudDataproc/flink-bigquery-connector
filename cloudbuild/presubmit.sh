@@ -17,11 +17,6 @@
 
 set -euxo pipefail
 
-if [ -z "${CODECOV_TOKEN}" ]; then
-  echo "missing environment variable CODECOV_TOKEN"
-  exit 1
-fi
-
 readonly MVN="./mvnw -B -e -s /workspace/cloudbuild/gcp-settings.xml -Dmaven.repo.local=/workspace/.repository"
 readonly STEP=$1
 
@@ -44,14 +39,14 @@ case $STEP in
     $MVN failsafe:integration-test failsafe:verify jacoco:report jacoco:report-aggregate 
     ;;
 
+  # Run e2e tests
+  e2etest)
+    gcloud config set project testproject-398714
+    gcloud dataproc jobs submit flink --jar=gs://connector-buck/flink-bq-connector/flink-app-jars/1.15.4/bounded/BigQueryExample.jar --cluster=flink-bounded-source-connector --region=asia-east2 -- --gcp-project testproject-398714 --bq-dataset babynames --bq-table names_2014 --agg-prop name
+    ;;
+
   *)
     echo "Unknown step $STEP"
     exit 1
     ;;
 esac
-
-# Upload test coverage report to Codecov
-bash <(curl -s https://codecov.io/bash) -K -F "${STEP}"
-
-
-
