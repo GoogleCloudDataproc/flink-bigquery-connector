@@ -44,14 +44,11 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract String getRowRestriction();
 
-    @Nullable
-    public abstract Long getSnapshotTimestampInMillis();
+    public abstract Optional<Long> getSnapshotTimestampInMillis();
 
-    @Nullable
-    public abstract String getQuery();
+    public abstract Optional<String> getQuery();
 
-    @Nullable
-    public abstract String getQueryExecutionProject();
+    public abstract Optional<String> getQueryExecutionProject();
 
     public abstract Integer getMaxStreamCount();
 
@@ -159,7 +156,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param query A BigQuery standard SQL query.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setQuery(String query);
+        public abstract Builder setQuery(@Nullable String query);
 
         /**
          * Sets the GCP project where the configured query will be run. In case the query
@@ -168,7 +165,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param projectId A GCP project.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setQueryExecutionProject(String projectId);
+        public abstract Builder setQueryExecutionProject(@Nullable String projectId);
 
         /**
          * Sets the restriction the rows in the BigQuery table must comply to be returned by the
@@ -194,7 +191,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param snapshotTs The snapshot's time in milliseconds since epoch.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setSnapshotTimestampInMillis(Long snapshotTs);
+        public abstract Builder setSnapshotTimestampInMillis(@Nullable Long snapshotTs);
 
         /**
          * Sets the maximum number of read streams that BigQuery should create to retrieve data from
@@ -236,19 +233,21 @@ public abstract class BigQueryReadOptions implements Serializable {
                     readOptions.getMaxStreamCount() >= 0,
                     "The max number of streams should be zero or positive.");
             Preconditions.checkState(
-                    !Optional.ofNullable(readOptions.getSnapshotTimestampInMillis())
+                    !readOptions
+                            .getSnapshotTimestampInMillis()
                             // see if the value is lower than the epoch
                             .filter(timeInMillis -> timeInMillis < Instant.EPOCH.toEpochMilli())
                             // if present, then fail
                             .isPresent(),
                     "The oldest timestamp should be equal or bigger than epoch.");
             Preconditions.checkState(
-                    !Optional.ofNullable(readOptions.getQuery())
+                    !readOptions
+                            .getQuery()
                             // if the project was not configured
-                            .filter(q -> readOptions.getQueryExecutionProject() == null)
+                            .filter(unusedQuery -> readOptions.getQueryExecutionProject() == null)
                             // if present fail
                             .isPresent(),
-                    "If a query is configured, then a GCP projec should be provided.");
+                    "If a query is configured, then a GCP project should be provided.");
 
             return readOptions;
         }
