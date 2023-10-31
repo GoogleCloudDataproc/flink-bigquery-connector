@@ -208,7 +208,7 @@ public abstract class BigQuerySource<OUT>
         TableSchema tableSchema =
                 BigQueryServicesFactory.instance(connectOptions)
                         .queryClient()
-                        .dryRunQuery(readOptions.getQueryExecutionProject(), readOptions.getQuery())
+                        .dryRunQuery(gcpProject, query)
                         .getStatistics()
                         .getQuery()
                         .getSchema();
