@@ -241,9 +241,10 @@ public abstract class BigQueryReadOptions implements Serializable {
                             .isPresent(),
                     "The oldest timestamp should be equal or bigger than epoch.");
             Preconditions.checkState(
-                    !Optional.ofNullable(readOptions.getQuery())
+                    !readOptions
+                            .getQuery()
                             // if the project was not configured
-                            .filter(q -> readOptions.getQueryExecutionProject() == null)
+                            .filter(unusedQuery -> readOptions.getQueryExecutionProject() == null)
                             // if present fail
                             .isPresent(),
                     "If a query is configured, then a GCP project should be provided.");

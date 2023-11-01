@@ -208,7 +208,7 @@ under the License.
                     </execution>
                     <execution>
                         <id>report</id>
-                        <phase>prepare-package</phase>
+                        <phase>install</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>

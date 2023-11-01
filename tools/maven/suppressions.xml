@@ -24,5 +24,6 @@ under the License.
 
 <suppressions>
 	<suppress checks="IllegalImport" files=".*test/java/.*Test.java"/>
+	<suppress checks="IllegalImport" files=".*test/java/.*ITCase.java"/>
 	<suppress checks="IllegalImport" files=".*test/java/.*IT.java"/>
 </suppressions>
