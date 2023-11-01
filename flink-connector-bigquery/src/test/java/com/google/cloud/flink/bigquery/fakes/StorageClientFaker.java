@@ -19,8 +19,6 @@ package com.google.cloud.flink.bigquery.fakes;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.function.SerializableFunction;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
@@ -50,6 +48,9 @@ import org.apache.avro.util.RandomData;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -81,7 +82,7 @@ public class StorageClientFaker {
                 @Override
                 public List<String> retrieveTablePartitions(
                         String project, String dataset, String table) {
-                    return Lists.newArrayList();
+                    return Arrays.asList();
                 }
 
                 @Override
@@ -196,7 +197,7 @@ public class StorageClientFaker {
     public static final TableSchema SIMPLE_BQ_TABLE_SCHEMA =
             new TableSchema()
                     .setFields(
-                            Lists.newArrayList(
+                            Arrays.asList(
                                     new TableFieldSchema()
                                             .setName("name")
                                             .setType("STRING")
@@ -261,9 +262,24 @@ public class StorageClientFaker {
             double progressAtResponseEnd) {
         // BigQuery delivers the data in 1024 elements chunks, so we partition the generated list
         // into multiple ones with that size max.
-        List<List<GenericRecord>> responsesData = Lists.partition(genericRecords, 1024);
-
-        return responsesData.stream()
+        return IntStream.range(0, genericRecords.size())
+                .collect(
+                        () -> new HashMap<Integer, List<GenericRecord>>(),
+                        (map, idx) ->
+                                map.computeIfAbsent(idx, key -> new ArrayList<>())
+                                        .add(genericRecords.get(idx)),
+                        (map1, map2) ->
+                                map2.entrySet()
+                                        .forEach(
+                                                entry ->
+                                                        map1.merge(
+                                                                entry.getKey(),
+                                                                entry.getValue(),
+                                                                (list1, list2) -> {
+                                                                    list1.addAll(list2);
+                                                                    return list1;
+                                                                })))
+                .values().stream()
                 // for each data response chunk we generate a read response object
                 .map(
                         genRecords -> {
