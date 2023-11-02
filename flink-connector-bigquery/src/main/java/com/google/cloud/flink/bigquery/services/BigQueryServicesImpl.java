@@ -234,6 +234,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
                 QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query).build();
 
+                // TODO: change this method to use getTable method, see comment:
+                // https://github.com/GoogleCloudDataproc/flink-bigquery-connector/pull/46#discussion_r1371229725
                 TableResult results = bigQuery.query(queryConfig);
 
                 return StreamSupport.stream(results.iterateAll().spliterator(), false)

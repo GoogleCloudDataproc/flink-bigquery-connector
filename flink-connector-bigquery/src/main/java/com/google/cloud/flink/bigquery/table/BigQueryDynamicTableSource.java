@@ -227,7 +227,7 @@ public class BigQueryDynamicTableSource
                                                                         + "="
                                                                         + entry.getValue()
                                                                         + ")")
-                                                .collect(Collectors.joining(" AND ")))
+                                                .collect(Collectors.joining(" OR ")))
                         .build();
     }
 }
