@@ -22,6 +22,7 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.serializable.SerializableAutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import org.threeten.bp.Instant;
@@ -37,6 +38,7 @@ import java.util.Optional;
 
 /** The options available to read data from BigQuery. */
 @AutoValue
+@SerializableAutoValue
 @PublicEvolving
 public abstract class BigQueryReadOptions implements Serializable {
 
