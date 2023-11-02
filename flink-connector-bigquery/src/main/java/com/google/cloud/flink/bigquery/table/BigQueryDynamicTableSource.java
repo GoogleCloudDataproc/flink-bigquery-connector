@@ -33,8 +33,7 @@ import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
@@ -44,6 +43,7 @@ import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataD
 import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import com.google.cloud.flink.bigquery.table.restrictions.BigQueryRestriction;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,9 +126,10 @@ public class BigQueryDynamicTableSource
         Map<Boolean, List<Tuple3<Boolean, String, ResolvedExpression>>> translatedFilters =
                 filters.stream()
                         .map(
-                                exp ->
+                                expression ->
                                         Tuple2.<ResolvedExpression, Optional<String>>of(
-                                                exp, BigQueryRestriction.convert(exp)))
+                                                expression,
+                                                BigQueryRestriction.convert(expression)))
                         .map(
                                 transExp ->
                                         Tuple3.<Boolean, String, ResolvedExpression>of(
@@ -139,12 +140,12 @@ public class BigQueryDynamicTableSource
                                 Collectors.groupingBy(
                                         (Tuple3<Boolean, String, ResolvedExpression> t) -> t.f0));
         String rowRestriction =
-                translatedFilters.getOrDefault(true, Lists.newArrayList()).stream()
+                translatedFilters.getOrDefault(true, new ArrayList<>()).stream()
                         .map(t -> t.f1)
                         .collect(Collectors.joining(" AND "));
         this.readOptions = this.readOptions.toBuilder().setRowRestriction(rowRestriction).build();
         return Result.of(
-                translatedFilters.getOrDefault(true, Lists.newArrayList()).stream()
+                translatedFilters.getOrDefault(true, new ArrayList<>()).stream()
                         .map(t -> t.f2)
                         .collect(Collectors.toList()),
                 filters);
@@ -184,27 +185,14 @@ public class BigQueryDynamicTableSource
                         connectOptions.getDataset(),
                         connectOptions.getTable())
                 .map(
-                        tuple -> {
-                            // we retrieve the existing partition ids and transform them into valid
-                            // values given the column data type
-                            return BigQueryPartition.partitionValuesFromIdAndDataType(
-                                            dataClient.retrieveTablePartitions(
-                                                    connectOptions.getProjectId(),
-                                                    connectOptions.getDataset(),
-                                                    connectOptions.getTable()),
-                                            tuple.f1)
-                                    .stream()
-                                    // for each of those valid partition values we create an map
-                                    // with the column name and the value
-                                    .map(
-                                            pValue -> {
-                                                Map<String, String> partitionColAndValue =
-                                                        new HashMap<>();
-                                                partitionColAndValue.put(tuple.f0, pValue);
-                                                return partitionColAndValue;
-                                            })
-                                    .collect(Collectors.toList());
-                        });
+                        columnNameAndType ->
+                                transformPartitionIds(
+                                        connectOptions.getProjectId(),
+                                        connectOptions.getDataset(),
+                                        connectOptions.getTable(),
+                                        columnNameAndType.f0,
+                                        columnNameAndType.f1,
+                                        dataClient));
     }
 
     @Override
@@ -213,21 +201,45 @@ public class BigQueryDynamicTableSource
                 this.readOptions
                         .toBuilder()
                         .setRowRestriction(
-                                // lets set the row restriction concating previously set restriction
-                                // (coming from the table definition) with the partition restriction
-                                // sent by Flink planner.
-                                this.readOptions.getRowRestriction()
-                                        + " AND "
-                                        + remainingPartitions.stream()
-                                                .flatMap(map -> map.entrySet().stream())
-                                                .map(
-                                                        entry ->
-                                                                "("
-                                                                        + entry.getKey()
-                                                                        + "="
-                                                                        + entry.getValue()
-                                                                        + ")")
-                                                .collect(Collectors.joining(" AND ")))
+                                rebuildRestrictionsApplyingPartitions(
+                                        this.readOptions.getRowRestriction(), remainingPartitions))
                         .build();
+    }
+
+    private static List<Map<String, String>> transformPartitionIds(
+            String projectId,
+            String dataset,
+            String table,
+            String columnName,
+            StandardSQLTypeName dataType,
+            BigQueryServices.QueryDataClient dataClient) {
+
+        // we retrieve the existing partition ids and transform them into valid
+        // values given the column data type
+        return BigQueryPartition.partitionValuesFromIdAndDataType(
+                        dataClient.retrieveTablePartitions(projectId, dataset, table), dataType)
+                .stream()
+                // for each of those valid partition values we create an map
+                // with the column name and the value
+                .map(
+                        pValue -> {
+                            Map<String, String> partitionColAndValue = new HashMap<>();
+                            partitionColAndValue.put(columnName, pValue);
+                            return partitionColAndValue;
+                        })
+                .collect(Collectors.toList());
+    }
+
+    private static String rebuildRestrictionsApplyingPartitions(
+            String currentRestriction, List<Map<String, String>> remainingPartitions) {
+        // lets set the row restriction concating previously set restriction
+        // (coming from the table definition) with the partition restriction
+        // sent by Flink planner.
+        return currentRestriction
+                + " AND "
+                + remainingPartitions.stream()
+                        .flatMap(map -> map.entrySet().stream())
+                        .map(entry -> String.format("(%s=%s)", entry.getKey(), entry.getValue()))
+                        .collect(Collectors.joining(" OR "));
     }
 }
