@@ -20,8 +20,6 @@ import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.java.tuple.Tuple2;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
@@ -53,6 +51,7 @@ import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import org.threeten.bp.Duration;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -179,7 +178,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
         public List<String> retrieveTablePartitions(String project, String dataset, String table) {
             try {
                 String query =
-                        Lists.newArrayList(
+                        Arrays.asList(
                                         "SELECT",
                                         "  partition_id",
                                         "FROM",
@@ -217,7 +216,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                 String project, String dataset, String table) {
             try {
                 String query =
-                        Lists.newArrayList(
+                        Arrays.asList(
                                         "SELECT",
                                         "  column_name, data_type",
                                         "FROM",
