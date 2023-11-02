@@ -31,9 +31,9 @@ public class BigQuerySourceReaderContext implements SourceReaderContext {
 
     private final SourceReaderContext readerContext;
     private final AtomicInteger readCount = new AtomicInteger(0);
-    private final Integer limit;
+    private final int limit;
 
-    public BigQuerySourceReaderContext(SourceReaderContext readerContext, Integer limit) {
+    public BigQuerySourceReaderContext(SourceReaderContext readerContext, int limit) {
         this.readerContext = readerContext;
         this.limit = limit;
     }
@@ -73,15 +73,19 @@ public class BigQuerySourceReaderContext implements SourceReaderContext {
         return readerContext.getUserCodeClassLoader();
     }
 
-    public Integer updateReadCount(Integer newReads) {
+    public int updateReadCount(Integer newReads) {
         return readCount.addAndGet(newReads);
     }
 
-    public Integer currentReadCount() {
+    public int currentReadCount() {
         return readCount.get();
     }
 
-    public boolean willItBeOverLimit(Integer newReads) {
+    public boolean isLimitPushedDown() {
+        return limit > 0;
+    }
+
+    public boolean willExceedLimit(int newReads) {
         return limit > 0 && (readCount.get() + newReads) >= limit;
     }
 }

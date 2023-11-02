@@ -146,7 +146,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         }
 
         // return when current read count is already over limit
-        if (readerContext.willItBeOverLimit(0)) {
+        if (readerContext.willExceedLimit(0)) {
             LOG.info(
                     "Completing reading because we are over limit (context reader count {}).",
                     readerContext.currentReadCount());
@@ -203,12 +203,12 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                     respBuilder.add(assignedSplit, record);
                     read++;
                     // check if the read count will be over the limit
-                    if (readerContext.willItBeOverLimit(read)) {
+                    if (readerContext.willExceedLimit(read)) {
                         break;
                     }
                 }
                 // check if the read count will be over the limit
-                if (readerContext.willItBeOverLimit(read)) {
+                if (readerContext.willExceedLimit(read)) {
                     break;
                 }
                 Long itTimeMs = System.currentTimeMillis() - itStartTime;
