@@ -16,20 +16,20 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableCollection;
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableMultimap;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -49,29 +49,33 @@ public class SchemaTransform {
      * <p>Some BigQuery types are duplicated here since slightly different Avro records are produced
      * when exporting data in Avro format and when reading data directly using the read API.
      */
-    static final ImmutableMultimap<String, Schema.Type> BIG_QUERY_TO_AVRO_TYPES =
-            ImmutableMultimap.<String, Schema.Type>builder()
-                    .put("STRING", Schema.Type.STRING)
-                    .put("GEOGRAPHY", Schema.Type.STRING)
-                    .put("BYTES", Schema.Type.BYTES)
-                    .put("INTEGER", Schema.Type.LONG)
-                    .put("INT64", Schema.Type.LONG)
-                    .put("FLOAT", Schema.Type.DOUBLE)
-                    .put("FLOAT64", Schema.Type.DOUBLE)
-                    .put("NUMERIC", Schema.Type.BYTES)
-                    .put("BIGNUMERIC", Schema.Type.BYTES)
-                    .put("BOOLEAN", Schema.Type.BOOLEAN)
-                    .put("BOOL", Schema.Type.BOOLEAN)
-                    .put("TIMESTAMP", Schema.Type.LONG)
-                    .put("RECORD", Schema.Type.RECORD)
-                    .put("STRUCT", Schema.Type.RECORD)
-                    .put("DATE", Schema.Type.STRING)
-                    .put("DATE", Schema.Type.INT)
-                    .put("DATETIME", Schema.Type.STRING)
-                    .put("TIME", Schema.Type.STRING)
-                    .put("TIME", Schema.Type.LONG)
-                    .put("JSON", Schema.Type.STRING)
-                    .build();
+    static final Map<String, List<Schema.Type>> BIG_QUERY_TO_AVRO_TYPES =
+            initializeBigQueryToAvroTypesMapping();
+
+    private static Map<String, List<Schema.Type>> initializeBigQueryToAvroTypesMapping() {
+        Map<String, List<Schema.Type>> mapping = new HashMap<>();
+
+        mapping.put("STRING", Arrays.asList(Schema.Type.STRING));
+        mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));
+        mapping.put("BYTES", Arrays.asList(Schema.Type.BYTES));
+        mapping.put("INTEGER", Arrays.asList(Schema.Type.LONG));
+        mapping.put("INT64", Arrays.asList(Schema.Type.LONG));
+        mapping.put("FLOAT", Arrays.asList(Schema.Type.DOUBLE));
+        mapping.put("FLOAT64", Arrays.asList(Schema.Type.DOUBLE));
+        mapping.put("NUMERIC", Arrays.asList(Schema.Type.BYTES));
+        mapping.put("BIGNUMERIC", Arrays.asList(Schema.Type.BYTES));
+        mapping.put("BOOLEAN", Arrays.asList(Schema.Type.BOOLEAN));
+        mapping.put("BOOL", Arrays.asList(Schema.Type.BOOLEAN));
+        mapping.put("TIMESTAMP", Arrays.asList(Schema.Type.LONG));
+        mapping.put("RECORD", Arrays.asList(Schema.Type.RECORD));
+        mapping.put("STRUCT", Arrays.asList(Schema.Type.RECORD));
+        mapping.put("DATE", Arrays.asList(Schema.Type.STRING, Schema.Type.INT));
+        mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
+        mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
+        mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
+
+        return mapping;
+    }
 
     public static Schema toGenericAvroSchema(
             String schemaName, List<TableFieldSchema> fieldSchemas, String namespace) {
@@ -124,8 +128,7 @@ public class SchemaTransform {
         "nullness" // Avro library not annotated
     })
     private static Schema.Field convertField(TableFieldSchema bigQueryField, String namespace) {
-        ImmutableCollection<Schema.Type> avroTypes =
-                BIG_QUERY_TO_AVRO_TYPES.get(bigQueryField.getType());
+        List<Schema.Type> avroTypes = BIG_QUERY_TO_AVRO_TYPES.get(bigQueryField.getType());
         if (avroTypes.isEmpty()) {
             throw new IllegalArgumentException(
                     "Unable to map BigQuery field type "
@@ -197,29 +200,21 @@ public class SchemaTransform {
                 .map(
                         fList ->
                                 fList.stream()
-                                        .map(
-                                                field ->
-                                                        new TableFieldSchema()
-                                                                .setName(field.getName())
-                                                                .setDescription(
-                                                                        field.getDescription())
-                                                                .setDefaultValueExpression(
-                                                                        field
-                                                                                .getDefaultValueExpression())
-                                                                .setCollation(field.getCollation())
-                                                                .setMode(
-                                                                        Optional.ofNullable(
-                                                                                        field
-                                                                                                .getMode())
-                                                                                .map(m -> m.name())
-                                                                                .orElse(null))
-                                                                .setType(field.getType().name())
-                                                                .setFields(
-                                                                        fieldListToListOfTableFieldSchema(
-                                                                                field
-                                                                                        .getSubFields())))
+                                        .map(field -> fieldToTableFieldSchema(field))
                                         .collect(Collectors.toList()))
-                .orElse(Lists.newArrayList());
+                .orElse(new ArrayList<>());
+    }
+
+    static TableFieldSchema fieldToTableFieldSchema(Field field) {
+
+        return new TableFieldSchema()
+                .setName(field.getName())
+                .setDescription(field.getDescription())
+                .setDefaultValueExpression(field.getDefaultValueExpression())
+                .setCollation(field.getCollation())
+                .setMode(Optional.ofNullable(field.getMode()).map(m -> m.name()).orElse(null))
+                .setType(field.getType().name())
+                .setFields(fieldListToListOfTableFieldSchema(field.getSubFields()));
     }
 
     /**

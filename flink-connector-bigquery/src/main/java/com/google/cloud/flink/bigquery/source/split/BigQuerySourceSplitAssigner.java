@@ -26,6 +26,7 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableModifiers;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableReadOptions;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
@@ -76,17 +77,12 @@ public class BigQuerySourceSplitAssigner {
      * @return The BigQuery connect options with the right project, dataset and table given the
      *     specified configuration.
      */
-    BigQueryConnectOptions checkOptionsAndRunQueryIfNeededReturningModifiedOptions() {
-        return Optional.ofNullable(this.readOptions.getQuery())
+    Optional<BigQueryConnectOptions> fetchOptionsFromQueryRun() {
+        return this.readOptions
+                .getQuery()
                 // if query is available, execute it using the configured GCP project and gather the
                 // results
-                .flatMap(
-                        query ->
-                                BigQueryServicesFactory.instance(
-                                                this.readOptions.getBigQueryConnectOptions())
-                                        .queryClient()
-                                        .runQuery(
-                                                this.readOptions.getQueryExecutionProject(), query))
+                .flatMap(query -> runQuery(query))
                 // with the query results return the new connection options, fail if the query
                 // failed
                 .map(
@@ -113,16 +109,25 @@ public class BigQuerySourceSplitAssigner {
                                     .setDataset(dataset)
                                     .setTable(table)
                                     .build();
-                        })
-                // in case no query configured, just return the configured options.
-                .orElse(this.readOptions.getBigQueryConnectOptions());
+                        });
+    }
+
+    private Optional<QueryResultInfo> runQuery(String query) {
+        return this.readOptions
+                .getQueryExecutionProject()
+                .flatMap(
+                        gcpProject ->
+                                BigQueryServicesFactory.instance(
+                                                this.readOptions.getBigQueryConnectOptions())
+                                        .queryClient()
+                                        .runQuery(gcpProject, query));
     }
 
     public void open() {
         LOG.info("BigQuery source split assigner is opening.");
         if (!initialized) {
             BigQueryConnectOptions connectionOptions =
-                    checkOptionsAndRunQueryIfNeededReturningModifiedOptions();
+                    fetchOptionsFromQueryRun().orElse(this.readOptions.getBigQueryConnectOptions());
             try (BigQueryServices.StorageReadClient client =
                     BigQueryServicesFactory.instance(connectionOptions).storageRead()) {
                 String parent = String.format("projects/%s", connectionOptions.getProjectId());
@@ -153,15 +158,13 @@ public class BigQuerySourceSplitAssigner {
                                 .setReadOptions(options);
 
                 // Optionally specify the snapshot time.  When unspecified, snapshot time is "now".
-                if (readOptions.getSnapshotTimestampInMillis() != null) {
+                if (readOptions.getSnapshotTimestampInMillis().isPresent()) {
+                    long snapshotTimestampInMillis =
+                            readOptions.getSnapshotTimestampInMillis().get();
                     Timestamp t =
                             Timestamp.newBuilder()
-                                    .setSeconds(readOptions.getSnapshotTimestampInMillis() / 1000)
-                                    .setNanos(
-                                            (int)
-                                                    ((readOptions.getSnapshotTimestampInMillis()
-                                                                    % 1000)
-                                                            * 1000000))
+                                    .setSeconds(snapshotTimestampInMillis / 1000)
+                                    .setNanos((int) ((snapshotTimestampInMillis % 1000) * 1000000))
                                     .build();
                     TableModifiers modifiers =
                             TableModifiers.newBuilder().setSnapshotTime(t).build();
@@ -193,7 +196,7 @@ public class BigQuerySourceSplitAssigner {
                                 .collect(Collectors.toList()));
                 initialized = true;
             } catch (IOException ex) {
-                throw new RuntimeException(
+                throw new BigQueryConnectorException(
                         "Problems creating the BigQuery Storage Read session.", ex);
             }
         }
