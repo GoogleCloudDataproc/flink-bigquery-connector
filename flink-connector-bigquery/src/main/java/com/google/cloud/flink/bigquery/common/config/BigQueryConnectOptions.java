@@ -20,6 +20,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.serializable.SerializableAutoValue;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 
 import javax.annotation.Nullable;
@@ -30,6 +31,7 @@ import java.util.Objects;
 
 /** BigQuery client connection configuration. */
 @AutoValue
+@SerializableAutoValue
 @PublicEvolving
 public abstract class BigQueryConnectOptions implements Serializable {
 
