@@ -295,7 +295,7 @@ public class StorageClientFaker {
                 .collect(
                         () -> new HashMap<Integer, List<GenericRecord>>(),
                         (map, idx) ->
-                                map.computeIfAbsent(idx, key -> new ArrayList<>())
+                                map.computeIfAbsent(idx / 1024, key -> new ArrayList<>())
                                         .add(genericRecords.get(idx)),
                         (map1, map2) ->
                                 map2.entrySet()
