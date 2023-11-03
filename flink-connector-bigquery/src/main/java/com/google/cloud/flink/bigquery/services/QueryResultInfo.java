@@ -18,9 +18,8 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
-
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -51,7 +50,7 @@ public class QueryResultInfo implements Serializable {
 
     private QueryResultInfo(Status status, String project, String dataset, String table) {
         this.status = status;
-        this.errorMessages = ImmutableList.of();
+        this.errorMessages = Arrays.asList();
         this.destinationProject = project;
         this.destinationDataset = dataset;
         this.destinationTable = table;

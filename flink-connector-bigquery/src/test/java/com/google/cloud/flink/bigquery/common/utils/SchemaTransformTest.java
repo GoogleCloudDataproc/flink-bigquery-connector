@@ -16,9 +16,6 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.Field;
@@ -28,6 +25,7 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -35,7 +33,7 @@ import static com.google.common.truth.Truth.assertThat;
 /** */
 public class SchemaTransformTest {
     private final List<TableFieldSchema> subFields =
-            Lists.newArrayList(
+            Arrays.asList(
                     new TableFieldSchema()
                             .setName("species")
                             .setType("STRING")
@@ -49,7 +47,7 @@ public class SchemaTransformTest {
      * See https://cloud.google.com/bigquery/docs/reference/v2/tables#schema
      */
     private final List<TableFieldSchema> fields =
-            Lists.newArrayList(
+            Arrays.asList(
                     new TableFieldSchema().setName("number").setType("INTEGER").setMode("REQUIRED"),
                     new TableFieldSchema().setName("species").setType("STRING").setMode("NULLABLE"),
                     new TableFieldSchema()
@@ -181,7 +179,7 @@ public class SchemaTransformTest {
                                         "Translated Avro Schema for scion",
                                         SchemaTransform.DEFAULT_NAMESPACE,
                                         false,
-                                        ImmutableList.of(
+                                        Arrays.asList(
                                                 new Schema.Field(
                                                         "species",
                                                         Schema.createUnion(
@@ -197,7 +195,7 @@ public class SchemaTransformTest {
                                         "Translated Avro Schema for associates",
                                         SchemaTransform.DEFAULT_NAMESPACE,
                                         false,
-                                        ImmutableList.of(
+                                        Arrays.asList(
                                                 new Schema.Field(
                                                         "species",
                                                         Schema.createUnion(
@@ -215,15 +213,15 @@ public class SchemaTransformTest {
         TableSchema expected =
                 new TableSchema()
                         .setFields(
-                                Lists.newArrayList(
+                                Arrays.asList(
                                         new TableFieldSchema()
                                                 .setName(fieldName)
                                                 .setType("STRING")
-                                                .setFields(Lists.newArrayList())));
+                                                .setFields(Arrays.asList())));
 
         com.google.cloud.bigquery.Schema schema =
                 com.google.cloud.bigquery.Schema.of(
-                        Lists.newArrayList(Field.of(fieldName, StandardSQLTypeName.STRING)));
+                        Arrays.asList(Field.of(fieldName, StandardSQLTypeName.STRING)));
 
         TableSchema transformed = SchemaTransform.bigQuerySchemaToTableSchema(schema);
 

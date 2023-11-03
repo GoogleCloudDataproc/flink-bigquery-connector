@@ -20,8 +20,6 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
@@ -31,6 +29,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -53,7 +52,7 @@ public class BigQuerySourceSplitReaderTest {
         BigQuerySourceSplit split = new BigQuerySourceSplit(splitName, 0L);
         BigQuerySourceSplit split2 = new BigQuerySourceSplit("stream2", 0L);
         SplitsAddition<BigQuerySourceSplit> change =
-                new SplitsAddition<>(Lists.newArrayList(split, split2));
+                new SplitsAddition<>(Arrays.asList(split, split2));
 
         // send an assignment
         reader.handleSplitsChanges(change);
@@ -101,8 +100,7 @@ public class BigQuerySourceSplitReaderTest {
 
         String splitName = "stream1";
         BigQuerySourceSplit split = new BigQuerySourceSplit(splitName, 0L);
-        SplitsAddition<BigQuerySourceSplit> change =
-                new SplitsAddition<>(Lists.newArrayList(split));
+        SplitsAddition<BigQuerySourceSplit> change = new SplitsAddition<>(Arrays.asList(split));
 
         // send an assignment
         reader.handleSplitsChanges(change);

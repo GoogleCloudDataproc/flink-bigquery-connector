@@ -16,14 +16,13 @@
 
 package com.google.cloud.flink.bigquery.services;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 /** */
@@ -31,7 +30,7 @@ public class MetadataInfoTest {
 
     @Test
     public void testQueryResultInfoFailed() {
-        QueryResultInfo qri = QueryResultInfo.failed(Lists.newArrayList());
+        QueryResultInfo qri = QueryResultInfo.failed(Arrays.asList());
         Assertions.assertThat(qri.getStatus()).isEqualTo(QueryResultInfo.Status.FAILED);
         Assertions.assertThat(qri.getDestinationProject()).isEmpty();
         Assertions.assertThat(qri.getDestinationDataset()).isEmpty();
@@ -52,7 +51,7 @@ public class MetadataInfoTest {
     @Test
     public void testQueryResultInfoNotEquals() {
         QueryResultInfo succeed = QueryResultInfo.succeed("", "", "");
-        QueryResultInfo failed = QueryResultInfo.failed(Lists.newArrayList());
+        QueryResultInfo failed = QueryResultInfo.failed(Arrays.asList());
         Assertions.assertThat(succeed).isNotEqualTo(failed);
     }
 
@@ -72,7 +71,7 @@ public class MetadataInfoTest {
                         BigQueryPartition.PartitionType.MONTH,
                         StandardSQLTypeName.DATE,
                         Instant.now());
-        List<String> partitions = Lists.newArrayList("202301", "202302");
+        List<String> partitions = Arrays.asList("202301", "202302");
         List<PartitionIdWithInfo> pIdInfo = tpInfo.toPartitionsWithInfo(partitions);
         Assertions.assertThat(pIdInfo).hasSize(2);
     }

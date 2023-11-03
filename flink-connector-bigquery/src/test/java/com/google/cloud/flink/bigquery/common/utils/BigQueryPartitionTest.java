@@ -16,8 +16,6 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfo;
@@ -27,6 +25,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,10 +34,9 @@ public class BigQueryPartitionTest {
 
     @Test
     public void testPartitionHour() {
-        List<String> partitionIds = Lists.newArrayList("2023062822", "2023062823");
+        List<String> partitionIds = Arrays.asList("2023062822", "2023062823");
         // ISO formatted dates as single quote string literals at the beginning of the hour.
-        List<String> expectedValues =
-                Lists.newArrayList("2023-06-28 22:00:00", "2023-06-28 23:00:00");
+        List<String> expectedValues = Arrays.asList("2023-06-28 22:00:00", "2023-06-28 23:00:00");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.TIMESTAMP);
@@ -48,9 +46,9 @@ public class BigQueryPartitionTest {
 
     @Test
     public void testPartitionDay() {
-        List<String> partitionIds = Lists.newArrayList("20230628", "20230628");
+        List<String> partitionIds = Arrays.asList("20230628", "20230628");
         // ISO formatted dates as single quote string literals.
-        List<String> expectedValues = Lists.newArrayList("2023-06-28", "2023-06-28");
+        List<String> expectedValues = Arrays.asList("2023-06-28", "2023-06-28");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.DATETIME);
@@ -60,9 +58,9 @@ public class BigQueryPartitionTest {
 
     @Test
     public void testPartitionMonth() {
-        List<String> partitionIds = Lists.newArrayList("202306", "202307");
+        List<String> partitionIds = Arrays.asList("202306", "202307");
         // ISO formatted dates as single quote string literals
-        List<String> expectedValues = Lists.newArrayList("2023-06-01", "2023-07-01");
+        List<String> expectedValues = Arrays.asList("2023-06-01", "2023-07-01");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.DATE);
@@ -72,9 +70,9 @@ public class BigQueryPartitionTest {
 
     @Test
     public void testPartitionYear() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         // ISO formatted dates as single quote string literals
-        List<String> expectedValues = Lists.newArrayList("2023-01-01", "2022-01-01");
+        List<String> expectedValues = Arrays.asList("2023-01-01", "2022-01-01");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.TIMESTAMP);
@@ -84,9 +82,9 @@ public class BigQueryPartitionTest {
 
     @Test
     public void testPartitionInteger() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         // ISO formatted dates as single quote string literals
-        List<String> expectedValues = Lists.newArrayList("2023", "2022");
+        List<String> expectedValues = Arrays.asList("2023", "2022");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.INT64);
@@ -96,86 +94,86 @@ public class BigQueryPartitionTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongTemporalPartition() {
-        List<String> partitionIds = Lists.newArrayList("202308101112");
+        List<String> partitionIds = Arrays.asList("202308101112");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.TIMESTAMP);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongArrayPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(partitionIds, StandardSQLTypeName.ARRAY);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongStructPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.STRUCT);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongJsonPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(partitionIds, StandardSQLTypeName.JSON);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongGeoPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.GEOGRAPHY);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongBigNumPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.BIGNUMERIC);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongBoolPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(partitionIds, StandardSQLTypeName.BOOL);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongBytesPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(partitionIds, StandardSQLTypeName.BYTES);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongFloatPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.FLOAT64);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongStringPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.STRING);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongTimePartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(partitionIds, StandardSQLTypeName.TIME);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongIntervalPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.INTERVAL);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testWrongNumericPartition() {
-        List<String> partitionIds = Lists.newArrayList("2023", "2022");
+        List<String> partitionIds = Arrays.asList("2023", "2022");
         BigQueryPartition.partitionValuesFromIdAndDataType(
                 partitionIds, StandardSQLTypeName.NUMERIC);
     }

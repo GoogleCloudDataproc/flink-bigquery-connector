@@ -19,8 +19,6 @@ package com.google.cloud.flink.bigquery.services;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -44,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.UUID;
 
 /** Collection of functionalities that simplify BigQuery services interactions. */
@@ -91,7 +90,7 @@ public class BigQueryUtils {
     static <T> FailsafeExecutor<T> buildRetriableExecutorForOperation(String operationName) {
         return Failsafe.with(
                 RetryPolicy.<T>builder()
-                        .handle(Lists.newArrayList(IOException.class))
+                        .handle(Arrays.asList(IOException.class))
                         .withMaxAttempts(maxRetryCount)
                         .withBackoff(
                                 Duration.ofSeconds(BACKOFF_DELAY_IN_SECONDS),

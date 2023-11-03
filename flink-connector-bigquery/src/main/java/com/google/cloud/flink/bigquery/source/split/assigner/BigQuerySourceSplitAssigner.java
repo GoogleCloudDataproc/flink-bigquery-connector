@@ -18,11 +18,6 @@ package com.google.cloud.flink.bigquery.source.split.assigner;
 
 import org.apache.flink.annotation.Internal;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Maps;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Queues;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Sets;
-
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
@@ -30,11 +25,15 @@ import com.google.cloud.flink.bigquery.source.split.SplitDiscoveryScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /** A base split assigner definition. */
 @Internal
@@ -80,15 +79,15 @@ public abstract class BigQuerySourceSplitAssigner {
     BigQuerySourceSplitAssigner(
             BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
         this.readOptions = readOptions;
-        this.lastSeenPartitions =
-                Sets.newConcurrentHashSet(sourceEnumState.getLastSeenPartitions());
+        this.lastSeenPartitions = ConcurrentHashMap.newKeySet();
+        this.lastSeenPartitions.addAll(sourceEnumState.getLastSeenPartitions());
         this.remainingTableStreams =
-                Queues.newConcurrentLinkedQueue(sourceEnumState.getRemaniningTableStreams());
+                new ConcurrentLinkedQueue<>(sourceEnumState.getRemaniningTableStreams());
         this.alreadyProcessedTableStreams =
-                Queues.newConcurrentLinkedQueue(sourceEnumState.getCompletedTableStreams());
+                new ConcurrentLinkedQueue<>(sourceEnumState.getCompletedTableStreams());
         this.remainingSourceSplits =
-                Queues.newConcurrentLinkedQueue(sourceEnumState.getRemainingSourceSplits());
-        this.assignedSourceSplits = Maps.newConcurrentMap();
+                new ConcurrentLinkedQueue<>(sourceEnumState.getRemainingSourceSplits());
+        this.assignedSourceSplits = new ConcurrentHashMap<>();
         this.assignedSourceSplits.putAll(sourceEnumState.getAssignedSourceSplits());
         this.initialized = sourceEnumState.isInitialized();
     }
@@ -132,11 +131,11 @@ public abstract class BigQuerySourceSplitAssigner {
      */
     public BigQuerySourceEnumState snapshotState(long checkpointId) {
         return new BigQuerySourceEnumState(
-                Lists.newArrayList(lastSeenPartitions),
-                Lists.newArrayList(remainingTableStreams),
-                Lists.newArrayList(alreadyProcessedTableStreams),
-                Lists.newArrayList(remainingSourceSplits),
-                Maps.newHashMap(assignedSourceSplits),
+                new ArrayList<>(lastSeenPartitions),
+                new ArrayList<>(remainingTableStreams),
+                new ArrayList<>(alreadyProcessedTableStreams),
+                new ArrayList<>(remainingSourceSplits),
+                new HashMap<>(assignedSourceSplits),
                 initialized);
     }
 

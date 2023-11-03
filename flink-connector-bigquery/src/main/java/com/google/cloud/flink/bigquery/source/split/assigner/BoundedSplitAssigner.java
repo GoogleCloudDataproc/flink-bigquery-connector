@@ -18,8 +18,6 @@ package com.google.cloud.flink.bigquery.source.split.assigner;
 
 import org.apache.flink.annotation.Internal;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -31,6 +29,7 @@ import com.google.cloud.flink.bigquery.source.split.SplitDiscoverer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkState;
@@ -83,7 +82,7 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
                                 throw new IllegalStateException(
                                         "The BigQuery query execution failed with errors: "
                                                 + result.getErrorMessages()
-                                                        .orElse(Lists.newArrayList()));
+                                                        .orElse(new ArrayList<>()));
                             }
                             String projectId = result.getDestinationProject().get();
                             String dataset = result.getDestinationDataset().get();
