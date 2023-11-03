@@ -25,21 +25,21 @@ import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.FunctionDefinition;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableMap;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Utility class to transform a flink {@link ResolvedExpression} in a string restriction that can be
+ * Utility class to transform a Flink {@link ResolvedExpression} in a string restriction that can be
  * send to BigQuery as a row restriction. Heavily based in the Iceberg expression translation
  * implementation.
  */
@@ -51,7 +51,7 @@ public class BigQueryRestriction {
     private static final Pattern STARTS_WITH_PATTERN = Pattern.compile("([^%]+)%");
 
     /** Represents the possible BQ expressions supported for the correspondent flink ones. */
-    public enum Operation {
+    enum Operation {
         EQ,
         NOT_EQ,
         GT,
@@ -66,30 +66,34 @@ public class BigQueryRestriction {
         STARTS_WITH
     }
 
-    private static final Map<FunctionDefinition, Operation> FILTERS =
-            ImmutableMap.<FunctionDefinition, Operation>builder()
-                    .put(BuiltInFunctionDefinitions.EQUALS, Operation.EQ)
-                    .put(BuiltInFunctionDefinitions.NOT_EQUALS, Operation.NOT_EQ)
-                    .put(BuiltInFunctionDefinitions.GREATER_THAN, Operation.GT)
-                    .put(BuiltInFunctionDefinitions.GREATER_THAN_OR_EQUAL, Operation.GT_EQ)
-                    .put(BuiltInFunctionDefinitions.LESS_THAN, Operation.LT)
-                    .put(BuiltInFunctionDefinitions.LESS_THAN_OR_EQUAL, Operation.LT_EQ)
-                    .put(BuiltInFunctionDefinitions.IS_NULL, Operation.IS_NULL)
-                    .put(BuiltInFunctionDefinitions.IS_NOT_NULL, Operation.NOT_NULL)
-                    .put(BuiltInFunctionDefinitions.AND, Operation.AND)
-                    .put(BuiltInFunctionDefinitions.OR, Operation.OR)
-                    .put(BuiltInFunctionDefinitions.NOT, Operation.NOT)
-                    .put(BuiltInFunctionDefinitions.LIKE, Operation.STARTS_WITH)
-                    .build();
+    private static final Map<FunctionDefinition, Operation> FILTERS = initializeOperationMapper();
+
+    private static Map<FunctionDefinition, Operation> initializeOperationMapper() {
+        Map<FunctionDefinition, Operation> mapping = new HashMap<>();
+
+        mapping.put(BuiltInFunctionDefinitions.EQUALS, Operation.EQ);
+        mapping.put(BuiltInFunctionDefinitions.NOT_EQUALS, Operation.NOT_EQ);
+        mapping.put(BuiltInFunctionDefinitions.GREATER_THAN, Operation.GT);
+        mapping.put(BuiltInFunctionDefinitions.GREATER_THAN_OR_EQUAL, Operation.GT_EQ);
+        mapping.put(BuiltInFunctionDefinitions.LESS_THAN, Operation.LT);
+        mapping.put(BuiltInFunctionDefinitions.LESS_THAN_OR_EQUAL, Operation.LT_EQ);
+        mapping.put(BuiltInFunctionDefinitions.IS_NULL, Operation.IS_NULL);
+        mapping.put(BuiltInFunctionDefinitions.IS_NOT_NULL, Operation.NOT_NULL);
+        mapping.put(BuiltInFunctionDefinitions.AND, Operation.AND);
+        mapping.put(BuiltInFunctionDefinitions.OR, Operation.OR);
+        mapping.put(BuiltInFunctionDefinitions.NOT, Operation.NOT);
+        mapping.put(BuiltInFunctionDefinitions.LIKE, Operation.STARTS_WITH);
+        return mapping;
+    }
 
     /**
      * Convert a flink expression into a BigQuery row restriction.
      *
-     * <p>the BETWEEN, NOT_BETWEEN, IN expression will be converted by flink automatically. the
+     * <p>the BETWEEN, NOT_BETWEEN, IN expression will be converted by Flink automatically. the
      * BETWEEN will be converted to (GT_EQ AND LT_EQ), the NOT_BETWEEN will be converted to (LT_EQ
      * OR GT_EQ), the IN will be converted to OR, so we do not add the conversion here
      *
-     * @param flinkExpression the flink expression
+     * @param flinkExpression the Flink expression
      * @return An {@link Optional} potentially containing the resolved row restriction for BigQuery.
      */
     public static Optional<String> convert(Expression flinkExpression) {
@@ -99,67 +103,55 @@ public class BigQueryRestriction {
 
         CallExpression call = (CallExpression) flinkExpression;
         Operation op = FILTERS.get(call.getFunctionDefinition());
-        if (op != null) {
-            switch (op) {
-                case IS_NULL:
-                    return onlyChildAs(call, FieldReferenceExpression.class)
-                            .map(FieldReferenceExpression::getName)
-                            .map(field -> field + " IS NULL");
+        switch (op) {
+            case IS_NULL:
+                return onlyChildAs(call, FieldReferenceExpression.class)
+                        .map(FieldReferenceExpression::getName)
+                        .map(field -> field + " IS NULL");
 
-                case NOT_NULL:
-                    return onlyChildAs(call, FieldReferenceExpression.class)
-                            .map(FieldReferenceExpression::getName)
-                            .map(field -> "NOT " + field + " IS NULL");
+            case NOT_NULL:
+                return onlyChildAs(call, FieldReferenceExpression.class)
+                        .map(FieldReferenceExpression::getName)
+                        .map(field -> "NOT " + field + " IS NULL");
 
-                case LT:
-                    return convertFieldAndLiteral(
-                            (left, right) -> "(" + left + " < " + right + ")",
-                            (left, right) -> "(" + left + " > " + right + ")",
-                            call);
+            case LT:
+                return convertOperationPartsWithItsSymbol("<", call);
 
-                case LT_EQ:
-                    return convertFieldAndLiteral(
-                            (left, right) -> "(" + left + " <= " + right + ")",
-                            (left, right) -> "(" + left + " >= " + right + ")",
-                            call);
+            case LT_EQ:
+                return convertOperationPartsWithItsSymbol("<=", call);
 
-                case GT:
-                    return convertFieldAndLiteral(
-                            (left, right) -> "(" + left + " > " + right + ")",
-                            (left, right) -> "(" + left + " < " + right + ")",
-                            call);
+            case GT:
+                return convertOperationPartsWithItsSymbol(">", call);
 
-                case GT_EQ:
-                    return convertFieldAndLiteral(
-                            (left, right) -> "(" + left + " >= " + right + ")",
-                            (left, right) -> "(" + left + " <= " + right + ")",
-                            call);
+            case GT_EQ:
+                return convertOperationPartsWithItsSymbol(">=", call);
 
-                case EQ:
-                    return convertFieldAndLiteral((ref, lit) -> ref + " = " + lit, call);
+            case EQ:
+                return convertOperationPartsWithItsSymbol("=", call);
 
-                case NOT_EQ:
-                    return convertFieldAndLiteral((ref, lit) -> ref + " <> " + lit, call);
+            case NOT_EQ:
+                return convertOperationPartsWithItsSymbol("<>", call);
 
-                case NOT:
-                    return onlyChildAs(call, CallExpression.class)
-                            .flatMap(BigQueryRestriction::convert)
-                            .map(field -> "NOT " + field);
+            case NOT:
+                return onlyChildAs(call, CallExpression.class)
+                        .flatMap(BigQueryRestriction::convert)
+                        .map(field -> "NOT " + field);
 
-                case AND:
-                    return convertLogicExpression(
-                            (left, right) -> "(" + left + " AND " + right + ")", call);
+            case AND:
+                return convertLogicExpressionWithOperandsSymbol("AND", call);
 
-                case OR:
-                    return convertLogicExpression(
-                            (left, right) -> "(" + left + " OR " + right + ")", call);
+            case OR:
+                return convertLogicExpressionWithOperandsSymbol("OR", call);
 
-                case STARTS_WITH:
-                    return convertLike(call);
-            }
+            case STARTS_WITH:
+                return convertLike(call);
+
+            default:
+                throw new BigQueryConnectorException(
+                        String.format(
+                                "The provided Flink expression is not supported %s.",
+                                call.getFunctionName()));
         }
-
-        return Optional.empty();
     }
 
     private static <T extends ResolvedExpression> Optional<T> onlyChildAs(
@@ -209,8 +201,8 @@ public class BigQueryRestriction {
         return Optional.empty();
     }
 
-    private static Optional<String> convertLogicExpression(
-            BiFunction<String, String, String> function, CallExpression call) {
+    private static Optional<String> convertLogicExpressionWithOperandsSymbol(
+            String operandsSymbol, CallExpression call) {
         List<ResolvedExpression> args = call.getResolvedChildren();
         if (args == null || args.size() != 2) {
             return Optional.empty();
@@ -219,7 +211,8 @@ public class BigQueryRestriction {
         Optional<String> left = convert(args.get(0));
         Optional<String> right = convert(args.get(1));
         if (left.isPresent() && right.isPresent()) {
-            return Optional.of(function.apply(left.get(), right.get()));
+            return Optional.of(
+                    String.format("(%s %s %s)", left.get(), operandsSymbol, right.get()));
         }
 
         return Optional.empty();
@@ -251,15 +244,8 @@ public class BigQueryRestriction {
                 });
     }
 
-    private static Optional<String> convertFieldAndLiteral(
-            BiFunction<String, Object, String> expr, CallExpression call) {
-        return convertFieldAndLiteral(expr, expr, call);
-    }
-
-    private static Optional<String> convertFieldAndLiteral(
-            BiFunction<String, Object, String> convertLR,
-            BiFunction<String, Object, String> convertRL,
-            CallExpression call) {
+    private static Optional<String> convertOperationPartsWithItsSymbol(
+            String operationSymbol, CallExpression call) {
         List<ResolvedExpression> args = call.getResolvedChildren();
         if (args.size() != 2) {
             return Optional.empty();
@@ -272,14 +258,14 @@ public class BigQueryRestriction {
             String name = ((FieldReferenceExpression) left).getName();
             Optional<Object> lit = convertLiteral((ValueLiteralExpression) right);
             if (lit.isPresent()) {
-                return Optional.of(convertLR.apply(name, lit.get()));
+                return Optional.of(String.format("(%s %s %s)", name, operationSymbol, lit.get()));
             }
         } else if (left instanceof ValueLiteralExpression
                 && right instanceof FieldReferenceExpression) {
             Optional<Object> lit = convertLiteral((ValueLiteralExpression) left);
             String name = ((FieldReferenceExpression) right).getName();
             if (lit.isPresent()) {
-                return Optional.of(convertRL.apply(name, lit.get()));
+                return Optional.of(String.format("(%s %s %s)", lit.get(), operationSymbol, name));
             }
         }
 
