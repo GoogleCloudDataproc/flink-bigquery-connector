@@ -80,8 +80,8 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
                             // if configured filter partitions older than the provided id
                             .filter(
                                     pIdStatus ->
-                                            Optional.ofNullable(
-                                                            this.readOptions.getOldestPartitionId())
+                                            this.readOptions
+                                                    .getOldestPartitionId()
                                                     .map(
                                                             oldestPartitionId ->
                                                                     pIdStatus

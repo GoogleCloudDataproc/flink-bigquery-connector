@@ -49,7 +49,7 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
     @Override
     public void discoverSplits() {
         BigQueryConnectOptions connectionOptions =
-                checkOptionsAndRunQueryIfNeededReturningModifiedOptions();
+                fetchOptionsFromQueryRun().orElse(this.readOptions.getBigQueryConnectOptions());
 
         this.remainingTableStreams.addAll(
                 SplitDiscoverer.discoverSplits(
@@ -69,17 +69,12 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
      * @return The BigQuery connect options with the right project, dataset and table given the
      *     specified configuration.
      */
-    BigQueryConnectOptions checkOptionsAndRunQueryIfNeededReturningModifiedOptions() {
-        return Optional.ofNullable(this.readOptions.getQuery())
+    Optional<BigQueryConnectOptions> fetchOptionsFromQueryRun() {
+        return this.readOptions
+                .getQuery()
                 // if query is available, execute it using the configured GCP project and gather the
                 // results
-                .flatMap(
-                        query ->
-                                BigQueryServicesFactory.instance(
-                                                this.readOptions.getBigQueryConnectOptions())
-                                        .queryClient()
-                                        .runQuery(
-                                                this.readOptions.getQueryExecutionProject(), query))
+                .flatMap(query -> runQuery(query))
                 // with the query results return the new connection options, fail if the query
                 // failed
                 .map(
@@ -106,9 +101,18 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
                                     .setDataset(dataset)
                                     .setTable(table)
                                     .build();
-                        })
-                // in case no query configured, just return the configured options.
-                .orElse(this.readOptions.getBigQueryConnectOptions());
+                        });
+    }
+
+    private Optional<QueryResultInfo> runQuery(String query) {
+        return this.readOptions
+                .getQueryExecutionProject()
+                .flatMap(
+                        gcpProject ->
+                                BigQueryServicesFactory.instance(
+                                                this.readOptions.getBigQueryConnectOptions())
+                                        .queryClient()
+                                        .runQuery(gcpProject, query));
     }
 
     @Override

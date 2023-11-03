@@ -66,6 +66,7 @@ public class BigQueryTableConfiguration {
                                     .map(cols -> Arrays.asList(cols.split(",")))
                                     .orElse(new ArrayList<>()))
                     .setBigQueryConnectOptions(translateBigQueryConnectOptions())
+                    .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
                     .build();
         } catch (Exception ex) {
             throw new RuntimeException(

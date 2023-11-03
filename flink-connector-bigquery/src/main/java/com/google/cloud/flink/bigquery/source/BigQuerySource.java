@@ -34,6 +34,7 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -51,8 +52,6 @@ import com.google.cloud.flink.bigquery.source.split.reader.BigQuerySourceSplitRe
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.function.Supplier;
@@ -105,9 +104,6 @@ public abstract class BigQuerySource<OUT>
 
     public abstract BigQueryReadOptions getReadOptions();
 
-    @Nullable
-    public abstract Integer getLimit();
-
     public abstract Boundedness getSourceBoundedness();
 
     @Override
@@ -137,7 +133,8 @@ public abstract class BigQuerySource<OUT>
                 new FutureCompletingBlockingQueue<>();
 
         BigQuerySourceReaderContext bqReaderContext =
-                new BigQuerySourceReaderContext(readerContext, getLimit());
+                new BigQuerySourceReaderContext(
+                        readerContext, getReadOptions().getLimit().orElse(-1));
 
         Supplier<SplitReader<GenericRecord, BigQuerySourceSplit>> splitReaderSupplier =
                 () -> new BigQuerySourceSplitReader(getReadOptions(), bqReaderContext);
@@ -184,7 +181,6 @@ public abstract class BigQuerySource<OUT>
      */
     public static <OUT> Builder<OUT> builder() {
         return new AutoValue_BigQuerySource.Builder<OUT>()
-                .setLimit(-1)
                 .setSourceBoundedness(Boundedness.BOUNDED);
     }
 
@@ -206,9 +202,10 @@ public abstract class BigQuerySource<OUT>
         BigQueryReadOptions readOptions =
                 BigQueryReadOptions.builder()
                         .setQueryAndExecutionProject(query, gcpProject)
+                        .setLimit(limit)
                         .build();
 
-        return readAvrosFromQuery(readOptions, query, limit);
+        return readAvrosFromQuery(readOptions);
     }
 
     /**
@@ -218,30 +215,45 @@ public abstract class BigQuerySource<OUT>
      * project.
      *
      * @param readOptions The BigQuery read options to execute
-     * @param query A BigQuery standard SQL query.
-     * @param limit the max quantity of records to be returned.
      * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
      *     the BigQuery query results.
      * @throws IOException
      */
     @VisibleForTesting
-    static BigQuerySource<GenericRecord> readAvrosFromQuery(
-            BigQueryReadOptions readOptions, String query, Integer limit) throws IOException {
+    static BigQuerySource<GenericRecord> readAvrosFromQuery(BigQueryReadOptions readOptions)
+            throws IOException {
         BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
         TableSchema tableSchema =
-                BigQueryServicesFactory.instance(connectOptions)
-                        .queryClient()
-                        .dryRunQuery(readOptions.getQueryExecutionProject(), readOptions.getQuery())
-                        .getStatistics()
-                        .getQuery()
-                        .getSchema();
+                readOptions
+                        .getQueryExecutionProject()
+                        .map(
+                                gcpProject ->
+                                        readOptions
+                                                .getQuery()
+                                                .map(
+                                                        query ->
+                                                                BigQueryServicesFactory.instance(
+                                                                                connectOptions)
+                                                                        .queryClient()
+                                                                        .dryRunQuery(
+                                                                                gcpProject, query)
+                                                                        .getStatistics()
+                                                                        .getQuery()
+                                                                        .getSchema())
+                                                .orElseThrow(
+                                                        () ->
+                                                                new BigQueryConnectorException(
+                                                                        "Can't read query results without setting a SQL query.")))
+                        .orElseThrow(
+                                () ->
+                                        new BigQueryConnectorException(
+                                                "Can't read query results without setting a GCP project."));
         return BigQuerySource.<GenericRecord>builder()
                 .setDeserializationSchema(
                         new AvroDeserializationSchema(
                                 SchemaTransform.toGenericAvroSchema(
                                                 "queryresultschema", tableSchema.getFields())
                                         .toString()))
-                .setLimit(limit)
                 .setReadOptions(readOptions)
                 .build();
     }
@@ -263,43 +275,6 @@ public abstract class BigQuerySource<OUT>
     }
 
     /**
-     * Creates an instance of the source, limiting the record retrieval to the provided limit and
-     * setting Avro {@link GenericRecord} as the return type for the data (mimicking the table's
-     * schema). In case of projecting the columns of the table a new de-serialization schema should
-     * be provided (considering the new result projected schema).
-     *
-     * @param readOptions The read options for this source
-     * @param limit the max quantity of records to be returned.
-     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
-     *     the underlying table.
-     */
-    public static BigQuerySource<GenericRecord> readAvros(
-            BigQueryReadOptions readOptions, Integer limit) {
-        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
-        TableSchema tableSchema =
-                BigQueryServicesFactory.instance(connectOptions)
-                        .queryClient()
-                        .getTableSchema(
-                                connectOptions.getProjectId(),
-                                connectOptions.getDataset(),
-                                connectOptions.getTable());
-        return BigQuerySource.<GenericRecord>builder()
-                .setDeserializationSchema(
-                        new AvroDeserializationSchema(
-                                SchemaTransform.toGenericAvroSchema(
-                                                String.format(
-                                                        "%s.%s.%s",
-                                                        connectOptions.getProjectId(),
-                                                        connectOptions.getDataset(),
-                                                        connectOptions.getTable()),
-                                                tableSchema.getFields())
-                                        .toString()))
-                .setLimit(limit)
-                .setReadOptions(readOptions)
-                .build();
-    }
-
-    /**
      * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
      * the data (mimicking the table's schema). In case of projecting the columns of the table a new
      * de-serialization schema should be provided (considering the new result projected schema).
@@ -309,26 +284,6 @@ public abstract class BigQuerySource<OUT>
      *     the underlying table.
      */
     public static BigQuerySource<GenericRecord> readAvros(BigQueryReadOptions readOptions) {
-        return readAvros(readOptions, -1);
-    }
-
-    /**
-     * Creates an instance of an unbounded source, which will continuously be scanning for newly
-     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
-     * type for the data (mimicking the table's schema). In case of projecting the columns of the
-     * table a new de-serialization schema should be provided (considering the new result projected
-     * schema). In case of providing a row restriction in the {@link BigQueryReadOptions} it will be
-     * respected, but an explicit condition will be added for every new discovered partition; in
-     * consequence if the row restrictions already has a partition column restriction the results
-     * may not be the expected ones.
-     *
-     * @param readOptions The read options for this source
-     * @param limit the max quantity of records to be returned.
-     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
-     *     the underlying table.
-     */
-    public static BigQuerySource<GenericRecord> streamAvros(
-            BigQueryReadOptions readOptions, Integer limit) {
         BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
         TableSchema tableSchema =
                 BigQueryServicesFactory.instance(connectOptions)
@@ -348,9 +303,7 @@ public abstract class BigQuerySource<OUT>
                                                         connectOptions.getTable()),
                                                 tableSchema.getFields())
                                         .toString()))
-                .setLimit(limit)
                 .setReadOptions(readOptions)
-                .setSourceBoundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                 .build();
     }
 
@@ -369,7 +322,28 @@ public abstract class BigQuerySource<OUT>
      *     the underlying table.
      */
     public static BigQuerySource<GenericRecord> streamAvros(BigQueryReadOptions readOptions) {
-        return streamAvros(readOptions, -1);
+        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
+        TableSchema tableSchema =
+                BigQueryServicesFactory.instance(connectOptions)
+                        .queryClient()
+                        .getTableSchema(
+                                connectOptions.getProjectId(),
+                                connectOptions.getDataset(),
+                                connectOptions.getTable());
+        return BigQuerySource.<GenericRecord>builder()
+                .setDeserializationSchema(
+                        new AvroDeserializationSchema(
+                                SchemaTransform.toGenericAvroSchema(
+                                                String.format(
+                                                        "%s.%s.%s",
+                                                        connectOptions.getProjectId(),
+                                                        connectOptions.getDataset(),
+                                                        connectOptions.getTable()),
+                                                tableSchema.getFields())
+                                        .toString()))
+                .setReadOptions(readOptions)
+                .setSourceBoundedness(Boundedness.CONTINUOUS_UNBOUNDED)
+                .build();
     }
 
     /**
@@ -395,14 +369,6 @@ public abstract class BigQuerySource<OUT>
          * @return the BigQuerySource builder instance.
          */
         public abstract Builder<OUT> setReadOptions(BigQueryReadOptions options);
-
-        /**
-         * Sets the max element count returned by this source.
-         *
-         * @param limit The max element count returned by the source.
-         * @return the BigQuerySource builder instance.
-         */
-        public abstract Builder<OUT> setLimit(Integer limit);
 
         /**
          * Sets how the source will scan and read data from BigQuery, in batch fashion (once from a

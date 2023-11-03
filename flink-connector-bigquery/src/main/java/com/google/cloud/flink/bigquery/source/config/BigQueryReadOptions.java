@@ -22,6 +22,7 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.serializable.SerializableAutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import org.threeten.bp.Instant;
@@ -37,6 +38,7 @@ import java.util.Optional;
 
 /** The options available to read data from BigQuery. */
 @AutoValue
+@SerializableAutoValue
 @PublicEvolving
 public abstract class BigQueryReadOptions implements Serializable {
 
@@ -44,17 +46,15 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract String getRowRestriction();
 
-    @Nullable
-    public abstract Long getSnapshotTimestampInMillis();
+    public abstract Optional<Long> getSnapshotTimestampInMillis();
 
-    @Nullable
-    public abstract String getQuery();
+    public abstract Optional<String> getQuery();
 
-    @Nullable
-    public abstract String getQueryExecutionProject();
+    public abstract Optional<String> getQueryExecutionProject();
 
-    @Nullable
-    public abstract String getOldestPartitionId();
+    public abstract Optional<Integer> getLimit();
+
+    public abstract Optional<String> getOldestPartitionId();
 
     public abstract Integer getPartitionDiscoveryRefreshIntervalInMinutes();
 
@@ -165,7 +165,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param query A BigQuery standard SQL query.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setQuery(String query);
+        public abstract Builder setQuery(@Nullable String query);
 
         /**
          * Sets the GCP project where the configured query will be run. In case the query
@@ -174,7 +174,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param projectId A GCP project.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setQueryExecutionProject(String projectId);
+        public abstract Builder setQueryExecutionProject(@Nullable String projectId);
 
         /**
          * Sets the oldest partition that will be considered for unbounded reads when using
@@ -186,7 +186,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param partitionId The oldest partition to read.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setOldestPartitionId(String partitionId);
+        public abstract Builder setOldestPartitionId(@Nullable String partitionId);
 
         /**
          * Sets the periodicity of the completed partition discovery process.
@@ -196,6 +196,14 @@ public abstract class BigQueryReadOptions implements Serializable {
          */
         public abstract Builder setPartitionDiscoveryRefreshIntervalInMinutes(
                 Integer refreshIntervalInMinutes);
+
+        /**
+         * Sets the max element count that should be read.
+         *
+         * @param limit The max element count returned by the source.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setLimit(@Nullable Integer limit);
 
         /**
          * Sets the restriction the rows in the BigQuery table must comply to be returned by the
@@ -221,7 +229,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param snapshotTs The snapshot's time in milliseconds since epoch.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setSnapshotTimestampInMillis(Long snapshotTs);
+        public abstract Builder setSnapshotTimestampInMillis(@Nullable Long snapshotTs);
 
         /**
          * Sets the maximum number of read streams that BigQuery should create to retrieve data from
@@ -263,19 +271,21 @@ public abstract class BigQueryReadOptions implements Serializable {
                     readOptions.getMaxStreamCount() >= 0,
                     "The max number of streams should be zero or positive.");
             Preconditions.checkState(
-                    !Optional.ofNullable(readOptions.getSnapshotTimestampInMillis())
+                    !readOptions
+                            .getSnapshotTimestampInMillis()
                             // see if the value is lower than the epoch
                             .filter(timeInMillis -> timeInMillis < Instant.EPOCH.toEpochMilli())
                             // if present, then fail
                             .isPresent(),
                     "The oldest timestamp should be equal or bigger than epoch.");
             Preconditions.checkState(
-                    !Optional.ofNullable(readOptions.getQuery())
+                    !readOptions
+                            .getQuery()
                             // if the project was not configured
-                            .filter(q -> readOptions.getQueryExecutionProject() == null)
+                            .filter(unusedQuery -> readOptions.getQueryExecutionProject() == null)
                             // if present fail
                             .isPresent(),
-                    "If a query is configured, then a GCP projec should be provided.");
+                    "If a query is configured, then a GCP project should be provided.");
 
             return readOptions;
         }

@@ -203,8 +203,8 @@ public class BigQueryExample {
                                                 .setTable(tableName)
                                                 .build())
                                 .setRowRestriction(rowRestriction)
-                                .build(),
-                        limit);
+                                .setLimit(limit)
+                                .build());
         runJob(
                 source,
                 source.getProducedType(),
@@ -235,9 +235,9 @@ public class BigQueryExample {
                                                 .setTable(tableName)
                                                 .build())
                                 .setRowRestriction(rowRestriction)
+                                .setLimit(limit)
                                 .setOldestPartitionId(oldestPartition)
-                                .build(),
-                        limit);
+                                .build());
 
         runJob(
                 source,

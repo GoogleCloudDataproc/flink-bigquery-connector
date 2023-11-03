@@ -45,11 +45,11 @@ public class BigQuerySourceTest {
 
     @Test
     public void testReadAvrosFromQuery() throws IOException {
+        // by default the faker includes a dummy query in the read options
         BigQueryReadOptions readOptions =
                 StorageClientFaker.createReadOptions(
                         10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
-        BigQuerySource<GenericRecord> source =
-                BigQuerySource.readAvrosFromQuery(readOptions, "SELECT 1", -1);
+        BigQuerySource<GenericRecord> source = BigQuerySource.readAvrosFromQuery(readOptions);
 
         TypeInformation<GenericRecord> expected =
                 new GenericRecordAvroTypeInfo(

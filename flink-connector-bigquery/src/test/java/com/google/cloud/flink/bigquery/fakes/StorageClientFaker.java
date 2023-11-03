@@ -19,8 +19,6 @@ package com.google.cloud.flink.bigquery.fakes;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.SerializableFunction;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobStatistics;
 import com.google.api.services.bigquery.model.JobStatistics2;
@@ -60,6 +58,9 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -118,7 +119,7 @@ public class StorageClientFaker {
                     String project, String dataset, String table) {
                 DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
-                return Lists.newArrayList(
+                return Arrays.asList(
                         Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
                         Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
                         Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
@@ -327,7 +328,7 @@ public class StorageClientFaker {
     public static final TableSchema SIMPLE_BQ_TABLE_SCHEMA =
             new TableSchema()
                     .setFields(
-                            Lists.newArrayList(
+                            Arrays.asList(
                                     new TableFieldSchema()
                                             .setName("name")
                                             .setType("STRING")
@@ -396,9 +397,24 @@ public class StorageClientFaker {
             double progressAtResponseEnd) {
         // BigQuery delivers the data in 1024 elements chunks, so we partition the generated list
         // into multiple ones with that size max.
-        List<List<GenericRecord>> responsesData = Lists.partition(genericRecords, 1024);
-
-        return responsesData.stream()
+        return IntStream.range(0, genericRecords.size())
+                .collect(
+                        () -> new HashMap<Integer, List<GenericRecord>>(),
+                        (map, idx) ->
+                                map.computeIfAbsent(idx / 1024, key -> new ArrayList<>())
+                                        .add(genericRecords.get(idx)),
+                        (map1, map2) ->
+                                map2.entrySet()
+                                        .forEach(
+                                                entry ->
+                                                        map1.merge(
+                                                                entry.getKey(),
+                                                                entry.getValue(),
+                                                                (list1, list2) -> {
+                                                                    list1.addAll(list2);
+                                                                    return list1;
+                                                                })))
+                .values().stream()
                 // for each data response chunk we generate a read response object
                 .map(
                         genRecords -> {
@@ -420,8 +436,8 @@ public class StorageClientFaker {
                                                 AvroRows.newBuilder()
                                                         .setSerializedBinaryRows(
                                                                 ByteString.copyFrom(
-                                                                        outputStream.toByteArray()))
-                                                        .setRowCount(genRecords.size()))
+                                                                        outputStream
+                                                                                .toByteArray())))
                                         .setAvroSchema(
                                                 AvroSchema.newBuilder()
                                                         .setSchema(schema.toString())
@@ -445,13 +461,30 @@ public class StorageClientFaker {
     }
 
     public static BigQueryReadOptions createReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            Integer readLimit)
+            throws IOException {
+        return createReadOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                params -> StorageClientFaker.createRecordList(params),
+                0D,
+                readLimit);
+    }
+
+    public static BigQueryReadOptions createReadOptions(
             Integer expectedRowCount, Integer expectedReadStreamCount, String avroSchemaString)
             throws IOException {
         return createReadOptions(
                 expectedRowCount,
                 expectedReadStreamCount,
                 avroSchemaString,
-                params -> StorageClientFaker.createRecordList(params));
+                params -> StorageClientFaker.createRecordList(params),
+                0D,
+                -1);
     }
 
     public static BigQueryReadOptions createReadOptions(
@@ -461,7 +494,7 @@ public class StorageClientFaker {
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator)
             throws IOException {
         return createReadOptions(
-                expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D);
+                expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D, -1);
     }
 
     public static BigQueryReadOptions createReadOptions(
@@ -471,8 +504,28 @@ public class StorageClientFaker {
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
             Double errorPercentage)
             throws IOException {
+        return createReadOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                dataGenerator,
+                errorPercentage,
+                -1);
+    }
+
+    public static BigQueryReadOptions createReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            Double errorPercentage,
+            Integer readLimit)
+            throws IOException {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
+                .setLimit(readLimit)
+                .setQuery("SELECT 1")
+                .setQueryExecutionProject("some-gcp-project")
                 .setBigQueryConnectOptions(
                         BigQueryConnectOptions.builder()
                                 .setDataset("dataset")

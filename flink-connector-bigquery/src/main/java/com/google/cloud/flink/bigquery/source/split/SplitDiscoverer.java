@@ -22,6 +22,7 @@ import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.protobuf.Timestamp;
@@ -30,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -59,7 +61,7 @@ public class SplitDiscoverer {
             DataFormat format,
             List<String> columnNames,
             String rowRestriction,
-            Long snapshotTimeInMillis,
+            Optional<Long> snapshotTimeInMillis,
             Integer maxStreamCount) {
         try (BigQueryServices.StorageReadClient client =
                 BigQueryServicesFactory.instance(connectionOptions).storageRead()) {
@@ -90,11 +92,12 @@ public class SplitDiscoverer {
                             .setReadOptions(options);
 
             // Optionally specify the snapshot time.  When unspecified, snapshot time is "now".
-            if (snapshotTimeInMillis != null) {
+            if (snapshotTimeInMillis.isPresent()) {
+                long snapshotTimestampInMs = snapshotTimeInMillis.get();
                 Timestamp t =
                         Timestamp.newBuilder()
-                                .setSeconds(snapshotTimeInMillis / 1000)
-                                .setNanos((int) ((snapshotTimeInMillis % 1000) * 1000000))
+                                .setSeconds(snapshotTimestampInMs / 1000)
+                                .setNanos((int) ((snapshotTimestampInMs % 1000) * 1000000))
                                 .build();
                 ReadSession.TableModifiers modifiers =
                         ReadSession.TableModifiers.newBuilder().setSnapshotTime(t).build();
@@ -131,7 +134,8 @@ public class SplitDiscoverer {
                     .map(stream -> stream.getName())
                     .collect(Collectors.toList());
         } catch (IOException ex) {
-            throw new RuntimeException("Problems creating the BigQuery Storage Read session.", ex);
+            throw new BigQueryConnectorException(
+                    "Problems creating the BigQuery Storage Read session.", ex);
         }
     }
 }

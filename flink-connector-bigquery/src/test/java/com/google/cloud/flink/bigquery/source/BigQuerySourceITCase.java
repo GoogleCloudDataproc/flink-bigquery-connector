@@ -36,12 +36,12 @@ import org.apache.flink.util.CollectionUtil;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataDeserializationSchema;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -64,20 +64,21 @@ public class BigQuerySourceITCase {
 
     @RegisterExtension final SharedObjectsExtension sharedObjects = SharedObjectsExtension.create();
 
-    private BigQueryReadOptions readOptions;
-
-    @BeforeAll
-    public void beforeTest() throws Exception {
-        // init the read options for BQ
-        readOptions =
+    private BigQuerySource.Builder<RowData> defaultSourceBuilder() throws IOException {
+        return defaultSourceBuilder(
                 StorageClientFaker.createReadOptions(
                         TOTAL_ROW_COUNT_PER_STREAM,
                         STREAM_COUNT,
-                        StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
+                        StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING));
     }
 
-    private BigQuerySource.Builder<RowData> defaultSourceBuilder() {
-        return defaultSourceBuilder(readOptions);
+    private BigQuerySource.Builder<RowData> defaultSourceBuilder(int limit) throws IOException {
+        return defaultSourceBuilder(
+                StorageClientFaker.createReadOptions(
+                        TOTAL_ROW_COUNT_PER_STREAM,
+                        STREAM_COUNT,
+                        StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING,
+                        limit));
     }
 
     private BigQuerySource.Builder<RowData> defaultSourceBuilder(BigQueryReadOptions rOptions) {
@@ -121,7 +122,7 @@ public class BigQuerySourceITCase {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         final int limitSize = 10;
-        BigQuerySource<RowData> bqSource = defaultSourceBuilder().setLimit(limitSize).build();
+        BigQuerySource<RowData> bqSource = defaultSourceBuilder(limitSize).build();
 
         List<RowData> results =
                 env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuery-Source")
