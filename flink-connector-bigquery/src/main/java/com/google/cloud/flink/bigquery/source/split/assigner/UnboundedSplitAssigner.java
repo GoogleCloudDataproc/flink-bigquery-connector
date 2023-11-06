@@ -130,7 +130,7 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
 
     @VisibleForTesting
     String shouldAppendRestriction(String existing, String newRestriction) {
-        if (existing.isEmpty() || existing.isBlank()) {
+        if (existing.trim().isEmpty()) {
             return newRestriction;
         }
         return existing + " AND " + newRestriction;
