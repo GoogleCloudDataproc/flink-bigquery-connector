@@ -55,7 +55,7 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
                         connectionOptions,
                         DataFormat.AVRO,
                         this.readOptions.getColumnNames(),
-                        this.readOptions.getRowRestriction(),
+                        this.readOptions.getRowRestriction().orElse(""),
                         this.readOptions.getSnapshotTimestampInMillis(),
                         this.readOptions.getMaxStreamCount()));
     }

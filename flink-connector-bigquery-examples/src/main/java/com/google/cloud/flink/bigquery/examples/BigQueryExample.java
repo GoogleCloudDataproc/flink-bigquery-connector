@@ -29,9 +29,7 @@ import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindo
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
 
-import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
-import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,8 +67,8 @@ public class BigQueryExample {
             LOG.error(
                     "Missing parameters!\n"
                             + "Usage: flink run <additional runtime params> BigQuery.jar"
-                            + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
-                            + " --bq-table <table name>"
+                            + " --gcp-project <gcp-project>"
+                            + " --bq-read-table <fully qualified table name>"
                             + " --agg-prop <payload's property for aggregation purposes>"
                             + " --agg-prop <payload's property for event timestamp extraction>"
                             + " --restriction <single-quoted string with row predicate>"
@@ -92,8 +90,7 @@ public class BigQueryExample {
         if (!query.isEmpty()) {
             runFlinkQueryJob(projectName, query, recordLimit);
         } else {
-            String datasetName = parameterTool.getRequired("bq-dataset");
-            String tableName = parameterTool.getRequired("bq-table");
+            String tableName = parameterTool.getRequired("bq-read-table");
             String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
             String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
             String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -104,19 +101,14 @@ public class BigQueryExample {
             if (streaming) {
                 String oldestPartition = parameterTool.get("oldest-partition-id", "");
                 runStreamingFlinkJob(
-                        projectName,
-                        datasetName,
                         tableName,
                         recordPropertyToAggregate,
                         recordPropertyForTimestamps,
                         rowRestriction,
-                        recordLimit,
                         oldestPartition);
             } else if (hybrid) {
                 String oldestPartition = parameterTool.getRequired("oldest-partition-id");
                 runHybridFlinkJob(
-                        projectName,
-                        datasetName,
                         tableName,
                         recordPropertyToAggregate,
                         recordPropertyForTimestamps,
@@ -124,8 +116,6 @@ public class BigQueryExample {
                         oldestPartition);
             } else {
                 runFlinkJob(
-                        projectName,
-                        datasetName,
                         tableName,
                         recordPropertyToAggregate,
                         recordPropertyForTimestamps,
@@ -184,8 +174,6 @@ public class BigQueryExample {
     }
 
     private static void runFlinkJob(
-            String projectName,
-            String datasetName,
             String tableName,
             String recordPropertyToAggregate,
             String recordPropertyForTimestamps,
@@ -194,17 +182,8 @@ public class BigQueryExample {
             throws Exception {
 
         BigQuerySource<GenericRecord> source =
-                BigQuerySource.readAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestriction)
-                                .setLimit(limit)
-                                .build());
+                BigQuerySource.readAvros(tableName, rowRestriction, limit);
+
         runJob(
                 source,
                 source.getProducedType(),
@@ -215,29 +194,15 @@ public class BigQueryExample {
     }
 
     private static void runStreamingFlinkJob(
-            String projectName,
-            String datasetName,
             String tableName,
             String recordPropertyToAggregate,
             String recordPropertyForTimestamps,
             String rowRestriction,
-            Integer limit,
             String oldestPartition)
             throws Exception {
 
         BigQuerySource<GenericRecord> source =
-                BigQuerySource.streamAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestriction)
-                                .setLimit(limit)
-                                .setOldestPartitionId(oldestPartition)
-                                .build());
+                BigQuerySource.streamAvros(tableName, rowRestriction, oldestPartition);
 
         runJob(
                 source,
@@ -249,8 +214,6 @@ public class BigQueryExample {
     }
 
     private static void runHybridFlinkJob(
-            String projectName,
-            String datasetName,
             String tableName,
             String recordPropertyToAggregate,
             String recordPropertyForTimestamps,
@@ -260,31 +223,12 @@ public class BigQueryExample {
 
         // we will be reading the historical batch data as the restriction shared from command line.
         BigQuerySource<GenericRecord> batchSource =
-                BigQuerySource.readAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestrictionForBatch)
-                                .build());
+                BigQuerySource.readAvros(tableName, rowRestrictionForBatch);
 
         // and then reading the new data from the streaming source, as it gets available from the
         // underlying BigQuery table.
         BigQuerySource<GenericRecord> streamingSource =
-                BigQuerySource.streamAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setOldestPartitionId(oldestPartitionForStreaming)
-                                .setPartitionDiscoveryRefreshIntervalInMinutes(5)
-                                .build());
+                BigQuerySource.streamAvrosSince(tableName, oldestPartitionForStreaming);
 
         // create an hybrid source with both batch and streaming flavors of the BigQuery source.
         HybridSource<GenericRecord> hybridSource =

@@ -31,10 +31,12 @@ import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
+import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryTableNameUtils;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -276,6 +278,71 @@ public abstract class BigQuerySource<OUT>
 
     /**
      * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
+     * the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> readAvros(String tableFullName) {
+        return readAvros(tableFullName, null, -1);
+    }
+
+    /**
+     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
+     * the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @param rowRestriction A row restriction applied to the underlying table
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> readAvros(
+            String tableFullName, String rowRestriction) {
+        return readAvros(tableFullName, rowRestriction, -1);
+    }
+
+    /**
+     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
+     * the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @param limit The maximum quantity of rows to be read
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> readAvros(String tableFullName, Integer limit) {
+        return readAvros(tableFullName, null, limit);
+    }
+
+    /**
+     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
+     * the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @param rowRestriction A row restriction applied to the underlying table
+     * @param limit The maximum quantity of rows to be read
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> readAvros(
+            String tableFullName, String rowRestriction, Integer limit) {
+        TableReference tableRef = BigQueryTableNameUtils.parseTableReference(tableFullName);
+        return streamAvros(
+                BigQueryReadOptions.builder()
+                        .setRowRestriction(rowRestriction)
+                        .setLimit(limit)
+                        .setBigQueryConnectOptions(
+                                BigQueryConnectOptions.builder()
+                                        .setProjectId(tableRef.getProjectId())
+                                        .setDataset(tableRef.getDatasetId())
+                                        .setTable(tableRef.getTableId())
+                                        .build())
+                        .build());
+    }
+
+    /**
+     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
      * the data (mimicking the table's schema). In case of projecting the columns of the table a new
      * de-serialization schema should be provided (considering the new result projected schema).
      *
@@ -305,6 +372,76 @@ public abstract class BigQuerySource<OUT>
                                         .toString()))
                 .setReadOptions(readOptions)
                 .build();
+    }
+
+    /**
+     * Creates an instance of an unbounded source, which will continuously be scanning for newly
+     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
+     * type for the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> streamAvros(String tableFullName) {
+        return streamAvros(tableFullName, null, null);
+    }
+
+    /**
+     * Creates an instance of an unbounded source, which will continuously be scanning for newly
+     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
+     * type for the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @param rowRestriction A row restriction applied to the underlying table
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> streamAvros(
+            String tableFullName, String rowRestriction) {
+        return streamAvros(tableFullName, rowRestriction, null);
+    }
+
+    /**
+     * Creates an instance of an unbounded source, which will continuously be scanning for newly
+     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
+     * type for the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @param oldestPartitionId The oldest partition id to consider to start streaming data
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> streamAvrosSince(
+            String tableFullName, String oldestPartitionId) {
+        return streamAvros(tableFullName, null, oldestPartitionId);
+    }
+
+    /**
+     * Creates an instance of an unbounded source, which will continuously be scanning for newly
+     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
+     * type for the data (mimicking the table's schema).
+     *
+     * @param tableFullName A fully qualified BigQuery table name
+     * @param rowRestriction A row restriction applied to the underlying table
+     * @param oldestPartitionId The oldest partition id to consider to start streaming data
+     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
+     *     the underlying table.
+     */
+    public static BigQuerySource<GenericRecord> streamAvros(
+            String tableFullName, String rowRestriction, String oldestPartitionId) {
+        TableReference tableRef = BigQueryTableNameUtils.parseTableReference(tableFullName);
+        return streamAvros(
+                BigQueryReadOptions.builder()
+                        .setRowRestriction(rowRestriction)
+                        .setOldestPartitionId(oldestPartitionId)
+                        .setBigQueryConnectOptions(
+                                BigQueryConnectOptions.builder()
+                                        .setProjectId(tableRef.getProjectId())
+                                        .setDataset(tableRef.getDatasetId())
+                                        .setTable(tableRef.getTableId())
+                                        .build())
+                        .build());
     }
 
     /**

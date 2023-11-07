@@ -117,7 +117,9 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
                                                     DataFormat.AVRO,
                                                     this.readOptions.getColumnNames(),
                                                     shouldAppendRestriction(
-                                                            this.readOptions.getRowRestriction(),
+                                                            this.readOptions
+                                                                    .getRowRestriction()
+                                                                    .orElse(""),
                                                             restriction),
                                                     this.readOptions.getSnapshotTimestampInMillis(),
                                                     this.readOptions.getMaxStreamCount())
