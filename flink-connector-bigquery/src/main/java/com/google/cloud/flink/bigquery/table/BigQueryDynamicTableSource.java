@@ -235,11 +235,11 @@ public class BigQueryDynamicTableSource
         // lets set the row restriction concating previously set restriction
         // (coming from the table definition) with the partition restriction
         // sent by Flink planner.
-        return currentRestriction
-                + " AND "
-                + remainingPartitions.stream()
+        String partitionRestrictions =
+                remainingPartitions.stream()
                         .flatMap(map -> map.entrySet().stream())
                         .map(entry -> String.format("(%s=%s)", entry.getKey(), entry.getValue()))
                         .collect(Collectors.joining(" OR "));
+        return currentRestriction + " AND (" + partitionRestrictions + ")";
     }
 }
