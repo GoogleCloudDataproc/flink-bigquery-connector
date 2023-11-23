@@ -20,6 +20,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.function.SerializableFunction;
 
 import com.google.api.services.bigquery.model.Job;
+import com.google.api.services.bigquery.model.JobStatistics;
+import com.google.api.services.bigquery.model.JobStatistics2;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
@@ -34,6 +36,7 @@ import com.google.cloud.bigquery.storage.v1.ReadStream;
 import com.google.cloud.bigquery.storage.v1.StreamStats;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -82,13 +85,13 @@ public class StorageClientFaker {
                 @Override
                 public List<String> retrieveTablePartitions(
                         String project, String dataset, String table) {
-                    return Arrays.asList();
+                    return Arrays.asList("2023062811");
                 }
 
                 @Override
                 public Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
                         String project, String dataset, String table) {
-                    return Optional.empty();
+                    return Optional.of(Tuple2.of("number", StandardSQLTypeName.INT64));
                 }
 
                 @Override
@@ -103,7 +106,12 @@ public class StorageClientFaker {
 
                 @Override
                 public Job dryRunQuery(String projectId, String query) {
-                    return null;
+                    return new Job()
+                            .setStatistics(
+                                    new JobStatistics()
+                                            .setQuery(
+                                                    new JobStatistics2()
+                                                            .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
                 }
             };
         }
@@ -181,16 +189,28 @@ public class StorageClientFaker {
         }
     }
 
-    public static final String SIMPLE_AVRO_SCHEMA_STRING =
-            "{\"namespace\": \"example.avro\",\n"
-                    + " \"type\": \"record\",\n"
-                    + " \"name\": \"RowRecord\",\n"
-                    + " \"fields\": [\n"
+    public static final String SIMPLE_AVRO_SCHEMA_FIELDS_STRING =
+            " \"fields\": [\n"
                     + "     {\"name\": \"name\", \"type\": \"string\"},\n"
                     + "     {\"name\": \"number\", \"type\": \"long\"}\n"
-                    + " ]\n"
+                    + " ]\n";
+    public static final String SIMPLE_AVRO_SCHEMA_STRING =
+            "{\"namespace\": \"project.dataset\",\n"
+                    + " \"type\": \"record\",\n"
+                    + " \"name\": \"table\",\n"
+                    + " \"doc\": \"Translated Avro Schema for project.dataset.table\",\n"
+                    + SIMPLE_AVRO_SCHEMA_FIELDS_STRING
                     + "}";
-
+    public static final String SIMPLE_AVRO_SCHEMA_FORQUERY_STRING =
+            "{\"namespace\": \"project.dataset\",\n"
+                    + " \"type\": \"record\",\n"
+                    + " \"name\": \"queryresultschema\",\n"
+                    + " \"namespace\": \""
+                    + SchemaTransform.DEFAULT_NAMESPACE
+                    + "\",\n"
+                    + " \"doc\": \"Translated Avro Schema for queryresultschema\",\n"
+                    + SIMPLE_AVRO_SCHEMA_FIELDS_STRING
+                    + "}";
     public static final Schema SIMPLE_AVRO_SCHEMA =
             new Schema.Parser().parse(SIMPLE_AVRO_SCHEMA_STRING);
 
@@ -266,7 +286,7 @@ public class StorageClientFaker {
                 .collect(
                         () -> new HashMap<Integer, List<GenericRecord>>(),
                         (map, idx) ->
-                                map.computeIfAbsent(idx, key -> new ArrayList<>())
+                                map.computeIfAbsent(idx / 1024, key -> new ArrayList<>())
                                         .add(genericRecords.get(idx)),
                         (map1, map2) ->
                                 map2.entrySet()
@@ -301,8 +321,8 @@ public class StorageClientFaker {
                                                 AvroRows.newBuilder()
                                                         .setSerializedBinaryRows(
                                                                 ByteString.copyFrom(
-                                                                        outputStream.toByteArray()))
-                                                        .setRowCount(genRecords.size()))
+                                                                        outputStream
+                                                                                .toByteArray())))
                                         .setAvroSchema(
                                                 AvroSchema.newBuilder()
                                                         .setSchema(schema.toString())
