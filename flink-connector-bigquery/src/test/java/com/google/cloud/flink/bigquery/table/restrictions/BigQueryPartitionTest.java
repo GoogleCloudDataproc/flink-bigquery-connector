@@ -18,11 +18,15 @@ package com.google.cloud.flink.bigquery.table.restrictions;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
+import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 /** */
 public class BigQueryPartitionTest {
@@ -175,42 +179,166 @@ public class BigQueryPartitionTest {
     }
 
     @Test
-    public void testPartitionValueInteger() {
+    public void testRetrievePartitionColumnType() {
+        List<TableFieldSchema> schemaFields =
+                Lists.newArrayList(
+                        new TableFieldSchema().setName("age").setType("INT64").setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("name")
+                                .setType("STRING")
+                                .setMode("NULLABLE"),
+                        new TableFieldSchema()
+                                .setName("nestedRecord")
+                                .setType("RECORD")
+                                .setFields(
+                                        Lists.newArrayList(
+                                                new TableFieldSchema()
+                                                        .setName("flag")
+                                                        .setType("BOOL")
+                                                        .setMode("NULLABLE"))));
+        TableSchema tableSchema = new TableSchema();
+        tableSchema.setFields(schemaFields);
+
+        Assertions.assertThat(BigQueryPartition.retrievePartitionColumnType(tableSchema, "age"))
+                .isEqualTo(StandardSQLTypeName.INT64);
+        Assertions.assertThat(BigQueryPartition.retrievePartitionColumnType(tableSchema, "name"))
+                .isEqualTo(StandardSQLTypeName.STRING);
         Assertions.assertThat(
-                        BigQueryPartition.partitionValueToValueGivenType(
-                                "2023", StandardSQLTypeName.INT64))
-                .isEqualTo("2023");
+                        BigQueryPartition.retrievePartitionColumnType(tableSchema, "nestedRecord"))
+                .isEqualTo(StandardSQLTypeName.STRUCT);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testRetrieveTypeOfNonExistentColumn() {
+        List<TableFieldSchema> schemaFields =
+                Lists.newArrayList(
+                        new TableFieldSchema()
+                                .setName("age")
+                                .setType("INTEGER")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("name")
+                                .setType("STRING")
+                                .setMode("NULLABLE"));
+        TableSchema tableSchema = new TableSchema();
+        tableSchema.setFields(schemaFields);
+
+        BigQueryPartition.retrievePartitionColumnType(tableSchema, "address");
     }
 
     @Test
-    public void testPartitionValueDate() {
+    public void testIntPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "age",
+                        BigQueryPartition.PartitionType.INT_RANGE,
+                        StandardSQLTypeName.INT64);
         Assertions.assertThat(
-                        BigQueryPartition.partitionValueToValueGivenType(
-                                "2023", StandardSQLTypeName.DATE))
-                .isEqualTo("'2023'");
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "age", "18"))
+                .isEqualTo("age = 18");
     }
 
     @Test
-    public void testPartitionValueDateTime() {
+    public void testTimestampFormatHourPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event",
+                        BigQueryPartition.PartitionType.HOUR,
+                        StandardSQLTypeName.TIMESTAMP);
         Assertions.assertThat(
-                        BigQueryPartition.partitionValueToValueGivenType(
-                                "2023", StandardSQLTypeName.DATETIME))
-                .isEqualTo("'2023'");
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "event", "2010-10-10 10:10:10"))
+                .isEqualTo("event BETWEEN '2010-10-10 10:00:00' AND '2010-10-10 11:00:00'");
     }
 
     @Test
-    public void testPartitionValueTimestamp() {
+    public void testTimestampFormatDayPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event",
+                        BigQueryPartition.PartitionType.DAY,
+                        StandardSQLTypeName.TIMESTAMP);
         Assertions.assertThat(
-                        BigQueryPartition.partitionValueToValueGivenType(
-                                "2023", StandardSQLTypeName.TIMESTAMP))
-                .isEqualTo("'2023'");
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "event", "2010-10-10 10:10:10"))
+                .isEqualTo("event BETWEEN '2010-10-10' AND '2010-10-11'");
+    }
+
+    @Test
+    public void testDateTimeFormatMonthPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event",
+                        BigQueryPartition.PartitionType.MONTH,
+                        StandardSQLTypeName.DATETIME);
+        Assertions.assertThat(
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "event", "2010-10-10 10:10:10"))
+                .isEqualTo("event BETWEEN '2010-10' AND '2010-11'");
+    }
+
+    @Test
+    public void testDateTimeFormatYearPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event",
+                        BigQueryPartition.PartitionType.YEAR,
+                        StandardSQLTypeName.DATETIME);
+        Assertions.assertThat(
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "event", "2010-10-10 10:10:10"))
+                .isEqualTo("event BETWEEN '2010' AND '2011'");
+    }
+
+    @Test
+    public void testDateFormatDayPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event", BigQueryPartition.PartitionType.DAY, StandardSQLTypeName.DATE);
+        Assertions.assertThat(
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "event", "2010-10-10"))
+                .isEqualTo("event BETWEEN '2010-10-10' AND '2010-10-11'");
+    }
+
+    @Test
+    public void testDateFormatMonthPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event", BigQueryPartition.PartitionType.MONTH, StandardSQLTypeName.DATE);
+        Assertions.assertThat(
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "event", "2010-10-10"))
+                .isEqualTo("event BETWEEN '2010-10' AND '2010-11'");
+    }
+
+    @Test
+    public void testDateFormatYearPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event", BigQueryPartition.PartitionType.YEAR, StandardSQLTypeName.DATE);
+        Assertions.assertThat(
+                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                                Optional.of(info), "event", "2010-10-10"))
+                .isEqualTo("event BETWEEN '2010' AND '2011'");
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void testPartitionValueFailsWithOtherType() {
-        Assertions.assertThat(
-                        BigQueryPartition.partitionValueToValueGivenType(
-                                "2023", StandardSQLTypeName.NUMERIC))
-                .isEqualTo("'2023'");
+    public void testDateFormatHourPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event", BigQueryPartition.PartitionType.HOUR, StandardSQLTypeName.DATE);
+        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                Optional.of(info), "event", "2010-10-10");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testStringColumnPartitionRestriction() {
+        TablePartitionInfo info =
+                new TablePartitionInfo(
+                        "event", BigQueryPartition.PartitionType.HOUR, StandardSQLTypeName.STRING);
+        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                Optional.of(info), "event", "2010-10-10");
     }
 }
