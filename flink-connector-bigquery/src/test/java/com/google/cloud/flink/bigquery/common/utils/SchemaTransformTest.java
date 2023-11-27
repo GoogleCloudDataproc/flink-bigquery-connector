@@ -28,7 +28,9 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.junit.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -228,5 +230,28 @@ public class SchemaTransformTest {
         TableSchema transformed = SchemaTransform.bigQuerySchemaToTableSchema(schema);
 
         assertThat(transformed).isEqualTo(expected);
+    }
+
+    @Test
+    public void testBQTableFieldSchemaTypeToSQLType() {
+        Map<String, StandardSQLTypeName> expectedMapping =
+                new LinkedHashMap() {
+                    {
+                        put("INTEGER", StandardSQLTypeName.INT64);
+                        put("INT64", StandardSQLTypeName.INT64);
+                        put("STRING", StandardSQLTypeName.STRING);
+                        put("FLOAT", StandardSQLTypeName.FLOAT64);
+                        put("BIGNUMERIC", StandardSQLTypeName.BIGNUMERIC);
+                        put("BOOLEAN", StandardSQLTypeName.BOOL);
+                        put("BYTES", StandardSQLTypeName.BYTES);
+                        put("DATE", StandardSQLTypeName.DATE);
+                        put("RECORD", StandardSQLTypeName.STRUCT);
+                    }
+                };
+
+        for (Map.Entry<String, StandardSQLTypeName> entry : expectedMapping.entrySet()) {
+            assertThat(SchemaTransform.bigQueryTableFieldSchemaTypeToSQLType(entry.getKey()))
+                    .isEqualTo(entry.getValue());
+        }
     }
 }
