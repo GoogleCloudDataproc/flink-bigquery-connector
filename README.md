@@ -22,7 +22,7 @@ Prerequisites:
 
 ```
 git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
-cd flink-connector-bigquery
+cd flink-bigquery-connector
 mvn clean package -DskipTests
 ```
 
