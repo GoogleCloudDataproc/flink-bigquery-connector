@@ -46,7 +46,8 @@ import org.slf4j.LoggerFactory;
  * --bq-table {required; name of BigQuery table to read} <br>
  * --agg-prop {required; record property to aggregate in Flink job} <br>
  * --restriction {optional; SQL-like filter applied at the BigQuery table before reading} <br>
- * --limit {optional; maximum records to read from BigQuery table}
+ * --limit {optional; maximum records to read from BigQuery table} <br>
+ * --checkpoint-interval {optional; time interval between state checkpoints in milliseconds}
  *
  * <p>Note on row restriction: In case a restriction relies on temporal reference, something like
  * {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'"}, and if launching
@@ -66,10 +67,13 @@ public class BigQueryExample {
             LOG.error(
                     "Missing parameters!\n"
                             + "Usage: flink run <additional runtime params> BigQuery.jar"
-                            + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
-                            + " --bq-table <table name> --agg-prop <record property>"
-                            + " --restriction <optional: row filter predicate>"
-                            + " --limit <optional: limit records returned>");
+                            + " --gcp-project <gcp-project>"
+                            + " --bq-dataset <dataset name>"
+                            + " --bq-table <table name>"
+                            + " --agg-prop <record property>"
+                            + " --restriction <row filter predicate>"
+                            + " --limit <limit records returned>"
+                            + " --checkpoint-interval <milliseconds between state checkpoints>");
             return;
         }
 
@@ -79,6 +83,7 @@ public class BigQueryExample {
         String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
         Integer recordLimit = parameterTool.getInt("limit", -1);
         String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
+        Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 60000L);
 
         runFlinkJob(
                 projectName,
@@ -86,7 +91,8 @@ public class BigQueryExample {
                 tableName,
                 recordPropertyToAggregate,
                 rowRestriction,
-                recordLimit);
+                recordLimit,
+                checkpointInterval);
     }
 
     private static void runFlinkJob(
@@ -95,11 +101,12 @@ public class BigQueryExample {
             String tableName,
             String recordPropertyToAggregate,
             String rowRestriction,
-            Integer limit)
+            Integer limit,
+            Long checkpointInterval)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(60000L);
+        env.enableCheckpointing(checkpointInterval);
 
         /**
          * we will be reading avro generic records from BigQuery, and in this case we are assuming
