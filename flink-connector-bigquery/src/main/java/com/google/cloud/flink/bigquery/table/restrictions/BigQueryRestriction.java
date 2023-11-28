@@ -254,19 +254,21 @@ public class BigQueryRestriction {
         Expression left = args.get(0);
         Expression right = args.get(1);
 
+        Optional<Object> leftOption = Optional.empty();
+        Optional<Object> rightOption = Optional.empty();
         if (left instanceof FieldReferenceExpression && right instanceof ValueLiteralExpression) {
-            String name = ((FieldReferenceExpression) left).getName();
-            Optional<Object> lit = convertLiteral((ValueLiteralExpression) right);
-            if (lit.isPresent()) {
-                return Optional.of(String.format("(%s %s %s)", name, operationSymbol, lit.get()));
-            }
+            leftOption = Optional.of(((FieldReferenceExpression) left).getName());
+            rightOption = convertLiteral((ValueLiteralExpression) right);
         } else if (left instanceof ValueLiteralExpression
                 && right instanceof FieldReferenceExpression) {
-            Optional<Object> lit = convertLiteral((ValueLiteralExpression) left);
-            String name = ((FieldReferenceExpression) right).getName();
-            if (lit.isPresent()) {
-                return Optional.of(String.format("(%s %s %s)", lit.get(), operationSymbol, name));
-            }
+            leftOption = convertLiteral((ValueLiteralExpression) left);
+            rightOption = Optional.of(((FieldReferenceExpression) right).getName());
+        }
+
+        if (leftOption.isPresent() && rightOption.isPresent()) {
+            return Optional.of(
+                    String.format(
+                            "(%s %s %s)", leftOption.get(), operationSymbol, rightOption.get()));
         }
 
         return Optional.empty();
