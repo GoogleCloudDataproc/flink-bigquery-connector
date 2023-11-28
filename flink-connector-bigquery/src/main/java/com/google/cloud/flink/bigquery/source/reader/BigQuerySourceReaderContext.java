@@ -88,8 +88,4 @@ public class BigQuerySourceReaderContext implements SourceReaderContext {
     public boolean willExceedLimit(int newReads) {
         return limit > 0 && (readCount.get() + newReads) >= limit;
     }
-
-    public int getLimit() {
-        return limit;
-    }
 }

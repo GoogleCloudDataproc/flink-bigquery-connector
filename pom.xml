@@ -417,12 +417,13 @@ under the License.
                         <configuration>
                             <!-- Use custom report descriptor -->
                             <reportDescriptor>${maven.multiModuleProjectDirectory}/tools/maven/clover.xml</reportDescriptor>
-                            <targetPercentage>55%</targetPercentage>
+                            <targetPercentage>60%</targetPercentage>
                             <excludes> 
                                 <exclude>**/com/google/cloud/flink/bigquery/common/config/*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/utils/GoogleCredentialsSupplier.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/services/**Impl.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/source/config/*</exclude>
+                                <exclude>**/com/google/cloud/flink/bigquery/table/config/BigQueryConnectorOptions.*</exclude>
                             </excludes>
                         </configuration>
                     </plugin>

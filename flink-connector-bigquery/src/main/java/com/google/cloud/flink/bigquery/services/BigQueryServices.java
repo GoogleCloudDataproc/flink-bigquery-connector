@@ -17,11 +17,9 @@
 package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.java.tuple.Tuple2;
 
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableSchema;
-import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -116,14 +114,14 @@ public interface BigQueryServices extends Serializable {
         List<String> retrieveTablePartitions(String project, String dataset, String table);
 
         /**
-         * Returns, in case of having one, the partition column name of the table and its type.
+         * Returns, in case of having one, the partition column information for the table.
          *
          * @param project The GCP project.
          * @param dataset The BigQuery dataset.
          * @param table The BigQuery table.
-         * @return The partition column name and its type, if it has one.
+         * @return The information of the table's partition.
          */
-        Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
+        Optional<TablePartitionInfo> retrievePartitionColumnInfo(
                 String project, String dataset, String table);
 
         /**

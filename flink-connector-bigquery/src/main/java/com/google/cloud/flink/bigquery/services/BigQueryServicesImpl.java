@@ -18,7 +18,6 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.java.tuple.Tuple2;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.rpc.FixedHeaderProvider;
@@ -30,6 +29,7 @@ import com.google.api.services.bigquery.model.Dataset;
 import com.google.api.services.bigquery.model.ErrorProto;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
+import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQuery;
@@ -48,6 +48,7 @@ import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import org.threeten.bp.Duration;
 
 import java.io.IOException;
@@ -213,43 +214,38 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
 
         @Override
-        public Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
+        public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
                 String project, String dataset, String table) {
             try {
-                String query =
-                        Arrays.asList(
-                                        "SELECT",
-                                        "  column_name, data_type",
-                                        "FROM",
-                                        String.format(
-                                                "  `%s.%s.INFORMATION_SCHEMA.COLUMNS`",
-                                                project, dataset),
-                                        "WHERE",
-                                        String.format(" table_catalog = '%s'", project),
-                                        String.format(" AND table_schema = '%s'", dataset),
-                                        String.format(" AND table_name = '%s'", table),
-                                        " AND is_partitioning_column = 'YES';")
-                                .stream()
-                                .collect(Collectors.joining("\n"));
+                // TODO: tableInfo API may not convey if it's a BigQuery native table or a Biglake
+                // external table. Presently, the connector is expected to be used with native BQ
+                // tables only. However, in case external tables need to be supported in future,
+                // then consider using the com.google.cloud.bigquery.BigQuery.getTable API.
+                Table tableInfo = BigQueryUtils.tableInfo(bigquery, project, dataset, table);
 
-                QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query).build();
-
-                // TODO: change this method to use getTable method, see comment:
-                // https://github.com/GoogleCloudDataproc/flink-bigquery-connector/pull/46#discussion_r1371229725
-                TableResult results = bigQuery.query(queryConfig);
-
-                return StreamSupport.stream(results.iterateAll().spliterator(), false)
+                if (tableInfo.getRangePartitioning() == null
+                        && tableInfo.getTimePartitioning() == null) {
+                    return Optional.empty();
+                }
+                return Optional.ofNullable(tableInfo.getTimePartitioning())
                         .map(
-                                row ->
-                                        row.stream()
-                                                .map(fValue -> fValue.getStringValue())
-                                                .collect(Collectors.toList()))
-                        .map(list -> new Tuple2<String, String>(list.get(0), list.get(1)))
-                        .map(
-                                t ->
-                                        new Tuple2<String, StandardSQLTypeName>(
-                                                t.f0, StandardSQLTypeName.valueOf(t.f1)))
-                        .findFirst();
+                                tp ->
+                                        Optional.of(
+                                                new TablePartitionInfo(
+                                                        tp.getField(),
+                                                        BigQueryPartition.PartitionType.valueOf(
+                                                                tp.getType()),
+                                                        BigQueryPartition
+                                                                .retrievePartitionColumnType(
+                                                                        tableInfo.getSchema(),
+                                                                        tp.getField()))))
+                        .orElseGet(
+                                () ->
+                                        Optional.of(
+                                                new TablePartitionInfo(
+                                                        tableInfo.getRangePartitioning().getField(),
+                                                        BigQueryPartition.PartitionType.INT_RANGE,
+                                                        StandardSQLTypeName.INT64)));
             } catch (Exception ex) {
                 throw new RuntimeException(
                         String.format(

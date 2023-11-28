@@ -16,7 +16,6 @@
 
 package com.google.cloud.flink.bigquery.fakes;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.function.SerializableFunction;
 
 import com.google.api.services.bigquery.model.Job;
@@ -39,7 +38,9 @@ import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import com.google.protobuf.ByteString;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -51,7 +52,8 @@ import org.apache.avro.util.RandomData;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,14 +90,23 @@ public class StorageClientFaker {
                 @Override
                 public List<String> retrieveTablePartitions(
                         String project, String dataset, String table) {
+                    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
+
                     return Arrays.asList(
-                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHH")));
+                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
+                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
+                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
+                            Instant.now().atOffset(ZoneOffset.UTC).format(dtf));
                 }
 
                 @Override
-                public Optional<Tuple2<String, StandardSQLTypeName>> retrievePartitionColumnName(
+                public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
                         String project, String dataset, String table) {
-                    return Optional.of(Tuple2.of("ts", StandardSQLTypeName.TIMESTAMP));
+                    return Optional.of(
+                            new TablePartitionInfo(
+                                    "ts",
+                                    BigQueryPartition.PartitionType.HOUR,
+                                    StandardSQLTypeName.TIMESTAMP));
                 }
 
                 @Override

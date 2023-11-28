@@ -19,12 +19,20 @@ package com.google.cloud.flink.bigquery.table.restrictions;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;
 
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
+import org.apache.commons.lang3.StringUtils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /** Utility class to handle the BigQuery partition conversions to Flink types and structures. */
@@ -32,6 +40,34 @@ import java.util.stream.Collectors;
 public class BigQueryPartition {
 
     private BigQueryPartition() {}
+
+    /** Represents the partition types the BigQuery can use in partitioned tables. */
+    public enum PartitionType {
+        HOUR,
+        DAY,
+        MONTH,
+        YEAR,
+        INT_RANGE
+    }
+
+    public static StandardSQLTypeName retrievePartitionColumnType(
+            TableSchema schema, String partitionColumn) {
+        return SchemaTransform.bigQueryTableFieldSchemaTypeToSQLType(
+                schema.getFields().stream()
+                        .filter(tfs -> tfs.getName().equals(partitionColumn))
+                        .map(tfs -> tfs.getType())
+                        .findAny()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                String.format(
+                                                        "The retrieved partition column"
+                                                                + " provided %s does not"
+                                                                + " correlate with a first"
+                                                                + " level column in the schema"
+                                                                + " %s.",
+                                                        partitionColumn, schema.toString()))));
+    }
 
     static List<String> partitionIdToDateFormat(
             List<String> partitions, String fromFormat, String toFormat) {
@@ -49,8 +85,153 @@ public class BigQueryPartition {
                             }
                         })
                 .map(date -> printFormat.format(date))
-                .map(strDate -> String.format("'%s'", strDate))
                 .collect(Collectors.toList());
+    }
+
+    static String dateRestrictionFromPartitionType(
+            PartitionType partitionType, String columnName, String valueFromSQL) {
+        LocalDate parsedDate =
+                LocalDate.parse(valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        String temporalFormat = "%s BETWEEN '%s' AND '%s'";
+        switch (partitionType) {
+            case DAY:
+                {
+                    // extract a date from the value and restrict
+                    // between previous and next day
+                    DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                    return String.format(
+                            temporalFormat,
+                            columnName,
+                            parsedDate.format(dayFormatter),
+                            parsedDate.plusDays(1).format(dayFormatter));
+                }
+            case MONTH:
+                {
+                    // extract a date from the value and restrict
+                    // between previous and next month
+                    DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+                    return String.format(
+                            temporalFormat,
+                            columnName,
+                            parsedDate.format(monthFormatter),
+                            parsedDate.plusMonths(1).format(monthFormatter));
+                }
+            case YEAR:
+                {
+                    // extract a date from the value and restrict
+                    // between previous and next year
+                    DateTimeFormatter yearFormatter = DateTimeFormatter.ofPattern("yyyy");
+                    return String.format(
+                            temporalFormat,
+                            columnName,
+                            parsedDate.format(yearFormatter),
+                            parsedDate.plusYears(1).format(yearFormatter));
+                }
+            default:
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The provided partition type %s is not supported as a"
+                                        + " temporal based partition for the column %s.",
+                                partitionType, columnName));
+        }
+    }
+
+    static String timestampRestrictionFromPartitionType(
+            PartitionType partitionType, String columnName, String valueFromSQL) {
+        LocalDateTime parsedDateTime =
+                LocalDateTime.parse(
+                        valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        String temporalFormat = "%s BETWEEN '%s' AND '%s'";
+        switch (partitionType) {
+            case HOUR:
+                {
+                    // extract a datetime from the value and restrict
+                    // between previous and next hour
+                    DateTimeFormatter hourFormatter =
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00:00");
+                    return String.format(
+                            temporalFormat,
+                            columnName,
+                            parsedDateTime.format(hourFormatter),
+                            parsedDateTime.plusHours(1).format(hourFormatter));
+                }
+            case DAY:
+                {
+                    // extract a date from the value and restrict
+                    // between previous and next day
+                    DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                    return String.format(
+                            temporalFormat,
+                            columnName,
+                            parsedDateTime.format(dayFormatter),
+                            parsedDateTime.plusDays(1).format(dayFormatter));
+                }
+            case MONTH:
+                {
+                    // extract a date from the value and restrict
+                    // between previous and next month
+                    DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+                    return String.format(
+                            temporalFormat,
+                            columnName,
+                            parsedDateTime.format(monthFormatter),
+                            parsedDateTime.plusMonths(1).format(monthFormatter));
+                }
+            case YEAR:
+                {
+                    // extract a date from the value and restrict
+                    // between previous and next year
+                    DateTimeFormatter yearFormatter = DateTimeFormatter.ofPattern("yyyy");
+                    return String.format(
+                            temporalFormat,
+                            columnName,
+                            parsedDateTime.format(yearFormatter),
+                            parsedDateTime.plusYears(1).format(yearFormatter));
+                }
+            default:
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The provided partition type %s is not supported as a"
+                                        + " temporal based partition for the column %s.",
+                                partitionType, columnName));
+        }
+    }
+
+    public static String formatPartitionRestrictionBasedOnInfo(
+            Optional<TablePartitionInfo> tablePartitionInfo,
+            String columnNameFromSQL,
+            String valueFromSQL) {
+        return tablePartitionInfo
+                .map(
+                        info -> {
+                            switch (info.getColumnType()) {
+                                    // integer range partition
+                                case INT64:
+                                    return String.format(
+                                            "%s = %s", info.getColumnName(), valueFromSQL);
+                                    // date based partitioning (hour, date, month, year)
+                                case DATE:
+                                    return dateRestrictionFromPartitionType(
+                                            info.getPartitionType(),
+                                            columnNameFromSQL,
+                                            valueFromSQL);
+                                    // date based partitioning (hour, date, month, year)
+                                case DATETIME:
+                                case TIMESTAMP:
+                                    return timestampRestrictionFromPartitionType(
+                                            info.getPartitionType(),
+                                            columnNameFromSQL,
+                                            valueFromSQL);
+                                    // non supported data types for partitions
+                                default:
+                                    throw new IllegalArgumentException(
+                                            String.format(
+                                                    "The provided SQL type name (%s) is not supported"
+                                                            + " as a partition column in BigQuery.",
+                                                    info.getColumnType()));
+                            }
+                        })
+                .orElse(String.format("%s = %s", columnNameFromSQL, valueFromSQL));
     }
 
     public static List<String> partitionValuesFromIdAndDataType(
@@ -69,16 +250,17 @@ public class BigQueryPartition {
                 // lets first check that all the partition ids have the same length
                 String firstId = partitionIds.get(0);
                 Preconditions.checkState(
-                        partitionIds.stream().allMatch(pid -> pid.length() == firstId.length()),
+                        partitionIds.stream()
+                                .allMatch(
+                                        pid ->
+                                                (pid.length() == firstId.length())
+                                                        && StringUtils.isNumeric(pid)),
                         "Some elements in the partition id list have a different length: "
                                 + partitionIds.toString());
                 switch (firstId.length()) {
                     case 4:
                         // we have yearly partitions
-                        partitionValues.addAll(
-                                partitionIds.stream()
-                                        .map(id -> String.format("'%s'", id))
-                                        .collect(Collectors.toList()));
+                        partitionValues.addAll(partitionIds);
                         break;
                     case 6:
                         // we have monthly partitions

@@ -92,6 +92,7 @@ public class BigQueryDynamicTableFactoryTest {
                 new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType());
 
         assertThat(actual).isEqualTo(expected);
+        assertThat(actual.hashCode()).isEqualTo(expected.hashCode());
     }
 
     @Test

@@ -31,6 +31,7 @@ import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfiguration;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.JobReference;
+import com.google.api.services.bigquery.model.Table;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import dev.failsafe.Failsafe;
@@ -163,5 +164,18 @@ public class BigQueryUtils {
                 buildRetriableExecutorForOperation(
                         String.format("GetDataset - %s.%s", projectId, datasetId)),
                 () -> client.datasets().get(projectId, datasetId).setPrettyPrint(false).execute());
+    }
+
+    public static Table tableInfo(
+            Bigquery client, String projectId, String datasetId, String tableId)
+            throws IOException, InterruptedException {
+        return executeOperation(
+                buildRetriableExecutorForOperation(
+                        String.format("GetTable - %s.%s.%s", projectId, datasetId, tableId)),
+                () ->
+                        client.tables()
+                                .get(projectId, datasetId, tableId)
+                                .setPrettyPrint(false)
+                                .execute());
     }
 }
