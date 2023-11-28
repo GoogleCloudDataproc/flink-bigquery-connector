@@ -53,6 +53,7 @@ public class BigQuerySourceITCase {
 
     private static final int PARALLELISM = 2;
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;
+    private static final Integer STREAM_COUNT = 2;
 
     @RegisterExtension
     static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
@@ -71,7 +72,7 @@ public class BigQuerySourceITCase {
         readOptions =
                 StorageClientFaker.createReadOptions(
                         TOTAL_ROW_COUNT_PER_STREAM,
-                        2,
+                        STREAM_COUNT,
                         StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
     }
 
@@ -108,7 +109,7 @@ public class BigQuerySourceITCase {
                                 .executeAndCollect());
 
         // we only create 2 streams as response
-        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * PARALLELISM);
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
     }
 
     @Test
@@ -121,12 +122,12 @@ public class BigQuerySourceITCase {
         List<RowData> results =
                 env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuery-Source")
                         .executeAndCollect(TOTAL_ROW_COUNT_PER_STREAM);
-
+        // need to check on parallelism since the limit is triggered per task + reader contexts = 2
         assertThat(results).hasSize(limitSize * PARALLELISM);
     }
 
     @Test
-    public void testRecovery() throws Exception {
+    public void testDownstreamRecovery() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(300L);
 
@@ -142,7 +143,46 @@ public class BigQuerySourceITCase {
                                 .map(new FailingMapper(failed))
                                 .executeAndCollect());
 
-        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * PARALLELISM);
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
+    }
+
+    @Test
+    public void testReaderRecovery() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(300L);
+
+        ResolvedSchema schema =
+                ResolvedSchema.of(
+                        Column.physical("name", DataTypes.STRING()),
+                        Column.physical("number", DataTypes.BIGINT()));
+        RowType rowType = (RowType) schema.toPhysicalRowDataType().getLogicalType();
+
+        TypeInformation<RowData> typeInfo = InternalTypeInfo.of(rowType);
+
+        BigQuerySource<RowData> bqSource =
+                BigQuerySource.<RowData>builder()
+                        .setReadOptions(
+                                StorageClientFaker.createReadOptions(
+                                        // just put more rows JIC
+                                        TOTAL_ROW_COUNT_PER_STREAM,
+                                        STREAM_COUNT,
+                                        StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING,
+                                        params -> StorageClientFaker.createRecordList(params),
+                                        // we want this to fail 10% of the time (1 in 10 times)
+                                        10D))
+                        .setDeserializationSchema(
+                                new AvroToRowDataDeserializationSchema(rowType, typeInfo))
+                        .build();
+
+        List<RowData> results =
+                CollectionUtil.iteratorToList(
+                        env.fromSource(
+                                        bqSource,
+                                        WatermarkStrategy.noWatermarks(),
+                                        "BigQuery-Source")
+                                .executeAndCollect());
+
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
     }
 
     private static class FailingMapper
