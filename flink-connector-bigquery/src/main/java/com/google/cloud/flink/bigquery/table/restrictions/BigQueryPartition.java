@@ -21,14 +21,14 @@ import org.apache.flink.util.Preconditions;
 
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import org.apache.commons.lang3.StringUtils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +52,7 @@ public class BigQueryPartition {
 
     public static StandardSQLTypeName retrievePartitionColumnType(
             TableSchema schema, String partitionColumn) {
-        return StandardSQLTypeName.valueOf(
+        return SchemaTransform.bigQueryTableFieldSchemaTypeToSQLType(
                 schema.getFields().stream()
                         .filter(tfs -> tfs.getName().equals(partitionColumn))
                         .map(tfs -> tfs.getType())
@@ -88,33 +88,10 @@ public class BigQueryPartition {
                 .collect(Collectors.toList());
     }
 
-    public static String partitionValueToValueGivenType(
-            String partitionValue, StandardSQLTypeName dataType) {
-
-        switch (dataType) {
-                // integer range partition
-            case INT64:
-                return partitionValue;
-                // time based partitioning (hour, date, month, year)
-            case DATE:
-            case DATETIME:
-            case TIMESTAMP:
-                return String.format("'%s'", partitionValue);
-                // non supported data types for partitions
-            default:
-                throw new IllegalArgumentException(
-                        String.format(
-                                "The provided SQL type name (%s) is not supported"
-                                        + " as a partition column.",
-                                dataType.name()));
-        }
-    }
-
     static String dateRestrictionFromPartitionType(
             PartitionType partitionType, String columnName, String valueFromSQL) {
-        ZonedDateTime parsedDateTime =
-                LocalDateTime.parse(valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        .atZone(ZoneId.of("UTC"));
+        LocalDate parsedDate =
+                LocalDate.parse(valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
         switch (partitionType) {
             case DAY:
@@ -125,8 +102,8 @@ public class BigQueryPartition {
                     return String.format(
                             temporalFormat,
                             columnName,
-                            parsedDateTime.format(dayFormatter),
-                            parsedDateTime.plusDays(1).format(dayFormatter));
+                            parsedDate.format(dayFormatter),
+                            parsedDate.plusDays(1).format(dayFormatter));
                 }
             case MONTH:
                 {
@@ -136,8 +113,8 @@ public class BigQueryPartition {
                     return String.format(
                             temporalFormat,
                             columnName,
-                            parsedDateTime.format(monthFormatter),
-                            parsedDateTime.plusMonths(1).format(monthFormatter));
+                            parsedDate.format(monthFormatter),
+                            parsedDate.plusMonths(1).format(monthFormatter));
                 }
             case YEAR:
                 {
@@ -147,8 +124,8 @@ public class BigQueryPartition {
                     return String.format(
                             temporalFormat,
                             columnName,
-                            parsedDateTime.format(yearFormatter),
-                            parsedDateTime.plusYears(1).format(yearFormatter));
+                            parsedDate.format(yearFormatter),
+                            parsedDate.plusYears(1).format(yearFormatter));
                 }
             default:
                 throw new IllegalArgumentException(
@@ -161,10 +138,9 @@ public class BigQueryPartition {
 
     static String timestampRestrictionFromPartitionType(
             PartitionType partitionType, String columnName, String valueFromSQL) {
-        ZonedDateTime parsedDateTime =
+        LocalDateTime parsedDateTime =
                 LocalDateTime.parse(
-                                valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                        .atZone(ZoneId.of("UTC"));
+                        valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
         switch (partitionType) {
             case HOUR:
@@ -284,7 +260,7 @@ public class BigQueryPartition {
                 switch (firstId.length()) {
                     case 4:
                         // we have yearly partitions
-                        partitionValues.addAll(partitionIds.stream().collect(Collectors.toList()));
+                        partitionValues.addAll(partitionIds);
                         break;
                     case 6:
                         // we have monthly partitions
