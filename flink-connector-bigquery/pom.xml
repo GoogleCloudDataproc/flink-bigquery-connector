@@ -22,8 +22,8 @@ under the License.
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
+        <groupId>com.google.cloud.flink</groupId>
         <artifactId>flink-connector-bigquery-parent</artifactId>
-        <groupId>org.apache.flink</groupId>
         <version>1.1-SNAPSHOT</version>
     </parent>
 

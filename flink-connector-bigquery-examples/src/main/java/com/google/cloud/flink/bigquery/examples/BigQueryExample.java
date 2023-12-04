@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.examples.gcp.bigquery;
+package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;

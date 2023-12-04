@@ -22,7 +22,7 @@ under the License.
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.apache.flink</groupId>
+        <groupId>com.google.cloud.flink</groupId>
         <artifactId>flink-connector-bigquery-parent</artifactId>
         <version>1.1-SNAPSHOT</version>
     </parent>
@@ -37,7 +37,7 @@ under the License.
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.flink</groupId>
+            <groupId>com.google.cloud.flink</groupId>
             <artifactId>flink-connector-bigquery</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -78,11 +78,7 @@ under the License.
                             </resources>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.apache.flink.examples.gcp.bigquery.BigQueryExample</mainClass>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                                    <resource>log4j2-bqexample.properties</resource>
-                                    <file>src/main/resources/log4j2-bqexample.properties</file>
+                                    <mainClass>com.google.cloud.flink.bigquery.examples.BigQueryExample</mainClass>
                                 </transformer>
                             </transformers>
                             <artifactSet>
@@ -90,7 +86,6 @@ under the License.
                                     <include>org.apache.flink:flink-connector-bigquery</include>
                                     <include>org.apache.flink:flink-avro</include>
                                     <include>org.apache.flink:flink-metrics-dropwizard</include>
-                                    <include>com.google.cloud:google-cloud-bigquerystorage</include>
                                     <include>com.google.*:*</include>
                                     <include>commons-codec:commons-codec</include>    
                                     <include>dev.failsafe:*</include>                                
@@ -110,7 +105,10 @@ under the License.
                             <relocations>
                                 <relocation>
                                     <pattern>com.google</pattern>
-                                    <shadedPattern>org.apache.flink.examples.gcp.bigquery.shaded.com.google</shadedPattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.examples.shaded.com.google</shadedPattern>
+                                    <excludes>
+                                        <exclude>com.google.cloud.flink.bigquery.**</exclude>
+                                    </excludes>
                                 </relocation>
                             </relocations>
 
@@ -118,7 +116,7 @@ under the License.
                                 <filter>
                                     <artifact>org.apache.flink:flink-connector-bigquery-examples*</artifact>
                                     <includes>
-                                        <include>org/apache/flink/examples/gcp/bigquery/**</include>
+                                        <include>com/google/cloud/flink/bigquery/examples/**</include>
                                     </includes>
                                 </filter>
                             </filters>
