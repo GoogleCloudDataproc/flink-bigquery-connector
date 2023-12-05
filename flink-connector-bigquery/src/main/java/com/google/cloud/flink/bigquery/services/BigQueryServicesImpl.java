@@ -247,6 +247,10 @@ public class BigQueryServicesImpl implements BigQueryServices {
         public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
                 String project, String dataset, String table) {
             try {
+                // TODO: tableInfo API may not convey if it's a BigQuery native table or a Biglake
+                // external table. Presently, the connector is expected to be used with native BQ
+                // tables only. However, in case external tables need to be supported in future,
+                // then consider using the com.google.cloud.bigquery.BigQuery.getTable API.
                 Table tableInfo = BigQueryUtils.tableInfo(bigquery, project, dataset, table);
 
                 if (tableInfo.getRangePartitioning() == null

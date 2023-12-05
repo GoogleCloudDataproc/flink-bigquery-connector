@@ -266,19 +266,18 @@ public class BigQueryDynamicTableSource
             String currentRestriction,
             Optional<TablePartitionInfo> partitionInfo,
             List<Map<String, String>> remainingPartitions) {
-
         /**
-         * given the specification, the partition restriction comes before than the filter
-         * application, so we just set here the row restriction.
+         * given the specification, partition restriction comes before the filter application, so we
+         * just set here the row restriction.
          */
-        return currentRestriction
-                + " AND "
-                + remainingPartitions.stream()
+        String partitionRestrictions =
+                remainingPartitions.stream()
                         .flatMap(map -> map.entrySet().stream())
                         .map(
                                 entry ->
                                         BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
                                                 partitionInfo, entry.getKey(), entry.getValue()))
                         .collect(Collectors.joining(" OR "));
+        return currentRestriction + " AND (" + partitionRestrictions + ")";
     }
 }

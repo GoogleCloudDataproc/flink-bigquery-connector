@@ -19,7 +19,6 @@ package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -33,19 +32,42 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A simple BigQuery table read example with Flink's DataStream API.
+ * A simple Flink application using DataStream API and BigQuery connector.
  *
- * <p>The Flink pipeline will try to read the specified BigQuery table, potentially limiting the
- * element count to the specified row restriction and limit count, returning {@link GenericRecord}
- * representing the rows, to finally prints out some aggregated values given the provided payload's
- * field.
+ * <p>The Flink pipeline will try to read the specified BigQuery table according to given the
+ * command line arguments, returning {@link GenericRecord} representing the rows, and finally print
+ * out some aggregated values given the provided payload's field. The sequence of operations in this
+ * pipeline is: <i>source > flatMap > keyBy > sum > print</i>.
  *
- * <p>Note on row restriction: In case of including a restriction with a temporal reference,
- * something like {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'"}, and
- * launching the job from Flink's Rest API is known the single quotes are not supported and will
- * make the pipeline fail. As a workaround for that case using \u0027 as a replacement will make it
- * work, example {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = \u00272023-06-20
- * 19:00:00\u0027"}.
+ * <p>This example module should be used in one of the following two ways.
+ *
+ * <ol>
+ *   <li>Specify the BQ dataset and table with an optional row restriction. Flink command line
+ *       format to execute this mode is: <br>
+ *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
+ *       --gcp-project {required; project ID which contains the BigQuery table} <br>
+ *       --bq-dataset {required; name of BigQuery dataset containing the desired table} <br>
+ *       --bq-table {required; name of BigQuery table to read} <br>
+ *       --agg-prop {required; record property to aggregate in Flink job} <br>
+ *       --restriction {optional; SQL filter applied at the BigQuery table before reading} <br>
+ *       --limit {optional; maximum records to read from BigQuery table} <br>
+ *       --checkpoint-interval {optional; time interval between state checkpoints in milliseconds}
+ *   <li>Specify SQL query to fetch data from BQ dataset. For example, "SELECT * FROM
+ *       some_dataset.INFORMATION_SCHEMA.PARTITIONS". Flink command line format to execute this mode
+ *       is: <br>
+ *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
+ *       --gcp-project {required; project ID which contains the BigQuery table} <br>
+ *       --query {required; SQL query to fetch data from BigQuery table} <br>
+ *       --agg-prop {required; record property to aggregate in Flink job} <br>
+ *       --limit {optional; maximum records to read from BigQuery table} <br>
+ *       --checkpoint-interval {optional; time interval between state checkpoints in milliseconds}
+ * </ol>
+ *
+ * <p>Note on row restriction: In case a restriction relies on temporal reference, something like
+ * {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'"}, and if launching
+ * the job from Flink's Rest API, a known issue is that single quotes are not supported and will
+ * cause the pipeline to fail. As a workaround, using \u0027 instead of the quotes will work. For
+ * example {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = \u00272023-06-20 19:00:00\u0027"}.
  */
 public class BigQueryExample {
 
@@ -58,24 +80,31 @@ public class BigQueryExample {
         if (parameterTool.getNumberOfParameters() < 1) {
             LOG.error(
                     "Missing parameters!\n"
-                            + "Usage: flink run <additional runtime params> BigQuery.jar"
-                            + " --gcp-project <gcp-project> --bq-dataset <dataset name>"
-                            + " --bq-table <table name> --agg-prop <payload's property>"
-                            + " --restriction <single-quoted string with row predicate>"
-                            + " --limit <optional: limit records returned> --query <SQL>");
+                            + "Usage: flink run <additional runtime params> <jar>"
+                            + " --gcp-project <gcp project id>"
+                            + " --bq-dataset <dataset name>"
+                            + " --bq-table <table name>"
+                            + " --agg-prop <record property to aggregate>"
+                            + " --restriction <row filter predicate>"
+                            + " --limit <limit on records returned>"
+                            + " --checkpoint-interval <milliseconds between state checkpoints>"
+                            + " --query <SQL query to get data from BQ table>");
             return;
         }
 
         String projectName = parameterTool.getRequired("gcp-project");
         String query = parameterTool.get("query", "");
+        String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
         Integer recordLimit = parameterTool.getInt("limit", -1);
+        Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 60000L);
+
         if (!query.isEmpty()) {
-            runFlinkQueryJob(projectName, query, recordLimit);
+            runFlinkQueryJob(
+                    projectName, query, recordPropertyToAggregate, recordLimit, checkpointInterval);
         } else {
             String datasetName = parameterTool.getRequired("bq-dataset");
             String tableName = parameterTool.getRequired("bq-table");
             String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
-            String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
             runFlinkJob(
                     projectName,
@@ -83,15 +112,21 @@ public class BigQueryExample {
                     tableName,
                     recordPropertyToAggregate,
                     rowRestriction,
-                    recordLimit);
+                    recordLimit,
+                    checkpointInterval);
         }
     }
 
-    private static void runFlinkQueryJob(String projectName, String query, Integer limit)
+    private static void runFlinkQueryJob(
+            String projectName,
+            String query,
+            String recordPropertyToAggregate,
+            Integer limit,
+            Long checkpointInterval)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(60000L);
+        env.enableCheckpointing(checkpointInterval);
 
         /**
          * we will be reading avro generic records from BigQuery, and in this case we are assuming
@@ -103,9 +138,9 @@ public class BigQueryExample {
                 BigQuerySource.readAvrosFromQuery(query, projectName, limit);
 
         env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
-                .map(new PrintMapper())
-                .keyBy(t -> t.f0)
-                .max("f1")
+                .flatMap(new FlatMapper(recordPropertyToAggregate))
+                .keyBy(mappedTuple -> mappedTuple.f0)
+                .sum("f1")
                 .print();
 
         env.execute("Flink BigQuery query example");
@@ -117,11 +152,12 @@ public class BigQueryExample {
             String tableName,
             String recordPropertyToAggregate,
             String rowRestriction,
-            Integer limit)
+            Integer limit,
+            Long checkpointInterval)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(60000L);
+        env.enableCheckpointing(checkpointInterval);
 
         /**
          * we will be reading avro generic records from BigQuery, and in this case we are assuming
@@ -144,7 +180,7 @@ public class BigQueryExample {
 
         env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuerySource")
                 .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(t -> t.f0)
+                .keyBy(mappedTuple -> mappedTuple.f0)
                 .sum("f1")
                 .print();
 
@@ -163,18 +199,6 @@ public class BigQueryExample {
         public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
             out.collect(Tuple2.of((String) record.get(recordPropertyToAggregate).toString(), 1));
-        }
-    }
-
-    static class PrintMapper implements MapFunction<GenericRecord, Tuple2<String, Long>> {
-
-        private static final Logger LOG = LoggerFactory.getLogger(PrintMapper.class);
-
-        @Override
-        public Tuple2<String, Long> map(GenericRecord record) throws Exception {
-            LOG.info(record.toString());
-            return Tuple2.of(
-                    record.get("partition_id").toString(), (Long) record.get("total_rows"));
         }
     }
 }

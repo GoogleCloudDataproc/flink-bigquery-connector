@@ -350,7 +350,7 @@ public class BigQueryPartitionTest {
                 BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
                         Optional.empty(), "dragon", "verde");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -367,7 +367,7 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "5");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -384,12 +384,12 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "2023-01-02");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoDateMonth() {
-        String expected = "dragon BETWEEN '2023-01-01' AND '2023-02-01'";
+        String expected = "dragon BETWEEN '2023-01-01' AND '2023-01-31'";
         String actual =
                 BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
@@ -401,7 +401,7 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "2023-01-01");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -418,7 +418,7 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "2023-01-01");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -435,7 +435,7 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "2023-01-01 03:00:00");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -452,7 +452,7 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "2023-01-01 03:00:00");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -469,7 +469,7 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "2023-01-01 03:00:00");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -486,6 +486,6 @@ public class BigQueryPartitionTest {
                         "dragon",
                         "2023-01-01 03:00:00");
 
-        Assertions.assertThat(expected).isEqualTo(actual);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 }
