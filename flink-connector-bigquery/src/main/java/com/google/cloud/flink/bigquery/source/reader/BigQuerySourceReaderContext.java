@@ -23,14 +23,14 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.groups.SourceReaderMetricGroup;
 import org.apache.flink.util.UserCodeClassLoader;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** A {@link SourceReaderContext} proxy that adds limit and counts for state management. */
 @Internal
 public class BigQuerySourceReaderContext implements SourceReaderContext {
 
     private final SourceReaderContext readerContext;
-    private final AtomicInteger readCount = new AtomicInteger(0);
+    private final AtomicLong readCount = new AtomicLong(0);
     private final int limit;
 
     public BigQuerySourceReaderContext(SourceReaderContext readerContext, int limit) {
@@ -73,11 +73,11 @@ public class BigQuerySourceReaderContext implements SourceReaderContext {
         return readerContext.getUserCodeClassLoader();
     }
 
-    public int updateReadCount(Integer newReads) {
+    public Long updateReadCount(Long newReads) {
         return readCount.addAndGet(newReads);
     }
 
-    public int currentReadCount() {
+    public Long currentReadCount() {
         return readCount.get();
     }
 
