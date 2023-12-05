@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -53,7 +54,8 @@ public class BigQueryPartition {
     static final Integer MONTH_SECONDS = 2629746;
     static final Integer YEAR_SECONDS = 31536000;
 
-    private static final ZoneId ZONE = ZoneId.of("UTC");
+    private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(UTC_ZONE);
 
     private static final String BQPARTITION_HOUR_FORMAT_STRING = "yyyyMMddHH";
     private static final String BQPARTITION_DAY_FORMAT_STRING = "yyyyMMdd";
@@ -82,6 +84,17 @@ public class BigQueryPartition {
             new SimpleDateFormat(SQL_MONTH_FORMAT_STRING);
     private static final SimpleDateFormat SQL_YEAR_FORMAT =
             new SimpleDateFormat(SQL_YEAR_FORMAT_STRING);
+
+    static {
+        BQPARTITION_HOUR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        BQPARTITION_DAY_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        BQPARTITION_MONTH_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        BQPARTITION_YEAR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_HOUR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_DAY_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_MONTH_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_YEAR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+    }
 
     private BigQueryPartition() {}
 
@@ -184,10 +197,10 @@ public class BigQueryPartition {
                                 columnName,
                                 SQL_MONTH_FORMAT.format(day),
                                 DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING)
-                                        .withZone(ZONE)
+                                        .withZone(UTC_ZONE)
                                         .format(
                                                 day.toInstant()
-                                                        .atZone(ZONE)
+                                                        .atZone(UTC_ZONE)
                                                         .toLocalDate()
                                                         .plusMonths(1)
                                                         .atTime(LocalTime.MIDNIGHT)
@@ -203,10 +216,10 @@ public class BigQueryPartition {
                                 columnName,
                                 SQL_YEAR_FORMAT.format(day),
                                 DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING)
-                                        .withZone(ZONE)
+                                        .withZone(UTC_ZONE)
                                         .format(
                                                 day.toInstant()
-                                                        .atZone(ZONE)
+                                                        .atZone(UTC_ZONE)
                                                         .toLocalDate()
                                                         .plusYears(1)
                                                         .atTime(LocalTime.MIDNIGHT)
@@ -229,8 +242,10 @@ public class BigQueryPartition {
             PartitionType partitionType, String columnName, String valueFromSQL) {
         ZonedDateTime parsedDateTime =
                 LocalDateTime.parse(
-                                valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                        .atZone(ZONE);
+                                valueFromSQL,
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                                        .withZone(UTC_ZONE))
+                        .atZone(UTC_ZONE);
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
         switch (partitionType) {
             case HOUR:
@@ -238,7 +253,7 @@ public class BigQueryPartition {
                     // extract a datetime from the value and restrict
                     // between previous and next hour
                     DateTimeFormatter hourFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -250,7 +265,7 @@ public class BigQueryPartition {
                     // extract a date from the value and restrict
                     // between previous and next day
                     DateTimeFormatter dayFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd 00:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -262,7 +277,7 @@ public class BigQueryPartition {
                     // extract a date from the value and restrict
                     // between previous and next month
                     DateTimeFormatter monthFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-MM-01 00:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-MM-01 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -274,7 +289,7 @@ public class BigQueryPartition {
                     // extract a date from the value and restrict
                     // between previous and next year
                     DateTimeFormatter yearFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-01-01 00:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-01-01 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,

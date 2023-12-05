@@ -389,7 +389,7 @@ public class BigQueryPartitionTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoDateMonth() {
-        String expected = "dragon BETWEEN '2023-01-01' AND '2023-01-31'";
+        String expected = "dragon BETWEEN '2023-01-01' AND '2023-02-01'";
         String actual =
                 BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
