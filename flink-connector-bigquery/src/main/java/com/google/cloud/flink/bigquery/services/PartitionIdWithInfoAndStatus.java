@@ -18,7 +18,7 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
 
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 
 import java.util.Objects;
 

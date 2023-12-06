@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.common.utils;
+package com.google.cloud.flink.bigquery.table.restrictions;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;

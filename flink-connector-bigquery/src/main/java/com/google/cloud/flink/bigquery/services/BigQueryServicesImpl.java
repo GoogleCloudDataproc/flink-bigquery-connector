@@ -47,8 +47,8 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import org.threeten.bp.Duration;
 
 import java.io.IOException;

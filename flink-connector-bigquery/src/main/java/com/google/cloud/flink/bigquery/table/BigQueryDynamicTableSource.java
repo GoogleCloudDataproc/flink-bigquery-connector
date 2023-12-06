@@ -34,13 +34,13 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataDeserializationSchema;
+import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import com.google.cloud.flink.bigquery.table.restrictions.BigQueryRestriction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

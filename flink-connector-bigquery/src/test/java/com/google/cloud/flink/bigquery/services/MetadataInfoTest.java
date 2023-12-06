@@ -19,7 +19,7 @@ package com.google.cloud.flink.bigquery.services;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
