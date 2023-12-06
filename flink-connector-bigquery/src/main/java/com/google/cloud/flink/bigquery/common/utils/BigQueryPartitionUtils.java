@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.table.restrictions;
+package com.google.cloud.flink.bigquery.common.utils;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;
@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 
 /** Utility class to handle the BigQuery partition conversions to Flink types and structures. */
 @Internal
-public class BigQueryPartition {
+public class BigQueryPartitionUtils {
 
     static final Integer HOUR_SECONDS = 3600;
     static final Integer DAY_SECONDS = 86400;
@@ -96,7 +96,7 @@ public class BigQueryPartition {
         SQL_YEAR_FORMAT.setTimeZone(UTC_TIME_ZONE);
     }
 
-    private BigQueryPartition() {}
+    private BigQueryPartitionUtils() {}
 
     /** Represents the partition types the BigQuery can use in partitioned tables. */
     public enum PartitionType {
@@ -360,13 +360,13 @@ public class BigQueryPartition {
                                 new PartitionIdWithInfoAndStatus(
                                         partition.getPartitionId(),
                                         partition.getInfo(),
-                                        BigQueryPartition.PartitionStatus.COMPLETED))
+                                        BigQueryPartitionUtils.PartitionStatus.COMPLETED))
                 .findFirst()
                 .orElse(
                         new PartitionIdWithInfoAndStatus(
                                 partition.getPartitionId(),
                                 partition.getInfo(),
-                                BigQueryPartition.PartitionStatus.IN_PROGRESS));
+                                BigQueryPartitionUtils.PartitionStatus.IN_PROGRESS));
     }
 
     static Instant retrieveEpochSecondsFromParsedTemporal(SimpleDateFormat sdf, String tsString) {
@@ -427,7 +427,7 @@ public class BigQueryPartition {
                 return new PartitionIdWithInfoAndStatus(
                         partition.getPartitionId(),
                         partition.getInfo(),
-                        BigQueryPartition.PartitionStatus.COMPLETED);
+                        BigQueryPartitionUtils.PartitionStatus.COMPLETED);
             default:
                 throw new IllegalArgumentException(
                         "Partition type not supported: " + partition.getInfo().getPartitionType());
