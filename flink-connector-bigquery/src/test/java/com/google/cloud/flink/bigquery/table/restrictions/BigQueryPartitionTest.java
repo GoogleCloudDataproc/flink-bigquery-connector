@@ -26,6 +26,8 @@ import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -233,19 +235,36 @@ public class BigQueryPartitionTest {
     public void testCheckPartitionCompletedHour() {
         PartitionIdWithInfo partitionWithInfo =
                 new PartitionIdWithInfo(
-                        "2023072801",
+                        "2023072804",
                         new TablePartitionInfo(
                                 "temporal",
                                 BigQueryPartition.PartitionType.HOUR,
                                 StandardSQLTypeName.TIMESTAMP,
-                                // partition watermark is now
-                                Instant.now()));
+                                tsStringToInstant("2023-07-28 05:00:01 UTC")));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
 
         Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
                 .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
+    }
+
+    @Test
+    public void testCheckPartitionNotCompletedHour() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "2023072804",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.HOUR,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2023-07-28 04:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
     @Test
@@ -257,14 +276,31 @@ public class BigQueryPartitionTest {
                                 "temporal",
                                 BigQueryPartition.PartitionType.DAY,
                                 StandardSQLTypeName.DATE,
-                                // partition watermark is now
-                                Instant.now()));
+                                tsStringToInstant("2023-07-29 00:00:01 UTC")));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
 
         Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
                 .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
+    }
+
+    @Test
+    public void testCheckPartitionNotCompletedDay() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "20230728",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.DAY,
+                                StandardSQLTypeName.DATE,
+                                tsStringToInstant("2023-07-28 23:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
     @Test
@@ -275,15 +311,32 @@ public class BigQueryPartitionTest {
                         new TablePartitionInfo(
                                 "temporal",
                                 BigQueryPartition.PartitionType.MONTH,
-                                StandardSQLTypeName.DATE,
-                                // partition watermark is now
-                                Instant.now()));
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2023-08-01 00:00:01 UTC")));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
 
         Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
                 .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
+    }
+
+    @Test
+    public void testCheckPartitionNotCompletedMonthFebLeapYear() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "202002",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.MONTH,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2020-02-29 23:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
     @Test
@@ -295,8 +348,7 @@ public class BigQueryPartitionTest {
                                 "temporal",
                                 BigQueryPartition.PartitionType.YEAR,
                                 StandardSQLTypeName.DATE,
-                                // partition watermark is now
-                                Instant.now()));
+                                tsStringToInstant("2023-01-02 00:00:01 UTC")));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
@@ -306,16 +358,15 @@ public class BigQueryPartitionTest {
     }
 
     @Test
-    public void testCheckPartitionNotCompletedYear() {
+    public void testCheckPartitionNotCompletedLeapYear() {
         PartitionIdWithInfo partitionWithInfo =
                 new PartitionIdWithInfo(
-                        "2023",
+                        "2020",
                         new TablePartitionInfo(
                                 "temporal",
                                 BigQueryPartition.PartitionType.YEAR,
                                 StandardSQLTypeName.DATE,
-                                // partition watermark is now
-                                Instant.now()));
+                                tsStringToInstant("2020-12-31 23:59:59 UTC")));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
                 BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
@@ -333,7 +384,6 @@ public class BigQueryPartitionTest {
                                 "intvalue",
                                 BigQueryPartition.PartitionType.INT_RANGE,
                                 StandardSQLTypeName.INT64,
-                                // partition watermark is now
                                 Instant.now()));
 
         PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
@@ -487,5 +537,14 @@ public class BigQueryPartitionTest {
                         "2023-01-01 03:00:00");
 
         Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    private Instant tsStringToInstant(String ts) {
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss zzz").parse(ts).toInstant();
+        } catch (ParseException e) {
+            throw new IllegalStateException(
+                    "Invalid date format in test. This should never happen!");
+        }
     }
 }
