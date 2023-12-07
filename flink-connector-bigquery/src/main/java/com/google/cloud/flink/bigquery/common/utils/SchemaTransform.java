@@ -261,9 +261,4 @@ public class SchemaTransform {
     public static TableSchema bigQuerySchemaToTableSchema(com.google.cloud.bigquery.Schema schema) {
         return new TableSchema().setFields(fieldListToListOfTableFieldSchema(schema.getFields()));
     }
-
-    public static StandardSQLTypeName bigQueryTableFieldSchemaTypeToSQLType(
-            String tableFieldSchemaType) {
-        return BIG_QUERY_TO_SQL_TYPES.getOrDefault(tableFieldSchemaType, null);
-    }
 }

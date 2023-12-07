@@ -49,10 +49,19 @@ import java.util.stream.Collectors;
 @Internal
 public class BigQueryPartitionUtils {
 
+    /**
+     * Below durations are added to current partitionId to obtain the next tentative partitionId,
+     * which serves as a non-inclusive upper limit for observing records until current partition is
+     * considered complete. For month and year, maximum values are used (31 days for month, 366 days
+     * for year) so no records are dropped, even though the current window remains open for a longer
+     * time. For instance, given month based partitioning, the partition for February 2023 will not
+     * be considered complete till 4th March 2023.
+     */
     static final Integer HOUR_SECONDS = 3600;
+
     static final Integer DAY_SECONDS = 86400;
-    static final Integer MONTH_SECONDS = 2629746;
-    static final Integer YEAR_SECONDS = 31536000;
+    static final Integer MONTH_SECONDS = 2678400;
+    static final Integer YEAR_SECONDS = 31622400;
 
     private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(UTC_ZONE);
@@ -343,12 +352,12 @@ public class BigQueryPartitionUtils {
     }
 
     static PartitionIdWithInfoAndStatus retrievePartitionInfoWithStatus(
-            PartitionIdWithInfo partition, Function<String, Long> parseAndManipulateParitionTS) {
+            PartitionIdWithInfo partition, Function<String, Long> parseAndManipulatePartitionTS) {
         return partitionValuesFromIdAndDataType(
                         Lists.newArrayList(partition.getPartitionId()),
                         partition.getInfo().getColumnType())
                 .stream()
-                .map(parseAndManipulateParitionTS)
+                .map(parseAndManipulatePartitionTS)
                 .filter(
                         nextPartitionTs ->
                                 partition
@@ -378,6 +387,13 @@ public class BigQueryPartitionUtils {
         }
     }
 
+    // TODO: currently, time based partitioning attribute is checked against the ingestion time of
+    // BigQuery table's buffer stream's oldest entry. Hence, there is a logical mismatch where
+    // "event time" is being compared with "ingestion time". In subsequent versions of the
+    // connector,
+    // replace this implementation of partition completeness with a configurable lateness duration
+    // where a partition would be considered complete after a certain amount of time has elapsed
+    // after the partition's end instant.
     public static PartitionIdWithInfoAndStatus checkPartitionCompleted(
             PartitionIdWithInfo partition) {
         switch (partition.getInfo().getPartitionType()) {
