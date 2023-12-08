@@ -327,6 +327,24 @@ public class BigQueryPartitionUtilsTest {
     }
 
     @Test
+    public void testCheckPartitionNotCompletedMonth() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "202303",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartitionUtils.PartitionType.MONTH,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2023-03-31 23:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartitionUtils.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartitionUtils.PartitionStatus.IN_PROGRESS);
+    }
+
+    @Test
     public void testCheckPartitionNotCompletedMonthFebLeapYear() {
         PartitionIdWithInfo partitionWithInfo =
                 new PartitionIdWithInfo(
