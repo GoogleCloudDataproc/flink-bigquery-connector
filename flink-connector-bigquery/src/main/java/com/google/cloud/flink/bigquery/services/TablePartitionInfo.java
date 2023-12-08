@@ -18,8 +18,15 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
 
+import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
+
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
+import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition.PartitionType;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /** Represents the information of the BigQuery table's partition. */
 @Internal
@@ -27,15 +34,18 @@ public class TablePartitionInfo {
 
     private final String columnName;
     private final StandardSQLTypeName columnType;
-    private final BigQueryPartition.PartitionType partitionType;
+    private final PartitionType partitionType;
+    private final Instant streamingBufferOldestEntryTime;
 
     public TablePartitionInfo(
             String columnName,
-            BigQueryPartition.PartitionType partitionType,
-            StandardSQLTypeName columnType) {
+            PartitionType partitionType,
+            StandardSQLTypeName columnType,
+            Instant sbOldestEntryTime) {
         this.columnName = columnName;
         this.columnType = columnType;
         this.partitionType = partitionType;
+        this.streamingBufferOldestEntryTime = sbOldestEntryTime;
     }
 
     public String getColumnName() {
@@ -46,8 +56,22 @@ public class TablePartitionInfo {
         return columnType;
     }
 
-    public BigQueryPartition.PartitionType getPartitionType() {
+    public PartitionType getPartitionType() {
         return partitionType;
+    }
+
+    public Instant getStreamingBufferOldestEntryTime() {
+        return streamingBufferOldestEntryTime;
+    }
+
+    public List<PartitionIdWithInfo> toPartitionsWithInfo(List<String> partitionIds) {
+        return Optional.ofNullable(partitionIds)
+                .map(
+                        ps ->
+                                ps.stream()
+                                        .map(id -> new PartitionIdWithInfo(id, this))
+                                        .collect(Collectors.toList()))
+                .orElse(Lists.newArrayList());
     }
 
     @Override

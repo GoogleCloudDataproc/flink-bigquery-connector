@@ -52,6 +52,8 @@ import com.google.cloud.flink.bigquery.table.restrictions.BigQueryPartition;
 import org.threeten.bp.Duration;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -213,6 +215,34 @@ public class BigQueryServicesImpl implements BigQueryServices {
             }
         }
 
+        public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
+                String project, String dataset, String table) {
+            try {
+                return retrievePartitionColumnInfo(project, dataset, table)
+                        .map(
+                                info ->
+                                        info
+                                                .toPartitionsWithInfo(
+                                                        retrieveTablePartitions(
+                                                                project, dataset, table))
+                                                .stream()
+                                                .map(
+                                                        pInfo ->
+                                                                BigQueryPartition
+                                                                        .checkPartitionCompleted(
+                                                                                pInfo))
+                                                .collect(Collectors.toList()))
+                        .orElse(new ArrayList<>());
+            } catch (Exception ex) {
+                throw new RuntimeException(
+                        String.format(
+                                "Problems while trying to retrieve table partitions status"
+                                        + " (table: %s.%s.%s).",
+                                project, dataset, table),
+                        ex);
+            }
+        }
+
         @Override
         public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
                 String project, String dataset, String table) {
@@ -227,6 +257,11 @@ public class BigQueryServicesImpl implements BigQueryServices {
                         && tableInfo.getTimePartitioning() == null) {
                     return Optional.empty();
                 }
+                Instant bqStreamingBufferOldestEntryTime =
+                        Optional.ofNullable(tableInfo.getStreamingBuffer())
+                                .map(sbuffer -> sbuffer.getOldestEntryTime().longValue())
+                                .map(millisFromEpoch -> Instant.ofEpochMilli(millisFromEpoch))
+                                .orElse(Instant.MAX);
                 return Optional.ofNullable(tableInfo.getTimePartitioning())
                         .map(
                                 tp ->
@@ -238,14 +273,16 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                                         BigQueryPartition
                                                                 .retrievePartitionColumnType(
                                                                         tableInfo.getSchema(),
-                                                                        tp.getField()))))
+                                                                        tp.getField()),
+                                                        bqStreamingBufferOldestEntryTime)))
                         .orElseGet(
                                 () ->
                                         Optional.of(
                                                 new TablePartitionInfo(
                                                         tableInfo.getRangePartitioning().getField(),
                                                         BigQueryPartition.PartitionType.INT_RANGE,
-                                                        StandardSQLTypeName.INT64)));
+                                                        StandardSQLTypeName.INT64,
+                                                        bqStreamingBufferOldestEntryTime)));
             } catch (Exception ex) {
                 throw new RuntimeException(
                         String.format(
@@ -279,7 +316,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                 .setUseLegacySql(false);
                 /** first we need to execute a dry-run to understand the expected query location. */
                 return BigQueryUtils.dryRunQuery(bigquery, projectId, queryConfiguration, null);
-
             } catch (Exception ex) {
                 throw new RuntimeException(
                         "Problems occurred while trying to dry-run a BigQuery query job.", ex);

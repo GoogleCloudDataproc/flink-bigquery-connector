@@ -20,6 +20,7 @@ import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.Dataset;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
+import com.google.api.services.bigquery.model.Table;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -84,6 +85,28 @@ public class BigQueryUtilsTest {
 
         BigQueryUtils.maxRetryCount = 100;
         BigQueryUtils.datasetInfo(client, "", "");
+        // check no retries either
+        Mockito.verify(got, Mockito.times(1)).execute();
+    }
+
+    @Test
+    public void testNoRetriesTable() throws IOException, InterruptedException {
+        Bigquery client = Mockito.mock(Bigquery.class);
+
+        Bigquery.Tables tables = Mockito.mock(Bigquery.Tables.class);
+        Bigquery.Tables.Get got = Mockito.mock(Bigquery.Tables.Get.class);
+        Mockito.when(client.tables()).thenReturn(tables);
+        Mockito.when(
+                        tables.get(
+                                ArgumentMatchers.anyString(),
+                                ArgumentMatchers.anyString(),
+                                ArgumentMatchers.anyString()))
+                .thenReturn(got);
+        Mockito.when(got.setPrettyPrint(false)).thenReturn(got);
+        Mockito.when(got.execute()).thenReturn(new Table());
+
+        BigQueryUtils.maxRetryCount = 100;
+        BigQueryUtils.tableInfo(client, "", "", "");
         // check no retries either
         Mockito.verify(got, Mockito.times(1)).execute();
     }

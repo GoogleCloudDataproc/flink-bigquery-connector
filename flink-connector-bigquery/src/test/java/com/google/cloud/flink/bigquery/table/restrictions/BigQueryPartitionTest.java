@@ -18,13 +18,17 @@ package com.google.cloud.flink.bigquery.table.restrictions;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
-import com.google.api.services.bigquery.model.TableFieldSchema;
-import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.services.PartitionIdWithInfo;
+import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,7 +64,7 @@ public class BigQueryPartitionTest {
     public void testPartitionMonth() {
         List<String> partitionIds = Lists.newArrayList("202306", "202307");
         // ISO formatted dates as single quote string literals
-        List<String> expectedValues = Lists.newArrayList("2023-06", "2023-07");
+        List<String> expectedValues = Lists.newArrayList("2023-06-01", "2023-07-01");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.DATE);
@@ -72,7 +76,7 @@ public class BigQueryPartitionTest {
     public void testPartitionYear() {
         List<String> partitionIds = Lists.newArrayList("2023", "2022");
         // ISO formatted dates as single quote string literals
-        List<String> expectedValues = Lists.newArrayList("2023", "2022");
+        List<String> expectedValues = Lists.newArrayList("2023-01-01", "2022-01-01");
         List<String> values =
                 BigQueryPartition.partitionValuesFromIdAndDataType(
                         partitionIds, StandardSQLTypeName.TIMESTAMP);
@@ -179,166 +183,386 @@ public class BigQueryPartitionTest {
     }
 
     @Test
+    public void testPartitionValueInteger() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.INT64))
+                .isEqualTo("2023");
+    }
+
+    @Test
+    public void testPartitionValueDate() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.DATE))
+                .isEqualTo("'2023'");
+    }
+
+    @Test
+    public void testPartitionValueDateTime() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.DATETIME))
+                .isEqualTo("'2023'");
+    }
+
+    @Test
+    public void testPartitionValueTimestamp() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.TIMESTAMP))
+                .isEqualTo("'2023'");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPartitionValueFailsWithOtherType() {
+        Assertions.assertThat(
+                        BigQueryPartition.partitionValueToValueGivenType(
+                                "2023", StandardSQLTypeName.NUMERIC))
+                .isEqualTo("'2023'");
+    }
+
+    @Test
     public void testRetrievePartitionColumnType() {
-        List<TableFieldSchema> schemaFields =
-                Lists.newArrayList(
-                        new TableFieldSchema().setName("age").setType("INT64").setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("name")
-                                .setType("STRING")
-                                .setMode("NULLABLE"),
-                        new TableFieldSchema()
-                                .setName("nestedRecord")
-                                .setType("RECORD")
-                                .setFields(
-                                        Lists.newArrayList(
-                                                new TableFieldSchema()
-                                                        .setName("flag")
-                                                        .setType("BOOL")
-                                                        .setMode("NULLABLE"))));
-        TableSchema tableSchema = new TableSchema();
-        tableSchema.setFields(schemaFields);
+        StandardSQLTypeName retrieved =
+                BigQueryPartition.retrievePartitionColumnType(
+                        StorageClientFaker.SIMPLE_BQ_TABLE_SCHEMA, "ts");
 
-        Assertions.assertThat(BigQueryPartition.retrievePartitionColumnType(tableSchema, "age"))
-                .isEqualTo(StandardSQLTypeName.INT64);
-        Assertions.assertThat(BigQueryPartition.retrievePartitionColumnType(tableSchema, "name"))
-                .isEqualTo(StandardSQLTypeName.STRING);
-        Assertions.assertThat(
-                        BigQueryPartition.retrievePartitionColumnType(tableSchema, "nestedRecord"))
-                .isEqualTo(StandardSQLTypeName.STRUCT);
-    }
-
-    @Test(expected = IllegalStateException.class)
-    public void testRetrieveTypeOfNonExistentColumn() {
-        List<TableFieldSchema> schemaFields =
-                Lists.newArrayList(
-                        new TableFieldSchema()
-                                .setName("age")
-                                .setType("INTEGER")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("name")
-                                .setType("STRING")
-                                .setMode("NULLABLE"));
-        TableSchema tableSchema = new TableSchema();
-        tableSchema.setFields(schemaFields);
-
-        BigQueryPartition.retrievePartitionColumnType(tableSchema, "address");
+        Assertions.assertThat(retrieved).isEqualTo(StandardSQLTypeName.TIMESTAMP);
     }
 
     @Test
-    public void testIntPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "age",
-                        BigQueryPartition.PartitionType.INT_RANGE,
-                        StandardSQLTypeName.INT64);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "age", "18"))
-                .isEqualTo("age = 18");
+    public void testCheckPartitionCompletedHour() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "2023072804",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.HOUR,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2023-07-28 05:00:01 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
     }
 
     @Test
-    public void testTimestampFormatHourPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event",
-                        BigQueryPartition.PartitionType.HOUR,
-                        StandardSQLTypeName.TIMESTAMP);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "event", "2010-10-10 10:10:10"))
-                .isEqualTo("event BETWEEN '2010-10-10 10:00:00' AND '2010-10-10 11:00:00'");
+    public void testCheckPartitionNotCompletedHour() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "2023072804",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.HOUR,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2023-07-28 04:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
     @Test
-    public void testTimestampFormatDayPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event",
-                        BigQueryPartition.PartitionType.DAY,
-                        StandardSQLTypeName.TIMESTAMP);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "event", "2010-10-10 10:10:10"))
-                .isEqualTo("event BETWEEN '2010-10-10' AND '2010-10-11'");
+    public void testCheckPartitionCompletedDay() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "20230728",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.DAY,
+                                StandardSQLTypeName.DATE,
+                                tsStringToInstant("2023-07-29 00:00:01 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
     }
 
     @Test
-    public void testDateTimeFormatMonthPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event",
-                        BigQueryPartition.PartitionType.MONTH,
-                        StandardSQLTypeName.DATETIME);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "event", "2010-10-10 10:10:10"))
-                .isEqualTo("event BETWEEN '2010-10' AND '2010-11'");
+    public void testCheckPartitionNotCompletedDay() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "20230728",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.DAY,
+                                StandardSQLTypeName.DATE,
+                                tsStringToInstant("2023-07-28 23:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
     @Test
-    public void testDateTimeFormatYearPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event",
-                        BigQueryPartition.PartitionType.YEAR,
-                        StandardSQLTypeName.DATETIME);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "event", "2010-10-10 10:10:10"))
-                .isEqualTo("event BETWEEN '2010' AND '2011'");
+    public void testCheckPartitionCompletedMonth() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "202307",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.MONTH,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2023-08-01 00:00:01 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
     }
 
     @Test
-    public void testDateFormatDayPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event", BigQueryPartition.PartitionType.DAY, StandardSQLTypeName.DATE);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "event", "2010-10-10"))
-                .isEqualTo("event BETWEEN '2010-10-10' AND '2010-10-11'");
+    public void testCheckPartitionNotCompletedMonth() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "202303",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.MONTH,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2023-03-31 23:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
     @Test
-    public void testDateFormatMonthPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event", BigQueryPartition.PartitionType.MONTH, StandardSQLTypeName.DATE);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "event", "2010-10-10"))
-                .isEqualTo("event BETWEEN '2010-10' AND '2010-11'");
+    public void testCheckPartitionNotCompletedMonthFebLeapYear() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "202002",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.MONTH,
+                                StandardSQLTypeName.TIMESTAMP,
+                                tsStringToInstant("2020-02-29 23:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
     @Test
-    public void testDateFormatYearPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event", BigQueryPartition.PartitionType.YEAR, StandardSQLTypeName.DATE);
-        Assertions.assertThat(
-                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                Optional.of(info), "event", "2010-10-10"))
-                .isEqualTo("event BETWEEN '2010' AND '2011'");
+    public void testCheckPartitionCompletedYear() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "2022",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.YEAR,
+                                StandardSQLTypeName.DATE,
+                                tsStringToInstant("2023-01-02 00:00:01 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testDateFormatHourPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event", BigQueryPartition.PartitionType.HOUR, StandardSQLTypeName.DATE);
-        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                Optional.of(info), "event", "2010-10-10");
+    @Test
+    public void testCheckPartitionNotCompletedLeapYear() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "2020",
+                        new TablePartitionInfo(
+                                "temporal",
+                                BigQueryPartition.PartitionType.YEAR,
+                                StandardSQLTypeName.DATE,
+                                tsStringToInstant("2020-12-31 23:59:59 UTC")));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.IN_PROGRESS);
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testStringColumnPartitionRestriction() {
-        TablePartitionInfo info =
-                new TablePartitionInfo(
-                        "event", BigQueryPartition.PartitionType.HOUR, StandardSQLTypeName.STRING);
-        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                Optional.of(info), "event", "2010-10-10");
+    @Test
+    public void testCheckPartitionCompletedIntRange() {
+        PartitionIdWithInfo partitionWithInfo =
+                new PartitionIdWithInfo(
+                        "2023",
+                        new TablePartitionInfo(
+                                "intvalue",
+                                BigQueryPartition.PartitionType.INT_RANGE,
+                                StandardSQLTypeName.INT64,
+                                Instant.now()));
+
+        PartitionIdWithInfoAndStatus partitionWithInfoAndStatus =
+                BigQueryPartition.checkPartitionCompleted(partitionWithInfo);
+
+        Assertions.assertThat(partitionWithInfoAndStatus.getStatus())
+                .isEqualTo(BigQueryPartition.PartitionStatus.COMPLETED);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoEmpty() {
+        String expected = "dragon = verde";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.empty(), "dragon", "verde");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoInteger() {
+        String expected = "dragon = 5";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.INT_RANGE,
+                                        StandardSQLTypeName.INT64,
+                                        Instant.now())),
+                        "dragon",
+                        "5");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoDateDay() {
+        String expected = "dragon BETWEEN '2023-01-02' AND '2023-01-03'";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.DAY,
+                                        StandardSQLTypeName.DATE,
+                                        Instant.now())),
+                        "dragon",
+                        "2023-01-02");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoDateMonth() {
+        String expected = "dragon BETWEEN '2023-01-01' AND '2023-02-01'";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.MONTH,
+                                        StandardSQLTypeName.DATE,
+                                        Instant.now())),
+                        "dragon",
+                        "2023-01-01");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoDateYear() {
+        String expected = "dragon BETWEEN '2023-01-01' AND '2024-01-01'";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.YEAR,
+                                        StandardSQLTypeName.DATE,
+                                        Instant.now())),
+                        "dragon",
+                        "2023-01-01");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoTimestampHour() {
+        String expected = "dragon BETWEEN '2023-01-01 03:00:00' AND '2023-01-01 04:00:00'";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.HOUR,
+                                        StandardSQLTypeName.TIMESTAMP,
+                                        Instant.now())),
+                        "dragon",
+                        "2023-01-01 03:00:00");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoTimestampDay() {
+        String expected = "dragon BETWEEN '2023-01-01 00:00:00' AND '2023-01-02 00:00:00'";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.DAY,
+                                        StandardSQLTypeName.TIMESTAMP,
+                                        Instant.now())),
+                        "dragon",
+                        "2023-01-01 03:00:00");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoTimestampMonth() {
+        String expected = "dragon BETWEEN '2023-01-01 00:00:00' AND '2023-02-01 00:00:00'";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.MONTH,
+                                        StandardSQLTypeName.TIMESTAMP,
+                                        Instant.now())),
+                        "dragon",
+                        "2023-01-01 03:00:00");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoTimestampYear() {
+        String expected = "dragon BETWEEN '2023-01-01 00:00:00' AND '2024-01-01 00:00:00'";
+        String actual =
+                BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartition.PartitionType.YEAR,
+                                        StandardSQLTypeName.TIMESTAMP,
+                                        Instant.now())),
+                        "dragon",
+                        "2023-01-01 03:00:00");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    private Instant tsStringToInstant(String ts) {
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss zzz").parse(ts).toInstant();
+        } catch (ParseException e) {
+            throw new IllegalStateException(
+                    "Invalid date format in test. This should never happen!");
+        }
     }
 }
