@@ -42,9 +42,8 @@ import java.time.Duration;
  * A simple Flink application using DataStream API and BigQuery connector.
  *
  * <p>The Flink pipeline will try to read the specified BigQuery table according to given the
- * command line arguments, returning {@link GenericRecord} representing the rows, and finally print
- * out some aggregated values given the provided payload's field. The sequence of operations in this
- * pipeline is: <i>source > flatMap > keyBy > sum > print</i>.
+ * command line arguments, returning {@link GenericRecord} representing the rows, and print the
+ * result of specified operations.
  *
  * <p>This example module should be used in one of the following two ways.
  *
@@ -54,7 +53,10 @@ import java.time.Duration;
  *       read once at the time of execution, analogous to a batch job. Unbounded source implies that
  *       the BQ table will be periodically polled for new data. Hybrid source allows defining
  *       multiple sources, and in this example, we show a combination of bounded and unbounded
- *       sources. Flink command line format is: <br>
+ *       sources. <br>
+ *       The sequence of operations in this pipeline is: <i>source > flatMap > keyBy > sum >
+ *       print</i> <br>
+ *       Flink command line format is: <br>
  *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
  *       --gcp-project {required; project ID which contains the BigQuery table} <br>
  *       --bq-dataset {required; name of BigQuery dataset containing the desired table} <br>
@@ -63,11 +65,13 @@ import java.time.Duration;
  *       hybrid} <br>
  *       --agg-prop {required; record property to aggregate in Flink job} <br>
  *       --ts-prop {required for unbounded/hybrid mode; property record for timestamp} <br>
- *       --oldest-partition-id {required for unbounded/hybrid mode; oldest partition id to read}
- *       <br>
+ *       --oldest-partition-id {optional; oldest partition id to read. Used in unbounded/hybrid
+ *       mode} <br>
  *       --restriction {optional; SQL filter applied at the BigQuery table before reading} <br>
  *       --limit {optional; maximum records to read from BigQuery table} <br>
  *       --checkpoint-interval {optional; milliseconds between state checkpoints} <br>
+ *       --partition-discovery-interval {optional; minutes between polling table for new data. Used
+ *       in unbounded/hybrid mode} <br>
  *       --out-of-order-tolerance {optional; out of order tolerance in minutes. Used in
  *       unbounded/hybrid mode} <br>
  *       --ts-unit {optional; unit for Flink's assigned timestamp. Allowed values are microsecond,
@@ -76,12 +80,13 @@ import java.time.Duration;
  *       unbounded/hybrid mode} <br>
  *       --window-size {optional; window size in minutes. Used in unbounded/hybrid mode}
  *   <li>Specify SQL query to fetch data from BQ dataset. For example, "SELECT * FROM
- *       some_dataset.INFORMATION_SCHEMA.PARTITIONS". This mode can only be used as a bounded
- *       source. Flink command line format is: <br>
+ *       some_dataset.INFORMATION_SCHEMA.PARTITIONS". This approach can only be used as a bounded
+ *       source. <br>
+ *       The sequence of operations in this pipeline is: <i>source > print</i> <br>
+ *       Flink command line format is: <br>
  *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
  *       --gcp-project {required; project ID which contains the BigQuery table} <br>
  *       --query {required; SQL query to fetch data from BigQuery table} <br>
- *       --agg-prop {required; record property to aggregate in Flink job} <br>
  *       --limit {optional; maximum records to read from BigQuery table} <br>
  *       --checkpoint-interval {optional; time interval between state checkpoints in milliseconds}
  * </ol>
@@ -114,7 +119,12 @@ public class BigQueryExample {
                             + " --checkpoint-interval <milliseconds between state checkpoints>"
                             + " --query <SQL query to get data from BQ table>"
                             + " --ts-prop <timestamp property>"
-                            + " --oldest-partition-id <oldest partition to read>");
+                            + " --oldest-partition-id <oldest partition to read>"
+                            + " --partition-discovery-interval <minutes between checking new data>"
+                            + " --out-of-order-tolerance <minutes to accpet out of order records>"
+                            + " --ts-unit <unit of time for Flink's timestamp assigned>"
+                            + " --max-idleness <idle minutes before timeout>"
+                            + " --window-size <Flink's window size in minutes>");
             return;
         }
         /**
@@ -137,6 +147,8 @@ public class BigQueryExample {
         String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
         String mode = parameterTool.get("mode", "bounded");
         String oldestPartition = parameterTool.get("oldest-partition-id", "");
+        Integer partitionDiscoveryInterval =
+                parameterTool.getInt("partition-discovery-interval", 10);
         Integer maxOutOfOrder = parameterTool.getInt("out-of-order-tolerance", 10);
         String timestampUnit = parameterTool.get("ts-unit", "second");
         Integer maxIdleness = parameterTool.getInt("max-idleness", 20);
@@ -168,6 +180,7 @@ public class BigQueryExample {
                             recordLimit,
                             checkpointInterval,
                             oldestPartition,
+                            partitionDiscoveryInterval,
                             maxOutOfOrder,
                             timestampUnit,
                             maxIdleness,
@@ -186,6 +199,7 @@ public class BigQueryExample {
                             rowRestriction,
                             checkpointInterval,
                             oldestPartition,
+                            partitionDiscoveryInterval,
                             maxOutOfOrder,
                             timestampUnit,
                             maxIdleness,
@@ -314,6 +328,7 @@ public class BigQueryExample {
             Integer limit,
             Long checkpointInterval,
             String oldestPartition,
+            Integer partitionDiscoveryInterval,
             Integer maxOutOfOrder,
             String timestampUnit,
             Integer maxIdleness,
@@ -332,6 +347,8 @@ public class BigQueryExample {
                                 .setRowRestriction(rowRestriction)
                                 .setLimit(limit)
                                 .setOldestPartitionId(oldestPartition)
+                                .setPartitionDiscoveryRefreshIntervalInMinutes(
+                                        partitionDiscoveryInterval)
                                 .build());
 
         runJob(
@@ -357,6 +374,7 @@ public class BigQueryExample {
             String rowRestrictionForBatch,
             Long checkpointInterval,
             String oldestPartitionForStreaming,
+            Integer partitionDiscoveryInterval,
             Integer maxOutOfOrder,
             String timestampUnit,
             Integer maxIdleness,
@@ -388,7 +406,8 @@ public class BigQueryExample {
                                                 .setTable(tableName)
                                                 .build())
                                 .setOldestPartitionId(oldestPartitionForStreaming)
-                                .setPartitionDiscoveryRefreshIntervalInMinutes(5)
+                                .setPartitionDiscoveryRefreshIntervalInMinutes(
+                                        partitionDiscoveryInterval)
                                 .build());
 
         // create an hybrid source with both batch and streaming flavors of the BigQuery source.
