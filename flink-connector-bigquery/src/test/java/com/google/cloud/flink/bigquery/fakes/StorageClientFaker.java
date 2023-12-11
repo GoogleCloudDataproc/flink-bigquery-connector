@@ -75,7 +75,7 @@ public class StorageClientFaker {
     /** Implementation for the BigQuery services for testing purposes. */
     public static class FakeBigQueryServices implements BigQueryServices {
 
-        static FakeBigQueryServices instance = null;
+        static volatile FakeBigQueryServices instance = null;
         static final Object LOCK = new Object();
 
         private final FakeBigQueryStorageReadClient storageReadClient;
@@ -177,7 +177,7 @@ public class StorageClientFaker {
 
             private final Iterator<T> realIterator;
             private final Double errorPercentage;
-            private final Random random = new Random();
+            private final Random random = new Random(42);
 
             public FaultyIterator(Iterator<T> realIterator, Double errorPercentage) {
                 this.realIterator = realIterator;

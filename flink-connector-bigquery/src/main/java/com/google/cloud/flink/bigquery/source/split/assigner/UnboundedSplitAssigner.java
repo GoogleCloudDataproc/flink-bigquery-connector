@@ -117,7 +117,7 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
                                                     options,
                                                     DataFormat.AVRO,
                                                     this.readOptions.getColumnNames(),
-                                                    shouldAppendRestriction(
+                                                    combineRestrictions(
                                                             this.readOptions.getRowRestriction(),
                                                             restriction),
                                                     this.readOptions.getSnapshotTimestampInMillis(),
@@ -130,7 +130,7 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
     }
 
     @VisibleForTesting
-    String shouldAppendRestriction(String existing, String newRestriction) {
+    String combineRestrictions(String existing, String newRestriction) {
         if (existing.trim().isEmpty()) {
             return newRestriction;
         }

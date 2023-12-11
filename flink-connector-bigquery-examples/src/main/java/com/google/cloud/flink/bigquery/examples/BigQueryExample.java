@@ -74,8 +74,6 @@ import java.time.Duration;
  *       in unbounded/hybrid mode} <br>
  *       --out-of-order-tolerance {optional; out of order tolerance in minutes. Used in
  *       unbounded/hybrid mode} <br>
- *       --ts-unit {optional; unit for Flink's assigned timestamp. Allowed values are microsecond,
- *       second, minute or hour. Used in unbounded/hybrid mode} <br>
  *       --max-idleness {optional; minutes to wait before timing out if no new records. Used in
  *       unbounded/hybrid mode} <br>
  *       --window-size {optional; window size in minutes. Used in unbounded/hybrid mode}
@@ -122,7 +120,6 @@ public class BigQueryExample {
                             + " --oldest-partition-id <oldest partition to read>"
                             + " --partition-discovery-interval <minutes between checking new data>"
                             + " --out-of-order-tolerance <minutes to accpet out of order records>"
-                            + " --ts-unit <unit of time for Flink's timestamp assigned>"
                             + " --max-idleness <idle minutes before timeout>"
                             + " --window-size <Flink's window size in minutes>");
             return;
@@ -150,62 +147,54 @@ public class BigQueryExample {
         Integer partitionDiscoveryInterval =
                 parameterTool.getInt("partition-discovery-interval", 10);
         Integer maxOutOfOrder = parameterTool.getInt("out-of-order-tolerance", 10);
-        String timestampUnit = parameterTool.get("ts-unit", "second");
         Integer maxIdleness = parameterTool.getInt("max-idleness", 20);
         Integer windowSize = parameterTool.getInt("window-size", 1);
 
+        String recordPropertyForTimestamps;
         switch (mode) {
             case "bounded":
-                {
-                    runBoundedFlinkJob(
-                            projectName,
-                            datasetName,
-                            tableName,
-                            recordPropertyToAggregate,
-                            rowRestriction,
-                            recordLimit,
-                            checkpointInterval);
-                    break;
-                }
+                runBoundedFlinkJob(
+                        projectName,
+                        datasetName,
+                        tableName,
+                        recordPropertyToAggregate,
+                        rowRestriction,
+                        recordLimit,
+                        checkpointInterval);
+                break;
             case "unbounded":
-                {
-                    String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                    runStreamingFlinkJob(
-                            projectName,
-                            datasetName,
-                            tableName,
-                            recordPropertyToAggregate,
-                            recordPropertyForTimestamps,
-                            rowRestriction,
-                            recordLimit,
-                            checkpointInterval,
-                            oldestPartition,
-                            partitionDiscoveryInterval,
-                            maxOutOfOrder,
-                            timestampUnit,
-                            maxIdleness,
-                            windowSize);
-                    break;
-                }
+                recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                runStreamingFlinkJob(
+                        projectName,
+                        datasetName,
+                        tableName,
+                        recordPropertyToAggregate,
+                        recordPropertyForTimestamps,
+                        rowRestriction,
+                        recordLimit,
+                        checkpointInterval,
+                        oldestPartition,
+                        partitionDiscoveryInterval,
+                        maxOutOfOrder,
+                        maxIdleness,
+                        windowSize);
+                break;
             case "hybrid":
-                {
-                    String recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                    runHybridFlinkJob(
-                            projectName,
-                            datasetName,
-                            tableName,
-                            recordPropertyToAggregate,
-                            recordPropertyForTimestamps,
-                            rowRestriction,
-                            checkpointInterval,
-                            oldestPartition,
-                            partitionDiscoveryInterval,
-                            maxOutOfOrder,
-                            timestampUnit,
-                            maxIdleness,
-                            windowSize);
-                    break;
-                }
+                recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                runHybridFlinkJob(
+                        projectName,
+                        datasetName,
+                        tableName,
+                        recordPropertyToAggregate,
+                        recordPropertyForTimestamps,
+                        rowRestriction,
+                        checkpointInterval,
+                        oldestPartition,
+                        partitionDiscoveryInterval,
+                        maxOutOfOrder,
+                        maxIdleness,
+                        windowSize);
+                break;
             default:
                 throw new IllegalArgumentException(
                         "Allowed values for mode are bounded, unbounded or hybrid. Found " + mode);
@@ -236,7 +225,6 @@ public class BigQueryExample {
             String recordPropertyForTimestamps,
             Long checkpointInterval,
             Integer maxOutOfOrder,
-            String timestampUnit,
             Integer maxIdleness,
             Integer windowSize)
             throws Exception {
@@ -244,36 +232,13 @@ public class BigQueryExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(checkpointInterval);
 
-        Integer timestampConverter;
-        switch (timestampUnit) {
-            case "microsecond":
-                timestampConverter = 1;
-                break;
-            case "second":
-                timestampConverter = 1000;
-                break;
-            case "minute":
-                timestampConverter = 1000000;
-                break;
-            case "hour":
-                timestampConverter = 1000000000;
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Allowed values for ts-unit are microsecond, second, minute or hour. Found "
-                                + timestampUnit);
-        }
-
         env.fromSource(
                         source,
                         WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
                                         Duration.ofMinutes(maxOutOfOrder))
                                 .withTimestampAssigner(
-                                        // timestamps in BigQuery are represented at microsecond
-                                        // level
                                         (event, timestamp) ->
-                                                ((Long) event.get(recordPropertyForTimestamps))
-                                                        / timestampConverter)
+                                                (Long) event.get(recordPropertyForTimestamps))
                                 .withIdleness(Duration.ofMinutes(maxIdleness)),
                         sourceName,
                         typeInfo)
@@ -316,6 +281,8 @@ public class BigQueryExample {
                 .keyBy(mappedTuple -> mappedTuple.f0)
                 .sum("f1")
                 .print();
+
+        env.execute("Flink BigQuery Bounded Read Example");
     }
 
     private static void runStreamingFlinkJob(
@@ -330,7 +297,6 @@ public class BigQueryExample {
             String oldestPartition,
             Integer partitionDiscoveryInterval,
             Integer maxOutOfOrder,
-            String timestampUnit,
             Integer maxIdleness,
             Integer windowSize)
             throws Exception {
@@ -360,7 +326,6 @@ public class BigQueryExample {
                 recordPropertyForTimestamps,
                 checkpointInterval,
                 maxOutOfOrder,
-                timestampUnit,
                 maxIdleness,
                 windowSize);
     }
@@ -376,7 +341,6 @@ public class BigQueryExample {
             String oldestPartitionForStreaming,
             Integer partitionDiscoveryInterval,
             Integer maxOutOfOrder,
-            String timestampUnit,
             Integer maxIdleness,
             Integer windowSize)
             throws Exception {
@@ -423,7 +387,6 @@ public class BigQueryExample {
                 recordPropertyForTimestamps,
                 checkpointInterval,
                 maxOutOfOrder,
-                timestampUnit,
                 maxIdleness,
                 windowSize);
     }
