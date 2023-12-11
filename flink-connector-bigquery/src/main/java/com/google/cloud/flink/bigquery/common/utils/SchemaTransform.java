@@ -20,6 +20,7 @@ import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -36,9 +37,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * A utility class that helps on the transformation of BigQuery {@link TableSchema} into Avro {@link
- * Schema}. Some methods are heavily influenced on the Apache Beam implementation (not externally
- * accessible methods).
+ * Utility class for transforming BigQuery {@link TableSchema} to Avro {@link Schema}, and BigQuery
+ * {@link TableFieldSchema} to Standard SQL types. Some methods are heavily influenced on the Apache
+ * Beam implementation (not externally accessible methods).
  */
 public class SchemaTransform {
 
@@ -73,6 +74,40 @@ public class SchemaTransform {
         mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
         mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
         mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
+
+        return mapping;
+    }
+
+    /** Defines the valid mapping between BigQuery types and standard SQL types. */
+    static final Map<String, StandardSQLTypeName> BIG_QUERY_TO_SQL_TYPES =
+            initializeBigQueryToSQLTypesMapping();
+    /*
+     STRING, BYTES, INTEGER, INT64 (same as
+    * INTEGER), FLOAT, FLOAT64 (same as FLOAT), NUMERIC, BIGNUMERIC, BOOLEAN, BOOL (same as BOOLEAN),
+    * TIMESTAMP, DATE, TIME, DATETIME, INTERVAL, RECORD (where RECORD indicates that the field
+    * contains a nested schema) or STRUCT (same as RECORD).
+     */
+
+    private static Map<String, StandardSQLTypeName> initializeBigQueryToSQLTypesMapping() {
+        Map<String, StandardSQLTypeName> mapping = new HashMap<>();
+
+        mapping.put("STRING", StandardSQLTypeName.STRING);
+        mapping.put("BYTES", StandardSQLTypeName.BYTES);
+        mapping.put("INTEGER", StandardSQLTypeName.INT64);
+        mapping.put("INT64", StandardSQLTypeName.INT64);
+        mapping.put("FLOAT", StandardSQLTypeName.FLOAT64);
+        mapping.put("FLOAT64", StandardSQLTypeName.FLOAT64);
+        mapping.put("NUMERIC", StandardSQLTypeName.NUMERIC);
+        mapping.put("BIGNUMERIC", StandardSQLTypeName.BIGNUMERIC);
+        mapping.put("BOOLEAN", StandardSQLTypeName.BOOL);
+        mapping.put("BOOL", StandardSQLTypeName.BOOL);
+        mapping.put("TIMESTAMP", StandardSQLTypeName.TIMESTAMP);
+        mapping.put("DATE", StandardSQLTypeName.DATE);
+        mapping.put("TIME", StandardSQLTypeName.TIME);
+        mapping.put("DATETIME", StandardSQLTypeName.DATETIME);
+        mapping.put("INTERVAL", StandardSQLTypeName.INTERVAL);
+        mapping.put("RECORD", StandardSQLTypeName.STRUCT);
+        mapping.put("STRUCT", StandardSQLTypeName.STRUCT);
 
         return mapping;
     }
