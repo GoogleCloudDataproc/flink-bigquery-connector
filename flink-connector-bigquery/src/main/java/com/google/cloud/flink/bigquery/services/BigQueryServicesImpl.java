@@ -49,6 +49,8 @@ import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
 
 import java.io.IOException;
@@ -64,6 +66,7 @@ import java.util.stream.StreamSupport;
 /** Implementation of the {@link BigQueryServices} interface that wraps the actual clients. */
 @Internal
 public class BigQueryServicesImpl implements BigQueryServices {
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryServicesImpl.class);
 
     @Override
     public StorageReadClient getStorageClient(CredentialsOptions credentialsOptions)
@@ -190,10 +193,10 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                                 project, dataset),
                                         "WHERE",
                                         " partition_id <> '__STREAMING_UNPARTITIONED__'",
-                                        String.format(" table_catalog = '%s'", project),
+                                        String.format(" AND table_catalog = '%s'", project),
                                         String.format(" AND table_schema = '%s'", dataset),
                                         String.format(" AND table_name = '%s'", table),
-                                        "ORDER BY 1 DESC;")
+                                        "ORDER BY 1 ASC;")
                                 .stream()
                                 .collect(Collectors.joining("\n"));
 
@@ -201,10 +204,13 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
                 TableResult results = bigQuery.query(queryConfig);
 
-                return StreamSupport.stream(results.iterateAll().spliterator(), false)
-                        .flatMap(row -> row.stream())
-                        .map(fValue -> fValue.getStringValue())
-                        .collect(Collectors.toList());
+                List<String> result =
+                        StreamSupport.stream(results.iterateAll().spliterator(), false)
+                                .flatMap(row -> row.stream())
+                                .map(fValue -> fValue.getStringValue())
+                                .collect(Collectors.toList());
+                LOG.info("Table partitions: {}", result);
+                return result;
             } catch (Exception ex) {
                 throw new RuntimeException(
                         String.format(
@@ -215,6 +221,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
             }
         }
 
+        @Override
         public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
                 String project, String dataset, String table) {
             try {

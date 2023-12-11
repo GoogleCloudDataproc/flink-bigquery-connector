@@ -53,6 +53,9 @@ public class BigQuerySourceEnumStateSerializer
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 DataOutputStream out = new DataOutputStream(baos)) {
             BigQueryStateSerde.serializeList(
+                    out, state.getLastSeenPartitions(), DataOutputStream::writeUTF);
+
+            BigQueryStateSerde.serializeList(
                     out, state.getRemaniningTableStreams(), DataOutputStream::writeUTF);
 
             BigQueryStateSerde.serializeList(
@@ -86,6 +89,8 @@ public class BigQuerySourceEnumStateSerializer
         }
         try (ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
                 DataInputStream in = new DataInputStream(bais)) {
+            List<String> lastSeenPartitions =
+                    BigQueryStateSerde.deserializeList(in, DataInput::readUTF);
             List<String> remainingTableStreams =
                     BigQueryStateSerde.deserializeList(in, DataInput::readUTF);
             List<String> completedTableStreams =
@@ -103,6 +108,7 @@ public class BigQuerySourceEnumStateSerializer
             boolean initialized = in.readBoolean();
 
             return new BigQuerySourceEnumState(
+                    lastSeenPartitions,
                     remainingTableStreams,
                     completedTableStreams,
                     remainingScanSplits,

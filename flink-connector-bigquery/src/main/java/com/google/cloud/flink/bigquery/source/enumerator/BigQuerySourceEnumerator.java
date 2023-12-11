@@ -21,8 +21,10 @@ import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
+import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
-import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitAssigner;
+import com.google.cloud.flink.bigquery.source.split.SplitDiscoveryScheduler;
+import com.google.cloud.flink.bigquery.source.split.assigner.BigQuerySourceSplitAssigner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,11 +33,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.function.BiConsumer;
 
 /** The enumerator class for {@link BigQuerySource}. */
 @Internal
 public class BigQuerySourceEnumerator
-        implements SplitEnumerator<BigQuerySourceSplit, BigQuerySourceEnumState> {
+        implements SplitEnumerator<BigQuerySourceSplit, BigQuerySourceEnumState>,
+                SplitDiscoveryScheduler {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySourceEnumerator.class);
 
@@ -47,16 +52,31 @@ public class BigQuerySourceEnumerator
     public BigQuerySourceEnumerator(
             Boundedness boundedness,
             SplitEnumeratorContext<BigQuerySourceSplit> context,
-            BigQuerySourceSplitAssigner splitAssigner) {
+            BigQueryReadOptions readOptions,
+            BigQuerySourceEnumState sourceEnumState) {
         this.boundedness = boundedness;
         this.context = context;
-        this.splitAssigner = splitAssigner;
+        this.splitAssigner = createBigQuerySourceSplitAssigner(readOptions, sourceEnumState);
         this.readersAwaitingSplit = new TreeSet<>();
+    }
+
+    final BigQuerySourceSplitAssigner createBigQuerySourceSplitAssigner(
+            BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
+        switch (this.boundedness) {
+            case BOUNDED:
+                return BigQuerySourceSplitAssigner.createBounded(readOptions, sourceEnumState);
+            case CONTINUOUS_UNBOUNDED:
+                return BigQuerySourceSplitAssigner.createUnbounded(
+                        this, readOptions, sourceEnumState);
+            default:
+                throw new IllegalArgumentException(
+                        "Non supported boundedness: " + this.boundedness);
+        }
     }
 
     @Override
     public void start() {
-        splitAssigner.open();
+        splitAssigner.openAndDiscoverSplits();
     }
 
     @Override
@@ -104,7 +124,6 @@ public class BigQuerySourceEnumerator
                 awaitingReader.remove();
                 continue;
             }
-
             Optional<BigQuerySourceSplit> split = splitAssigner.getNext();
             if (split.isPresent()) {
                 final BigQuerySourceSplit bqSplit = split.get();
@@ -117,9 +136,24 @@ public class BigQuerySourceEnumerator
                 context.registeredReaders().keySet().forEach(context::signalNoMoreSplits);
                 break;
             } else {
+                LOG.info("All splits have been assigned, will check later on.");
                 // there is no available splits by now, skip assigning
                 break;
             }
         }
+    }
+
+    @Override
+    public <T> void schedule(
+            Callable<T> callable,
+            BiConsumer<T, Throwable> handler,
+            long initialDelayMillis,
+            long periodMillis) {
+        this.context.callAsync(callable, handler, initialDelayMillis, periodMillis);
+    }
+
+    @Override
+    public void notifySplits() {
+        assignSplits();
     }
 }

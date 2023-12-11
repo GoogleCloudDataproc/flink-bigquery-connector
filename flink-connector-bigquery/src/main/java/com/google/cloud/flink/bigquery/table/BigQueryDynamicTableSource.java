@@ -65,7 +65,6 @@ public class BigQueryDynamicTableSource
 
     private BigQueryReadOptions readOptions;
     private DataType producedDataType;
-    private Integer limit = -1;
 
     public BigQueryDynamicTableSource(BigQueryReadOptions readOptions, DataType producedDataType) {
         this.readOptions = readOptions;
@@ -85,7 +84,6 @@ public class BigQueryDynamicTableSource
 
         BigQuerySource<RowData> bqSource =
                 BigQuerySource.<RowData>builder()
-                        .setLimit(limit)
                         .setReadOptions(readOptions)
                         .setDeserializationSchema(
                                 new AvroToRowDataDeserializationSchema(rowType, typeInfo))
@@ -121,7 +119,7 @@ public class BigQueryDynamicTableSource
 
     @Override
     public void applyLimit(long limit) {
-        this.limit = (int) limit;
+        this.readOptions.toBuilder().setLimit((int) limit).build();
     }
 
     @Override
@@ -165,7 +163,7 @@ public class BigQueryDynamicTableSource
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.readOptions, this.producedDataType, this.limit);
+        return Objects.hash(this.readOptions, this.producedDataType);
     }
 
     @Override
@@ -181,8 +179,7 @@ public class BigQueryDynamicTableSource
         }
         final BigQueryDynamicTableSource other = (BigQueryDynamicTableSource) obj;
         return Objects.equals(this.readOptions, other.readOptions)
-                && Objects.equals(this.producedDataType, other.producedDataType)
-                && Objects.equals(this.limit, other.limit);
+                && Objects.equals(this.producedDataType, other.producedDataType);
     }
 
     Optional<TablePartitionInfo> retrievePartitionInfo() {
@@ -268,7 +265,7 @@ public class BigQueryDynamicTableSource
             List<Map<String, String>> remainingPartitions) {
         /**
          * given the specification, partition restriction comes before the filter application, so we
-         * just set here the row restriction.
+         * just set the row restriction here.
          */
         String partitionRestrictions =
                 remainingPartitions.stream()

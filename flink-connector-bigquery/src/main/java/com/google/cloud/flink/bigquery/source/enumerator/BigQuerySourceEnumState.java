@@ -30,6 +30,7 @@ import java.util.Objects;
 @PublicEvolving
 public class BigQuerySourceEnumState {
 
+    private final List<String> lastSeenPartitions;
     private final List<String> remaniningTableStreams;
     private final List<String> completedTableStreams;
     private final List<BigQuerySourceSplit> remainingSourceSplits;
@@ -37,16 +38,22 @@ public class BigQuerySourceEnumState {
     private final Boolean initialized;
 
     public BigQuerySourceEnumState(
+            List<String> lastSeenPartitions,
             List<String> remaniningTableStreams,
             List<String> completedTableStreams,
             List<BigQuerySourceSplit> remainingSourceSplits,
             Map<String, BigQuerySourceSplit> assignedSourceSplits,
             Boolean initialized) {
-        this.remaniningTableStreams = remaniningTableStreams;
-        this.completedTableStreams = completedTableStreams;
-        this.remainingSourceSplits = remainingSourceSplits;
-        this.assignedSourceSplits = assignedSourceSplits;
+        this.lastSeenPartitions = new ArrayList<>(lastSeenPartitions);
+        this.remaniningTableStreams = new ArrayList<>(remaniningTableStreams);
+        this.completedTableStreams = new ArrayList<>(completedTableStreams);
+        this.remainingSourceSplits = new ArrayList<>(remainingSourceSplits);
+        this.assignedSourceSplits = new HashMap<>(assignedSourceSplits);
         this.initialized = initialized;
+    }
+
+    public List<String> getLastSeenPartitions() {
+        return this.lastSeenPartitions;
     }
 
     public List<String> getRemaniningTableStreams() {
@@ -71,12 +78,18 @@ public class BigQuerySourceEnumState {
 
     public static BigQuerySourceEnumState initialState() {
         return new BigQuerySourceEnumState(
-                new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new HashMap<>(), false);
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new HashMap<>(),
+                false);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(
+                this.lastSeenPartitions,
                 this.remaniningTableStreams,
                 this.completedTableStreams,
                 this.remainingSourceSplits,
@@ -96,30 +109,25 @@ public class BigQuerySourceEnumState {
             return false;
         }
         final BigQuerySourceEnumState other = (BigQuerySourceEnumState) obj;
-        if (!Objects.equals(this.remaniningTableStreams, other.remaniningTableStreams)) {
-            return false;
-        }
-        if (!Objects.equals(this.completedTableStreams, other.completedTableStreams)) {
-            return false;
-        }
-        if (!Objects.equals(this.remainingSourceSplits, other.remainingSourceSplits)) {
-            return false;
-        }
-        if (!Objects.equals(this.assignedSourceSplits, other.assignedSourceSplits)) {
-            return false;
-        }
-        return Objects.equals(this.initialized, other.initialized);
+        return Objects.equals(this.lastSeenPartitions, other.lastSeenPartitions)
+                && Objects.equals(this.remaniningTableStreams, other.remaniningTableStreams)
+                && Objects.equals(this.completedTableStreams, other.completedTableStreams)
+                && Objects.equals(this.remainingSourceSplits, other.remainingSourceSplits)
+                && Objects.equals(this.assignedSourceSplits, other.assignedSourceSplits)
+                && Objects.equals(this.initialized, other.initialized);
     }
 
     @Override
     public String toString() {
         return String.format(
                 "BigQuerySourceEnumState{"
-                        + "remaniningTableStreams=%s"
+                        + "lastSeenPartitions=%s"
+                        + ", remaniningTableStreams=%s"
                         + ", completedTableStreams=%s"
                         + ", remainingSourceSplits=%s"
                         + ", assignedSourceSplits=%s"
                         + ", initialized=%s}",
+                lastSeenPartitions,
                 remaniningTableStreams,
                 completedTableStreams,
                 remainingSourceSplits,

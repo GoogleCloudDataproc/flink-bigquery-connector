@@ -52,6 +52,12 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract Optional<String> getQueryExecutionProject();
 
+    public abstract Optional<Integer> getLimit();
+
+    public abstract Optional<String> getOldestPartitionId();
+
+    public abstract Integer getPartitionDiscoveryRefreshIntervalInMinutes();
+
     public abstract Integer getMaxStreamCount();
 
     public abstract Integer getMaxRecordsPerSplitFetch();
@@ -107,7 +113,8 @@ public abstract class BigQueryReadOptions implements Serializable {
                 .setColumnNames(new ArrayList<>())
                 .setMaxStreamCount(0)
                 .setMaxRecordsPerSplitFetch(10000)
-                .setSnapshotTimestampInMillis(null);
+                .setSnapshotTimestampInMillis(null)
+                .setPartitionDiscoveryRefreshIntervalInMinutes(10);
     }
 
     /** Builder class for {@link BigQueryReadOptions}. */
@@ -168,6 +175,35 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @return This {@link Builder} instance.
          */
         public abstract Builder setQueryExecutionProject(@Nullable String projectId);
+
+        /**
+         * Sets the oldest partition that will be considered for unbounded reads when using
+         * completed partitions approach. All temporal column partitions identifier can be
+         * lexicographically ordered, so we will be filtering out all the previous partitions. This
+         * configuration is optional, if not included all the partitions on the table will be read.
+         * Takes no action when using bounded source.
+         *
+         * @param partitionId The oldest partition to read.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setOldestPartitionId(@Nullable String partitionId);
+
+        /**
+         * Sets the periodicity of the completed partition discovery process.
+         *
+         * @param refreshIntervalInMinutes The minutes to wait for the next partition discovery.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setPartitionDiscoveryRefreshIntervalInMinutes(
+                Integer refreshIntervalInMinutes);
+
+        /**
+         * Sets the max element count that should be read.
+         *
+         * @param limit The max element count returned by the source.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setLimit(@Nullable Integer limit);
 
         /**
          * Sets the restriction the rows in the BigQuery table must comply to be returned by the

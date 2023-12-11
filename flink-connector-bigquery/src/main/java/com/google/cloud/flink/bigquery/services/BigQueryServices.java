@@ -125,6 +125,18 @@ public interface BigQueryServices extends Serializable {
                 String project, String dataset, String table);
 
         /**
+         * Returns, in case of being a partitioned table, all the partitions present alongside their
+         * status.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table.
+         * @return The information and status of the table's partitions.
+         */
+        List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
+                String project, String dataset, String table);
+
+        /**
          * Returns the {@link TableSchema} of the specified BigQuery table.
          *
          * @param project The GCP project.

@@ -50,13 +50,13 @@ public class PartitionIdWithInfoAndStatus {
         return status;
     }
 
+    public Boolean isCompleted() {
+        return status.equals(BigQueryPartitionUtils.PartitionStatus.COMPLETED);
+    }
+
     @Override
     public int hashCode() {
-        int hash = 7;
-        hash = 17 * hash + Objects.hashCode(this.getPartitionId());
-        hash = 17 * hash + Objects.hashCode(this.getInfo());
-        hash = 17 * hash + Objects.hashCode(this.getStatus());
-        return hash;
+        return Objects.hash(getPartitionId(), getInfo(), getStatus());
     }
 
     @Override
@@ -71,13 +71,9 @@ public class PartitionIdWithInfoAndStatus {
             return false;
         }
         final PartitionIdWithInfoAndStatus other = (PartitionIdWithInfoAndStatus) obj;
-        if (!Objects.equals(this.getPartitionId(), other.getPartitionId())) {
-            return false;
-        }
-        if (!Objects.equals(this.getInfo(), other.getInfo())) {
-            return false;
-        }
-        return this.getStatus() == other.getStatus();
+        return Objects.equals(this.getPartitionId(), other.getPartitionId())
+                && Objects.equals(this.getInfo(), other.getInfo())
+                && this.getStatus() == other.getStatus();
     }
 
     @Override

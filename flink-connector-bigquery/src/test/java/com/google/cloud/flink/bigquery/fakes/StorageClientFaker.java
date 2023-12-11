@@ -39,6 +39,7 @@ import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -49,6 +50,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.util.RandomData;
+import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -73,10 +75,24 @@ public class StorageClientFaker {
     /** Implementation for the BigQuery services for testing purposes. */
     public static class FakeBigQueryServices implements BigQueryServices {
 
+        static volatile FakeBigQueryServices instance = null;
+        static final Object LOCK = new Object();
+
         private final FakeBigQueryStorageReadClient storageReadClient;
 
-        public FakeBigQueryServices(FakeBigQueryStorageReadClient storageReadClient) {
+        private FakeBigQueryServices(FakeBigQueryStorageReadClient storageReadClient) {
             this.storageReadClient = storageReadClient;
+        }
+
+        static FakeBigQueryServices getInstance(FakeBigQueryStorageReadClient storageReadClient) {
+            if (instance == null) {
+                synchronized (LOCK) {
+                    if (instance == null) {
+                        instance = Mockito.spy(new FakeBigQueryServices(storageReadClient));
+                    }
+                }
+            }
+            return instance;
         }
 
         @Override
@@ -87,51 +103,74 @@ public class StorageClientFaker {
 
         @Override
         public QueryDataClient getQueryDataClient(CredentialsOptions readOptions) {
-            return new QueryDataClient() {
+            return FakeQueryDataClient.getInstance();
+        }
 
-                @Override
-                public List<String> retrieveTablePartitions(
-                        String project, String dataset, String table) {
-                    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
+        static class FakeQueryDataClient implements QueryDataClient {
 
-                    return Arrays.asList(
-                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
-                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
-                            Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
-                            Instant.now().atOffset(ZoneOffset.UTC).format(dtf));
-                }
+            static FakeQueryDataClient instance = Mockito.spy(new FakeQueryDataClient());
 
-                @Override
-                public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
-                        String project, String dataset, String table) {
-                    return Optional.of(
-                            new TablePartitionInfo(
-                                    "ts",
-                                    BigQueryPartitionUtils.PartitionType.HOUR,
-                                    StandardSQLTypeName.TIMESTAMP,
-                                    Instant.now()));
-                }
+            static QueryDataClient getInstance() {
+                return instance;
+            }
 
-                @Override
-                public TableSchema getTableSchema(String project, String dataset, String table) {
-                    return SIMPLE_BQ_TABLE_SCHEMA;
-                }
+            @Override
+            public List<String> retrieveTablePartitions(
+                    String project, String dataset, String table) {
+                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
-                @Override
-                public Optional<QueryResultInfo> runQuery(String projectId, String query) {
-                    return Optional.of(QueryResultInfo.succeed("", "", ""));
-                }
+                return Arrays.asList(
+                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
+                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
+                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
+                        Instant.now().atOffset(ZoneOffset.UTC).format(dtf));
+            }
 
-                @Override
-                public Job dryRunQuery(String projectId, String query) {
-                    return new Job()
-                            .setStatistics(
-                                    new JobStatistics()
-                                            .setQuery(
-                                                    new JobStatistics2()
-                                                            .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
-                }
-            };
+            @Override
+            public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
+                    String project, String dataset, String table) {
+                return Optional.of(
+                        new TablePartitionInfo(
+                                "ts",
+                                BigQueryPartitionUtils.PartitionType.HOUR,
+                                StandardSQLTypeName.TIMESTAMP,
+                                Instant.now()));
+            }
+
+            @Override
+            public TableSchema getTableSchema(String project, String dataset, String table) {
+                return SIMPLE_BQ_TABLE_SCHEMA;
+            }
+
+            @Override
+            public Optional<QueryResultInfo> runQuery(String projectId, String query) {
+                return Optional.of(
+                        QueryResultInfo.succeed("some-project", "some-dataset", "some-table"));
+            }
+
+            @Override
+            public Job dryRunQuery(String projectId, String query) {
+                return new Job()
+                        .setStatistics(
+                                new JobStatistics()
+                                        .setQuery(
+                                                new JobStatistics2()
+                                                        .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
+            }
+
+            @Override
+            public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
+                    String project, String dataset, String table) {
+                return retrieveTablePartitions(project, dataset, table).stream()
+                        .map(
+                                pId ->
+                                        new PartitionIdWithInfoAndStatus(
+                                                pId,
+                                                retrievePartitionColumnInfo(project, dataset, table)
+                                                        .get(),
+                                                BigQueryPartitionUtils.PartitionStatus.COMPLETED))
+                        .collect(Collectors.toList());
+            }
         }
 
         static class FaultyIterator<T> implements Iterator<T> {
@@ -422,13 +461,30 @@ public class StorageClientFaker {
     }
 
     public static BigQueryReadOptions createReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            Integer readLimit)
+            throws IOException {
+        return createReadOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                params -> StorageClientFaker.createRecordList(params),
+                0D,
+                readLimit);
+    }
+
+    public static BigQueryReadOptions createReadOptions(
             Integer expectedRowCount, Integer expectedReadStreamCount, String avroSchemaString)
             throws IOException {
         return createReadOptions(
                 expectedRowCount,
                 expectedReadStreamCount,
                 avroSchemaString,
-                params -> StorageClientFaker.createRecordList(params));
+                params -> StorageClientFaker.createRecordList(params),
+                0D,
+                -1);
     }
 
     public static BigQueryReadOptions createReadOptions(
@@ -438,7 +494,7 @@ public class StorageClientFaker {
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator)
             throws IOException {
         return createReadOptions(
-                expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D);
+                expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D, -1);
     }
 
     public static BigQueryReadOptions createReadOptions(
@@ -448,7 +504,28 @@ public class StorageClientFaker {
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
             Double errorPercentage)
             throws IOException {
+        return createReadOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                dataGenerator,
+                errorPercentage,
+                -1);
+    }
+
+    public static BigQueryReadOptions createReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            Double errorPercentage,
+            Integer readLimit)
+            throws IOException {
         return BigQueryReadOptions.builder()
+                .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
+                .setLimit(readLimit)
+                .setQuery("SELECT 1")
+                .setQueryExecutionProject("some-gcp-project")
                 .setBigQueryConnectOptions(
                         BigQueryConnectOptions.builder()
                                 .setDataset("dataset")
@@ -457,7 +534,7 @@ public class StorageClientFaker {
                                 .setCredentialsOptions(null)
                                 .setTestingBigQueryServices(
                                         () -> {
-                                            return new StorageClientFaker.FakeBigQueryServices(
+                                            return FakeBigQueryServices.getInstance(
                                                     new StorageClientFaker.FakeBigQueryServices
                                                             .FakeBigQueryStorageReadClient(
                                                             StorageClientFaker.fakeReadSession(

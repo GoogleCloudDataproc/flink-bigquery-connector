@@ -41,10 +41,7 @@ public class PartitionIdWithInfo {
 
     @Override
     public int hashCode() {
-        int hash = 5;
-        hash = 97 * hash + Objects.hashCode(this.getInfo());
-        hash = 97 * hash + Objects.hashCode(this.getPartitionId());
-        return hash;
+        return Objects.hash(this.partitionId, this.info);
     }
 
     @Override
@@ -59,10 +56,8 @@ public class PartitionIdWithInfo {
             return false;
         }
         final PartitionIdWithInfo other = (PartitionIdWithInfo) obj;
-        if (!Objects.equals(this.getPartitionId(), other.getPartitionId())) {
-            return false;
-        }
-        return Objects.equals(this.getInfo(), other.getInfo());
+        return Objects.equals(this.getPartitionId(), other.getPartitionId())
+                && Objects.equals(this.getInfo(), other.getInfo());
     }
 
     @Override
