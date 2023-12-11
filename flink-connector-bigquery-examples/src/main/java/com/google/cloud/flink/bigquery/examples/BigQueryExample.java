@@ -72,9 +72,9 @@ import java.time.Duration;
  *       --checkpoint-interval {optional; milliseconds between state checkpoints} <br>
  *       --partition-discovery-interval {optional; minutes between polling table for new data. Used
  *       in unbounded/hybrid mode} <br>
- *       --out-of-order-tolerance {optional; out of order tolerance in minutes. Used in
+ *       --out-of-order-tolerance {optional; out of order event tolerance in minutes. Used in
  *       unbounded/hybrid mode} <br>
- *       --max-idleness {optional; minutes to wait before timing out if no new records. Used in
+ *       --max-idleness {optional; minutes to wait before marking a stream partition idle. Used in
  *       unbounded/hybrid mode} <br>
  *       --window-size {optional; window size in minutes. Used in unbounded/hybrid mode}
  *   <li>Specify SQL query to fetch data from BQ dataset. For example, "SELECT * FROM
@@ -120,7 +120,7 @@ public class BigQueryExample {
                             + " --oldest-partition-id <oldest partition to read>"
                             + " --partition-discovery-interval <minutes between checking new data>"
                             + " --out-of-order-tolerance <minutes to accpet out of order records>"
-                            + " --max-idleness <idle minutes before timeout>"
+                            + " --max-idleness <maximum idle minutes for read stream>"
                             + " --window-size <Flink's window size in minutes>");
             return;
         }
