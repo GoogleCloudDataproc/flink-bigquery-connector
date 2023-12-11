@@ -18,7 +18,7 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
 
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 
 import java.util.Objects;
 
@@ -27,10 +27,12 @@ import java.util.Objects;
 public class PartitionIdWithInfoAndStatus {
     private final String partitionId;
     private final TablePartitionInfo info;
-    private final BigQueryPartition.PartitionStatus status;
+    private final BigQueryPartitionUtils.PartitionStatus status;
 
     public PartitionIdWithInfoAndStatus(
-            String partitionId, TablePartitionInfo info, BigQueryPartition.PartitionStatus status) {
+            String partitionId,
+            TablePartitionInfo info,
+            BigQueryPartitionUtils.PartitionStatus status) {
         this.partitionId = partitionId;
         this.info = info;
         this.status = status;
@@ -44,12 +46,12 @@ public class PartitionIdWithInfoAndStatus {
         return info;
     }
 
-    public BigQueryPartition.PartitionStatus getStatus() {
+    public BigQueryPartitionUtils.PartitionStatus getStatus() {
         return status;
     }
 
     public Boolean isCompleted() {
-        return status.equals(BigQueryPartition.PartitionStatus.COMPLETED);
+        return status.equals(BigQueryPartitionUtils.PartitionStatus.COMPLETED);
     }
 
     @Override

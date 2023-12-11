@@ -38,8 +38,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.formatPartitionRestrictionBasedOnInfo;
-import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartition.partitionValuesFromIdAndDataType;
+import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo;
+import static com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils.partitionValuesFromIdAndDataType;
 
 /**
  * An unbounded implementation for a split assigner based on the BigQuery {@link ReadSession}

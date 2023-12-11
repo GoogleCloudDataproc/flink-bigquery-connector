@@ -19,7 +19,7 @@ package com.google.cloud.flink.bigquery.services;
 import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
@@ -69,7 +69,7 @@ public class MetadataInfoTest {
         TablePartitionInfo tpInfo =
                 new TablePartitionInfo(
                         "name",
-                        BigQueryPartition.PartitionType.MONTH,
+                        BigQueryPartitionUtils.PartitionType.MONTH,
                         StandardSQLTypeName.DATE,
                         Instant.now());
         List<String> partitions = Lists.newArrayList("202301", "202302");
@@ -82,7 +82,7 @@ public class MetadataInfoTest {
         TablePartitionInfo info =
                 new TablePartitionInfo(
                         "temporal",
-                        BigQueryPartition.PartitionType.MONTH,
+                        BigQueryPartitionUtils.PartitionType.MONTH,
                         StandardSQLTypeName.INT64,
                         Instant.EPOCH);
         PartitionIdWithInfo original = new PartitionIdWithInfo("2023", info);
@@ -100,21 +100,21 @@ public class MetadataInfoTest {
         TablePartitionInfo info =
                 new TablePartitionInfo(
                         "temporal",
-                        BigQueryPartition.PartitionType.MONTH,
+                        BigQueryPartitionUtils.PartitionType.MONTH,
                         StandardSQLTypeName.INT64,
                         Instant.EPOCH);
         PartitionIdWithInfoAndStatus original =
                 new PartitionIdWithInfoAndStatus(
-                        "2023", info, BigQueryPartition.PartitionStatus.COMPLETED);
+                        "2023", info, BigQueryPartitionUtils.PartitionStatus.COMPLETED);
         PartitionIdWithInfoAndStatus next =
                 new PartitionIdWithInfoAndStatus(
-                        "2023", info, BigQueryPartition.PartitionStatus.IN_PROGRESS);
+                        "2023", info, BigQueryPartitionUtils.PartitionStatus.IN_PROGRESS);
         Assertions.assertThat(original).isNotEqualTo(next);
         Assertions.assertThat(original.hashCode()).isNotEqualTo(next.hashCode());
 
         PartitionIdWithInfoAndStatus same =
                 new PartitionIdWithInfoAndStatus(
-                        "2023", info, BigQueryPartition.PartitionStatus.COMPLETED);
+                        "2023", info, BigQueryPartitionUtils.PartitionStatus.COMPLETED);
         Assertions.assertThat(original).isEqualTo(same);
         Assertions.assertThat(original.hashCode()).isEqualTo(same.hashCode());
     }

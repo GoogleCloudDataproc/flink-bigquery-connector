@@ -36,7 +36,7 @@ import com.google.cloud.bigquery.storage.v1.ReadStream;
 import com.google.cloud.bigquery.storage.v1.StreamStats;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
@@ -132,7 +132,7 @@ public class StorageClientFaker {
                 return Optional.of(
                         new TablePartitionInfo(
                                 "ts",
-                                BigQueryPartition.PartitionType.HOUR,
+                                BigQueryPartitionUtils.PartitionType.HOUR,
                                 StandardSQLTypeName.TIMESTAMP,
                                 Instant.now()));
             }
@@ -168,7 +168,7 @@ public class StorageClientFaker {
                                                 pId,
                                                 retrievePartitionColumnInfo(project, dataset, table)
                                                         .get(),
-                                                BigQueryPartition.PartitionStatus.COMPLETED))
+                                                BigQueryPartitionUtils.PartitionStatus.COMPLETED))
                         .collect(Collectors.toList());
             }
         }

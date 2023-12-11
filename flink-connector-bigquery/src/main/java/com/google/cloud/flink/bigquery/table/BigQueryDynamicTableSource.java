@@ -34,7 +34,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
@@ -242,7 +242,7 @@ public class BigQueryDynamicTableSource
          * we retrieve the existing partition ids and transform them into valid values given the
          * column data type
          */
-        return BigQueryPartition.partitionValuesFromIdAndDataType(
+        return BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
                         dataClient.retrieveTablePartitions(projectId, dataset, table),
                         partitionInfo.getColumnType())
                 .stream()
@@ -263,19 +263,21 @@ public class BigQueryDynamicTableSource
             String currentRestriction,
             Optional<TablePartitionInfo> partitionInfo,
             List<Map<String, String>> remainingPartitions) {
-
         /**
-         * given the specification, the partition restriction comes before than the filter
-         * application, so we just set here the row restriction.
+         * given the specification, partition restriction comes before the filter application, so we
+         * just set the row restriction here.
          */
-        return currentRestriction
-                + " AND "
-                + remainingPartitions.stream()
+        String partitionRestrictions =
+                remainingPartitions.stream()
                         .flatMap(map -> map.entrySet().stream())
                         .map(
                                 entry ->
-                                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                                partitionInfo, entry.getKey(), entry.getValue()))
+                                        BigQueryPartitionUtils
+                                                .formatPartitionRestrictionBasedOnInfo(
+                                                        partitionInfo,
+                                                        entry.getKey(),
+                                                        entry.getValue()))
                         .collect(Collectors.joining(" OR "));
+        return currentRestriction + " AND (" + partitionRestrictions + ")";
     }
 }

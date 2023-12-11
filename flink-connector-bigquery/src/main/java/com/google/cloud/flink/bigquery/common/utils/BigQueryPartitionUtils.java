@@ -41,19 +41,30 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Utility class to handle the BigQuery partition conversions to Flink types and structures. */
 @Internal
-public class BigQueryPartition {
+public class BigQueryPartitionUtils {
 
+    /**
+     * Below durations are added to current partitionId to obtain the next tentative partitionId,
+     * which serves as a non-inclusive upper limit for observing records until current partition is
+     * considered complete. For month and year, maximum values are used (31 days for month, 366 days
+     * for year) so no records are dropped, even though the current window remains open for a longer
+     * time. For instance, given month based partitioning, the partition for February 2023 will not
+     * be considered complete till 4th March 2023.
+     */
     static final Integer HOUR_SECONDS = 3600;
-    static final Integer DAY_SECONDS = 86400;
-    static final Integer MONTH_SECONDS = 2629746;
-    static final Integer YEAR_SECONDS = 31536000;
 
-    private static final ZoneId ZONE = ZoneId.of("UTC");
+    static final Integer DAY_SECONDS = 86400;
+    static final Integer MONTH_SECONDS = 2678400;
+    static final Integer YEAR_SECONDS = 31622400;
+
+    private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(UTC_ZONE);
 
     private static final String BQPARTITION_HOUR_FORMAT_STRING = "yyyyMMddHH";
     private static final String BQPARTITION_DAY_FORMAT_STRING = "yyyyMMdd";
@@ -83,7 +94,18 @@ public class BigQueryPartition {
     private static final SimpleDateFormat SQL_YEAR_FORMAT =
             new SimpleDateFormat(SQL_YEAR_FORMAT_STRING);
 
-    private BigQueryPartition() {}
+    static {
+        BQPARTITION_HOUR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        BQPARTITION_DAY_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        BQPARTITION_MONTH_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        BQPARTITION_YEAR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_HOUR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_DAY_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_MONTH_FORMAT.setTimeZone(UTC_TIME_ZONE);
+        SQL_YEAR_FORMAT.setTimeZone(UTC_TIME_ZONE);
+    }
+
+    private BigQueryPartitionUtils() {}
 
     /** Represents the partition types the BigQuery can use in partitioned tables. */
     public enum PartitionType {
@@ -184,10 +206,10 @@ public class BigQueryPartition {
                                 columnName,
                                 SQL_MONTH_FORMAT.format(day),
                                 DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING)
-                                        .withZone(ZONE)
+                                        .withZone(UTC_ZONE)
                                         .format(
                                                 day.toInstant()
-                                                        .atZone(ZONE)
+                                                        .atZone(UTC_ZONE)
                                                         .toLocalDate()
                                                         .plusMonths(1)
                                                         .atTime(LocalTime.MIDNIGHT)
@@ -203,10 +225,10 @@ public class BigQueryPartition {
                                 columnName,
                                 SQL_YEAR_FORMAT.format(day),
                                 DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING)
-                                        .withZone(ZONE)
+                                        .withZone(UTC_ZONE)
                                         .format(
                                                 day.toInstant()
-                                                        .atZone(ZONE)
+                                                        .atZone(UTC_ZONE)
                                                         .toLocalDate()
                                                         .plusYears(1)
                                                         .atTime(LocalTime.MIDNIGHT)
@@ -229,8 +251,10 @@ public class BigQueryPartition {
             PartitionType partitionType, String columnName, String valueFromSQL) {
         ZonedDateTime parsedDateTime =
                 LocalDateTime.parse(
-                                valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                        .atZone(ZONE);
+                                valueFromSQL,
+                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                                        .withZone(UTC_ZONE))
+                        .atZone(UTC_ZONE);
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
         switch (partitionType) {
             case HOUR:
@@ -238,7 +262,7 @@ public class BigQueryPartition {
                     // extract a datetime from the value and restrict
                     // between previous and next hour
                     DateTimeFormatter hourFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -250,7 +274,7 @@ public class BigQueryPartition {
                     // extract a date from the value and restrict
                     // between previous and next day
                     DateTimeFormatter dayFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd 00:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -262,7 +286,7 @@ public class BigQueryPartition {
                     // extract a date from the value and restrict
                     // between previous and next month
                     DateTimeFormatter monthFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-MM-01 00:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-MM-01 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -274,7 +298,7 @@ public class BigQueryPartition {
                     // extract a date from the value and restrict
                     // between previous and next year
                     DateTimeFormatter yearFormatter =
-                            DateTimeFormatter.ofPattern("yyyy-01-01 00:00:00");
+                            DateTimeFormatter.ofPattern("yyyy-01-01 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -328,12 +352,12 @@ public class BigQueryPartition {
     }
 
     static PartitionIdWithInfoAndStatus retrievePartitionInfoWithStatus(
-            PartitionIdWithInfo partition, Function<String, Long> parseAndManipulateParitionTS) {
+            PartitionIdWithInfo partition, Function<String, Long> parseAndManipulatePartitionTS) {
         return partitionValuesFromIdAndDataType(
                         Lists.newArrayList(partition.getPartitionId()),
                         partition.getInfo().getColumnType())
                 .stream()
-                .map(parseAndManipulateParitionTS)
+                .map(parseAndManipulatePartitionTS)
                 .filter(
                         nextPartitionTs ->
                                 partition
@@ -345,13 +369,13 @@ public class BigQueryPartition {
                                 new PartitionIdWithInfoAndStatus(
                                         partition.getPartitionId(),
                                         partition.getInfo(),
-                                        BigQueryPartition.PartitionStatus.COMPLETED))
+                                        BigQueryPartitionUtils.PartitionStatus.COMPLETED))
                 .findFirst()
                 .orElse(
                         new PartitionIdWithInfoAndStatus(
                                 partition.getPartitionId(),
                                 partition.getInfo(),
-                                BigQueryPartition.PartitionStatus.IN_PROGRESS));
+                                BigQueryPartitionUtils.PartitionStatus.IN_PROGRESS));
     }
 
     static Instant retrieveEpochSecondsFromParsedTemporal(SimpleDateFormat sdf, String tsString) {
@@ -363,6 +387,13 @@ public class BigQueryPartition {
         }
     }
 
+    // TODO: currently, time based partitioning attribute is checked against the ingestion time of
+    // BigQuery table's buffer stream's oldest entry. Hence, there is a logical mismatch where
+    // "event time" is being compared with "ingestion time". In subsequent versions of the
+    // connector,
+    // replace this implementation of partition completeness with a configurable lateness duration
+    // where a partition would be considered complete after a certain amount of time has elapsed
+    // after the partition's end instant.
     public static PartitionIdWithInfoAndStatus checkPartitionCompleted(
             PartitionIdWithInfo partition) {
         switch (partition.getInfo().getPartitionType()) {
@@ -412,7 +443,7 @@ public class BigQueryPartition {
                 return new PartitionIdWithInfoAndStatus(
                         partition.getPartitionId(),
                         partition.getInfo(),
-                        BigQueryPartition.PartitionStatus.COMPLETED);
+                        BigQueryPartitionUtils.PartitionStatus.COMPLETED);
             default:
                 throw new IllegalArgumentException(
                         "Partition type not supported: " + partition.getInfo().getPartitionType());
