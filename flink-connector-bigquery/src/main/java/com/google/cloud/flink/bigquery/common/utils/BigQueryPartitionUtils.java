@@ -19,8 +19,6 @@ package com.google.cloud.flink.bigquery.common.utils;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfo;
@@ -38,6 +36,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -354,7 +353,7 @@ public class BigQueryPartitionUtils {
     static PartitionIdWithInfoAndStatus retrievePartitionInfoWithStatus(
             PartitionIdWithInfo partition, Function<String, Long> parseAndManipulatePartitionTS) {
         return partitionValuesFromIdAndDataType(
-                        Lists.newArrayList(partition.getPartitionId()),
+                        Arrays.asList(partition.getPartitionId()),
                         partition.getInfo().getColumnType())
                 .stream()
                 .map(parseAndManipulatePartitionTS)

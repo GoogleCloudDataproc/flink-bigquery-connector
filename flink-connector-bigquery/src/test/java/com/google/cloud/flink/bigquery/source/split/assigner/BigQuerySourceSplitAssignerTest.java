@@ -16,8 +16,6 @@
 
 package com.google.cloud.flink.bigquery.source.split.assigner;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
@@ -31,6 +29,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
@@ -74,7 +73,7 @@ public class BigQuerySourceSplitAssignerTest {
         assertThat(state.getRemaniningTableStreams()).isEmpty();
         assertThat(state.getRemainingSourceSplits()).isEmpty();
         // add some splits back
-        assigner.addSplitsBack(Lists.newArrayList(split));
+        assigner.addSplitsBack(Arrays.asList(split));
         // check again on the enum state
         state = assigner.snapshotState(0);
         assertThat(state.getRemaniningTableStreams()).isEmpty();
@@ -185,9 +184,7 @@ public class BigQuerySourceSplitAssignerTest {
 
         // no data was discovered
         assigner.handlePartitionSplitDiscovery(
-                new UnboundedSplitAssigner.DiscoveryResult(
-                        Lists.newLinkedList(), Lists.newArrayList()),
-                null);
+                new UnboundedSplitAssigner.DiscoveryResult(Arrays.asList(), Arrays.asList()), null);
         // so no notification should be triggered
         Mockito.verify(observer, Mockito.times(0)).notifySplits();
     }

@@ -19,8 +19,6 @@ package com.google.cloud.flink.bigquery.source.config;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
-
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.serializable.SerializableAutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -31,7 +29,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -42,7 +40,7 @@ import java.util.Optional;
 @PublicEvolving
 public abstract class BigQueryReadOptions implements Serializable {
 
-    public abstract ImmutableList<String> getColumnNames();
+    public abstract List<String> getColumnNames();
 
     public abstract String getRowRestriction();
 
@@ -110,7 +108,7 @@ public abstract class BigQueryReadOptions implements Serializable {
     public static Builder builder() {
         return new AutoValue_BigQueryReadOptions.Builder()
                 .setRowRestriction("")
-                .setColumnNames(new ArrayList<>())
+                .setColumnNames(Arrays.asList())
                 .setMaxStreamCount(0)
                 .setMaxRecordsPerSplitFetch(10000)
                 .setSnapshotTimestampInMillis(null)

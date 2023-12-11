@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 
 /**
- * A simple Flink application using DataStream API and BigQuery connector.
+ * A simple BigQuery table read example with Flink's DataStream API.
  *
  * <p>The Flink pipeline will try to read the specified BigQuery table according to given the
  * command line arguments, returning {@link GenericRecord} representing the rows, and print the

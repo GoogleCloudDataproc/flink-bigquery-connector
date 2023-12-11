@@ -19,8 +19,6 @@ package com.google.cloud.flink.bigquery.source.split.assigner;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
@@ -34,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -107,7 +106,7 @@ public class UnboundedSplitAssigner extends BigQuerySourceSplitAssigner {
                                                     Optional.of(pId.getInfo()),
                                                     pId.getInfo().getColumnName(),
                                                     partitionValuesFromIdAndDataType(
-                                                                    Lists.newArrayList(
+                                                                    Arrays.asList(
                                                                             pId.getPartitionId()),
                                                                     pId.getInfo().getColumnType())
                                                             .get(0)))

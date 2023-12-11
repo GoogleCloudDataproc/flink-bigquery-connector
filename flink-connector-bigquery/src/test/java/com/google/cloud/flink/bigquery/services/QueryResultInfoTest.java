@@ -16,10 +16,10 @@
 
 package com.google.cloud.flink.bigquery.services;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-
 import com.google.common.truth.Truth8;
 import org.junit.Test;
+
+import java.util.Arrays;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -28,7 +28,7 @@ public class QueryResultInfoTest {
 
     @Test
     public void testQueryResultInfoFailed() {
-        QueryResultInfo qri = QueryResultInfo.failed(Lists.newArrayList());
+        QueryResultInfo qri = QueryResultInfo.failed(Arrays.asList());
         assertThat(qri.getStatus()).isEqualTo(QueryResultInfo.Status.FAILED);
         Truth8.assertThat(qri.getDestinationProject()).isEmpty();
         Truth8.assertThat(qri.getDestinationDataset()).isEmpty();
@@ -49,7 +49,7 @@ public class QueryResultInfoTest {
     @Test
     public void testNotEquals() {
         QueryResultInfo succeed = QueryResultInfo.succeed("", "", "");
-        QueryResultInfo failed = QueryResultInfo.failed(Lists.newArrayList());
+        QueryResultInfo failed = QueryResultInfo.failed(Arrays.asList());
         assertThat(succeed).isNotEqualTo(failed);
     }
 }

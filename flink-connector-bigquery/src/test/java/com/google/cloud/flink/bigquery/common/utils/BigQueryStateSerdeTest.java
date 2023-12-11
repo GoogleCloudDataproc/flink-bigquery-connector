@@ -16,9 +16,6 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Lists;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Maps;
-
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -27,6 +24,8 @@ import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,7 +39,7 @@ public class BigQueryStateSerdeTest {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 DataOutputStream out = new DataOutputStream(baos)) {
 
-            List<String> original = Lists.newArrayList("first", "second", "third", "fourth");
+            List<String> original = Arrays.asList("first", "second", "third", "fourth");
             BigQueryStateSerde.serializeList(out, original, DataOutputStream::writeUTF);
             out.flush();
             byte[] serialized = baos.toByteArray();
@@ -61,7 +60,7 @@ public class BigQueryStateSerdeTest {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 DataOutputStream out = new DataOutputStream(baos)) {
 
-            Map<String, String> original = Maps.newHashMap();
+            Map<String, String> original = new HashMap<>();
             original.put("key1", "value1");
             original.put("key2", "value2");
             original.put("key3", "value3");
