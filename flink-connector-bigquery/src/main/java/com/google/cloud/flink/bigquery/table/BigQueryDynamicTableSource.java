@@ -18,6 +18,8 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
@@ -31,9 +33,8 @@ import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
-import com.google.auto.value.AutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
@@ -44,6 +45,7 @@ import com.google.cloud.flink.bigquery.table.restrictions.BigQueryRestriction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -122,39 +124,39 @@ public class BigQueryDynamicTableSource
 
     @Override
     public Result applyFilters(List<ResolvedExpression> filters) {
-        List<ResolvedAndStringExpressions> translatedFilters =
+        Map<Boolean, List<Tuple3<Boolean, String, ResolvedExpression>>> translatedFilters =
                 filters.stream()
                         .map(
                                 expression ->
-                                        BigQueryRestriction.convert(expression)
-                                                .map(
-                                                        stringExpression ->
-                                                                ResolvedAndStringExpressions.create(
-                                                                        expression,
-                                                                        stringExpression)))
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(Collectors.toList());
-
-        String rowRestrictionByFilters =
-                translatedFilters.stream()
-                        .map(expression -> expression.stringExpression())
-                        .collect(Collectors.joining(" AND "));
-        String newRowRestriction =
-                this.readOptions
-                        .getRowRestriction()
+                                        Tuple2.<ResolvedExpression, Optional<String>>of(
+                                                expression,
+                                                BigQueryRestriction.convert(expression)))
                         .map(
-                                restriction ->
-                                        restriction
-                                                + (rowRestrictionByFilters.isEmpty()
-                                                        ? ""
-                                                        : " AND " + rowRestrictionByFilters))
-                        .orElse(rowRestrictionByFilters);
+                                transExp ->
+                                        Tuple3.<Boolean, String, ResolvedExpression>of(
+                                                transExp.f1.isPresent(),
+                                                transExp.f1.orElse(""),
+                                                transExp.f0))
+                        .collect(
+                                Collectors.groupingBy(
+                                        (Tuple3<Boolean, String, ResolvedExpression> t) -> t.f0));
+        String rowRestrictionByFilters =
+                translatedFilters.getOrDefault(true, new ArrayList<>()).stream()
+                        .map(t -> t.f1)
+                        .collect(Collectors.joining(" AND "));
+        String newRowRestriction = this.readOptions.getRowRestriction().orElse("");
+        if (!rowRestrictionByFilters.isEmpty()) {
+            if (newRowRestriction.isEmpty()) {
+                newRowRestriction = rowRestrictionByFilters;
+            } else {
+                newRowRestriction = newRowRestriction + " AND " + rowRestrictionByFilters;
+            }
+        }
         this.readOptions =
                 this.readOptions.toBuilder().setRowRestriction(newRowRestriction).build();
         return Result.of(
-                translatedFilters.stream()
-                        .map(expression -> expression.expression())
+                translatedFilters.getOrDefault(true, new ArrayList<>()).stream()
+                        .map(t -> t.f2)
                         .collect(Collectors.toList()),
                 filters);
     }
@@ -222,7 +224,7 @@ public class BigQueryDynamicTableSource
                         .toBuilder()
                         .setRowRestriction(
                                 rebuildRestrictionsApplyingPartitions(
-                                        this.readOptions.getRowRestriction(),
+                                        this.readOptions.getRowRestriction().orElse(""),
                                         partitionInfo,
                                         remainingPartitions))
                         .build();
@@ -240,7 +242,7 @@ public class BigQueryDynamicTableSource
          * we retrieve the existing partition ids and transform them into valid values given the
          * column data type
          */
-        return BigQueryPartition.partitionValuesFromIdAndDataType(
+        return BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
                         dataClient.retrieveTablePartitions(projectId, dataset, table),
                         partitionInfo.getColumnType())
                 .stream()
@@ -258,39 +260,24 @@ public class BigQueryDynamicTableSource
     }
 
     private static String rebuildRestrictionsApplyingPartitions(
-            Optional<String> currentRestriction,
+            String currentRestriction,
             Optional<TablePartitionInfo> partitionInfo,
             List<Map<String, String>> remainingPartitions) {
-
         /**
-         * given the specification, the partition restriction comes before than the filter
-         * application, so we just set here the row restriction.
+         * given the specification, partition restriction comes before the filter application, so we
+         * just set the row restriction here.
          */
-        return currentRestriction
-                        .map(
-                                restriction ->
-                                        restriction
-                                                + (remainingPartitions.isEmpty() ? "" : " AND "))
-                        .orElse("")
-                + remainingPartitions.stream()
+        String partitionRestrictions =
+                remainingPartitions.stream()
                         .flatMap(map -> map.entrySet().stream())
                         .map(
                                 entry ->
-                                        BigQueryPartition.formatPartitionRestrictionBasedOnInfo(
-                                                partitionInfo, entry.getKey(), entry.getValue()))
+                                        BigQueryPartitionUtils
+                                                .formatPartitionRestrictionBasedOnInfo(
+                                                        partitionInfo,
+                                                        entry.getKey(),
+                                                        entry.getValue()))
                         .collect(Collectors.joining(" OR "));
-    }
-
-    @AutoValue
-    abstract static class ResolvedAndStringExpressions {
-        public abstract ResolvedExpression expression();
-
-        public abstract String stringExpression();
-
-        public static ResolvedAndStringExpressions create(
-                ResolvedExpression resolved, String expression) {
-            return new AutoValue_BigQueryDynamicTableSource_ResolvedAndStringExpressions(
-                    resolved, expression);
-        }
+        return currentRestriction + " AND (" + partitionRestrictions + ")";
     }
 }

@@ -36,7 +36,7 @@ import com.google.cloud.bigquery.storage.v1.ReadStream;
 import com.google.cloud.bigquery.storage.v1.StreamStats;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartition;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
@@ -75,7 +75,7 @@ public class StorageClientFaker {
     /** Implementation for the BigQuery services for testing purposes. */
     public static class FakeBigQueryServices implements BigQueryServices {
 
-        static FakeBigQueryServices instance = null;
+        static volatile FakeBigQueryServices instance = null;
         static final Object LOCK = new Object();
 
         private final FakeBigQueryStorageReadClient storageReadClient;
@@ -132,7 +132,7 @@ public class StorageClientFaker {
                 return Optional.of(
                         new TablePartitionInfo(
                                 "ts",
-                                BigQueryPartition.PartitionType.HOUR,
+                                BigQueryPartitionUtils.PartitionType.HOUR,
                                 StandardSQLTypeName.TIMESTAMP,
                                 Instant.now()));
             }
@@ -168,7 +168,7 @@ public class StorageClientFaker {
                                                 pId,
                                                 retrievePartitionColumnInfo(project, dataset, table)
                                                         .get(),
-                                                BigQueryPartition.PartitionStatus.COMPLETED))
+                                                BigQueryPartitionUtils.PartitionStatus.COMPLETED))
                         .collect(Collectors.toList());
             }
         }
@@ -177,7 +177,7 @@ public class StorageClientFaker {
 
             private final Iterator<T> realIterator;
             private final Double errorPercentage;
-            private final Random random = new Random();
+            private final Random random = new Random(42);
 
             public FaultyIterator(Iterator<T> realIterator, Double errorPercentage) {
                 this.realIterator = realIterator;

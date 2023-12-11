@@ -197,7 +197,7 @@ public class BigQuerySourceSplitAssignerTest {
         String someRestriction = "adummyrestriction";
         String newRestriction = "anewone";
 
-        String result = assigner.shouldAppendRestriction(someRestriction, newRestriction);
+        String result = assigner.combineRestrictions(someRestriction, newRestriction);
 
         assertThat(result).startsWith(someRestriction);
         assertThat(result).endsWith(newRestriction);
