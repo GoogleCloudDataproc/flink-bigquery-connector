@@ -205,6 +205,9 @@ efficient than Flink, and only the result will be transmitted over the wire.
 account.
 * The connector’s query source offers limited configurability compared to bounded/unbounded table reads. This will be 
 addressed in future releases.
+* The connector does not manage query generated views beyond creation and read. Users will need to 
+[manage these views](https://cloud.google.com/bigquery/docs/managing-views) on their own, until future releases expose a 
+configuration in the connector to delete them or assign a time-to-live.
 
 ### Connector Configurations
 
