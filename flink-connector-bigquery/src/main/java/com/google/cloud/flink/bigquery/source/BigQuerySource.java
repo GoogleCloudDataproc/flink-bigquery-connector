@@ -60,29 +60,42 @@ import java.util.function.Supplier;
  * The DataStream {@link Source} implementation for Google BigQuery. It can be used to read data
  * directly from a BigQuery table or read data from a BigQuery query execution.
  *
- * <p>The following example demonstrates how to configure the source to read {@link GenericRecord}
- * data from a BigQuery table.
+ * <p>Review the option classes and their builders for more details on the configurable options.
+ *
+ * <p>The following example demonstrates how to create an unbounded source to read {@link
+ * GenericRecord} data from a BigQuery table.
  *
  * <pre>{@code
  * BigQuerySource<GenericRecord> source =
- *       BigQuerySource.readAvros(
+ *       BigQuerySource.streamAvros(
  *           BigQueryReadOptions.builder()
- *             .setColumnNames(Lists.newArrayList("col1", "col2"))
- *             .setRowRestriction(
- *               "col2 BETWEEN '2023-06-01' AND '2023-06-02'")
  *             .setBigQueryConnectOptions(
  *               BigQueryConnectOptions.builder()
  *                 .setProjectId("some-gcp-project")
  *                 .setDataset("some-bq-dataset")
  *                 .setTable("some-bq-table")
  *                 .build())
- *             .build(), 1000);
+ *             .build());
  * }</pre>
  *
- * <p>Review the option classes and their builders for more details on the configurable options.
+ * <p>The following example demonstrates how to create a bounded source to read {@link
+ * GenericRecord} data from a BigQuery table.
  *
- * <p>The following example demonstrates how to configure the Source to read {@link GenericRecord}
- * data from the results of a BigQuery query execution.
+ * <pre>{@code
+ * BigQuerySource<GenericRecord> source =
+ *       BigQuerySource.readAvros(
+ *           BigQueryReadOptions.builder()
+ *             .setBigQueryConnectOptions(
+ *               BigQueryConnectOptions.builder()
+ *                 .setProjectId("some-gcp-project")
+ *                 .setDataset("some-bq-dataset")
+ *                 .setTable("some-bq-table")
+ *                 .build())
+ *             .build());
+ * }</pre>
+ *
+ * <p>The following example demonstrates how to create a bounded query source to read {@link
+ * GenericRecord} data from the results of a BigQuery query execution.
  *
  * <pre>{@code
  * BigQuerySource<GenericRecord> bqSource =

@@ -123,7 +123,7 @@ public class BigQueryPartitionUtils {
 
     public static StandardSQLTypeName retrievePartitionColumnType(
             TableSchema schema, String partitionColumn) {
-        return StandardSQLTypeName.valueOf(
+        return SchemaTransform.bigQueryTableFieldSchemaTypeToSQLType(
                 schema.getFields().stream()
                         .filter(tfs -> tfs.getName().equals(partitionColumn))
                         .map(tfs -> tfs.getType())

@@ -234,6 +234,12 @@ public class BigQueryPartitionUtilsTest {
         Assertions.assertThat(retrieved).isEqualTo(StandardSQLTypeName.TIMESTAMP);
     }
 
+    @Test(expected = IllegalStateException.class)
+    public void testRetrieveTypeOfNonExistentColumn() {
+        BigQueryPartitionUtils.retrievePartitionColumnType(
+                StorageClientFaker.SIMPLE_BQ_TABLE_SCHEMA, "address");
+    }
+
     @Test
     public void testCheckPartitionCompletedHour() {
         PartitionIdWithInfo partitionWithInfo =
