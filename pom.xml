@@ -29,7 +29,7 @@ under the License.
 
     <groupId>com.google.cloud.flink</groupId>
     <artifactId>flink-connector-bigquery-parent</artifactId>
-    <version>1.1-SNAPSHOT</version>
+    <version>0.1.0-preview</version>
 
     <name>Flink : Connectors : Google BigQuery Parent</name>
     <packaging>pom</packaging>
