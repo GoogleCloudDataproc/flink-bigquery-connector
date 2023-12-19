@@ -190,13 +190,7 @@ public class BigQueryIntegrationTest {
                 .keyBy(mappedTuple -> mappedTuple.f0)
                 .sum("f1");
 
-        Long startTime = System.nanoTime();
-        LOG.info("prashastia: logging 1");
         env.execute(jobName);
-        Long endTime = System.nanoTime();
-        LOG.info("prashastia: logging 2");
-        LOG.info("Time taken for {} is {}s", jobName, (startTime - endTime) / 1_000_000_000);
-        LOG.info("prashastia: logging 3");
     }
 
     private static void runQueryFlinkJob(
