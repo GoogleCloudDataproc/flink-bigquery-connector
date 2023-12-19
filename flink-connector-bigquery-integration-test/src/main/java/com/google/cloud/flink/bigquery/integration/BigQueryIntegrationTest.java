@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.integration;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
+import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -147,15 +148,16 @@ public class BigQueryIntegrationTest {
         }
         String projectName = parameterTool.getRequired("gcp-project");
         String query = parameterTool.get("query", "");
-        String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
         if (!query.isEmpty()) {
-            runQueryFlinkJob(projectName, query, recordPropertyToAggregate);
+            runQueryFlinkJob(projectName, query);
             return;
         }
         String datasetName = parameterTool.getRequired("bq-dataset");
         String tableName = parameterTool.getRequired("bq-table");
         String mode = parameterTool.get("mode", "bounded");
+        String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
+
         Integer partitionDiscoveryInterval =
                 parameterTool.getInt("partition-discovery-interval", 10);
 
@@ -184,17 +186,8 @@ public class BigQueryIntegrationTest {
         }
     }
 
-    private static void executeBoundedSource(StreamExecutionEnvironment env, BigQuerySource<GenericRecord> bqSource, String recordPropertyToAggregate, String jobName) throws Exception {
-
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(mappedTuple -> mappedTuple.f0)
-                .sum("f1");
-
-        env.execute(jobName);
-    }
-
     private static void runQueryFlinkJob(
-            String projectName, String query, String recordPropertyToAggregate)
+            String projectName, String query)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -203,7 +196,10 @@ public class BigQueryIntegrationTest {
         BigQuerySource<GenericRecord> bqSource =
                 BigQuerySource.readAvrosFromQuery(query, projectName, RECORD_LIMIT);
 
-        executeBoundedSource(env, bqSource, recordPropertyToAggregate, "Flink BigQuery Query Integration Test");
+        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").map(new Mapper()).print();
+
+        env.execute("Flink BigQuery Query Integration Test");
+
     }
 
     private static void runJob(
@@ -232,10 +228,7 @@ public class BigQueryIntegrationTest {
                 .sum("f1");
 
         String jobName = "Flink BigQuery Unbounded Read Integration Test";
-        Long startTime = System.nanoTime();
         env.execute(jobName);
-        Long endTime = System.nanoTime();
-        LOG.info("Time taken for {} is {}s", jobName, (startTime - endTime) / 1_000_000_000);
     }
 
     private static void runBoundedFlinkJob(
@@ -261,7 +254,12 @@ public class BigQueryIntegrationTest {
                                 .setLimit(RECORD_LIMIT)
                                 .build());
 
-        executeBoundedSource(env, source, recordPropertyToAggregate, "Flink BigQuery Bounded Read Integration Test");
+        env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").flatMap(new FlatMapper(recordPropertyToAggregate))
+                .keyBy(mappedTuple -> mappedTuple.f0)
+                .sum("f1");
+
+        env.execute("Flink BigQuery Bounded Read Integration Test");
+
     }
 
     private static void runStreamingFlinkJob(
@@ -317,6 +315,7 @@ public class BigQueryIntegrationTest {
         public void flatMap(GenericRecord readRecord, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
 					     this.counter.inc();
+
                out.collect(Tuple2.of(String.valueOf(
 											 (readRecord.get(recordPropertyToAggregate).toString()).hashCode() % 1000), 1));
         }
@@ -324,6 +323,29 @@ public class BigQueryIntegrationTest {
         @Override
         public void close() throws Exception {
             LOG.info("Number of records read: {} ;", this.counter.getCount());
+        }
+    }
+
+    static class Mapper extends RichMapFunction<GenericRecord, String> {
+
+        private transient Counter counter;
+
+        @Override
+        public void open(Configuration config) {
+            this.counter = getRuntimeContext()
+                    .getMetricGroup()
+                    .counter("number_of_records_counter_query_map");
+        }
+
+        @Override
+        public void close() throws Exception {
+            LOG.info("Number of records read: {} ;", this.counter.getCount());
+        }
+
+        @Override
+        public String map(GenericRecord value) throws Exception {
+            this.counter.inc();
+            return "[ " + value.get("HOUR") + ", " + value.get("DAY") + " ]";
         }
     }
 }
