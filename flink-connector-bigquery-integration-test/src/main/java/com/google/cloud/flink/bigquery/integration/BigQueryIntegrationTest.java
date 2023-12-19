@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.google.cloud.flink.bigquery.nightly;
+package com.google.cloud.flink.bigquery.integration;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
@@ -24,7 +24,6 @@ import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.connector.base.source.hybrid.HybridSource;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
@@ -41,9 +40,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 
 /**
- * A nightly job to test BigQuery table read with Flink's DataStream API.
- *
- * <p>The Flink pipeline will try to read the specified BigQuery table according to given the
+ * The Integration Test pipeline will try to read the specified BigQuery table according to the
  * command line arguments, returning {@link GenericRecord} representing the rows, perform certain
  * operations and then log the total number of records read.
  *
@@ -119,12 +116,19 @@ import java.time.Duration;
  *     --region={REGION} --async -- --gcp-project {GCP_PROJECT_ID} --bq-dataset {BigQuery Dataset Name}
  *     --bq-table {BigQuery Table Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON} --mode unbounded --ts-prop {TIMESTAMP_PROPERTY}  --partition-discovery-interval {PARTITION_DISCOVERY_INTERVAL} }
  *  <p>
- *   </li>
- *
+ *  </li>
+ * </ol>
  */
-public class BigQueryNightlyTest {
+public class BigQueryIntegrationTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(BigQueryNightlyTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryIntegrationTest.class);
+    private static final Integer RECORD_LIMIT = -1;
+    private static final Long CHECKPOINT_INTERVAL = 60000L;
+    private static final String ROW_RESTRICTION = "";
+    private static final Integer MAX_OUT_OF_ORDER = 10;
+    private static final Integer MAX_IDLENESS = 20;
+    private static final Integer WINDOW_SIZE = 1;
+    private static final String OLDEST_PARTITION = "";
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
@@ -139,44 +143,24 @@ public class BigQueryNightlyTest {
                             + " --bq-table <table name>"
                             + " --agg-prop <record property to aggregate>"
                             + " --mode <source type>"
-                            + " --restriction <row filter predicate>"
-                            + " --limit <limit on records returned>"
-                            + " --checkpoint-interval <milliseconds between state checkpoints>"
                             + " --query <SQL query to get data from BQ table>"
                             + " --ts-prop <timestamp property>"
-                            + " --oldest-partition-id <oldest partition to read>"
-                            + " --partition-discovery-interval <minutes between checking new data>"
-                            + " --out-of-order-tolerance <minutes to accept out of order records>"
-                            + " --max-idleness <maximum idle minutes for read stream>"
-                            + " --window-size <Flink's window size in minutes>");
+                            + " --partition-discovery-interval <minutes between checking new data>");
             return;
         }
-        /**
-         * we will be reading avro generic records from BigQuery, and in this case we are assuming
-         * the GOOGLE_APPLICATION_CREDENTIALS env variable will be present in the execution runtime.
-         * In case of needing authenticate differently, the credentials builder (part of the
-         * BigQueryConnectOptions) should enable capturing the credentials from various sources.
-         */
         String projectName = parameterTool.getRequired("gcp-project");
         String query = parameterTool.get("query", "");
-        Integer recordLimit = parameterTool.getInt("limit", -1);
-        Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 60000L);
-				String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
+        String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
-			if (!query.isEmpty()) {
-            runQueryFlinkJob(projectName, query, recordLimit, checkpointInterval, recordPropertyToAggregate);
+        if (!query.isEmpty()) {
+            runQueryFlinkJob(projectName, query, recordPropertyToAggregate);
             return;
         }
         String datasetName = parameterTool.getRequired("bq-dataset");
         String tableName = parameterTool.getRequired("bq-table");
-        String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
         String mode = parameterTool.get("mode", "bounded");
-        String oldestPartition = parameterTool.get("oldest-partition-id", "");
         Integer partitionDiscoveryInterval =
                 parameterTool.getInt("partition-discovery-interval", 10);
-        Integer maxOutOfOrder = parameterTool.getInt("out-of-order-tolerance", 10);
-        Integer maxIdleness = parameterTool.getInt("max-idleness", 20);
-        Integer windowSize = parameterTool.getInt("window-size", 1);
 
         String recordPropertyForTimestamps;
         switch (mode) {
@@ -185,10 +169,7 @@ public class BigQueryNightlyTest {
                         projectName,
                         datasetName,
                         tableName,
-                        recordPropertyToAggregate,
-                        rowRestriction,
-                        recordLimit,
-                        checkpointInterval);
+                        recordPropertyToAggregate);
                 break;
             case "unbounded":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -198,100 +179,81 @@ public class BigQueryNightlyTest {
                         tableName,
                         recordPropertyToAggregate,
                         recordPropertyForTimestamps,
-                        rowRestriction,
-                        recordLimit,
-                        checkpointInterval,
-                        oldestPartition,
-                        partitionDiscoveryInterval,
-                        maxOutOfOrder,
-                        maxIdleness,
-                        windowSize);
-                break;
-            case "hybrid":
-                recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                runHybridFlinkJob(
-                        projectName,
-                        datasetName,
-                        tableName,
-                        recordPropertyToAggregate,
-                        recordPropertyForTimestamps,
-                        rowRestriction,
-                        checkpointInterval,
-                        oldestPartition,
-                        partitionDiscoveryInterval,
-                        maxOutOfOrder,
-                        maxIdleness,
-                        windowSize);
+                        partitionDiscoveryInterval);
                 break;
             default:
                 throw new IllegalArgumentException(
-                        "Allowed values for mode are bounded, unbounded or hybrid. Found " + mode);
+                        "Allowed values for mode are bounded, unbounded. Found " + mode);
         }
     }
 
+    private static void executeBoundedSource(StreamExecutionEnvironment env, BigQuerySource<GenericRecord> bqSource, String recordPropertyToAggregate, String jobName) throws Exception {
+
+        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").flatMap(new FlatMapper(recordPropertyToAggregate))
+                .keyBy(mappedTuple -> mappedTuple.f0)
+                .sum("f1");
+
+        Long startTime = System.nanoTime();
+        env.execute(jobName);
+        Long endTime = System.nanoTime();
+        // Log the amount of time taken for execution.
+        LOG.info("Time taken for {} is {}s", jobName, (startTime - endTime) / 1_000_000_000);
+    }
+
     private static void runQueryFlinkJob(
-            String projectName, String query, Integer limit, Long checkpointInterval, String recordPropertyToAggregate)
+            String projectName, String query, String recordPropertyToAggregate)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
         BigQuerySource<GenericRecord> bqSource =
-                BigQuerySource.readAvrosFromQuery(query, projectName, limit);
+                BigQuerySource.readAvrosFromQuery(query, projectName, RECORD_LIMIT);
 
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").flatMap(new FlatMapper(recordPropertyToAggregate))
-								.keyBy(mappedTuple -> mappedTuple.f0)
-								.sum("f1");
-
-        env.execute("Flink BigQuery Query Nightly Test");
+        executeBoundedSource(env, bqSource, recordPropertyToAggregate, "Flink BigQuery Query Integration Test");
     }
 
     private static void runJob(
             Source<GenericRecord, ?, ?> source,
             TypeInformation<GenericRecord> typeInfo,
-            String sourceName,
-            String jobName,
             String recordPropertyToAggregate,
-            String recordPropertyForTimestamps,
-            Long checkpointInterval,
-            Integer maxOutOfOrder,
-            Integer maxIdleness,
-            Integer windowSize)
+            String recordPropertyForTimestamps)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
         env.fromSource(
                         source,
                         WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
-                                        Duration.ofMinutes(maxOutOfOrder))
+                                        Duration.ofMinutes(MAX_OUT_OF_ORDER))
                                 .withTimestampAssigner(
                                         (event, timestamp) ->
                                                 (Long) event.get(recordPropertyForTimestamps))
-                                .withIdleness(Duration.ofMinutes(maxIdleness)),
-                        sourceName,
+                                .withIdleness(Duration.ofMinutes(MAX_IDLENESS)),
+                        "BigQueryStreamingSource",
                         typeInfo)
                 .flatMap(new FlatMapper(recordPropertyToAggregate))
                 .keyBy(mappedTuple -> mappedTuple.f0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(windowSize)))
+                .window(TumblingEventTimeWindows.of(Time.minutes(WINDOW_SIZE)))
                 .sum("f1");
 
+        String jobName = "Flink BigQuery Unbounded Read Integration Test";
+        Long startTime = System.nanoTime();
         env.execute(jobName);
+        Long endTime = System.nanoTime();
+        LOG.info("Time taken for {} is {}s", jobName, (startTime - endTime) / 1_000_000_000);
     }
 
     private static void runBoundedFlinkJob(
             String projectName,
             String datasetName,
             String tableName,
-            String recordPropertyToAggregate,
-            String rowRestriction,
-            Integer limit,
-            Long checkpointInterval)
+            String recordPropertyToAggregate)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.readAvros(
@@ -302,15 +264,11 @@ public class BigQueryNightlyTest {
                                                 .setDataset(datasetName)
                                                 .setTable(tableName)
                                                 .build())
-                                .setRowRestriction(rowRestriction)
-                                .setLimit(limit)
+                                .setRowRestriction(ROW_RESTRICTION)
+                                .setLimit(RECORD_LIMIT)
                                 .build());
-        env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(mappedTuple -> mappedTuple.f0)
-                .sum("f1");
 
-        env.execute("Flink BigQuery Bounded Read Nightly Test");
+        executeBoundedSource(env, source, recordPropertyToAggregate, "Flink BigQuery Bounded Read Integration Test");
     }
 
     private static void runStreamingFlinkJob(
@@ -319,14 +277,7 @@ public class BigQueryNightlyTest {
             String tableName,
             String recordPropertyToAggregate,
             String recordPropertyForTimestamps,
-            String rowRestriction,
-            Integer limit,
-            Long checkpointInterval,
-            String oldestPartition,
-            Integer partitionDiscoveryInterval,
-            Integer maxOutOfOrder,
-            Integer maxIdleness,
-            Integer windowSize)
+            Integer partitionDiscoveryInterval)
             throws Exception {
 
         BigQuerySource<GenericRecord> source =
@@ -338,9 +289,9 @@ public class BigQueryNightlyTest {
                                                 .setDataset(datasetName)
                                                 .setTable(tableName)
                                                 .build())
-                                .setRowRestriction(rowRestriction)
-                                .setLimit(limit)
-                                .setOldestPartitionId(oldestPartition)
+                                .setRowRestriction(ROW_RESTRICTION)
+                                .setLimit(RECORD_LIMIT)
+                                .setOldestPartitionId(OLDEST_PARTITION)
                                 .setPartitionDiscoveryRefreshIntervalInMinutes(
                                         partitionDiscoveryInterval)
                                 .build());
@@ -348,75 +299,8 @@ public class BigQueryNightlyTest {
         runJob(
                 source,
                 source.getProducedType(),
-                "BigQueryStreamingSource",
-                "Flink BigQuery Unbounded Read Nightly Test",
                 recordPropertyToAggregate,
-                recordPropertyForTimestamps,
-                checkpointInterval,
-                maxOutOfOrder,
-                maxIdleness,
-                windowSize);
-    }
-
-    private static void runHybridFlinkJob(
-            String projectName,
-            String datasetName,
-            String tableName,
-            String recordPropertyToAggregate,
-            String recordPropertyForTimestamps,
-            String rowRestrictionForBatch,
-            Long checkpointInterval,
-            String oldestPartitionForStreaming,
-            Integer partitionDiscoveryInterval,
-            Integer maxOutOfOrder,
-            Integer maxIdleness,
-            Integer windowSize)
-            throws Exception {
-
-        // we will be reading the historical batch data as the restriction shared from command line.
-        BigQuerySource<GenericRecord> batchSource =
-                BigQuerySource.readAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestrictionForBatch)
-                                .build());
-
-        // and then reading the new data from the streaming source, as it gets available from the
-        // underlying BigQuery table.
-        BigQuerySource<GenericRecord> streamingSource =
-                BigQuerySource.streamAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setOldestPartitionId(oldestPartitionForStreaming)
-                                .setPartitionDiscoveryRefreshIntervalInMinutes(
-                                        partitionDiscoveryInterval)
-                                .build());
-
-        // create an hybrid source with both batch and streaming flavors of the BigQuery source.
-        HybridSource<GenericRecord> hybridSource =
-                HybridSource.builder(batchSource).addSource(streamingSource).build();
-
-        runJob(
-                hybridSource,
-                streamingSource.getProducedType(),
-                "BigQueryHybridSource",
-                "Flink BigQuery Hybrid Read Nightly Test",
-                recordPropertyToAggregate,
-                recordPropertyForTimestamps,
-                checkpointInterval,
-                maxOutOfOrder,
-                maxIdleness,
-                windowSize);
+                recordPropertyForTimestamps);
     }
 
     static class FlatMapper extends RichFlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
@@ -437,16 +321,16 @@ public class BigQueryNightlyTest {
         }
 
         @Override
-        public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
+        public void flatMap(GenericRecord readRecord, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
 					     this.counter.inc();
                out.collect(Tuple2.of(String.valueOf(
-											 (record.get(recordPropertyToAggregate).toString()).hashCode() % 1000), 1));
+											 (readRecord.get(recordPropertyToAggregate).toString()).hashCode() % 1000), 1));
         }
 
         @Override
         public void close() throws Exception {
-               LOG.info("Number of records read: " + this.counter.getCount() + ";");
+            LOG.info("Number of records read: {} ;", this.counter.getCount());
         }
     }
 }

@@ -27,8 +27,8 @@ under the License.
         <version>0.1.0-preview</version>
     </parent>
 
-    <artifactId>flink-connector-bigquery-nightly-test</artifactId>
-    <name>Flink : Connectors : Google BigQuery Nightly Test</name>
+    <artifactId>flink-connector-bigquery-integration-test</artifactId>
+    <name>Flink : Connectors : Google BigQuery Integration Test</name>
     <packaging>jar</packaging>
 
     <properties>
@@ -54,7 +54,7 @@ under the License.
     </dependencies>
 
     <build>
-        <finalName>BigQueryNightlyTest</finalName>
+        <finalName>BigQueryIntegrationTest</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -83,7 +83,7 @@ under the License.
                             </resources>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.google.cloud.flink.bigquery.nightly.BigQueryNightlyTest</mainClass>
+                                    <mainClass>com.google.cloud.flink.bigquery.integration.BigQueryIntegrationTest</mainClass>
                                 </transformer>
                             </transformers>
                             <artifactSet>
@@ -110,7 +110,7 @@ under the License.
                             <relocations>
                                 <relocation>
                                     <pattern>com.google</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.nightly.shaded.com.google</shadedPattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.integration.shaded.com.google</shadedPattern>
                                     <excludes>
                                         <exclude>com.google.cloud.flink.bigquery.**</exclude>
                                     </excludes>
@@ -119,9 +119,9 @@ under the License.
 
                             <filters>
                                 <filter>
-                                    <artifact>org.apache.flink:flink-connector-bigquery-nightly*</artifact>
+                                    <artifact>org.apache.flink:flink-connector-bigquery-integration*</artifact>
                                     <includes>
-                                        <include>com/google/cloud/flink/bigquery/nightly/**</include>
+                                        <include>com/google/cloud/flink/bigquery/integration/**</include>
                                     </includes>
                                 </filter>
                             </filters>

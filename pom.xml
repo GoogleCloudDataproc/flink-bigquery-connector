@@ -69,6 +69,7 @@ under the License.
         <module>flink-connector-bigquery</module>
         <module>flink-sql-connector-bigquery</module>
         <module>flink-connector-bigquery-examples</module>
+		<module>flink-connector-bigquery-integration-test</module>
     </modules>
 
     <dependencies>
@@ -440,6 +441,7 @@ under the License.
                                 <exclude>**/com/google/cloud/flink/bigquery/source/config/*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/table/config/BigQueryConnectorOptions.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/examples/**</exclude>
+								<exclude>**/com/google/cloud/flink/bigquery/integration/**</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
