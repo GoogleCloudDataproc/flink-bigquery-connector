@@ -111,6 +111,14 @@ import java.time.Duration;
  *          --mode {unbounded in this case}.
  *      </li>
  *    </ul>
+ *    The sequence of operations in this pipeline is the same as bounded one.
+ *      This job is run asynchronously. The test appends newer partitions to check the read
+ *      correctness. Hence, after the job is created new partitions are added. <br>
+ *    Command to run unbounded tests on Dataproc Cluster is: <br>
+ * {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION} --cluster={CLUSTER_NAME}
+ *     --region={REGION} --async -- --gcp-project {GCP_PROJECT_ID} --bq-dataset {BigQuery Dataset Name}
+ *     --bq-table {BigQuery Table Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON} --mode unbounded --ts-prop {TIMESTAMP_PROPERTY}  --partition-discovery-interval {PARTITION_DISCOVERY_INTERVAL} }
+ *  <p>
  *   </li>
  *
  */
