@@ -35,4 +35,4 @@ timeout: 3600s
 
 options:
   machineType: 'N1_HIGHCPU_32'
-  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
+  defaultLogsBucketBehavior: '${_LOGS_BUCKET}'

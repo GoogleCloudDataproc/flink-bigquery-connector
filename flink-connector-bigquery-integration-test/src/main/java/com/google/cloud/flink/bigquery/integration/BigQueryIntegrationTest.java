@@ -42,9 +42,8 @@ import java.time.Duration;
 /**
  * The Integration Test pipeline will try to read the specified BigQuery table according to the
  * command line arguments, returning {@link GenericRecord} representing the rows, perform certain
- * operations and then log the total number of records read.
- *
- * <p>This module checks the following cases of BigQuery Table read.
+ * operations and then log the total number of records read. <br>
+ * This module checks the following cases of BigQuery Table read.
  *
  * <ol>
  *   <li> Bounded Jobs: Involve reading a BigQuery Table in the <i> bounded </i> mode.<br>
@@ -73,8 +72,7 @@ import java.time.Duration;
  *  {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION} --cluster={CLUSTER_NAME}
  *      --region={REGION} -- --gcp-project {GCP_PROJECT_ID} --bq-dataset {BigQuery Dataset Name}
  *      --bq-table {BigQuery Table Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON}  --query {QUERY} }
- *   <p>
- *   The following cases are tested:
+ *   <br> The following cases are tested:
  *   <ol>
  *       <li>
  *          Reading a Simple Table: This test reads a simple table of 40,000 rows having size 900 KBs.
@@ -115,7 +113,6 @@ import java.time.Duration;
  * {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION} --cluster={CLUSTER_NAME}
  *     --region={REGION} --async -- --gcp-project {GCP_PROJECT_ID} --bq-dataset {BigQuery Dataset Name}
  *     --bq-table {BigQuery Table Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON} --mode unbounded --ts-prop {TIMESTAMP_PROPERTY}  --partition-discovery-interval {PARTITION_DISCOVERY_INTERVAL} }
- *  <p>
  *  </li>
  * </ol>
  */

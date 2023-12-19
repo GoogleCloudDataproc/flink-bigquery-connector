@@ -24,7 +24,7 @@ case $STEP in
   # Download maven and all the dependencies
   init)
     $MVN spotless:apply
-    $MVN install -DskipTests
+    $MVN clean install -DskipTests
     gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
     exit
     ;;
