@@ -32,7 +32,8 @@ steps:
 
 # Maximum tolerance 60 minutes.
 timeout: 3600s
+logsBucket: '${_LOGS_BUCKET}'
 
 options:
   machineType: 'N1_HIGHCPU_32'
-  defaultLogsBucketBehavior: '${_LOGS_BUCKET}'
+
