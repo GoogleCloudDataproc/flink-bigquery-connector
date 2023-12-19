@@ -41,62 +41,78 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 
 /**
- * A slight modification to BigQuery table read example with Flink's DataStream API.
+ * A nightly job to test BigQuery table read with Flink's DataStream API.
  *
  * <p>The Flink pipeline will try to read the specified BigQuery table according to given the
- * command line arguments, returning {@link GenericRecord} representing the rows, and print the
- * result of specified operations.
+ * command line arguments, returning {@link GenericRecord} representing the rows, perform certain
+ * operations and then log the total number of records read.
  *
- * <p>This example module should be used in one of the following two ways.
+ * <p>This module checks the following cases of BigQuery Table read.
  *
  * <ol>
- *   <li>Specify the BQ dataset and table with an optional row restriction. Users can configure a
- *       source mode, i.e bounded, unbounded or hybrid. Bounded implies that the BQ table will be
- *       read once at the time of execution, analogous to a batch job. Unbounded source implies that
- *       the BQ table will be periodically polled for new data. Hybrid source allows defining
- *       multiple sources, and in this example, we show a combination of bounded and unbounded
- *       sources. <br>
- *       The sequence of operations in this pipeline is: <i>source > flatMap > keyBy > sum </i> <br>
+ *   <li> Bounded Jobs: Involve reading a BigQuery Table in the <i> bounded </i> mode.<br>
+ *   The arguments given in this case would be:
+ *     <ul>
+ *       <li>
+ *         --gcp-project {required; project ID which contains the BigQuery table}
+ *       </li>
+ *       <li>
+ *         --bq-dataset {required; name of BigQuery dataset containing the desired table} <br>
+ *       </li>
+ *       <li>
+ *         --bq-table {required; name of BigQuery table to read} <br>
+ *       </li>
+ *       <li>
+ *         --agg-prop {required; record property to aggregate in Flink job} <br>
+ *       </li>
+ *       <li>
+ *         --query {optional; SQL query to fetch data from BigQuery table}
+ *       </li>
+ *     </ul>
+ *     The sequence of operations in this pipeline is: <i>source > flatMap > keyBy > sum </i> <br>
  *       A counter counts the total number of records read
  *       (the number of records observed by keyBy operation) and logs this count at the end. <br>
- *       Flink command line format is: <br>
- *       flink run {additional runtime params} {path to this jar}/BigQueryNightlyTest.jar <br>
- *       --gcp-project {required; project ID which contains the BigQuery table} <br>
- *       --bq-dataset {required; name of BigQuery dataset containing the desired table} <br>
- *       --bq-table {required; name of BigQuery table to read} <br>
- *       --mode {optional; source read type. Allowed values are bounded (default) or unbounded or
- *       hybrid} <br>
- *       --agg-prop {required; record property to aggregate in Flink job} <br>
- *       --ts-prop {required for unbounded/hybrid mode; property record for timestamp} <br>
- *       --oldest-partition-id {optional; oldest partition id to read. Used in unbounded/hybrid
- *       mode} <br>
- *       --restriction {optional; SQL filter applied at the BigQuery table before reading} <br>
- *       --limit {optional; maximum records to read from BigQuery table} <br>
- *       --checkpoint-interval {optional; milliseconds between state checkpoints} <br>
- *       --partition-discovery-interval {optional; minutes between polling table for new data. Used
- *       in unbounded/hybrid mode} <br>
- *       --out-of-order-tolerance {optional; out of order event tolerance in minutes. Used in
- *       unbounded/hybrid mode} <br>
- *       --max-idleness {optional; minutes to wait before marking a stream partition idle. Used in
- *       unbounded/hybrid mode} <br>
- *       --window-size {optional; window size in minutes. Used in unbounded/hybrid mode}
- *   <li>Specify SQL query to fetch data from BQ dataset. For example, "SELECT * FROM
- *       some_dataset.INFORMATION_SCHEMA.PARTITIONS". This approach can only be used as a bounded
- *       source. <br>
- *       The sequence of operations in this pipeline is the same as above <br>
- *       Flink command line format is: <br>
- *       flink run {additional runtime params} {path to this jar}/BigQueryNightlyTest.jar <br>
- *       --gcp-project {required; project ID which contains the BigQuery table} <br>
- *       --query {required; SQL query to fetch data from BigQuery table} <br>
- *       --limit {optional; maximum records to read from BigQuery table} <br>
- *       --checkpoint-interval {optional; time interval between state checkpoints in milliseconds}
- * </ol>
+ *     Command to run bounded tests on Dataproc Cluster is: <br>
+ *  {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION} --cluster={CLUSTER_NAME}
+ *      --region={REGION} -- --gcp-project {GCP_PROJECT_ID} --bq-dataset {BigQuery Dataset Name}
+ *      --bq-table {BigQuery Table Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON}  --query {QUERY} }
+ *   <p>
+ *   The following cases are tested:
+ *   <ol>
+ *       <li>
+ *          Reading a Simple Table: This test reads a simple table of 40,000 rows having size 900 KBs.
+ *       </li>
+ *       <li>
+ *          Reading a Table with Complex Schema: This test reads a table with 15 levels (maximum number of levels allowed by BigQuery). The table contains 100,000 rows and has a size of 2.96 MB.
+ *       </li>
+ *       <li>
+ *          Reading a Large Table: This test reads a large table. The table contains __ rows and has a size of about 200 GBs.
+ *       </li>
+ *       <li>
+ *         Reading a Table with Large Row: This test reads a table with a large row. The table contains 100 rows each fo size 45 MB and has a size of about 450 GB.
+ *       </li>
+ *       <li>
+ *        Testing a BigQuery Query Run: This tests a BigQuery Query run. The query filters certain rows based on a condition, groups the records and finds the AVG of value of a column.
+ *       </li>
+ *   </ol>
+ *   </li>
+ *   <li>
+ *     Unbounded Source Job: Involve reading a BigQuery Table in the <i> unbounded </i> mode.<br>
+ *     This test requires some additional arguments besides the ones mentioned in the bounded mode.
+ *      <ul>
+ *      <li>
+ *        --ts-prop {property record for timestamp}
+ *      </li>
+ *      <li>
+ *        --partition-discovery-interval {optional; minutes between polling table for new data. Used
+ *        in unbounded/hybrid mode} <br>
+ *      </li>
+ *      <li>
+ *          --mode {unbounded in this case}.
+ *      </li>
+ *    </ul>
+ *   </li>
  *
- * <p>Note on row restriction: In case a restriction relies on temporal reference, something like
- * {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = '2023-06-20 19:00:00'"}, and if launching
- * the job from Flink's Rest API, a known issue is that single quotes are not supported and will
- * cause the pipeline to fail. As a workaround, using \u0027 instead of the quotes will work. For
- * example {@code "TIMESTAMP_TRUNC(ingestion_timestamp, HOUR) = \u00272023-06-20 19:00:00\u0027"}.
  */
 public class BigQueryNightlyTest {
 
@@ -252,7 +268,7 @@ public class BigQueryNightlyTest {
                 .keyBy(mappedTuple -> mappedTuple.f0)
                 .window(TumblingEventTimeWindows.of(Time.minutes(windowSize)))
                 .sum("f1");
-        
+
         env.execute(jobName);
     }
 
