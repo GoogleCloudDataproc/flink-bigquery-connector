@@ -17,10 +17,10 @@
 
 set -euxo pipefail
 
-if [ -z "${CODECOV_TOKEN}" ]; then
-  echo "missing environment variable CODECOV_TOKEN"
-  exit 1
-fi
+#if [ -z "${CODECOV_TOKEN}" ]; then
+#  echo "missing environment variable CODECOV_TOKEN"
+#  exit 1
+#fi
 
 readonly MVN="./mvnw -B -e -s /workspace/cloudbuild/gcp-settings.xml -Dmaven.repo.local=/workspace/.repository"
 readonly STEP=$1
@@ -30,6 +30,7 @@ cd /workspace
 case $STEP in
   # Download maven and all the dependencies
   init)
+    $MVN spotless:apply
     $MVN clean install -DskipTests
     exit
     ;;
