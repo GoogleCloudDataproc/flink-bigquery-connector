@@ -34,18 +34,8 @@ gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --clu
 # Wait for the logs to be saved.
 sleep 20
 # Now check the success of the job
-
-#Check if query has been set or not.
-if [ -z "$QUERY" ];
-then
-  echo "Run without Query"
-  python3 cloudbuild/python-scripts/parse_logs.py -- --job_id="$JOB_ID" --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --region="$REGION" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME"
-  ret=$?
-else
-  echo "Run Query First"
-  python3 cloudbuild/python-scripts/parse_logs.py -- --job_id="$JOB_ID" --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --region="$REGION" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME" --query="$QUERY"
-  ret=$?
-fi
+python3 cloudbuild/python-scripts/parse_logs.py -- --job_id="$JOB_ID" --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --region="$REGION" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME" --query="$QUERY"
+ret=$?
 
 if [ $ret -ne 0 ]
 then
