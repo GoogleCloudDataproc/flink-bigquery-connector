@@ -296,7 +296,7 @@ public class BigQueryIntegrationTest {
                     Tuple2.of(
                             String.valueOf(
                                     (readRecord.get(recordPropertyToAggregate).toString())
-                                            .hashCode()
+                                                    .hashCode()
                                             % 1000),
                             1));
         }
