@@ -23,7 +23,6 @@ cd /workspace
 case $STEP in
   # Download maven and all the dependencies
   init)
-    $MVN spotless:apply
     $MVN clean install -DskipTests
     gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
     exit
@@ -31,8 +30,8 @@ case $STEP in
 
   # Run the small e2e tests
   e2e_test_small)
-    # 1. Run the simple table test.
-    source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" ""
+    # 1. Run the simple bounded table test.
+    source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded"
     ;;
 
   *)
