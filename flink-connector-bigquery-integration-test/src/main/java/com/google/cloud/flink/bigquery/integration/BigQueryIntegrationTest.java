@@ -17,11 +17,6 @@
 
 package com.google.cloud.flink.bigquery.integration;
 
-import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.source.BigQuerySource;
-import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
-import java.time.Duration;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
@@ -35,8 +30,15 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
+
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.source.BigQuerySource;
+import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
 
 /**
  * The Integration Test pipeline will try to read the specified BigQuery table according to the
