@@ -9,9 +9,9 @@ RUN \
   apt-get update -y && \
   apt-get install google-cloud-cli -y \
   && apt clean
-# Install Python and Basic Python Tools (Assuming VM does not have them)
+# Install Python and Basic Python Tools
 RUN apt-get -y install python3 && apt clean
-# Get pip to download and install requirements:
+# Get pip to download and install requirements
 RUN apt-get -y install python3-pip && apt clean
 # For md5sum
 RUN apt-get -y install coreutils && apt clean
