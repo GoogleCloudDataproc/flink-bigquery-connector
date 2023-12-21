@@ -140,7 +140,8 @@ public class BigQueryIntegrationTest {
         String mode = parameterTool.get("mode", "bounded");
         String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
-        Integer partitionDiscoveryInterval = parameterTool.getInt("partition-discovery-interval", 10);
+        Integer partitionDiscoveryInterval =
+                parameterTool.getInt("partition-discovery-interval", 10);
 
         String recordPropertyForTimestamps;
         switch (mode) {
@@ -193,7 +194,8 @@ public class BigQueryIntegrationTest {
                         WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
                                         Duration.ofMinutes(MAX_OUT_OF_ORDER))
                                 .withTimestampAssigner(
-                                        (event, timestamp) -> (Long) event.get(recordPropertyForTimestamps))
+                                        (event, timestamp) ->
+                                                (Long) event.get(recordPropertyForTimestamps))
                                 .withIdleness(Duration.ofMinutes(MAX_IDLENESS)),
                         "BigQueryStreamingSource",
                         typeInfo)
@@ -207,7 +209,10 @@ public class BigQueryIntegrationTest {
     }
 
     private static void runBoundedFlinkJob(
-            String projectName, String datasetName, String tableName, String recordPropertyToAggregate)
+            String projectName,
+            String datasetName,
+            String tableName,
+            String recordPropertyToAggregate)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -255,11 +260,15 @@ public class BigQueryIntegrationTest {
                                 .setRowRestriction(ROW_RESTRICTION)
                                 .setLimit(RECORD_LIMIT)
                                 .setOldestPartitionId(OLDEST_PARTITION)
-                                .setPartitionDiscoveryRefreshIntervalInMinutes(partitionDiscoveryInterval)
+                                .setPartitionDiscoveryRefreshIntervalInMinutes(
+                                        partitionDiscoveryInterval)
                                 .build());
 
         runJob(
-                source, source.getProducedType(), recordPropertyToAggregate, recordPropertyForTimestamps);
+                source,
+                source.getProducedType(),
+                recordPropertyToAggregate,
+                recordPropertyForTimestamps);
     }
 
     static class FlatMapper extends RichFlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
@@ -270,7 +279,8 @@ public class BigQueryIntegrationTest {
 
         @Override
         public void open(Configuration config) {
-            this.counter = getRuntimeContext().getMetricGroup().counter("number_of_records_counter_map");
+            this.counter =
+                    getRuntimeContext().getMetricGroup().counter("number_of_records_counter_map");
         }
 
         public FlatMapper(String recordPropertyToAggregate) {
@@ -285,7 +295,9 @@ public class BigQueryIntegrationTest {
             out.collect(
                     Tuple2.of(
                             String.valueOf(
-                                    (readRecord.get(recordPropertyToAggregate).toString()).hashCode() % 1000),
+                                    (readRecord.get(recordPropertyToAggregate).toString())
+                                            .hashCode()
+                                            % 1000),
                             1));
         }
 
@@ -302,7 +314,9 @@ public class BigQueryIntegrationTest {
         @Override
         public void open(Configuration config) {
             this.counter =
-                    getRuntimeContext().getMetricGroup().counter("number_of_records_counter_query_map");
+                    getRuntimeContext()
+                            .getMetricGroup()
+                            .counter("number_of_records_counter_query_map");
         }
 
         @Override
