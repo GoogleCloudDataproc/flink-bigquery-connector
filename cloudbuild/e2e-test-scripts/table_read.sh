@@ -22,7 +22,7 @@ PROJECT_NAME=$4
 DATASET_NAME=$5
 TABLE_NAME=$6
 AGG_PROP_NAME=$7
-QUERY=$8
+QUERY_STRING=$8
 MODE=$9
 
 set -euxo pipefail
@@ -43,7 +43,7 @@ fi
 sleep 10
 
 # Now check the success of the job
-python3 cloudbuild/python-scripts/parse_logs.py -- --job_id="$JOB_ID" --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --region="$REGION" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME" --query="$QUERY"
+python3 cloudbuild/python-scripts/parse_logs.py -- --job_id="$JOB_ID" --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --region="$REGION" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME" --query="$QUERY_STRING"
 ret=$?
 
 if [ $ret -ne 0 ]
