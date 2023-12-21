@@ -17,6 +17,11 @@
 
 package com.google.cloud.flink.bigquery.integration;
 
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.source.BigQuerySource;
+import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import java.time.Duration;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
@@ -30,15 +35,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
-
-import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.source.BigQuerySource;
-import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
-import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Duration;
 
 /**
  * The Integration Test pipeline will try to read the specified BigQuery table according to the
@@ -47,74 +45,56 @@ import java.time.Duration;
  * This module checks the following cases of BigQuery Table read.
  *
  * <ol>
- *   <li> Bounded Jobs: Involve reading a BigQuery Table in the <i> bounded </i> mode.<br>
- *   The arguments given in this case would be:
- *     <ul>
- *       <li>
- *         --gcp-project {required; project ID which contains the BigQuery table}
- *       </li>
- *       <li>
- *         --bq-dataset {required; name of BigQuery dataset containing the desired table} <br>
- *       </li>
- *       <li>
- *         --bq-table {required; name of BigQuery table to read} <br>
- *       </li>
- *       <li>
- *         --agg-prop {required; record property to aggregate in Flink job} <br>
- *       </li>
- *       <li>
- *         --query {optional; SQL query to fetch data from BigQuery table}
- *       </li>
- *     </ul>
- *     The sequence of operations in this pipeline is: <i>source > flatMap > keyBy > sum </i> <br>
- *       A counter counts the total number of records read
- *       (the number of records observed by keyBy operation) and logs this count at the end. <br>
- *     Command to run bounded tests on Dataproc Cluster is: <br>
- *  {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION} --cluster={CLUSTER_NAME}
- *      --region={REGION} -- --gcp-project {GCP_PROJECT_ID} --bq-dataset {BigQuery Dataset Name}
- *      --bq-table {BigQuery Table Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON}  --query {QUERY} }
- *   <br> The following cases are tested:
- *   <ol>
- *       <li>
- *          Reading a Simple Table: This test reads a simple table of 40,000 rows having size 900 KBs.
- *       </li>
- *       <li>
- *          Reading a Table with Complex Schema: This test reads a table with 15 levels (maximum number of levels allowed by BigQuery). The table contains 100,000 rows and has a size of 2.96 MB.
- *       </li>
- *       <li>
- *          Reading a Large Table: This test reads a large table. The table contains __ rows and has a size of about 200 GBs.
- *       </li>
- *       <li>
- *         Reading a Table with Large Row: This test reads a table with a large row. The table contains 100 rows each fo size 45 MB and has a size of about 450 GB.
- *       </li>
- *       <li>
- *        Testing a BigQuery Query Run: This tests a BigQuery Query run. The query filters certain rows based on a condition, groups the records and finds the AVG of value of a column.
- *       </li>
- *   </ol>
- *   </li>
- *   <li>
- *     Unbounded Source Job: Involve reading a BigQuery Table in the <i> unbounded </i> mode.<br>
- *     This test requires some additional arguments besides the ones mentioned in the bounded mode.
- *      <ul>
- *      <li>
- *        --ts-prop {property record for timestamp}
- *      </li>
- *      <li>
- *        --partition-discovery-interval {optional; minutes between polling table for new data. Used
- *        in unbounded/hybrid mode} <br>
- *      </li>
- *      <li>
- *          --mode {unbounded in this case}.
- *      </li>
- *    </ul>
- *    The sequence of operations in this pipeline is the same as bounded one.
- *      This job is run asynchronously. The test appends newer partitions to check the read
- *      correctness. Hence, after the job is created new partitions are added. <br>
- *    Command to run unbounded tests on Dataproc Cluster is: <br>
- * {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION} --cluster={CLUSTER_NAME}
- *     --region={REGION} --async -- --gcp-project {GCP_PROJECT_ID} --bq-dataset {BigQuery Dataset Name}
- *     --bq-table {BigQuery Table Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON} --mode unbounded --ts-prop {TIMESTAMP_PROPERTY}  --partition-discovery-interval {PARTITION_DISCOVERY_INTERVAL} }
- *  </li>
+ *   <li>Bounded Jobs: Involve reading a BigQuery Table in the <i> bounded </i> mode.<br>
+ *       The arguments given in this case would be:
+ *       <ul>
+ *         <li>--gcp-project {required; project ID which contains the BigQuery table}
+ *         <li>--bq-dataset {required; name of BigQuery dataset containing the desired table} <br>
+ *         <li>--bq-table {required; name of BigQuery table to read} <br>
+ *         <li>--agg-prop {required; record property to aggregate in Flink job} <br>
+ *         <li>--query {optional; SQL query to fetch data from BigQuery table}
+ *       </ul>
+ *       The sequence of operations in this pipeline is: <i>source > flatMap > keyBy > sum </i> <br>
+ *       A counter counts the total number of records read (the number of records observed by keyBy
+ *       operation) and logs this count at the end. <br>
+ *       Command to run bounded tests on Dataproc Cluster is: <br>
+ *       {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION}
+ *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-project {GCP_PROJECT_ID} --bq-dataset
+ *       {BigQuery Dataset Name} --bq-table {BigQuery Table Name} --agg-prop
+ *       {PROPERTY_TO_AGGREGATE_ON} --query {QUERY} } <br>
+ *       The following cases are tested:
+ *       <ol>
+ *         <li>Reading a Simple Table: This test reads a simple table of 40,000 rows having size 900
+ *             KBs.
+ *         <li>Reading a Table with Complex Schema: This test reads a table with 15 levels (maximum
+ *             number of levels allowed by BigQuery). The table contains 100,000 rows and has a size
+ *             of 2.96 MB.
+ *         <li>Reading a Large Table: This test reads a large table. The table contains __ rows and
+ *             has a size of about 200 GBs.
+ *         <li>Reading a Table with Large Row: This test reads a table with a large row. The table
+ *             contains 100 rows each fo size 45 MB and has a size of about 450 GB.
+ *         <li>Testing a BigQuery Query Run: This tests a BigQuery Query run. The query filters
+ *             certain rows based on a condition, groups the records and finds the AVG of value of a
+ *             column.
+ *       </ol>
+ *   <li>Unbounded Source Job: Involve reading a BigQuery Table in the <i> unbounded </i> mode.<br>
+ *       This test requires some additional arguments besides the ones mentioned in the bounded
+ *       mode.
+ *       <ul>
+ *         <li>--ts-prop {property record for timestamp}
+ *         <li>--partition-discovery-interval {optional; minutes between polling table for new data.
+ *             Used in unbounded/hybrid mode} <br>
+ *         <li>--mode {unbounded in this case}.
+ *       </ul>
+ *       The sequence of operations in this pipeline is the same as bounded one. This job is run
+ *       asynchronously. The test appends newer partitions to check the read correctness. Hence,
+ *       after the job is created new partitions are added. <br>
+ *       Command to run unbounded tests on Dataproc Cluster is: <br>
+ *       {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION}
+ *       --cluster={CLUSTER_NAME} --region={REGION} --async -- --gcp-project {GCP_PROJECT_ID}
+ *       --bq-dataset {BigQuery Dataset Name} --bq-table {BigQuery Table Name} --agg-prop
+ *       {PROPERTY_TO_AGGREGATE_ON} --mode unbounded --ts-prop {TIMESTAMP_PROPERTY}
+ *       --partition-discovery-interval {PARTITION_DISCOVERY_INTERVAL} }
  * </ol>
  */
 public class BigQueryIntegrationTest {
@@ -158,17 +138,12 @@ public class BigQueryIntegrationTest {
         String mode = parameterTool.get("mode", "bounded");
         String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
 
-        Integer partitionDiscoveryInterval =
-                parameterTool.getInt("partition-discovery-interval", 10);
+        Integer partitionDiscoveryInterval = parameterTool.getInt("partition-discovery-interval", 10);
 
         String recordPropertyForTimestamps;
         switch (mode) {
             case "bounded":
-                runBoundedFlinkJob(
-                        projectName,
-                        datasetName,
-                        tableName,
-                        recordPropertyToAggregate);
+                runBoundedFlinkJob(projectName, datasetName, tableName, recordPropertyToAggregate);
                 break;
             case "unbounded":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -186,9 +161,7 @@ public class BigQueryIntegrationTest {
         }
     }
 
-    private static void runQueryFlinkJob(
-            String projectName, String query)
-            throws Exception {
+    private static void runQueryFlinkJob(String projectName, String query) throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
@@ -196,10 +169,11 @@ public class BigQueryIntegrationTest {
         BigQuerySource<GenericRecord> bqSource =
                 BigQuerySource.readAvrosFromQuery(query, projectName, RECORD_LIMIT);
 
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").map(new Mapper()).print();
+        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
+                .map(new Mapper())
+                .print();
 
         env.execute("Flink BigQuery Query Integration Test");
-
     }
 
     private static void runJob(
@@ -217,8 +191,7 @@ public class BigQueryIntegrationTest {
                         WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
                                         Duration.ofMinutes(MAX_OUT_OF_ORDER))
                                 .withTimestampAssigner(
-                                        (event, timestamp) ->
-                                                (Long) event.get(recordPropertyForTimestamps))
+                                        (event, timestamp) -> (Long) event.get(recordPropertyForTimestamps))
                                 .withIdleness(Duration.ofMinutes(MAX_IDLENESS)),
                         "BigQueryStreamingSource",
                         typeInfo)
@@ -232,10 +205,7 @@ public class BigQueryIntegrationTest {
     }
 
     private static void runBoundedFlinkJob(
-            String projectName,
-            String datasetName,
-            String tableName,
-            String recordPropertyToAggregate)
+            String projectName, String datasetName, String tableName, String recordPropertyToAggregate)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -254,12 +224,12 @@ public class BigQueryIntegrationTest {
                                 .setLimit(RECORD_LIMIT)
                                 .build());
 
-        env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").flatMap(new FlatMapper(recordPropertyToAggregate))
+        env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
+                .flatMap(new FlatMapper(recordPropertyToAggregate))
                 .keyBy(mappedTuple -> mappedTuple.f0)
                 .sum("f1");
 
         env.execute("Flink BigQuery Bounded Read Integration Test");
-
     }
 
     private static void runStreamingFlinkJob(
@@ -283,15 +253,11 @@ public class BigQueryIntegrationTest {
                                 .setRowRestriction(ROW_RESTRICTION)
                                 .setLimit(RECORD_LIMIT)
                                 .setOldestPartitionId(OLDEST_PARTITION)
-                                .setPartitionDiscoveryRefreshIntervalInMinutes(
-                                        partitionDiscoveryInterval)
+                                .setPartitionDiscoveryRefreshIntervalInMinutes(partitionDiscoveryInterval)
                                 .build());
 
         runJob(
-                source,
-                source.getProducedType(),
-                recordPropertyToAggregate,
-                recordPropertyForTimestamps);
+                source, source.getProducedType(), recordPropertyToAggregate, recordPropertyForTimestamps);
     }
 
     static class FlatMapper extends RichFlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
@@ -302,22 +268,23 @@ public class BigQueryIntegrationTest {
 
         @Override
         public void open(Configuration config) {
-               this.counter = getRuntimeContext()
-                      .getMetricGroup()
-                      .counter("number_of_records_counter_map");
+            this.counter = getRuntimeContext().getMetricGroup().counter("number_of_records_counter_map");
         }
 
         public FlatMapper(String recordPropertyToAggregate) {
-               this.recordPropertyToAggregate = recordPropertyToAggregate;
+            this.recordPropertyToAggregate = recordPropertyToAggregate;
         }
 
         @Override
         public void flatMap(GenericRecord readRecord, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
-					     this.counter.inc();
+            this.counter.inc();
 
-               out.collect(Tuple2.of(String.valueOf(
-											 (readRecord.get(recordPropertyToAggregate).toString()).hashCode() % 1000), 1));
+            out.collect(
+                    Tuple2.of(
+                            String.valueOf(
+                                    (readRecord.get(recordPropertyToAggregate).toString()).hashCode() % 1000),
+                            1));
         }
 
         @Override
@@ -332,9 +299,8 @@ public class BigQueryIntegrationTest {
 
         @Override
         public void open(Configuration config) {
-            this.counter = getRuntimeContext()
-                    .getMetricGroup()
-                    .counter("number_of_records_counter_query_map");
+            this.counter =
+                    getRuntimeContext().getMetricGroup().counter("number_of_records_counter_query_map");
         }
 
         @Override
