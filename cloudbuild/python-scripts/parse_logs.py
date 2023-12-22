@@ -46,15 +46,15 @@ def get_bq_table_row_count(
 
     Args:
       client_project_name: Name of the project to form the BQ Client
-      project_name: Project ID that contains the table
-      dataset_name: Name of Dataset containing the table
-      table_name: Table Name
+      project_name: Project ID that contains the table.
+      dataset_name: Name of Dataset containing the table.
+      table_name: Table Name.
       query: Query string [if any] that was provided to the connector. Incase
         non-empty, The method executes this query and returns the number of rows
         obtained.
 
     Returns:
-      Count of rows in the provided `project_name.dataset_name.table_name` table
+      Count of rows in the provided `project_name.dataset_name.table_name` table.
     """
     if query:
         return get_bq_query_result_row_count(client_project_name, query)
@@ -75,31 +75,28 @@ def extract_metric(logs_as_string, metric_string, end_of_metric_string):
 
     Args:
       logs_as_string: Yarn application logs downloaded as a string.
-      metric_string: The string to be found
+      metric_string: The string to be found.
       end_of_metric_string: Delimiter at the end of the value.
 
     Returns:
       Sum of values of the metric obtained in a file. As there can be 0 or more
-      occurrences of metric in a file
+      occurrences of metric in a file.
     """
-    total_metric_sum_in_blob = 0
     # Keep on finding the metric value as there can be
     # 1 or more outputs in a log file.
 
-    # The logs are of the format
+    # The logs are of the format -
     # Number of records read: <value> ;
     # Here, "Number of records read: " is the metric string
     # and ";" is the end_of_metric_string.
     # We find the smallest possible string that matches.
-
     metric_pattern = r'{}\s*(.*?)\s*{}'.format(
         re.escape(metric_string), re.escape(end_of_metric_string)
     )
     metric_pattern = re.compile(metric_pattern)
     matches = metric_pattern.finditer(logs_as_string)
     records_read = [int(record_read.group(1).strip()) for record_read in matches]
-    total_metric_sum_in_blob += sum(records_read)
-    return total_metric_sum_in_blob
+    return sum(records_read)
 
 
 def check_query_correctness(gcs_log_object, logs_as_string):
@@ -107,8 +104,9 @@ def check_query_correctness(gcs_log_object, logs_as_string):
 
     This is a hardcoded check, done by checking if the records obtained
     from a "filter" query contains only the desired (filtered) values.
+
     Args:
-      gcs_log_object: GCS log object (name of the GCS Object containing the logs)
+      gcs_log_object: GCS log object (name of the GCS Object containing the logs).
       logs_as_string: Yarn application logs downloaded as a string.
 
     Returns:
@@ -120,15 +118,16 @@ def check_query_correctness(gcs_log_object, logs_as_string):
       RuntimeError: When filter condition is not met.
     """
 
-    # Query records are of the format [ HOUR, DAY ]
+    # Query records are of the format [ HOUR, DAY ].
     # The pattern searches for records formatted the same way.
     # A single space '\s' followed by a group (the HOUR), a ', ' and a space '\s'
     # which is again followed by a group (the DAY)
-
     query_records_pattern = r'\[\s(.*?),\s(.*?)\s\]'
-    # Find all matches of the pattern in the string
+
+    # Find all matches of the pattern in the string.
     matches = re.findall(query_records_pattern, logs_as_string)
-    # Extract and print all pairs of HOUR and DAY
+
+    # Extract and print all pairs of HOUR and DAY.
     if matches:
         print(f'[Log: parse_logs INFO] Query result obtained in {gcs_log_object}')
         for match in matches:
@@ -136,7 +135,7 @@ def check_query_correctness(gcs_log_object, logs_as_string):
             day = match[1].strip()
 
             # Check if the records thus obtained follow the filter condition.
-            # Hardcoded check if HOUR and DAY are both = '17'
+            # Hardcoded check if HOUR and DAY are both = '17'.
             if hour != '17' or day != '17':
                 raise RuntimeError(
                     '[Log: parse_logs ERROR] Incorrect query result obtained!'
@@ -201,7 +200,7 @@ def get_blob_and_check_metric(
             logs_as_string, metric_string, end_of_metric_string
         )
         return metric_value, is_query_result_present
-    # If not return -1
+    # If not return -1.
     return -1, is_query_result_present
 
 
@@ -220,19 +219,19 @@ def get_logs_pattern(client_project_name, region, job_id):
     Raises:
         RuntimeError: In case the Dataproc job fails
     """
-    # Create a client
+    # Create a client.
     client = dataproc_v1.JobControllerClient(
         client_options={'api_endpoint': f'{region}-dataproc.googleapis.com:443'}
     )
 
-    # Initialize request argument(s)
+    # Initialize request argument(s).
     request = dataproc_v1.GetJobRequest(
         project_id=client_project_name,
         region=region,
         job_id=job_id,
     )
 
-    # Make the request
+    # Make the request.
     response = client.get_job(request=request)
     state = response.status.state.name
 
@@ -253,11 +252,11 @@ def get_logs_pattern(client_project_name, region, job_id):
     #     Optional '/' at the end (as some urls lack the ending '/')
     # Thus the current pattern helps in searching 'application_YYYYYY_XXXX'
     # as the part of group 1.
-
     tracking_url_pattern = r'/([^/]+)(?:/)?$'
     yarn_application_number = re.search(tracking_url_pattern, tracking_url).group(
         1
     )
+
     # With the extracted application number of the format
     # 'application_YYYYYY_XXXX'
     # We need to extract the actual application number within the cluster,
@@ -267,7 +266,6 @@ def get_logs_pattern(client_project_name, region, job_id):
     #     which are not a "_".
     #     i.e. the job number present after the last "_"
     # Thus the current pattern helps in searching "XXXX" as the part of group 0.
-
     yarn_application_number_pattern = r'[^_]+$'
 
     yarn_job_number = re.search(
@@ -333,13 +331,13 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     is_query_result_found = False
     # Get all the contents in the GCS Bucket.
     gcs_bucket_contents = get_bucket_contents(cluster_temp_bucket)
-    # Form the logs_pattern
 
+    # Form the logs_pattern.
     # logs are stored in files having names of the format 'log_pattern/...'
     # the pattern enables searching for the same.
-
     logs_pattern = re.compile(rf'{re.escape(logs_pattern)}/.+')
-    # Find all strings in the array that match the pattern
+
+    # Find all strings in the array that match the pattern.
     gcs_log_objects = [
         gcs_log_object
         for gcs_log_object in gcs_bucket_contents
@@ -365,13 +363,14 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
         if is_query_result_present:
             is_query_result_found = True
 
-    # If query has been set, check if query results were obtained any
+    # If query has been set, check if query results were obtained
     # at least one of the logs. If not raise an Exception.
     if query and not is_query_result_found:
         raise RuntimeError(
             '[Log: parse_logs ERROR] Unable to find the query results in any of the'
             ' logs'
         )
+
     # If found in any of the logs, return the value, else raise an error.
     if is_metric_found:
         return total_metric_count
@@ -406,13 +405,13 @@ def run(
 
     Raises:
       AssertionError: When the rows read by connector and in the BQ table do not
-      match.
+        match.
     """
-    # 1. Get the temp bucket name.
+    # Get the temp bucket name.
     cluster_temp_bucket = get_cluster_temp_bucket(
         cluster_project_name, cluster_name, region
     )
-    # 2. get the pattern of logs inside the temp bucket in GCS.
+    # Get the pattern of logs inside the temp bucket in GCS.
     logs_pattern = get_logs_pattern(cluster_project_name, region, job_id)
     # Read the blob and get the metric from them
     metric = read_logs(cluster_temp_bucket, logs_pattern, query)
@@ -469,7 +468,6 @@ def main(argv: Sequence[str]) -> None:
     #         followed by a group of word character (alphanumeric & underscore)
     #         then an '=' sign
     #         followed by any character except linebreaks
-
     argument_pattern = r'--(\w+)=(.*)'
     # Forming a dictionary from the arguments
     try:
@@ -481,7 +479,7 @@ def main(argv: Sequence[str]) -> None:
             '[Log: parse_logs ERROR] Missing argument value. Please check the '
             'arguments provided again.'
         ) from exc
-    # Validating if all necessary arguments are available
+    # Validating if all necessary arguments are available.
     validate_arguments(
         arguments_dictionary, required_arguments, acceptable_arguments
     )
@@ -493,9 +491,7 @@ def main(argv: Sequence[str]) -> None:
     project_name = arguments_dictionary['project_name']
     dataset_name = arguments_dictionary['dataset_name']
     table_name = arguments_dictionary['table_name']
-    query = ''
-    if 'query' in arguments_dictionary:
-        query = arguments_dictionary['query']
+    query = arguments_dictionary.get('query', '')
 
     run(
         project_id,
