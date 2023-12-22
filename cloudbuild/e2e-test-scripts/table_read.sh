@@ -51,6 +51,6 @@ then
    echo Run Failed
    exit 1
 else
-   echo Run Succeeds
+   echo Run Succeeded!
 fi
 
