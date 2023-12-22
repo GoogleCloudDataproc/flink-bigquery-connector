@@ -18,7 +18,7 @@ def wait():
         f' {datetime.datetime.now()}'
     )
     # This is the time connector takes to read the previous rows
-    time.sleep(3.5 * 60)
+    time.sleep(2.5 * 60)
 
 
 def validate_arguments(arguments_dictionary, required_arguments):
@@ -133,7 +133,7 @@ def main(argv: Sequence[str]) -> None:
         prev_partitions_offset += no_partitions
         # We wait for the refresh to happen
         # so that the data just created can be read.
-        while time_elapsed < float(60 * refresh_interval):
+        while time_elapsed < float(60 * 2 * refresh_interval):
             time_elapsed = time.time() - start_time
     # Wait for the final read to happen.
     wait()
