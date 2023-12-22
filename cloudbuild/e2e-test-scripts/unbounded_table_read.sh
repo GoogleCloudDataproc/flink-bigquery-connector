@@ -23,6 +23,9 @@ gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --clu
 # Dynamically adding the data. This is timed 2.5 min wait for read and 5 min refresh time.
 python3 cloudbuild/python-scripts/insert_dynamic_partitions.py -- --now_timestamp="$now" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME" --refresh_interval="$PARTITION_DISCOVERY_INTERVAL"
 
+# Wait for a bit, as mapping and output of records takes some time.
+sleep 3m
+
 # Kill the dataproc job
 # quiet flag will not ask for console input.
 gcloud dataproc jobs kill "$JOB_ID" --region="$REGION" --quiet
