@@ -26,4 +26,3 @@ python3 cloudbuild/python-scripts/insert_dynamic_partitions.py -- --now_timestam
 # Kill the dataproc job
 # quiet flag will not ask for console input.
 gcloud dataproc jobs kill "$JOB_ID" --region="$REGION" --quiet
-
