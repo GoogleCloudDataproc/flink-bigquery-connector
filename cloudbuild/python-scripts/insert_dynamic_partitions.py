@@ -18,7 +18,7 @@ def wait():
         f' {datetime.datetime.now()}'
     )
     # This is the time connector takes to read the previous rows
-    time.sleep(2.5 * 60)
+    time.sleep(3.5 * 60)
 
 
 def validate_arguments(arguments_dictionary, required_arguments):
