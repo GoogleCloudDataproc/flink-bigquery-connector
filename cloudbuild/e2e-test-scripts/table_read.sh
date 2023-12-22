@@ -40,7 +40,9 @@ then
 fi
 
 # Wait for the logs to be saved.
-sleep 10
+# Logs take some time to be saved and be available.
+# wait for a few seconds to ensure smooth execution.
+sleep 5
 
 # Now check the success of the job
 python3 cloudbuild/python-scripts/parse_logs.py -- --job_id="$JOB_ID" --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --region="$REGION" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME" --query="$QUERY"
