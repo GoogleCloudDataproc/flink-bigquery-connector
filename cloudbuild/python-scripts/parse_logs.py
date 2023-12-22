@@ -89,8 +89,9 @@ def extract_metric(logs_as_string, metric_string, end_of_metric_string):
     # Number of records read: <value> ;
     # Here, "Number of records read: " is the metric string
     # and ";" is the end_of_metric_string.
-    # We find the smallest possible string that matches.
-    metric_pattern = r'{}\s*(.*?)\s*{}'.format(
+    # <value> is a set of digits from 0-9.
+    # We find this value as our required count.
+    metric_pattern = r'{}\s*(\d+)\s*{}'.format(
         re.escape(metric_string), re.escape(end_of_metric_string)
     )
     metric_pattern = re.compile(metric_pattern)
