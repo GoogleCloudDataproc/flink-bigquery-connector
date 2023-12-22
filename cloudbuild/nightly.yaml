@@ -1,5 +1,5 @@
 steps:
-  # 1. Create a Docker image containing flink-bigquery-connector repo
+# 1. Create a Docker image containing flink-bigquery-connector repo
   - name: 'gcr.io/cloud-builders/docker'
     id: 'docker-build'
     args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly', '-f', 'cloudbuild/Dockerfile', '.']
@@ -16,10 +16,10 @@ steps:
    
 # 3. Start the simple e2e tests
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
-    id: 'e2e-tests-small'
+    id: 'e2e-bounded-read-tests'
     waitFor: ['init']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_test_small']
+    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_tests']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'

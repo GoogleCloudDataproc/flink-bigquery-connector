@@ -28,8 +28,8 @@ case $STEP in
     exit
     ;;
 
-  # Run the small e2e tests
-  e2e_test_small)
+  # Run the bounded e2e tests
+  e2e_bounded_read_tests)
     # 1. Run the simple bounded table test.
     source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded"
     ;;
