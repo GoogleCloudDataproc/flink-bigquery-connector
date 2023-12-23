@@ -30,6 +30,8 @@ from google.cloud import bigquery
 from google.cloud import dataproc_v1
 from google.cloud import storage
 
+from utils import utils
+
 
 def get_bq_query_result_row_count(client_project_name, query):
     client = bigquery.Client(project=client_project_name)
@@ -451,40 +453,9 @@ def main(argv: Sequence[str]) -> None:
     }
     required_arguments = acceptable_arguments - {'query'}
 
-    if len(argv) > len(acceptable_arguments) + 1:
-        raise app.UsageError(
-            '[Log: parse_logs ERROR] Too many command-line arguments.'
-        )
-    elif len(argv) < len(required_arguments) + 1:
-        raise app.UsageError(
-            '[Log: parse_logs ERROR] Too less command-line arguments.'
-        )
+    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, required_arguments)
+    arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
 
-    # Arguments are provided of the form "--argument_name=argument_value"
-    # We need to extract the name and value as a part of a dictionary.
-    # i.e {argument1_name: argument1_value, argument2_name: argument2_value, ...}
-    # containing all arguments
-    # The pattern
-    #     --(\w+)=(.*): Searches for the exact '--'
-    #         followed by a group of word character (alphanumeric & underscore)
-    #         then an '=' sign
-    #         followed by any character except linebreaks
-
-    argument_pattern = r'--(\w+)=(.*)'
-    # Forming a dictionary from the arguments
-    try:
-        matches = [re.match(argument_pattern, argument) for argument in argv[1:]]
-        arguments_dictionary = {match.group(1): match.group(2) for match in matches}
-        del matches
-    except AttributeError as exc:
-        raise UserWarning(
-            '[Log: parse_logs ERROR] Missing argument value. Please check the '
-            'arguments provided again.'
-        ) from exc
-    # Validating if all necessary arguments are available
-    validate_arguments(
-        arguments_dictionary, required_arguments, acceptable_arguments
-    )
     # Providing the values.
     job_id = arguments_dictionary['job_id']
     project_id = arguments_dictionary['project_id']
