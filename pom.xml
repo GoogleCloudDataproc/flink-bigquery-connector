@@ -69,7 +69,7 @@ under the License.
         <module>flink-connector-bigquery</module>
         <module>flink-sql-connector-bigquery</module>
         <module>flink-connector-bigquery-examples</module>
-		<module>flink-connector-bigquery-integration-test</module>
+        <module>flink-connector-bigquery-integration-test</module>
     </modules>
 
     <dependencies>
@@ -95,7 +95,7 @@ under the License.
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
-        
+
         <!-- Logging API -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -180,7 +180,7 @@ under the License.
         <dependencies>
 
             <!-- Google libraries BOM -->
-		
+
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
@@ -366,7 +366,7 @@ under the License.
                 <groupId>io.github.zentol.japicmp</groupId>
                 <artifactId>japicmp-maven-plugin</artifactId>
             </plugin>
-      
+
             <plugin>
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
@@ -434,14 +434,14 @@ under the License.
                             <!-- Use custom report descriptor -->
                             <reportDescriptor>${maven.multiModuleProjectDirectory}/tools/maven/clover.xml</reportDescriptor>
                             <targetPercentage>60%</targetPercentage>
-                            <excludes> 
+                            <excludes>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/config/*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/utils/GoogleCredentialsSupplier.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/services/**Impl.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/source/config/*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/table/config/BigQueryConnectorOptions.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/examples/**</exclude>
-								<exclude>**/com/google/cloud/flink/bigquery/integration/**</exclude>
+                                <exclude>**/com/google/cloud/flink/bigquery/integration/**</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
