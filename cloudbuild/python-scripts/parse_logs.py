@@ -451,15 +451,6 @@ def main(argv: Sequence[str]) -> None:
     }
     required_arguments = acceptable_arguments - {'query'}
 
-    if len(argv) > len(acceptable_arguments) + 1:
-        raise app.UsageError(
-            '[Log: parse_logs ERROR] Too many command-line arguments.'
-        )
-    elif len(argv) < len(required_arguments) + 1:
-        raise app.UsageError(
-            '[Log: parse_logs ERROR] Too less command-line arguments.'
-        )
-
     # Arguments are provided of the form "--argument_name=argument_value"
     # We need to extract the name and value as a part of a dictionary.
     # i.e {argument1_name: argument1_value, argument2_name: argument2_value, ...}
