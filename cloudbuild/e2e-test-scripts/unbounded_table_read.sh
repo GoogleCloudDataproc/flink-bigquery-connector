@@ -17,6 +17,12 @@
 # Time at execution, used for deciding timestamp in dynamic insertion.
 now=$(date "+%Y-%m-%d")
 
+# Delete the pre-existing partitioned table.
+bq rm -t "$PROJECT_NAME":"$DATASET_NAME"."$TABLE_NAME"
+
+# Create a new partitioned table and insert initial values.
+python3 cloudbuild/python-scripts/create_partitioned_table.py -- --now_timestamp="$now" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME"
+
 # Running this job async to make sure it exits so that dynamic data can be added
 gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --async -- --gcp-project "$PROJECT_NAME" --bq-dataset "$DATASET_NAME" --bq-table "$TABLE_NAME" --mode unbounded --agg-prop "$AGG_PROP_NAME" --ts-prop "$TS_PROP_NAME" --partition-discovery-interval "$PARTITION_DISCOVERY_INTERVAL"
 
