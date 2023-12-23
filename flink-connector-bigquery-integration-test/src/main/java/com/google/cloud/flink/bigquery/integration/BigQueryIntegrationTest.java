@@ -1,19 +1,20 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* FOR INTERNAL USE ONLY
+
+* Licensed to the Apache Software Foundation (ASF) under one or more
+* contributor license agreements.  See the NOTICE file distributed with
+* this work for additional information regarding copyright ownership.
+* The ASF licenses this file to You under the Apache License, Version 2.0
+* (the "License"); you may not use this file except in compliance with
+* the License.  You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 package com.google.cloud.flink.bigquery.integration;
 
@@ -41,9 +42,10 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 
 /**
- * The Integration Test pipeline will try to read the specified BigQuery table according to the
- * command line arguments, returning {@link GenericRecord} representing the rows, perform certain
- * operations and then log the total number of records read. <br>
+ * The Integration Test <b>is for internal use only</b>. It sets up a pipeline which will try to
+ * read the specified BigQuery table according to the command line arguments, returning {@link
+ * GenericRecord} representing the rows, perform certain operations and then log the total number of
+ * records read. <br>
  * This module checks the following cases of BigQuery Table read.
  *
  * <ol>
@@ -64,21 +66,6 @@ import java.time.Duration;
  *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-project {GCP_PROJECT_ID} --bq-dataset
  *       {BigQuery Dataset Name} --bq-table {BigQuery Table Name} --agg-prop
  *       {PROPERTY_TO_AGGREGATE_ON} --query {QUERY} } <br>
- *       The following cases are tested:
- *       <ol>
- *         <li>Reading a Simple Table: This test reads a simple table of 40,000 rows having size 900
- *             KBs.
- *         <li>Reading a Table with Complex Schema: This test reads a table with 15 levels (maximum
- *             number of levels allowed by BigQuery). The table contains 100,000 rows and has a size
- *             of 2.96 MB.
- *         <li>Reading a Large Table: This test reads a large table. The table contains __ rows and
- *             has a size of about 200 GBs.
- *         <li>Reading a Table with Large Row: This test reads a table with a large row. The table
- *             contains 100 rows each fo size 45 MB and has a size of about 450 GB.
- *         <li>Testing a BigQuery Query Run: This tests a BigQuery Query run. The query filters
- *             certain rows based on a condition, groups the records and finds the AVG of value of a
- *             column.
- *       </ol>
  *   <li>Unbounded Source Job: Involve reading a BigQuery Table in the <i> unbounded </i> mode.<br>
  *       This test requires some additional arguments besides the ones mentioned in the bounded
  *       mode.

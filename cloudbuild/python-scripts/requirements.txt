@@ -1,5 +1,5 @@
 absl-py==2.0.0
-avro==1.11.3
+avro==1.11.1
 cachetools==5.3.2
 certifi==2023.11.17
 charset-normalizer==3.3.2
