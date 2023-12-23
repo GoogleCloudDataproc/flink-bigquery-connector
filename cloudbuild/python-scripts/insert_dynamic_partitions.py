@@ -135,9 +135,6 @@ def main(argv: Sequence[str]) -> None:
         # so that the data just created can be read.
         while time_elapsed < float(60 * 2 * refresh_interval):
             time_elapsed = time.time() - start_time
-    # Wait for the final read to happen.
-    wait()
-    time.sleep(60)
 
 
 if __name__ == '__main__':
