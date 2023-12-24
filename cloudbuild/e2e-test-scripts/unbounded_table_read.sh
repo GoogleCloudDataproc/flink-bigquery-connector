@@ -18,7 +18,8 @@
 now=$(date "+%Y-%m-%d")
 
 # Delete the pre-existing partitioned table.
-bq rm -t "$PROJECT_NAME":"$DATASET_NAME"."$TABLE_NAME"
+# -f to ensure there is no input prompt.
+bq rm -t -f "$PROJECT_NAME":"$DATASET_NAME"."$TABLE_NAME"
 
 # Create a new partitioned table and insert initial values.
 python3 cloudbuild/python-scripts/create_partitioned_table.py -- --now_timestamp="$now" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME"
