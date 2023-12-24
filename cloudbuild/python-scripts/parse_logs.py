@@ -453,7 +453,7 @@ def main(argv: Sequence[str]) -> None:
     }
     required_arguments = acceptable_arguments - {'query'}
 
-    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, required_arguments)
+    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, acceptable_arguments)
     arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
 
     # Providing the values.
