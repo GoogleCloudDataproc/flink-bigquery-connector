@@ -425,21 +425,6 @@ def run(
         raise AssertionError('[Log: parse_logs ERROR] Rows do not match')
 
 
-def validate_arguments(
-    arguments_dictionary, required_arguments, acceptable_arguments
-):
-    for required_argument in required_arguments:
-        if required_argument not in arguments_dictionary:
-            raise UserWarning(
-                f'[Log: parse_logs ERROR] {required_argument} argument not provided'
-            )
-    for key, _ in arguments_dictionary.items():
-        if key not in acceptable_arguments:
-            raise UserWarning(
-                f'[Log: parse_logs ERROR] Invalid argument "{key}" provided'
-            )
-
-
 def main(argv: Sequence[str]) -> None:
     acceptable_arguments = {
         'job_id',
@@ -453,7 +438,7 @@ def main(argv: Sequence[str]) -> None:
     }
     required_arguments = acceptable_arguments - {'query'}
 
-    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, required_arguments)
+    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, acceptable_arguments)
     arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
 
     # Providing the values.

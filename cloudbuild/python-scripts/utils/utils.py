@@ -149,7 +149,8 @@ class ArgumentInputUtils:
         #         followed by a group of word character (alphanumeric & underscore)
         #         then an '=' sign
         #         followed by any character except linebreaks
-        argument_pattern = r'--(\w+)=(.+)'
+        argument_pattern = r'--(\w+)=(.*)'
+
         # Forming a dictionary from the arguments
         try:
             matches = [
@@ -173,7 +174,7 @@ class ArgumentInputUtils:
                     f'[Log: parse_logs ERROR] {required_argument} argument not provided'
                 )
         for key, _ in arguments_dictionary.items():
-            if key not in self.required_arguments:
+            if key not in self.acceptable_arguments:
                 raise UserWarning(
                     f'[Log: parse_logs ERROR] Invalid argument "{key}" provided'
                 )
