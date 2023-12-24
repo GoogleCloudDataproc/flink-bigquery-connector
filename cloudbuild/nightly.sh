@@ -41,7 +41,7 @@ case $STEP in
     ;;
 
   # Run the e2e tests unbounded partitioned table
-  e2e_unbounded_table_test)
+  e2e_unbounded_read_test)
     # 5. Run the unbounded source test.
     source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_UNBOUNDED_TABLE" "$AGG_PROP_NAME_UNBOUNDED_TABLE" "" "unbounded"
     exit
