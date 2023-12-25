@@ -9,7 +9,7 @@ steps:
     id: 'init'
     waitFor: ['docker-build']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'init']
+    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'init']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'MVN_JAR_LOCATION=${_MVN_JAR_LOCATION}'
@@ -19,7 +19,7 @@ steps:
     id: 'e2e-bounded-read-tests'
     waitFor: ['init']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_tests']
+    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'e2e_bounded_read_tests']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
@@ -40,7 +40,7 @@ steps:
     id: 'e2e-unbounded-read-test'
     waitFor: ['init']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_unbounded_read_test']
+    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'e2e_unbounded_read_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'

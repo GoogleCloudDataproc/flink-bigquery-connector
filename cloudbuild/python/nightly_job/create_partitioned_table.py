@@ -2,7 +2,6 @@
 
 Python script to create a BigQuery partitioned table.
 """
-
 from collections.abc import Sequence
 import datetime
 import threading
@@ -10,8 +9,7 @@ import threading
 from absl import app
 from google.cloud import bigquery
 
-from utils import table_type
-from utils import utils
+from utils import table_type, utils
 
 
 def create_partitioned_table(table_id):
