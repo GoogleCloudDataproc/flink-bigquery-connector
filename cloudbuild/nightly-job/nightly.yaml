@@ -2,7 +2,7 @@ steps:
 # 1. Create a Docker image containing flink-bigquery-connector repo
   - name: 'gcr.io/cloud-builders/docker'
     id: 'docker-build'
-    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly', '-f', 'cloudbuild/Dockerfile', '.']
+    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly', '-f', 'cloudbuild/nightly-job/Dockerfile', '.']
 
 # 2. Fetch maven and dependencies
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
@@ -13,11 +13,36 @@ steps:
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'MVN_JAR_LOCATION=${_MVN_JAR_LOCATION}'
-   
-# 3. Start the simple e2e tests
+
+# 3. Create the dataproc cluster
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'create-clusters'
+    waitFor: ['init']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'create_clusters']
+    env:
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'DATAPROC_IMAGE_VERSION=${_DATAPROC_IMAGE_VERSION}'
+      - 'NUM_WORKERS_SMALL_TEST=${_NUM_WORKERS_SMALL_TEST}'
+      - 'ZONE_SMALL_TEST=${_ZONE_SMALL_TEST}'
+      - 'REGION_SMALL_TEST=${_REGION_SMALL_TEST}'
+      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
+      - 'PROPERTIES_SMALL_TEST=${_PROPERTIES_SMALL_TEST}'
+      - 'NUM_WORKERS_UNBOUNDED_TABLE_TEST=${_NUM_WORKERS_UNBOUNDED_TABLE_TEST}'
+      - 'ZONE_UNBOUNDED_TABLE_TEST=${_ZONE_UNBOUNDED_TABLE_TEST}'
+      - 'REGION_UNBOUNDED_TABLE_TEST=${_REGION_UNBOUNDED_TABLE_TEST}'
+      - 'CLUSTER_NAME_UNBOUNDED_TABLE_TEST=${_CLUSTER_NAME_UNBOUNDED_TABLE_TEST}'
+      - 'PROPERTIES_UNBOUNDED_TABLE_TEST=${_PROPERTIES_UNBOUNDED_TABLE_TEST}'
+      - 'TEMP_BUCKET_SMALL_TEST=${_TEMP_BUCKET_SMALL_TEST}'
+      - 'STAGING_BUCKET_SMALL_TEST=${_STAGING_BUCKET_SMALL_TEST}'
+      - 'TEMP_BUCKET_UNBOUNDED_TABLE_TEST=${_TEMP_BUCKET_UNBOUNDED_TABLE_TEST}'
+      - 'STAGING_BUCKET_UNBOUNDED_TABLE_TEST=${_STAGING_BUCKET_UNBOUNDED_TABLE_TEST}'
+
+
+# 4. Start the simple e2e tests
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-read-tests'
-    waitFor: ['init']
+    waitFor: ['create-clusters']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'e2e_bounded_read_tests']
     env:
@@ -35,10 +60,10 @@ steps:
       - 'TABLE_NAME_LARGE_TABLE=${_TABLE_NAME_LARGE_TABLE}'
       - 'AGG_PROP_NAME_LARGE_TABLE=${_AGG_PROP_NAME_LARGE_TABLE}'
 
-# 4. Start the unbounded source table e2e test
+# 5. Start the unbounded source table e2e test
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-unbounded-read-test'
-    waitFor: ['init']
+    waitFor: ['create-clusters']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'e2e_unbounded_read_test']
     env:
