@@ -43,7 +43,7 @@ class TableType(abc.ABC):
     def generate_string(self):
         return ''.join(
             # Short so that there are less distinct records.
-            random.choices(string.ascii_letters, k=random.randint(10, 1000))
+            random.choices(string.ascii_letters, k=random.randint(8, 10))
         )
 
     def generate_long(self):
