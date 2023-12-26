@@ -20,7 +20,7 @@ STAGING_BUCKET=$4
 set -euxo pipefail
 
 # 1. Cancel the jobs running on the cluster.
-python3 cloudbuild/python/cancel_job/cancel_dataproc_jobs.py -- --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --cluster_region_name="$REGION"
+python3 cloudbuild/python/cancel_dataproc_jobs.py -- --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --cluster_region_name="$REGION"
 # 2. Then delete the cluster.
 gcloud dataproc clusters delete "$CLUSTER_NAME" --region="$REGION" --quiet
 # 3. Delete the temp bucket
