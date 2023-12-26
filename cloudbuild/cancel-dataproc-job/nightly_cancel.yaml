@@ -1,0 +1,29 @@
+steps:
+# 1. Create a Docker image containing flink-bigquery-connector repo
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'docker-build'
+    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly-cancel', '-f', 'cloudbuild/cancel-dataproc-job/Dockerfile', '.']
+
+# 2. Cancel any running dataproc jobs.
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly-cancel'
+    id: 'cancel-dataproc-jobs'
+    waitFor: ['docker-build']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/cancel-dataproc-job/nightly_cancel.sh', 'cancel_dataproc_jobs']
+    env:
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'REGION_SMALL_TEST=${_REGION_SMALL_TEST}'
+      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
+      - 'REGION_UNBOUNDED_TABLE_TEST=${_REGION_UNBOUNDED_TABLE_TEST}'
+      - 'CLUSTER_NAME_UNBOUNDED_TABLE_TEST=${_CLUSTER_NAME_UNBOUNDED_TABLE_TEST}'
+      - 'TEMP_BUCKET_SMALL_TEST=${_TEMP_BUCKET_SMALL_TEST}'
+      - 'STAGING_BUCKET_SMALL_TEST=${_STAGING_BUCKET_SMALL_TEST}'
+      - 'TEMP_BUCKET_UNBOUNDED_TABLE_TEST=${_TEMP_BUCKET_UNBOUNDED_TABLE_TEST}'
+      - 'STAGING_BUCKET_UNBOUNDED_TABLE_TEST=${_STAGING_BUCKET_UNBOUNDED_TABLE_TEST}'
+
+# Take maximum 10 minutes for cancellation.
+timeout: 600s
+logsBucket: '${_LOGS_BUCKET}'
+
+options:
+  machineType: 'N1_HIGHCPU_32'
