@@ -104,7 +104,6 @@ class TableCreationUtils:
     def delete_local_file(self, thread_number):
         file_name = self.avro_file_local.replace('.', '_' + thread_number + '.')
         os.remove(file_name)
-        print(f'Deleted {file_name}')
 
     def create_transfer_records(
         self,
@@ -162,7 +161,7 @@ class ArgumentInputUtils:
             del matches
         except AttributeError as exc:
             raise UserWarning(
-                '[Log: parse_logs ERROR] Missing argument. Please check the arguments'
+                'Missing argument. Please check the arguments'
                 ' provided again.'
             ) from exc
         return argument_dictionary
@@ -171,12 +170,12 @@ class ArgumentInputUtils:
         for required_argument in self.required_arguments:
             if required_argument not in arguments_dictionary:
                 raise UserWarning(
-                    f'[Log: parse_logs ERROR] {required_argument} argument not provided'
+                    f'{required_argument} argument not provided'
                 )
         for key, _ in arguments_dictionary.items():
             if key not in self.acceptable_arguments:
                 raise UserWarning(
-                    f'[Log: parse_logs ERROR] Invalid argument "{key}" provided'
+                    f'Invalid argument "{key}" provided'
                 )
 
     def input_validate_and_return_arguments(self):
