@@ -1,10 +1,10 @@
 steps:
-# 1. Create a Docker image containing flink-bigquery-connector repo
+# 1. Create a Docker image containing flink-bigquery-connector repo.
   - name: 'gcr.io/cloud-builders/docker'
     id: 'docker-build'
     args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly', '-f', 'cloudbuild/Dockerfile', '.']
 
-# 2. Fetch maven and dependencies
+# 2. Fetch maven and dependencies.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'init'
     waitFor: ['docker-build']
@@ -14,12 +14,12 @@ steps:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'MVN_JAR_LOCATION=${_MVN_JAR_LOCATION}'
    
-# 3. Start the simple e2e tests
+# 3. Start the simple table read e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
-    id: 'e2e-bounded-read-tests'
+    id: 'e2e-bounded-read-small-table-test'
     waitFor: ['init']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_tests']
+    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_small_table_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
@@ -29,6 +29,20 @@ steps:
       - 'DATASET_NAME=${_DATASET_NAME}'
       - 'TABLE_NAME_SIMPLE_TABLE=${_TABLE_NAME_SIMPLE_TABLE}'
       - 'AGG_PROP_NAME_SIMPLE_TABLE=${_AGG_PROP_NAME_SIMPLE_TABLE}'
+
+# 4. Start the nested schema table read e2e test.
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'e2e-bounded-read-nested-schema-table-test'
+    waitFor: ['e2e-bounded-read-small-table-test']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_nested_schema_table_test']
+    env:
+      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'REGION_SMALL_TEST=${_REGION_SMALL_TEST}'
+      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
+      - 'PROJECT_NAME=${_PROJECT_NAME}'
+      - 'DATASET_NAME=${_DATASET_NAME}'
       - 'TABLE_NAME_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
       - 'AGG_PROP_NAME_COMPLEX_SCHEMA_TABLE=${_AGG_PROP_NAME_COMPLEX_SCHEMA_TABLE}'
 
