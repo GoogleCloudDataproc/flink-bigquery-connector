@@ -42,6 +42,12 @@ case $STEP in
     exit
     ;;
 
+  # Run the query read bounded e2e test.
+  e2e_bounded_read_query_test)
+    # Run the query test.
+    source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded"
+    ;;
+
   *)
     echo "Unknown step $STEP"
     exit 1
