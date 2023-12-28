@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Copyright 2022 Google Inc. All Rights Reserved.
@@ -16,12 +15,6 @@
 # limitations under the License.
 
 set -euxo pipefail
-
-if [ -z "${CODECOV_TOKEN}" ]; then
-  echo "missing environment variable CODECOV_TOKEN"
-  exit 1
-fi
-
 readonly MVN="./mvnw -B -e -s /workspace/cloudbuild/gcp-settings.xml -Dmaven.repo.local=/workspace/.repository"
 readonly STEP=$1
 
@@ -31,12 +24,14 @@ case $STEP in
   # Download maven and all the dependencies
   init)
     $MVN clean install -DskipTests
+    gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
     exit
     ;;
 
-  # Run unit & integration tests
-  tests)
-    $MVN clean clover:setup verify clover:aggregate clover:clover -Pclover
+  # Run the bounded e2e tests
+  e2e_bounded_read_tests)
+    # 1. Run the simple bounded table test.
+    source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded"
     ;;
 
   *)
@@ -44,10 +39,3 @@ case $STEP in
     exit 1
     ;;
 esac
-
-pushd flink-connector-bigquery
-
-# Upload test coverage report to Codecov
-bash <(curl -s https://codecov.io/bash) -K -F "${STEP}"
-
-popd

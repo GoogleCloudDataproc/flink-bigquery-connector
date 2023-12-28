@@ -1,0 +1,39 @@
+steps:
+# 1. Create a Docker image containing flink-bigquery-connector repo
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'docker-build'
+    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly', '-f', 'cloudbuild/Dockerfile', '.']
+
+# 2. Fetch maven and dependencies
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'init'
+    waitFor: ['docker-build']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly.sh', 'init']
+    env:
+      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'MVN_JAR_LOCATION=${_MVN_JAR_LOCATION}'
+   
+# 3. Start the simple e2e tests
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'e2e-bounded-read-tests'
+    waitFor: ['init']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_tests']
+    env:
+      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'REGION_SMALL_TEST=${_REGION_SMALL_TEST}'
+      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
+      - 'PROJECT_NAME=${_PROJECT_NAME}'
+      - 'DATASET_NAME=${_DATASET_NAME}'
+      - 'TABLE_NAME_SIMPLE_TABLE=${_TABLE_NAME_SIMPLE_TABLE}'
+      - 'AGG_PROP_NAME_SIMPLE_TABLE=${_AGG_PROP_NAME_SIMPLE_TABLE}'
+
+# Maximum tolerance 60 minutes.
+timeout: 3600s
+logsBucket: '${_LOGS_BUCKET}'
+
+options:
+  machineType: 'N1_HIGHCPU_32'
+
