@@ -47,19 +47,19 @@ steps:
       - 'AGG_PROP_NAME_COMPLEX_SCHEMA_TABLE=${_AGG_PROP_NAME_COMPLEX_SCHEMA_TABLE}'
 
 # 5. Start the query read e2e test.
- - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
-  id: 'e2e-bounded-read-query-test'
-  waitFor: ['e2e-bounded-read-small-table-test']
-  entrypoint: 'bash'
-  args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_query_test']
-  env:
-    - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
-    - 'PROJECT_ID=${_PROJECT_ID}'
-    - 'REGION_SMALL_TEST=${_REGION_SMALL_TEST}'
-    - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
-    - 'PROJECT_NAME=${_PROJECT_NAME}'
-    - 'DATASET_NAME=${_DATASET_NAME}'
-    - 'QUERY=${_QUERY}'
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'e2e-bounded-read-query-test'
+    waitFor: ['e2e-bounded-read-nested-schema-table-test']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_query_test']
+    env:
+      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'REGION_SMALL_TEST=${_REGION_SMALL_TEST}'
+      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
+      - 'PROJECT_NAME=${_PROJECT_NAME}'
+      - 'DATASET_NAME=${_DATASET_NAME}'
+      - 'QUERY=${_QUERY}'
 
 # Maximum tolerance 60 minutes.
 timeout: 3600s
