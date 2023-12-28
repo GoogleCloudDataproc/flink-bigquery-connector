@@ -46,6 +46,14 @@ case $STEP in
   e2e_bounded_read_query_test)
     # Run the query test.
     source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded"
+    exit
+    ;;
+
+  # Run the large table O(GB's) read bounded e2e test.
+  e2e_bounded_read_large_table_test)
+    # Run the large table test.
+    source cloudbuild/e2e-test-scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_LARGE_TABLE" "$AGG_PROP_NAME_LARGE_TABLE" "" "bounded"
+    exit
     ;;
 
   *)
