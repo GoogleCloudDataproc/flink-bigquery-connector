@@ -30,6 +30,7 @@ from absl import logging
 from google.cloud import bigquery
 from google.cloud import dataproc_v1
 from google.cloud import storage
+from utils import utils
 
 
 def get_bq_query_result_row_count(client_project_name, query):
@@ -362,8 +363,7 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     # If query has been set, check if query results were obtained
     # at least one of the logs. If not raise an Exception.
     if query and not is_query_result_found:
-        raise RuntimeError(
-            'Unable to find the query results in any of the logs')
+        raise RuntimeError('Unable to find the query results in any of the logs')
 
     # If found in any of the logs, return the value, else raise an error.
     if is_metric_found:
@@ -415,17 +415,6 @@ def run(
         raise AssertionError('Rows do not match')
 
 
-def validate_arguments(
-    arguments_dictionary, required_arguments, acceptable_arguments
-):
-    for required_argument in required_arguments:
-        if required_argument not in arguments_dictionary:
-            raise UserWarning(f'"{required_argument}" argument not provided')
-    for key, _ in arguments_dictionary.items():
-        if key not in acceptable_arguments:
-            raise UserWarning(f'Invalid argument "{key}" provided')
-
-
 def main(argv: Sequence[str]) -> None:
     acceptable_arguments = {
         'job_id',
@@ -439,29 +428,12 @@ def main(argv: Sequence[str]) -> None:
     }
     required_arguments = acceptable_arguments - {'query'}
 
-    # Arguments are provided of the form "--argument_name=argument_value"
-    # We need to extract the name and value as a part of a dictionary.
-    # i.e {argument1_name: argument1_value, argument2_name: argument2_value, ...}
-    # containing all arguments
-    # The pattern
-    #     --(\w+)=(.*): Searches for the exact '--'
-    #         followed by a group of word character (alphanumeric & underscore)
-    #         then an '=' sign
-    #         followed by any character except linebreaks
-    argument_pattern = r'--(\w+)=(.*)'
-    # Forming a dictionary from the arguments
-    try:
-        matches = [re.match(argument_pattern, argument) for argument in argv[1:]]
-        arguments_dictionary = {match.group(1): match.group(2) for match in matches}
-        del matches
-    except AttributeError as exc:
-        raise UserWarning(
-            'Missing argument value. Please check the arguments provided again.'
-        ) from exc
-    # Validating if all necessary arguments are available.
-    validate_arguments(
-        arguments_dictionary, required_arguments, acceptable_arguments
+    # Makes use of the ArgumentInputUtils for input.
+    arg_input_utils = utils.ArgumentInputUtils(
+        argv, required_arguments, acceptable_arguments
     )
+    arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
+
     # Providing the values.
     job_id = arguments_dictionary['job_id']
     project_id = arguments_dictionary['project_id']
