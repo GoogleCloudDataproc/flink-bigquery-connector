@@ -26,6 +26,7 @@ from collections.abc import Sequence
 import re
 
 from absl import app
+from absl import logging
 from google.cloud import bigquery
 from google.cloud import dataproc_v1
 from google.cloud import storage
@@ -130,7 +131,9 @@ def check_query_correctness(gcs_log_object, logs_as_string):
 
     # Extract and print all pairs of HOUR and DAY.
     if matches:
-        print(f'[Log: parse_logs INFO] Query result obtained in {gcs_log_object}')
+        logging.info(
+            f'[Log: parse_logs INFO] Query result obtained in %s, {gcs_log_object}',
+        )
         for match in matches:
             hour = match[0].strip()
             day = match[1].strip()
@@ -143,9 +146,8 @@ def check_query_correctness(gcs_log_object, logs_as_string):
                 )
     else:
         # If no such matches are found.
-        print(
-            '[Log: parse_logs WARNING] No query result obtained in'
-            f' {gcs_log_object}'
+        logging.info(
+            f'[Log: parse_logs WARNING] No query result obtained in {gcs_log_object}'
         )
         return False
     return True
@@ -176,18 +178,21 @@ def get_blob_and_check_metric(
     """
     # Obtain the yarn logs as a string from the GCS bucket.
     logs_as_string = ''
+    is_query_result_present = False
+    metric_value = -1
     try:
         storage_client = storage.Client()
         bucket = storage_client.get_bucket(cluster_temp_bucket)
         blob = bucket.blob(gcs_log_object)
         logs_as_string = blob.download_as_text(encoding='latin-1')
     except Exception as e:
-        print(
+        logging.warning(
             f'[Log: parse_logs WARNING] File {gcs_log_object} Not'
             f' Found.\nError: {e}'
         )
+        # Return in case the file was not found is not found.
+        return metric_value, is_query_result_present
 
-    is_query_result_present = False
     if query:
         # In case query has been set:
         # If for any of the record, filter condition is not met then throw an error.
@@ -195,14 +200,15 @@ def get_blob_and_check_metric(
             gcs_log_object, logs_as_string
         )
 
+    # Update the metric value to the actual value.
     if metric_string in logs_as_string:
         # If metric string is present in the logs, extract the value.
         metric_value = extract_metric(
             logs_as_string, metric_string, end_of_metric_string
         )
-        return metric_value, is_query_result_present
-    # If not return -1.
-    return -1, is_query_result_present
+
+    # If not return the default value (-1) indicating metric not found.
+    return metric_value, is_query_result_present
 
 
 def get_logs_pattern(client_project_name, region, job_id):
@@ -368,7 +374,7 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     # at least one of the logs. If not raise an Exception.
     if query and not is_query_result_found:
         raise RuntimeError(
-            '[Log: parse_logs ERROR] Unable to find the query results in any of the'
+            '[ERROR: parse_logs] Unable to find the query results in any of the'
             ' logs'
         )
 
@@ -376,8 +382,8 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     if is_metric_found:
         return total_metric_count
     raise RuntimeError(
-        f'[Log: parse_logs ERROR] Unable to find the "{metric_string}" in any of'
-        ' the logs'
+        f'[Log: parse_logs ERROR] Unable to find the metric "{metric_string}" in any'
+        ' of the logs'
     )
 
 
