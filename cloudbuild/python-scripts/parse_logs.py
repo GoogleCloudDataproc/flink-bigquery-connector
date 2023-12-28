@@ -131,9 +131,7 @@ def check_query_correctness(gcs_log_object, logs_as_string):
 
     # Extract and print all pairs of HOUR and DAY.
     if matches:
-        logging.info(
-            f'[Log: parse_logs INFO] Query result obtained in %s, {gcs_log_object}',
-        )
+        logging.info('Query result obtained in %s', gcs_log_object)
         for match in matches:
             hour = match[0].strip()
             day = match[1].strip()
@@ -141,14 +139,10 @@ def check_query_correctness(gcs_log_object, logs_as_string):
             # Check if the records thus obtained follow the filter condition.
             # Hardcoded check if HOUR and DAY are both = '17'.
             if hour != '17' or day != '17':
-                raise RuntimeError(
-                    '[Log: parse_logs ERROR] Incorrect query result obtained!'
-                )
+                raise RuntimeError('Incorrect query result obtained!')
     else:
         # If no such matches are found.
-        logging.info(
-            f'[Log: parse_logs WARNING] No query result obtained in {gcs_log_object}'
-        )
+        logging.warning('No query result obtained in %s', gcs_log_object)
         return False
     return True
 
@@ -186,10 +180,7 @@ def get_blob_and_check_metric(
         blob = bucket.blob(gcs_log_object)
         logs_as_string = blob.download_as_text(encoding='latin-1')
     except Exception as e:
-        logging.warning(
-            f'[Log: parse_logs WARNING] File {gcs_log_object} Not'
-            f' Found.\nError: {e}'
-        )
+        logging.warning('File %s Not Found.\nError: %s', gcs_log_object, e)
         # Return in case the file was not found is not found.
         return metric_value, is_query_result_present
 
@@ -243,9 +234,7 @@ def get_logs_pattern(client_project_name, region, job_id):
     state = response.status.state.name
 
     if state == 'ERROR':
-        raise RuntimeError(
-            f'[Log: parse_logs ERROR] Dataproc Job with JOB ID: "{job_id}" failed'
-        )
+        raise RuntimeError(f'Dataproc Job with JOB ID: "{job_id}" failed')
 
     # If the dataproc job did not fail, continue to match the number of records.
     cluster_id = response.placement.cluster_uuid
@@ -374,16 +363,13 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     # at least one of the logs. If not raise an Exception.
     if query and not is_query_result_found:
         raise RuntimeError(
-            '[ERROR: parse_logs] Unable to find the query results in any of the'
-            ' logs'
-        )
+            'Unable to find the query results in any of the logs')
 
     # If found in any of the logs, return the value, else raise an error.
     if is_metric_found:
         return total_metric_count
     raise RuntimeError(
-        f'[Log: parse_logs ERROR] Unable to find the metric "{metric_string}" in any'
-        ' of the logs'
+        f'Unable to find the metric "{metric_string}" in any of the logs'
     )
 
 
@@ -426,7 +412,7 @@ def run(
         cluster_project_name, arg_project, arg_dataset, arg_table, query
     )
     if metric != bq_table_rows:
-        raise AssertionError('[Log: parse_logs ERROR] Rows do not match')
+        raise AssertionError('Rows do not match')
 
 
 def validate_arguments(
@@ -434,14 +420,10 @@ def validate_arguments(
 ):
     for required_argument in required_arguments:
         if required_argument not in arguments_dictionary:
-            raise UserWarning(
-                f'[Log: parse_logs ERROR] {required_argument} argument not provided'
-            )
+            raise UserWarning(f'"{required_argument}" argument not provided')
     for key, _ in arguments_dictionary.items():
         if key not in acceptable_arguments:
-            raise UserWarning(
-                f'[Log: parse_logs ERROR] Invalid argument "{key}" provided'
-            )
+            raise UserWarning(f'Invalid argument "{key}" provided')
 
 
 def main(argv: Sequence[str]) -> None:
@@ -474,8 +456,7 @@ def main(argv: Sequence[str]) -> None:
         del matches
     except AttributeError as exc:
         raise UserWarning(
-            '[Log: parse_logs ERROR] Missing argument value. Please check the '
-            'arguments provided again.'
+            'Missing argument value. Please check the arguments provided again.'
         ) from exc
     # Validating if all necessary arguments are available.
     validate_arguments(
