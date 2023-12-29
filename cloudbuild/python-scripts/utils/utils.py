@@ -45,11 +45,11 @@ class TableCreationUtils:
         self.avro_file_local = avro_file_local
         self.table_id = table_id
 
-    def write_avros(self, thread_number, partition_number, current_timestamp):
+    def write_avros(self, avro_file_local_identifier, partition_number, current_timestamp):
         """Method to generate fake records for BQ table.
 
         Args:
-          thread_number: The thread number - helps in parallelism
+          avro_file_local_identifier: The name of the avro file to be used by the current thread.
           partition_number: The partition number being created - only relevant in
             partitioned table creation.
           current_timestamp: Timestamp, one hour within which timestamp entries need
@@ -61,7 +61,7 @@ class TableCreationUtils:
 
         writer = avro.datafile.DataFileWriter(
             open(
-                self.avro_file_local.replace('.', '_' + thread_number + '.'), 'wb'
+                avro_file_local_identifier, 'wb'
             ),
             avro.io.DatumWriter(),
             self.schema,
@@ -74,12 +74,11 @@ class TableCreationUtils:
         )
         writer.close()
 
-    def transfer_avro_rows_to_bq_table(self, thread_number):
+    def transfer_avro_rows_to_bq_table(self, avro_file_local_identifier):
         """Method to load the created rows to BQ.
 
-        Args: thread_number: The number of threads that concurrently perform the `operation` of
-        generation of records, storing them locally to avro files, uploading them to a BQ table
-        and finally deleting the locally generated avro files.
+        Args: avro_file_local_identifier: The name of the avro file to
+            be used by the current thread.
         """
         client = bigquery.Client()
 
@@ -90,32 +89,24 @@ class TableCreationUtils:
             use_avro_logical_types=True,
         )
 
-        # Avro files have generic names e.g. "filename.avro". But, we write and upload several
-        # avro files concurrently, to prevent race conditions we write and read via separate
-        # files having names according to the thread numbers. "filename.avro" is changed to
-        # "filename_<thread_number>.avro"
-        local_avro_file = self.avro_file_local.replace(
-            '.', '_' + thread_number + '.'
-        )
-        with open(local_avro_file, 'rb') as source_file:
+        with open(avro_file_local_identifier, 'rb') as source_file:
             job = client.load_table_from_file(
                 source_file, self.table_id, job_config=job_config
             )
         job.result()
 
-    def delete_local_file(self, thread_number):
-        file_name = self.avro_file_local.replace('.', '_' + thread_number + '.')
-        os.remove(file_name)
+    def delete_local_file(self, avro_file_local_identifier):
+        os.remove(avro_file_local_identifier)
 
     def avro_to_bq_with_cleanup(
         self,
-        thread_number,
+        avro_file_local_identifier,
         partition_number=0,
         current_timestamp=datetime.datetime.now(datetime.timezone.utc),
     ):
-        self.write_avros(thread_number, partition_number, current_timestamp)
-        self.transfer_avro_rows_to_bq_table(thread_number)
-        self.delete_local_file(thread_number)
+        self.write_avros(avro_file_local_identifier, partition_number, current_timestamp)
+        self.transfer_avro_rows_to_bq_table(avro_file_local_identifier)
+        self.delete_local_file(avro_file_local_identifier)
 
 
 class ArgumentInputUtils:
