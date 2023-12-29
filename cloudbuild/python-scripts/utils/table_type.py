@@ -1,5 +1,4 @@
 """Abstract class for table type.
-We can have other classes implementing this class.
 """
 
 import abc
@@ -20,12 +19,11 @@ def is_perfect_hour(datetime_obj):
 
 class TableType(abc.ABC):
     """Abstract that defines various table types.
-    These table types are used for the creation. of different types of tables for
+    These table types are used for the creation of different types of tables for
     the e2e tests.
     """
 
     def generate_entries(self, number_of_elements_in_array):
-        # Do not exceed more than this, BQ limit exceeds.
         return [
             sys.maxsize
         ] * number_of_elements_in_array  # Array of LONGS: entries_i
@@ -42,7 +40,6 @@ class TableType(abc.ABC):
 
     def generate_string(self):
         return ''.join(
-            # Short so that there are less distinct records.
             random.choices(string.ascii_letters, k=random.randint(8, 10))
         )
 
@@ -54,8 +51,7 @@ class TableType(abc.ABC):
         Args:
           current_timestamp: Date is generated within one hour of this timestamp.
         Returns:
-          datetime object in local system
-          long format in google3 system.
+          datetime object: Containing generated timestamp.
         """
         next_hour = current_timestamp + datetime.timedelta(hours=1)
         random_timestamp = random.randint(
@@ -96,7 +92,7 @@ class TableType(abc.ABC):
 class LargeTable(TableType):
     """Inherits abstract class table_type.
     Overwrites the method write_rows() to add rows
-    according to the specific table type: Bounded Table of O(GB) order
+    according to Bounded Table of O(GB) order
     """
 
     # Overriding abstract method for insertion to a large table.
@@ -118,14 +114,14 @@ class LargeTable(TableType):
 class LargeRowTable(TableType):
     """Inherits abstract class table_type.
     Overwrites the method write_rows() to add rows
-    according to the specific table type: Bounded Table with rows O(MB) order
+    according to Bounded Table with rows O(MB) order
     """
 
     def __init__(self, number_of_columns, number_of_elements_in_array):
         self.number_of_columns = number_of_columns
         self.number_of_elements_in_array = number_of_elements_in_array
 
-    # Overriding abstract method for insertion to Table with large row.
+    # Overriding abstract method for insertion to Table with Large Row.
     def write_rows(
         self,
         number_of_rows_per_batch,
@@ -149,7 +145,7 @@ class LargeRowTable(TableType):
 class NestedSchemaTable(TableType):
     """Inherits abstract class table_type.
     Overwrites the method write_rows() to add rows
-    according to the specific table type: Bounded Table with 15 levels
+    according to Bounded Table with 15 levels
     """
 
     def __init__(self, number_of_levels):
@@ -174,7 +170,7 @@ class NestedSchemaTable(TableType):
 class PartitionedTable(TableType):
     """Inherits abstract class table_type.
     Overwrites the method write_rows() to add rows
-    according to the specific table type: Partitioned Table
+    according to Partitioned Table
     """
 
     def __init__(self, now_timestamp):
