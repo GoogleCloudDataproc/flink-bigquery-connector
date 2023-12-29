@@ -20,12 +20,12 @@ def is_perfect_hour(datetime_obj):
     )
 
 
-def generate_string():
+def generate_random_string():
     return ''.join(random.choices(string.ascii_letters, k=random.randint(8, 10)))
 
 
 def generate_long():
-    return random.choice(range(0, 10000000))
+    return random.randint(0, 10000000)
 
 
 def generate_timestamp(current_timestamp):
