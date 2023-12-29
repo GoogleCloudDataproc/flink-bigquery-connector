@@ -3,14 +3,11 @@
 import datetime
 import os
 import random
-import re
 import string
 import avro
 import avro.datafile
 import avro.io
 from google.cloud import bigquery
-import argparse
-
 
 
 def is_perfect_hour(datetime_obj):
