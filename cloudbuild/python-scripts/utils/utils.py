@@ -1,12 +1,11 @@
-"""Utilities for creation of BQ table.
-"""
+"""Utilities for creation of BQ table."""
 
 import datetime
 import os
-import re
-import avro
 import random
+import re
 import string
+import avro
 import avro.datafile
 import avro.io
 from google.cloud import bigquery
@@ -22,9 +21,7 @@ def is_perfect_hour(datetime_obj):
 
 
 def generate_string():
-    return ''.join(
-        random.choices(string.ascii_letters, k=random.randint(8, 10))
-    )
+    return ''.join(random.choices(string.ascii_letters, k=random.randint(8, 10)))
 
 
 def generate_long():
@@ -33,8 +30,10 @@ def generate_long():
 
 def generate_timestamp(current_timestamp):
     """Method to generate a random datetime within the given hour.
+
     Args:
       current_timestamp: Date is generated within one hour of this timestamp.
+
     Returns:
       datetime object: Containing generated timestamp.
     """
@@ -43,9 +42,7 @@ def generate_timestamp(current_timestamp):
         int(current_timestamp.timestamp()), int(next_hour.timestamp())
     )
     utc = datetime.timezone.utc
-    random_timestamp_utc = datetime.datetime.fromtimestamp(
-        random_timestamp, utc
-    )
+    random_timestamp_utc = datetime.datetime.fromtimestamp(random_timestamp, utc)
     # Check if the generated entry is a perfect hour.
     # Note: It is only for the case of hour based partitioning
     # (as created in our test).
@@ -82,7 +79,9 @@ class TableCreationUtils:
         """Constructor definition for the class.
 
         Args:
-          simple_avro_schema_string: Schema of the table in avro format.
+          simple_avro_schema_string: Schema of the table in avro format. Since used
+            for partitioned table creation, This schema is hardcoded for the purpose
+            of e2e tests.
           number_of_rows_per_batch: Number of rows per thread.
           table_id: ID of the table of the form {project_id}.{dataset_id}.{table_id}
         """
@@ -97,6 +96,17 @@ class TableCreationUtils:
         partition_number,
         current_timestamp,
     ):
+        """Method to generate records.
+
+        Args:
+          number_of_rows_per_batch: The number of rows to be uploaded by one thread.
+          writer: `DatumWriter` Object responsible for writing to local avro file.
+          partition_number: The current partition number,
+          the records are being inserted to. Helps in a creating a timestamp offset
+          to prevent writing records into previously inserted partitions
+          current_timestamp: The current timestamp,
+          the base for calculating the offset.
+        """
         offset_timestamp = current_timestamp + datetime.timedelta(
             hours=partition_number
         )
@@ -109,11 +119,14 @@ class TableCreationUtils:
                 'ts': generate_timestamp(offset_timestamp),
             })
 
-    def write_avros(self, avro_file_local_identifier, partition_number, current_timestamp):
+    def write_avros(
+        self, avro_file_local_identifier, partition_number, current_timestamp
+    ):
         """Method to generate fake records for BQ table.
 
         Args:
-          avro_file_local_identifier: The name of the avro file to be used by the current thread.
+          avro_file_local_identifier: The name of the avro file to be used by the
+            current thread.
           partition_number: The partition number being created - only relevant in
             partitioned table creation.
           current_timestamp: Timestamp, one hour within which timestamp entries need
@@ -124,9 +137,7 @@ class TableCreationUtils:
         """
 
         writer = avro.datafile.DataFileWriter(
-            open(
-                avro_file_local_identifier, 'wb'
-            ),
+            open(avro_file_local_identifier, 'wb'),
             avro.io.DatumWriter(),
             self.schema,
         )
@@ -141,7 +152,8 @@ class TableCreationUtils:
     def transfer_avro_rows_to_bq_table(self, avro_file_local_identifier):
         """Method to load the created rows to BQ.
 
-        Args: avro_file_local_identifier: The name of the avro file to
+        Args:
+          avro_file_local_identifier: The name of the avro file to
             be used by the current thread.
         """
         client = bigquery.Client()
@@ -168,7 +180,9 @@ class TableCreationUtils:
         partition_number=0,
         current_timestamp=datetime.datetime.now(datetime.timezone.utc),
     ):
-        self.write_avros(avro_file_local_identifier, partition_number, current_timestamp)
+        self.write_avros(
+            avro_file_local_identifier, partition_number, current_timestamp
+        )
         self.transfer_avro_rows_to_bq_table(avro_file_local_identifier)
         self.delete_local_file(avro_file_local_identifier)
 
@@ -193,7 +207,6 @@ class ArgumentInputUtils:
           A dictionary {argument_name: argument_value}.
             argument_name: The name of the argument provided.
             argument_value: The value for the concerned named argument.
-
         """
         # Arguments are provided of the form "--argument_name=argument_value"
         # We need to extract the name and value as a part of a dictionary.
@@ -218,22 +231,17 @@ class ArgumentInputUtils:
             del matches
         except AttributeError as exc:
             raise UserWarning(
-                'Missing argument. Please check the arguments'
-                ' provided again.'
+                'Missing argument. Please check the arguments provided again.'
             ) from exc
         return argument_dictionary
 
     def _validate_arguments(self, arguments_dictionary):
         for required_argument in self.required_arguments:
             if required_argument not in arguments_dictionary:
-                raise UserWarning(
-                    f'{required_argument} argument not provided'
-                )
+                raise UserWarning(f'{required_argument} argument not provided')
         for key, _ in arguments_dictionary.items():
             if key not in self.acceptable_arguments:
-                raise UserWarning(
-                    f'Invalid argument "{key}" provided'
-                )
+                raise UserWarning(f'Invalid argument "{key}" provided')
 
     def input_validate_and_return_arguments(self):
         arguments_dictionary = self._get_arguments()
