@@ -9,18 +9,16 @@ import threading
 
 from absl import app
 from google.cloud import bigquery
-
-from utils import table_type
 from utils import utils
 
 
 def create_partitioned_table(table_id):
     """Method to create a partitioned table.
 
-  Args:
-    table_id: The table id for the table to be created. Should be of the format:
-      project_id.dataset_id.table_name
-  """
+    Args:
+      table_id: The table id for the table to be created. Should be of the format:
+        project_id.dataset_id.table_name
+    """
     client = bigquery.Client()
 
     partitioned_table_schema = [
@@ -51,7 +49,9 @@ def main(argv: Sequence[str]) -> None:
         'table_name',
     }
 
-    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, required_arguments)
+    arg_input_utils = utils.ArgumentInputUtils(
+        argv, required_arguments, required_arguments
+    )
     arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
 
     project_name = arguments_dictionary['project_name']
@@ -64,6 +64,7 @@ def main(argv: Sequence[str]) -> None:
     create_partitioned_table(table_id)
 
     # Now add the partitions to the table.
+    # This schema is hardcoded for the purpose of e2e tests.
     simple_avro_schema_fields_string = (
         '"fields": [{"name": "name", "type": "string"},{"name": "number",'
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
@@ -77,28 +78,42 @@ def main(argv: Sequence[str]) -> None:
     )
     number_of_partitions = 3
     number_of_rows_per_partition = 100
+    # The number of threads that concurrently perform the `operation` of
+    # generation of records, storing them locally to avro files,
+    # uploading them to a BQ table and finally,
+    # deleting the locally generated avro files.
     number_of_threads = 10
-    number_of_rows_per_batch = int(number_of_rows_per_partition / number_of_threads)
+    number_of_rows_per_batch = int(
+        number_of_rows_per_partition / number_of_threads
+    )
     now_timestamp = datetime.datetime.strptime(
         now_timestamp, '%Y-%m-%d'
     ).astimezone(datetime.timezone.utc) - datetime.timedelta(days=2)
-    type_of_table = table_type.PartitionedTable(now_timestamp)
     avro_file_local = 'mockData.avro'
     table_creation_utils = utils.TableCreationUtils(
         simple_avro_schema_string,
-        type_of_table,
-        avro_file_local,
         number_of_rows_per_batch,
         table_id,
     )
 
     for partition_number in range(number_of_partitions):
         threads = list()
-        for i in range(number_of_threads):
+        for thread_number in range(number_of_threads):
+            # Avro files have generic names e.g. "filename.avro".
+            # But, we write and upload several avro files concurrently,
+            # to prevent race conditions we write and read via separate
+            # files having names according to the thread numbers.
+            # "filename.avro" is changed to "filename_<thread_number>.avro"
+            avro_file_local_identifier = avro_file_local.replace(
+                '.', '_' + str(thread_number) + '.'
+            )
             x = threading.Thread(
-                target=table_creation_utils.create_transfer_records,
-                kwargs={'thread_number': str(i), 'partition_number': partition_number,
-                        'current_timestamp': now_timestamp},
+                target=table_creation_utils.avro_to_bq_with_cleanup,
+                kwargs={
+                    'avro_file_local_identifier': avro_file_local_identifier,
+                    'partition_number': partition_number,
+                    'current_timestamp': now_timestamp,
+                },
             )
             threads.append(x)
             x.start()
