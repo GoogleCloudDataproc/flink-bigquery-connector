@@ -89,13 +89,11 @@ import java.time.Duration;
 public class BigQueryIntegrationTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryIntegrationTest.class);
-    private static final Integer RECORD_LIMIT = -1;
+
     private static final Long CHECKPOINT_INTERVAL = 60000L;
-    private static final String ROW_RESTRICTION = "";
     private static final Integer MAX_OUT_OF_ORDER = 10;
     private static final Integer MAX_IDLENESS = 20;
     private static final Integer WINDOW_SIZE = 1;
-    private static final String OLDEST_PARTITION = "";
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
@@ -157,7 +155,7 @@ public class BigQueryIntegrationTest {
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
         BigQuerySource<GenericRecord> bqSource =
-                BigQuerySource.readAvrosFromQuery(query, projectName, RECORD_LIMIT);
+                BigQuerySource.readAvrosFromQuery(query, projectName);
 
         env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
                 .map(new Mapper())
@@ -214,8 +212,6 @@ public class BigQueryIntegrationTest {
                                                 .setDataset(datasetName)
                                                 .setTable(tableName)
                                                 .build())
-                                .setRowRestriction(ROW_RESTRICTION)
-                                .setLimit(RECORD_LIMIT)
                                 .build());
 
         env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
@@ -244,9 +240,6 @@ public class BigQueryIntegrationTest {
                                                 .setDataset(datasetName)
                                                 .setTable(tableName)
                                                 .build())
-                                .setRowRestriction(ROW_RESTRICTION)
-                                .setLimit(RECORD_LIMIT)
-                                .setOldestPartitionId(OLDEST_PARTITION)
                                 .setPartitionDiscoveryRefreshIntervalInMinutes(
                                         partitionDiscoveryInterval)
                                 .build());

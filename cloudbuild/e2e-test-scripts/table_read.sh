@@ -47,7 +47,7 @@ fi
 sleep 5
 
 # Now check the success of the job
-python3 cloudbuild/python/parse_logs.py -- --job_id="$JOB_ID" --project_id="$PROJECT_ID" --cluster_name="$CLUSTER_NAME" --region="$REGION" --project_name="$PROJECT_NAME" --dataset_name="$DATASET_NAME" --table_name="$TABLE_NAME" --query="$QUERY_STRING"
+python3 cloudbuild/python/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --query "$QUERY_STRING"
 ret=$?
 
 if [ $ret -ne 0 ]
