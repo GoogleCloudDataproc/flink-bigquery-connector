@@ -1,6 +1,4 @@
-"""Python class containing basic utilities required for the creation of BQ Table.
-
-Can create specified number of rows, transfer them to BQ, delete the local file.
+"""Utilities for creation of BQ table.
 """
 
 import datetime
@@ -18,10 +16,10 @@ class TableCreationUtils:
     Attributes:
       table_type: Table type to be created: can be 'large_table',
         'large_row_table', 'complex_schema_table', 'unbounded_table'
-      schema: the table schema to be inserted.
-      number_of_rows_per_batch: number of rows per thread.
+      schema: The table schema to be inserted.
+      number_of_rows_per_batch: Number of rows per thread.
       avro_file_local: The name of the local avro file to generate the data to.
-      table_id: id of the table of the form {project_id}.{dataset_id}.{table_id}
+      table_id: ID of the table of the form {project_id}.{dataset_id}.{table_id}
     """
 
     def __init__(
@@ -35,11 +33,11 @@ class TableCreationUtils:
         """Constructor definition for the class.
 
         Args:
-          simple_avro_schema_string:
-          table_type: tableType Object. For custom schema and entry generation.
+          simple_avro_schema_string: Schema of the table in avro format.
+          table_type: `TableType` Object. For custom schema and record generation.
           avro_file_local: The name of the local avro file to generate the data to.
-          number_of_rows_per_batch: number of rows per thread.
-          table_id: id of the table of the form {project_id}.{dataset_id}.{table_id}
+          number_of_rows_per_batch: Number of rows per thread.
+          table_id: ID of the table of the form {project_id}.{dataset_id}.{table_id}
         """
         self.table_type = table_type
         self.schema = avro.schema.parse(simple_avro_schema_string)
@@ -54,11 +52,11 @@ class TableCreationUtils:
           thread_number: The thread number - helps in parallelism
           partition_number: The partition number being created - only relevant in
             partitioned table creation.
-          current_timestamp: timestamp, one hour within which timestamp entries need
+          current_timestamp: Timestamp, one hour within which timestamp entries need
             to be generated.
 
         Raises:
-          RuntimeError: when invalid table_type is provided.
+          RuntimeError: When invalid table_type is provided.
         """
 
         writer = avro.datafile.DataFileWriter(
@@ -76,12 +74,12 @@ class TableCreationUtils:
         )
         writer.close()
 
-    def transfer_avro_to_bq_table(self, thread_number):
+    def transfer_avro_rows_to_bq_table(self, thread_number):
         """Method to load the created rows to BQ.
 
-        Args:
-          thread_number: The number of threads to perform the function concurrently
-            to add the avro rows to.
+        Args: thread_number: The number of threads that concurrently perform the `operation` of
+        generation of records, storing them locally to avro files, uploading them to a BQ table
+        and finally deleting the locally generated avro files.
         """
         client = bigquery.Client()
 
@@ -92,6 +90,7 @@ class TableCreationUtils:
             use_avro_logical_types=True,
         )
 
+        # 
         local_avro_file = self.avro_file_local.replace(
             '.', '_' + thread_number + '.'
         )
@@ -105,14 +104,14 @@ class TableCreationUtils:
         file_name = self.avro_file_local.replace('.', '_' + thread_number + '.')
         os.remove(file_name)
 
-    def create_transfer_records(
+    def avro_to_bq_with_cleanup(
         self,
         thread_number,
         partition_number=0,
         current_timestamp=datetime.datetime.now(datetime.timezone.utc),
     ):
         self.write_avros(thread_number, partition_number, current_timestamp)
-        self.transfer_avro_to_bq_table(thread_number)
+        self.transfer_avro_rows_to_bq_table(thread_number)
         self.delete_local_file(thread_number)
 
 
@@ -134,8 +133,8 @@ class ArgumentInputUtils:
 
         Returns:
           A dictionary {argument_name: argument_value}.
-            Where argument_name is the name of the argument provided.
-            argument_value as the value for the concerned named argument.
+            argument_name: The name of the argument provided.
+            argument_value: The value for the concerned named argument.
 
         """
         # Arguments are provided of the form "--argument_name=argument_value"
