@@ -1,13 +1,12 @@
-"""Python script for BQ Table data append.
-
-Python script to add partitions to a BigQuery partitioned table.
 """
+Python script to dynamically partitions to a BigQuery partitioned table.
+"""
+import argparse
 from collections.abc import Sequence
 import datetime
 import threading
 import time
 from absl import app
-from utils import table_type
 from utils import utils
 
 
@@ -21,31 +20,60 @@ def wait():
 
 
 def main(argv: Sequence[str]) -> None:
-    required_arguments = {
-        'now_timestamp',
-        'refresh_interval',
-        'project_name',
-        'dataset_name',
-        'table_name',
-    }
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--now_timestamp',
+        dest='now_timestamp',
+        help='Timestamp at the time of execution of the script.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--refresh_interval',
+        dest='refresh_interval',
+        help='.',
+        type=int,
+        required=True,
+    )
+    parser.add_argument(
+        '--project_name',
+        dest='project_name',
+        help='Project Id which contains the table to be read.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--dataset_name',
+        dest='dataset_name',
+        help='Dataset Name which contains the table to be read.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--table_name',
+        dest='table_name',
+        help='Table Name of the table which is read in the test.',
+        type=str,
+        required=True,
+    )
 
-    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, required_arguments)
-    arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
+    args = parser.parse_args(argv[1:])
 
     # Providing the values.
-    now_timestamp = arguments_dictionary['now_timestamp']
+    project_name = args.project_name
+    dataset_name = args.dataset_name
+    table_name = args.table_name
+    now_timestamp = args.now_timestamp
     now_timestamp = datetime.datetime.strptime(
         now_timestamp, '%Y-%m-%d'
     ).astimezone(datetime.timezone.utc)
-    refresh_interval = int(arguments_dictionary['refresh_interval'])
-    project_name = arguments_dictionary['project_name']
-    dataset_name = arguments_dictionary['dataset_name']
-    table_name = arguments_dictionary['table_name']
+    refresh_interval = int(args.refresh_interval)
 
     # Set the partitioned table.
     table_id = f'{project_name}.{dataset_name}.{table_name}'
 
     # Now add the partitions to the table.
+    # Hardcoded schema. Needs to be same as that in `create_partitioned_table.py`
     simple_avro_schema_fields_string = (
         '"fields": [{"name": "name", "type": "string"},{"name": "number",'
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
@@ -66,12 +94,9 @@ def main(argv: Sequence[str]) -> None:
         number_of_rows_per_partition / number_of_threads
     )
 
-    type_of_table = table_type.PartitionedTable(now_timestamp)
     avro_file_local = 'mockData.avro'
     table_creation_utils = utils.TableCreationUtils(
         simple_avro_schema_string,
-        type_of_table,
-        avro_file_local,
         number_of_rows_per_thread,
         table_id,
     )
@@ -88,12 +113,16 @@ def main(argv: Sequence[str]) -> None:
         for partition_number in range(number_of_partitions):
             threads = list()
             # Insert via concurrent threads.
-            for i in range(number_of_threads):
+            for thread_number in range(number_of_threads):
+                avro_file_local_identifier = avro_file_local.replace(
+                    '.', '_' + str(thread_number) + '.'
+                )
                 x = threading.Thread(
-                    target=table_creation_utils.create_transfer_records,
+                    target=table_creation_utils.avro_to_bq_with_cleanup,
                     kwargs={
-                        'thread_number': str(i),
+                        'avro_file_local_identifier': avro_file_local_identifier,
                         'partition_number': partition_number + prev_partitions_offset,
+                        'current_timestamp': now_timestamp,
                     },
                 )
                 threads.append(x)
