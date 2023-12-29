@@ -2,7 +2,7 @@ steps:
 # 1. Create a Docker image containing flink-bigquery-connector repo.
   - name: 'gcr.io/cloud-builders/docker'
     id: 'docker-build'
-    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly', '-f', 'cloudbuild/Dockerfile', '.']
+    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly', '-f', 'cloudbuild/nightly-job/Dockerfile', '.']
 
 # 2. Fetch maven and dependencies.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
@@ -35,7 +35,7 @@ steps:
     id: 'e2e-bounded-read-nested-schema-table-test'
     waitFor: ['e2e-bounded-read-small-table-test']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_nested_schema_table_test']
+    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'e2e_bounded_read_nested_schema_table_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
@@ -51,7 +51,7 @@ steps:
     id: 'e2e-bounded-read-query-test'
     waitFor: ['e2e-bounded-read-nested-schema-table-test']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_query_test']
+    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'e2e_bounded_read_query_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
@@ -66,7 +66,7 @@ steps:
     id: 'e2e-bounded-read-large-table-test'
     waitFor: ['e2e-bounded-read-query-test']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_bounded_read_large_table_test']
+    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'e2e_bounded_read_large_table_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
