@@ -77,7 +77,7 @@ steps:
       - 'TABLE_NAME_LARGE_TABLE=${_TABLE_NAME_LARGE_TABLE}'
       - 'AGG_PROP_NAME_LARGE_TABLE=${_AGG_PROP_NAME_LARGE_TABLE}'
 
-# 4. Start the unbounded source table e2e test
+# 7. Start the unbounded source table e2e test
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-unbounded-read-test'
     waitFor: ['init']
