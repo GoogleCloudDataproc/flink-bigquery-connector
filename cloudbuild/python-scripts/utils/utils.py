@@ -131,7 +131,7 @@ class ArgumentInputUtils:
         self.required_arguments = required_arguments
         self.acceptable_arguments = acceptable_arguments
 
-    def __get_arguments(self):
+    def _get_arguments(self):
         """Parse the command line arguments and store them in a dictionary.
 
         Returns:
@@ -168,7 +168,7 @@ class ArgumentInputUtils:
             ) from exc
         return argument_dictionary
 
-    def __validate_arguments(self, arguments_dictionary):
+    def _validate_arguments(self, arguments_dictionary):
         for required_argument in self.required_arguments:
             if required_argument not in arguments_dictionary:
                 raise UserWarning(
@@ -181,6 +181,6 @@ class ArgumentInputUtils:
                 )
 
     def input_validate_and_return_arguments(self):
-        arguments_dictionary = self.__get_arguments()
-        self.__validate_arguments(arguments_dictionary)
+        arguments_dictionary = self._get_arguments()
+        self._validate_arguments(arguments_dictionary)
         return arguments_dictionary
