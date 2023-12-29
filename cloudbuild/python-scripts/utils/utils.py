@@ -24,11 +24,11 @@ def generate_random_string():
     return ''.join(random.choices(string.ascii_letters, k=random.randint(8, 10)))
 
 
-def generate_long():
-    return random.randint(0, 10000000)
+def generate_random_long():
+    return random.choice(range(0, 10000000))
 
 
-def generate_timestamp(current_timestamp):
+def generate_random_timestamp(current_timestamp):
     """Method to generate a random datetime within the given hour.
 
     Args:
@@ -114,9 +114,9 @@ class TableCreationUtils:
         # Write the specified number of rows.
         for _ in range(number_of_rows_per_batch):
             writer.append({
-                'name': generate_string(),
-                'number': generate_long(),
-                'ts': generate_timestamp(offset_timestamp),
+                'name': generate_random_string(),
+                'number': generate_random_long(),
+                'ts': generate_random_timestamp(offset_timestamp),
             })
 
     def write_avros(
