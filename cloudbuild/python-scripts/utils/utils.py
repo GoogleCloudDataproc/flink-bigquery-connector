@@ -100,11 +100,11 @@ class TableCreationUtils:
         Args:
           number_of_rows_per_batch: The number of rows to be uploaded by one thread.
           writer: `DatumWriter` Object responsible for writing to local avro file.
-          partition_number: The current partition number,
-          the records are being inserted to. Helps in a creating a timestamp offset
-          to prevent writing records into previously inserted partitions
-          current_timestamp: The current timestamp,
-          the base for calculating the offset.
+          partition_number: The current partition number, the records are being
+            inserted to. Helps in a creating a timestamp offset to prevent writing
+            records into previously inserted partitions
+          current_timestamp: The current timestamp, the base for calculating the
+            offset.
         """
         offset_timestamp = current_timestamp + datetime.timedelta(
             hours=partition_number
@@ -152,8 +152,8 @@ class TableCreationUtils:
         """Method to load the created rows to BQ.
 
         Args:
-          avro_file_local_identifier: The name of the avro file to
-            be used by the current thread.
+          avro_file_local_identifier: The name of the avro file to be used by the
+            current thread.
         """
         client = bigquery.Client()
 

@@ -21,6 +21,7 @@ for the number of records.
 In case the number of records match that of BQ table it returns, in case of
 mismatch, it throws an error.
 """
+import argparse
 from collections.abc import Sequence
 import re
 
@@ -29,7 +30,6 @@ from absl import logging
 from google.cloud import bigquery
 from google.cloud import dataproc_v1
 from google.cloud import storage
-import argparse
 
 
 def get_bq_query_result_row_count(client_project_name, query):
@@ -171,7 +171,6 @@ def get_blob_and_check_metric(
         is present in the file, False if not.
     """
     # Obtain the yarn logs as a string from the GCS bucket.
-    logs_as_string = ''
     is_query_result_present = False
     metric_value = -1
     try:
@@ -417,30 +416,65 @@ def run(
 def main(argv: Sequence[str]) -> None:
 
     parser = argparse.ArgumentParser()
-    parser.add_argument( '--job_id', help='Job ID of the dataproc job.',
-                        type=str, required=True)
-    parser.add_argument('--project_id', dest='project_id', help='Project ID of the project '
-                                                                'containing the cluster job.',
-                        type=str, required=True)
-    parser.add_argument('--cluster_name', dest='cluster_name', help='Name of the cluster which '
-                                                                    'runs the dataproc job.',
-                        type=str, required=True)
-    parser.add_argument('--region', dest='region', help='Region of the cluster which runs the '
-                                                        'dataproc job.',
-                        type=str, required=True)
+    parser.add_argument(
+        '--job_id', help='Job ID of the dataproc job.', type=str, required=True
+    )
+    parser.add_argument(
+        '--project_id',
+        dest='project_id',
+        help='Project ID of the project containing the cluster job.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--cluster_name',
+        dest='cluster_name',
+        help='Name of the cluster which runs the dataproc job.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--region',
+        dest='region',
+        help='Region of the cluster which runs the dataproc job.',
+        type=str,
+        required=True,
+    )
 
-    # Note: When Query is provided, project_name, dataset_name and table name are not required.
-    parser.add_argument('--project_name', dest='project_name', help='Project Id which contains '
-                                                                    'the table to be read.',
-                        type=str, default='', required=False)
-    parser.add_argument('--dataset_name', dest='dataset_name', help='Dataset Name which contains '
-                                                                    'the table to be read.',
-                        type=str, default='', required=False)
-    parser.add_argument('--table_name', dest='table_name', help='Table Name of the table which is '
-                                                                'read in the test.',
-                        type=str, default='', required=False)
-    parser.add_argument('--query', dest='query', help='Query to be executed (if any)',
-                        default='', type=str, required=False)
+    # Note: When Query is provided,
+    # project_name, dataset_name and table name are not required.
+    parser.add_argument(
+        '--project_name',
+        dest='project_name',
+        help='Project Id which contains the table to be read.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--dataset_name',
+        dest='dataset_name',
+        help='Dataset Name which contains the table to be read.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--table_name',
+        dest='table_name',
+        help='Table Name of the table which is read in the test.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--query',
+        dest='query',
+        help='Query to be executed (if any)',
+        default='',
+        type=str,
+        required=False,
+    )
     args = parser.parse_args(argv[1:])
 
     # Providing the values.
