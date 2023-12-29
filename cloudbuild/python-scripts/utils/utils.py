@@ -90,7 +90,10 @@ class TableCreationUtils:
             use_avro_logical_types=True,
         )
 
-        # 
+        # Avro files have generic names e.g. "filename.avro". But, we write and upload several
+        # avro files concurrently, to prevent race conditions we write and read via separate
+        # files having names according to the thread numbers. "filename.avro" is changed to
+        # "filename_<thread_number>.avro"
         local_avro_file = self.avro_file_local.replace(
             '.', '_' + thread_number + '.'
         )
