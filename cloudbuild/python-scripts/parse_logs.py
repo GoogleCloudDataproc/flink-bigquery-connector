@@ -417,7 +417,8 @@ def main(argv: Sequence[str]) -> None:
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--job_id', help='Job ID of the dataproc job.', type=str, required=True
+        '--job_id', dest='job_id',
+        help='Job ID of the dataproc job.', type=str, required=True
     )
     parser.add_argument(
         '--project_id',
