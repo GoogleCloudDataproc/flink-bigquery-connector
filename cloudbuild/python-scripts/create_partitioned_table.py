@@ -1,13 +1,14 @@
-"""Python script for BQ Table data append.
+"""Python script to create a BigQuery partitioned table.
 
-Python script to create a BigQuery partitioned table.
+Add initial records to it.
 """
 
+import argparse
 from collections.abc import Sequence
 import datetime
 import threading
-
 from absl import app
+from absl import logging
 from google.cloud import bigquery
 from utils import utils
 
@@ -35,29 +36,52 @@ def create_partitioned_table(table_id):
 
     table = client.create_table(table)
 
-    print(
-        f'Created table {table.project}.{table.dataset_id}.{table.table_id}, '
-        f'partitioned on column {table.time_partitioning.field}.'
+    logging.info(
+        'Created table %s.%s.%s, partitioned on column %s',
+        table.project,
+        table.dataset_id,
+        table.table_id,
+        table.time_partitioning.field,
     )
 
 
 def main(argv: Sequence[str]) -> None:
-    required_arguments = {
-        'now_timestamp',
-        'project_name',
-        'dataset_name',
-        'table_name',
-    }
-
-    arg_input_utils = utils.ArgumentInputUtils(
-        argv, required_arguments, required_arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--now_timestamp',
+        dest='now_timestamp',
+        help='Timestamp at the time of execution of the script.',
+        type=str,
+        required=True,
     )
-    arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
+    parser.add_argument(
+        '--project_name',
+        dest='project_name',
+        help='Project Id which contains the table to be read.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--dataset_name',
+        dest='dataset_name',
+        help='Dataset Name which contains the table to be read.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--table_name',
+        dest='table_name',
+        help='Table Name of the table which is read in the test.',
+        type=str,
+        required=True,
+    )
 
-    project_name = arguments_dictionary['project_name']
-    dataset_name = arguments_dictionary['dataset_name']
-    table_name = arguments_dictionary['table_name']
-    now_timestamp = arguments_dictionary['now_timestamp']
+    args = parser.parse_args(argv[1:])
+
+    project_name = args.project_name
+    dataset_name = args.dataset_name
+    table_name = args.table_name
+    now_timestamp = args.now_timestamp
 
     # Create the partitioned table.
     table_id = f'{project_name}.{dataset_name}.{table_name}'
@@ -76,6 +100,7 @@ def main(argv: Sequence[str]) -> None:
         + simple_avro_schema_fields_string
         + '}'
     )
+    # Hardcoded values for our e2e pipeline
     number_of_partitions = 3
     number_of_rows_per_partition = 100
     # The number of threads that concurrently perform the `operation` of
@@ -99,7 +124,7 @@ def main(argv: Sequence[str]) -> None:
     for partition_number in range(number_of_partitions):
         threads = list()
         for thread_number in range(number_of_threads):
-            # Avro files have generic names e.g. "filename.avro".
+            # Local avro files have generic names e.g. "filename.avro".
             # But, we write and upload several avro files concurrently,
             # to prevent race conditions we write and read via separate
             # files having names according to the thread numbers.
