@@ -17,20 +17,19 @@
 This python file extracts the status of a dataproc job from its job-id and then
 uses this job-id to get the yarn application number.
 The yarn application number enables it to read through the yarn logs to check
-for the number iof records.
+for the number of records.
 In case the number of records match that of BQ table it returns, in case of
 mismatch, it throws an error.
 """
-
+import argparse
 from collections.abc import Sequence
 import re
 
 from absl import app
+from absl import logging
 from google.cloud import bigquery
 from google.cloud import dataproc_v1
 from google.cloud import storage
-
-from utils import utils
 
 
 def get_bq_query_result_row_count(client_project_name, query):
@@ -132,7 +131,7 @@ def check_query_correctness(gcs_log_object, logs_as_string):
 
     # Extract and print all pairs of HOUR and DAY.
     if matches:
-        print(f'[Log: parse_logs INFO] Query result obtained in {gcs_log_object}')
+        logging.info('Query result obtained in %s', gcs_log_object)
         for match in matches:
             hour = match[0].strip()
             day = match[1].strip()
@@ -140,15 +139,10 @@ def check_query_correctness(gcs_log_object, logs_as_string):
             # Check if the records thus obtained follow the filter condition.
             # Hardcoded check if HOUR and DAY are both = '17'.
             if hour != '17' or day != '17':
-                raise RuntimeError(
-                    '[Log: parse_logs ERROR] Incorrect query result obtained!'
-                )
+                raise RuntimeError('Incorrect query result obtained!')
     else:
         # If no such matches are found.
-        print(
-            '[Log: parse_logs WARNING] No query result obtained in'
-            f' {gcs_log_object}'
-        )
+        logging.warning('No query result obtained in %s', gcs_log_object)
         return False
     return True
 
@@ -177,19 +171,18 @@ def get_blob_and_check_metric(
         is present in the file, False if not.
     """
     # Obtain the yarn logs as a string from the GCS bucket.
-    logs_as_string = ''
+    is_query_result_present = False
+    metric_value = -1
     try:
         storage_client = storage.Client()
         bucket = storage_client.get_bucket(cluster_temp_bucket)
         blob = bucket.blob(gcs_log_object)
         logs_as_string = blob.download_as_text(encoding='latin-1')
     except Exception as e:
-        print(
-            f'[Log: parse_logs WARNING] File {gcs_log_object} Not'
-            f' Found.\nError: {e}'
-        )
+        logging.warning('File %s Not Found.\nError: %s', gcs_log_object, e)
+        # Return in case the file was not found is not found.
+        return metric_value, is_query_result_present
 
-    is_query_result_present = False
     if query:
         # In case query has been set:
         # If for any of the record, filter condition is not met then throw an error.
@@ -197,14 +190,15 @@ def get_blob_and_check_metric(
             gcs_log_object, logs_as_string
         )
 
+    # Update the metric value to the actual value.
     if metric_string in logs_as_string:
         # If metric string is present in the logs, extract the value.
         metric_value = extract_metric(
             logs_as_string, metric_string, end_of_metric_string
         )
-        return metric_value, is_query_result_present
-    # If not return -1.
-    return -1, is_query_result_present
+
+    # If not return the default value (-1) indicating metric not found.
+    return metric_value, is_query_result_present
 
 
 def get_logs_pattern(client_project_name, region, job_id):
@@ -239,9 +233,7 @@ def get_logs_pattern(client_project_name, region, job_id):
     state = response.status.state.name
 
     if state == 'ERROR':
-        raise RuntimeError(
-            f'[Log: parse_logs ERROR] Dataproc Job with JOB ID: "{job_id}" failed'
-        )
+        raise RuntimeError(f'Dataproc Job with JOB ID: "{job_id}" failed')
 
     # If the dataproc job did not fail, continue to match the number of records.
     cluster_id = response.placement.cluster_uuid
@@ -369,17 +361,13 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     # If query has been set, check if query results were obtained
     # at least one of the logs. If not raise an Exception.
     if query and not is_query_result_found:
-        raise RuntimeError(
-            '[Log: parse_logs ERROR] Unable to find the query results in any of the'
-            ' logs'
-        )
+        raise RuntimeError('Unable to find the query results in any of the logs')
 
     # If found in any of the logs, return the value, else raise an error.
     if is_metric_found:
         return total_metric_count
     raise RuntimeError(
-        f'[Log: parse_logs ERROR] Unable to find the "{metric_string}" in any of'
-        ' the logs'
+        f'Unable to find the metric "{metric_string}" in any of the logs'
     )
 
 
@@ -422,34 +410,83 @@ def run(
         cluster_project_name, arg_project, arg_dataset, arg_table, query
     )
     if metric != bq_table_rows:
-        raise AssertionError('[Log: parse_logs ERROR] Rows do not match')
+        raise AssertionError('Rows do not match')
 
 
 def main(argv: Sequence[str]) -> None:
-    acceptable_arguments = {
-        'job_id',
-        'project_id',
-        'cluster_name',
-        'region',
-        'project_name',
-        'dataset_name',
-        'table_name',
-        'query',
-    }
-    required_arguments = acceptable_arguments - {'query'}
 
-    arg_input_utils = utils.ArgumentInputUtils(argv, required_arguments, acceptable_arguments)
-    arguments_dictionary = arg_input_utils.input_validate_and_return_arguments()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--job_id', dest='job_id',
+        help='Job ID of the dataproc job.', type=str, required=True
+    )
+    parser.add_argument(
+        '--project_id',
+        dest='project_id',
+        help='Project ID of the project containing the cluster job.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--cluster_name',
+        dest='cluster_name',
+        help='Name of the cluster which runs the dataproc job.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--region',
+        dest='region',
+        help='Region of the cluster which runs the dataproc job.',
+        type=str,
+        required=True,
+    )
+
+    # Note: When Query is provided,
+    # project_name, dataset_name and table name are not required.
+    parser.add_argument(
+        '--project_name',
+        dest='project_name',
+        help='Project Id which contains the table to be read.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--dataset_name',
+        dest='dataset_name',
+        help='Dataset Name which contains the table to be read.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--table_name',
+        dest='table_name',
+        help='Table Name of the table which is read in the test.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--query',
+        dest='query',
+        help='Query to be executed (if any)',
+        default='',
+        type=str,
+        required=False,
+    )
+    args = parser.parse_args(argv[1:])
 
     # Providing the values.
-    job_id = arguments_dictionary['job_id']
-    project_id = arguments_dictionary['project_id']
-    cluster_name = arguments_dictionary['cluster_name']
-    region = arguments_dictionary['region']
-    project_name = arguments_dictionary['project_name']
-    dataset_name = arguments_dictionary['dataset_name']
-    table_name = arguments_dictionary['table_name']
-    query = arguments_dictionary.get('query', '')
+    job_id = args.job_id
+    project_id = args.project_id
+    cluster_name = args.cluster_name
+    region = args.region
+    project_name = args.project_name
+    dataset_name = args.dataset_name
+    table_name = args.table_name
+    query = args.query
 
     run(
         project_id,
