@@ -17,11 +17,11 @@
 This python file extracts the status of a dataproc job from its job-id and then
 uses this job-id to get the yarn application number.
 The yarn application number enables it to read through the yarn logs to check
-for the number iof records.
+for the number of records.
 In case the number of records match that of BQ table it returns, in case of
 mismatch, it throws an error.
 """
-
+import argparse
 from collections.abc import Sequence
 import re
 
@@ -171,7 +171,6 @@ def get_blob_and_check_metric(
         is present in the file, False if not.
     """
     # Obtain the yarn logs as a string from the GCS bucket.
-    logs_as_string = ''
     is_query_result_present = False
     metric_value = -1
     try:
@@ -362,8 +361,7 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     # If query has been set, check if query results were obtained
     # at least one of the logs. If not raise an Exception.
     if query and not is_query_result_found:
-        raise RuntimeError(
-            'Unable to find the query results in any of the logs')
+        raise RuntimeError('Unable to find the query results in any of the logs')
 
     # If found in any of the logs, return the value, else raise an error.
     if is_metric_found:
@@ -415,62 +413,80 @@ def run(
         raise AssertionError('Rows do not match')
 
 
-def validate_arguments(
-    arguments_dictionary, required_arguments, acceptable_arguments
-):
-    for required_argument in required_arguments:
-        if required_argument not in arguments_dictionary:
-            raise UserWarning(f'"{required_argument}" argument not provided')
-    for key, _ in arguments_dictionary.items():
-        if key not in acceptable_arguments:
-            raise UserWarning(f'Invalid argument "{key}" provided')
-
-
 def main(argv: Sequence[str]) -> None:
-    acceptable_arguments = {
-        'job_id',
-        'project_id',
-        'cluster_name',
-        'region',
-        'project_name',
-        'dataset_name',
-        'table_name',
-        'query',
-    }
-    required_arguments = acceptable_arguments - {'query'}
 
-    # Arguments are provided of the form "--argument_name=argument_value"
-    # We need to extract the name and value as a part of a dictionary.
-    # i.e {argument1_name: argument1_value, argument2_name: argument2_value, ...}
-    # containing all arguments
-    # The pattern
-    #     --(\w+)=(.*): Searches for the exact '--'
-    #         followed by a group of word character (alphanumeric & underscore)
-    #         then an '=' sign
-    #         followed by any character except linebreaks
-    argument_pattern = r'--(\w+)=(.*)'
-    # Forming a dictionary from the arguments
-    try:
-        matches = [re.match(argument_pattern, argument) for argument in argv[1:]]
-        arguments_dictionary = {match.group(1): match.group(2) for match in matches}
-        del matches
-    except AttributeError as exc:
-        raise UserWarning(
-            'Missing argument value. Please check the arguments provided again.'
-        ) from exc
-    # Validating if all necessary arguments are available.
-    validate_arguments(
-        arguments_dictionary, required_arguments, acceptable_arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--job_id', dest='job_id',
+        help='Job ID of the dataproc job.', type=str, required=True
     )
+    parser.add_argument(
+        '--project_id',
+        dest='project_id',
+        help='Project ID of the project containing the cluster job.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--cluster_name',
+        dest='cluster_name',
+        help='Name of the cluster which runs the dataproc job.',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        '--region',
+        dest='region',
+        help='Region of the cluster which runs the dataproc job.',
+        type=str,
+        required=True,
+    )
+
+    # Note: When Query is provided,
+    # project_name, dataset_name and table name are not required.
+    parser.add_argument(
+        '--project_name',
+        dest='project_name',
+        help='Project Id which contains the table to be read.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--dataset_name',
+        dest='dataset_name',
+        help='Dataset Name which contains the table to be read.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--table_name',
+        dest='table_name',
+        help='Table Name of the table which is read in the test.',
+        type=str,
+        default='',
+        required=False,
+    )
+    parser.add_argument(
+        '--query',
+        dest='query',
+        help='Query to be executed (if any)',
+        default='',
+        type=str,
+        required=False,
+    )
+    args = parser.parse_args(argv[1:])
+
     # Providing the values.
-    job_id = arguments_dictionary['job_id']
-    project_id = arguments_dictionary['project_id']
-    cluster_name = arguments_dictionary['cluster_name']
-    region = arguments_dictionary['region']
-    project_name = arguments_dictionary['project_name']
-    dataset_name = arguments_dictionary['dataset_name']
-    table_name = arguments_dictionary['table_name']
-    query = arguments_dictionary.get('query', '')
+    job_id = args.job_id
+    project_id = args.project_id
+    cluster_name = args.cluster_name
+    region = args.region
+    project_name = args.project_name
+    dataset_name = args.dataset_name
+    table_name = args.table_name
+    query = args.query
 
     run(
         project_id,
