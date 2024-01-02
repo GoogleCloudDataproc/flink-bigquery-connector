@@ -1,10 +1,10 @@
-"""
-Python script to dynamically partitions to a BigQuery partitioned table.
-"""
+"""Python script to dynamically partitions to a BigQuery partitioned table."""
+
 import argparse
-import random
 from collections.abc import Sequence
 import datetime
+import logging
+import random
 import threading
 import time
 from absl import app
@@ -12,7 +12,7 @@ from utils import utils
 
 
 def wait():
-    print(
+    logging.info(
         'Going to sleep, waiting for connector to read existing, Time:'
         f' {datetime.datetime.now()}'
     )
@@ -23,8 +23,8 @@ def wait():
 def main(argv: Sequence[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--now_timestamp',
-        dest='now_timestamp',
+        '--execution_timestamp',
+        dest='execution_timestamp',
         help='Timestamp at the time of execution of the script.',
         type=str,
         required=True,
@@ -32,7 +32,7 @@ def main(argv: Sequence[str]) -> None:
     parser.add_argument(
         '--refresh_interval',
         dest='refresh_interval',
-        help='.',
+        help='Minutes between checking new data',
         type=int,
         required=True,
     )
@@ -64,9 +64,8 @@ def main(argv: Sequence[str]) -> None:
     project_name = args.project_name
     dataset_name = args.dataset_name
     table_name = args.table_name
-    now_timestamp = args.now_timestamp
-    now_timestamp = datetime.datetime.strptime(
-        now_timestamp, '%Y-%m-%d'
+    execution_timestamp = datetime.datetime.strptime(
+        args.execution_timestamp, '%Y-%m-%d'
     ).astimezone(datetime.timezone.utc)
     refresh_interval = int(args.refresh_interval)
 
@@ -126,7 +125,7 @@ def main(argv: Sequence[str]) -> None:
                     kwargs={
                         'avro_file_local_identifier': avro_file_local_identifier,
                         'partition_number': partition_number + prev_partitions_offset,
-                        'current_timestamp': now_timestamp,
+                        'current_timestamp': execution_timestamp,
                     },
                 )
                 threads.append(x)
