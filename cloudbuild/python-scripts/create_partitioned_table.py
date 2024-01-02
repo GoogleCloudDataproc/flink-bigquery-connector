@@ -111,6 +111,9 @@ def main(argv: Sequence[str]) -> None:
     number_of_rows_per_batch = int(
         number_of_rows_per_partition / number_of_threads
     )
+    # We insert rows having timestamp 2 days ago.
+    # This makes sure that new upcoming partitions don't coincide with these.
+    # Since the new upcoming partitions will be of the current date.
     now_timestamp = datetime.datetime.strptime(
         now_timestamp, '%Y-%m-%d'
     ).astimezone(datetime.timezone.utc) - datetime.timedelta(days=2)
