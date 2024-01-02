@@ -82,7 +82,7 @@ def main(argv: Sequence[str]) -> None:
     simple_avro_schema_string = (
         '{"namespace": "project.dataset","type": "record","name":'
         ' "table","doc": "Avro Schema for project.dataset.table",'
-        + simple_avro_schema_fields_string
+        f'{simple_avro_schema_fields_string}'
         + '}'
     )
 
@@ -120,7 +120,7 @@ def main(argv: Sequence[str]) -> None:
                 avro_file_local_identifier = avro_file_local.replace(
                     '.', '_' + str(thread_number) + '.'
                 )
-                x = threading.Thread(
+                thread = threading.Thread(
                     target=table_creation_utils.avro_to_bq_with_cleanup,
                     kwargs={
                         'avro_file_local_identifier': avro_file_local_identifier,
@@ -128,8 +128,8 @@ def main(argv: Sequence[str]) -> None:
                         'current_timestamp': execution_timestamp,
                     },
                 )
-                threads.append(x)
-                x.start()
+                threads.append(thread)
+                thread.start()
             for _, thread in enumerate(threads):
                 thread.join()
 
