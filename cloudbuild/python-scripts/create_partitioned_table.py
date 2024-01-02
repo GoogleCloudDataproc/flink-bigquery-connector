@@ -32,7 +32,7 @@ def create_partitioned_table(table_id):
         type_=bigquery.TimePartitioningType.HOUR,
         field='ts',  # name of column to use for partitioning
         expiration_ms=1000 * 60 * 60 * 60,
-    )  # expires in 72 hrs.
+    )  # expires in 60 hrs (2.5 days).
 
     table = client.create_table(table)
 
