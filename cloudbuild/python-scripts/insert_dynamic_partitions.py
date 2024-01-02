@@ -23,13 +23,6 @@ def wait():
 def main(argv: Sequence[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--execution_timestamp',
-        dest='execution_timestamp',
-        help='Timestamp at the time of execution of the script.',
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
         '--refresh_interval',
         dest='refresh_interval',
         help='Minutes between checking new data',
@@ -64,9 +57,7 @@ def main(argv: Sequence[str]) -> None:
     project_name = args.project_name
     dataset_name = args.dataset_name
     table_name = args.table_name
-    execution_timestamp = datetime.datetime.strptime(
-        args.execution_timestamp, '%Y-%m-%d'
-    ).astimezone(datetime.timezone.utc)
+    execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
     refresh_interval = int(args.refresh_interval)
 
     # Set the partitioned table.
