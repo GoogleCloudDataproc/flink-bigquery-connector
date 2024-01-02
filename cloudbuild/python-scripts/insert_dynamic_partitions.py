@@ -1,10 +1,10 @@
-"""
-Python script to dynamically partitions to a BigQuery partitioned table.
-"""
+"""Python script to dynamically partitions to a BigQuery partitioned table."""
+
 import argparse
-import random
 from collections.abc import Sequence
 import datetime
+import logging
+import random
 import threading
 import time
 from absl import app
@@ -12,27 +12,22 @@ from utils import utils
 
 
 def wait():
-    print(
+    logging.info(
         'Going to sleep, waiting for connector to read existing, Time:'
         f' {datetime.datetime.now()}'
     )
-    # This is the time connector takes to read the previous rows
+    # This is a buffer time to allow the read streams to be formed.
+    # Allows conflicting conditions by making sure that
+    # new (to be generated) partitions are not part of the current read stream.
     time.sleep(2.5 * 60)
 
 
 def main(argv: Sequence[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--now_timestamp',
-        dest='now_timestamp',
-        help='Timestamp at the time of execution of the script.',
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
         '--refresh_interval',
         dest='refresh_interval',
-        help='.',
+        help='Minutes between checking new data',
         type=int,
         required=True,
     )
@@ -64,10 +59,11 @@ def main(argv: Sequence[str]) -> None:
     project_name = args.project_name
     dataset_name = args.dataset_name
     table_name = args.table_name
-    now_timestamp = args.now_timestamp
-    now_timestamp = datetime.datetime.strptime(
-        now_timestamp, '%Y-%m-%d'
-    ).astimezone(datetime.timezone.utc)
+
+    execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc).replace(hour=0,
+                                                                                  minute=0,
+                                                                                  second=0,
+                                                                                  microsecond=0)
     refresh_interval = int(args.refresh_interval)
 
     # Set the partitioned table.
@@ -83,17 +79,18 @@ def main(argv: Sequence[str]) -> None:
     simple_avro_schema_string = (
         '{"namespace": "project.dataset","type": "record","name":'
         ' "table","doc": "Avro Schema for project.dataset.table",'
-        + simple_avro_schema_fields_string
-        + '}'
+        f'{simple_avro_schema_fields_string}'
+        '}'
     )
 
     # hardcoded for e2e test.
     # partitions[i] * number_of_rows_per_partition are inserted per phase.
     partitions = [2, 1, 2]
-    # Insert 1000 - 3000 rows per partition.
-    # So, in a read up to 6000 new rows are read.
-    number_of_rows_per_partition = random.randint(1, 3) * 1000
-    number_of_threads = 10
+    # Insert 10000 - 30000 rows per partition.
+    # So, in a read up to 60000 new rows are read.
+    number_of_rows_per_partition = random.randint(1, 3) * 10000
+    #  BQ rate limit is exceeded due to large number of rows.
+    number_of_threads = 2
     number_of_rows_per_thread = int(
         number_of_rows_per_partition / number_of_threads
     )
@@ -109,8 +106,7 @@ def main(argv: Sequence[str]) -> None:
     prev_partitions_offset = 0
     for number_of_partitions in partitions:
         start_time = time.time()
-        prev_partitions_offset += 1
-        # Wait for the connector to read previously inserted rows.
+        # Wait for the read streams to form
         wait()
 
         # This is a phase of insertion.
@@ -121,16 +117,16 @@ def main(argv: Sequence[str]) -> None:
                 avro_file_local_identifier = avro_file_local.replace(
                     '.', '_' + str(thread_number) + '.'
                 )
-                x = threading.Thread(
+                thread = threading.Thread(
                     target=table_creation_utils.avro_to_bq_with_cleanup,
                     kwargs={
                         'avro_file_local_identifier': avro_file_local_identifier,
                         'partition_number': partition_number + prev_partitions_offset,
-                        'current_timestamp': now_timestamp,
+                        'current_timestamp': execution_timestamp,
                     },
                 )
-                threads.append(x)
-                x.start()
+                threads.append(thread)
+                thread.start()
             for _, thread in enumerate(threads):
                 thread.join()
 
