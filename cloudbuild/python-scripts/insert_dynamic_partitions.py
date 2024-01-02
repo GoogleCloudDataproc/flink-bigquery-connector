@@ -74,7 +74,7 @@ def main(argv: Sequence[str]) -> None:
         '{"namespace": "project.dataset","type": "record","name":'
         ' "table","doc": "Avro Schema for project.dataset.table",'
         f'{simple_avro_schema_fields_string}'
-        + '}'
+        '}'
     )
 
     # hardcoded for e2e test.
