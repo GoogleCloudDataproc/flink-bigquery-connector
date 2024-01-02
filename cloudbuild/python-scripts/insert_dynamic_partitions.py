@@ -2,6 +2,7 @@
 Python script to dynamically partitions to a BigQuery partitioned table.
 """
 import argparse
+import random
 from collections.abc import Sequence
 import datetime
 import threading
@@ -73,7 +74,7 @@ def main(argv: Sequence[str]) -> None:
     table_id = f'{project_name}.{dataset_name}.{table_name}'
 
     # Now add the partitions to the table.
-    # Hardcoded schema. Needs to be same as that in `create_partitioned_table.py`
+    # Hardcoded schema. Needs to be same as that in the pre-created table.
     simple_avro_schema_fields_string = (
         '"fields": [{"name": "name", "type": "string"},{"name": "number",'
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
@@ -86,9 +87,12 @@ def main(argv: Sequence[str]) -> None:
         + '}'
     )
 
+    # hardcoded for e2e test.
     # partitions[i] * number_of_rows_per_partition are inserted per phase.
     partitions = [2, 1, 2]
-    number_of_rows_per_partition = 100
+    # Insert 1000 - 3000 rows per partition.
+    # So, in a read up to 6000 new rows are read.
+    number_of_rows_per_partition = random.randint(1, 3) * 1000
     number_of_threads = 10
     number_of_rows_per_thread = int(
         number_of_rows_per_partition / number_of_threads
