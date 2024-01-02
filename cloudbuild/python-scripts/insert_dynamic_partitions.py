@@ -86,9 +86,9 @@ def main(argv: Sequence[str]) -> None:
     # hardcoded for e2e test.
     # partitions[i] * number_of_rows_per_partition are inserted per phase.
     partitions = [2, 1, 2]
-    # Insert 1000 - 3000 rows per partition.
-    # So, in a read up to 6000 new rows are read.
-    number_of_rows_per_partition = random.randint(1, 3) * 1000
+    # Insert 10000 - 30000 rows per partition.
+    # So, in a read up to 60000 new rows are read.
+    number_of_rows_per_partition = random.randint(1, 3) * 10000
     #  BQ rate limit is exceeded due to large number of rows.
     number_of_threads = 2
     number_of_rows_per_thread = int(
