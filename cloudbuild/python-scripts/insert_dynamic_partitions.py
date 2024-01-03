@@ -60,10 +60,9 @@ def main(argv: Sequence[str]) -> None:
     dataset_name = args.dataset_name
     table_name = args.table_name
 
-    execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc).replace(hour=0,
-                                                                                  minute=0,
-                                                                                  second=0,
-                                                                                  microsecond=0)
+    execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     refresh_interval = int(args.refresh_interval)
 
     # Set the partitioned table.
