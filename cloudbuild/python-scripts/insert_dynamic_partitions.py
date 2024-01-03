@@ -98,14 +98,14 @@ def main(argv: Sequence[str]) -> None:
         table_id,
     )
 
-    # Insert in iterations.
+    # Insert iteratively.
     prev_partitions_offset = 0
     for number_of_partitions in partitions:
         start_time = time.time()
         # Wait for read stream formation.
         wait()
 
-        # This is an iteration of insertion.
+        # This represents one iteration.
         for partition_number in range(number_of_partitions):
             threads = list()
             # Insert via concurrent threads.
