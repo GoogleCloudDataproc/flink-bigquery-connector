@@ -4,7 +4,6 @@ import argparse
 from collections.abc import Sequence
 import datetime
 import logging
-import random
 import threading
 import time
 from absl import app
@@ -13,8 +12,8 @@ from utils import utils
 
 def sleep_for_minutes(duration):
     logging.info(
-        'Going to sleep, waiting for connector to read existing, Time:'
-        f' {datetime.datetime.now()}'
+        'Going to sleep, waiting for connector to read existing, Time: %s',
+        datetime.datetime.now()
     )
     # Buffer time to ensure that new partitions are created
     # after previous read session and before next split discovery.
@@ -51,6 +50,15 @@ def main(argv: Sequence[str]) -> None:
         type=str,
         required=True,
     )
+    parser.add_argument(
+        '-n',
+        '--number_of_rows_per_partition',
+        dest='number_of_rows_per_partition',
+        help='Number of rows to insert per partition.',
+        type=int,
+        required=False,
+        default=30000,
+    )
 
     args = parser.parse_args(argv[1:])
 
@@ -58,6 +66,7 @@ def main(argv: Sequence[str]) -> None:
     project_name = args.project_name
     dataset_name = args.dataset_name
     table_name = args.table_name
+    number_of_rows_per_partition = args.number_of_rows_per_partition
 
     execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -84,9 +93,6 @@ def main(argv: Sequence[str]) -> None:
     # hardcoded for e2e test.
     # partitions[i] * number_of_rows_per_partition are inserted per phase.
     partitions = [2, 1, 2]
-    # Insert 10000 - 30000 rows per partition.
-    # So, in a read up to 60000 new rows are read.
-    number_of_rows_per_partition = random.randint(1, 3) * 10000
     #  BQ rate limit is exceeded due to large number of rows.
     number_of_threads = 2
     number_of_rows_per_thread = number_of_rows_per_partition // number_of_threads
