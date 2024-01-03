@@ -16,9 +16,8 @@ def wait():
         'Going to sleep, waiting for connector to read existing, Time:'
         f' {datetime.datetime.now()}'
     )
-    # This is a buffer time to allow the read streams to be formed.
-    # Allows conflicting conditions by making sure that
-    # new (to be generated) partitions are not part of the current read stream.
+    # Buffer time to ensure that new partitions are created
+    # after previous read session and before next split discovery.
     time.sleep(2.5 * 60)
 
 
@@ -90,9 +89,7 @@ def main(argv: Sequence[str]) -> None:
     number_of_rows_per_partition = random.randint(1, 3) * 10000
     #  BQ rate limit is exceeded due to large number of rows.
     number_of_threads = 2
-    number_of_rows_per_thread = int(
-        number_of_rows_per_partition / number_of_threads
-    )
+    number_of_rows_per_thread = number_of_rows_per_partition // number_of_threads
 
     avro_file_local = 'mockData.avro'
     table_creation_utils = utils.TableCreationUtils(
