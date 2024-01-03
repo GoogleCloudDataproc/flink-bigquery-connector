@@ -11,14 +11,14 @@ from absl import app
 from utils import utils
 
 
-def wait():
+def sleep_for_minutes(duration):
     logging.info(
         'Going to sleep, waiting for connector to read existing, Time:'
         f' {datetime.datetime.now()}'
     )
     # Buffer time to ensure that new partitions are created
     # after previous read session and before next split discovery.
-    time.sleep(2.5 * 60)
+    time.sleep(duration * 60)
 
 
 def main(argv: Sequence[str]) -> None:
@@ -103,7 +103,7 @@ def main(argv: Sequence[str]) -> None:
     for number_of_partitions in partitions:
         start_time = time.time()
         # Wait for read stream formation.
-        wait()
+        sleep_for_minutes(2.5)
 
         # This represents one iteration.
         for partition_number in range(number_of_partitions):
@@ -128,7 +128,7 @@ def main(argv: Sequence[str]) -> None:
 
         time_elapsed = time.time() - start_time
         prev_partitions_offset += number_of_partitions
-        # We wait for the refresh to happen
+        # We sleep_for_seconds for the refresh to happen
         # so that the data just created can be read.
         while time_elapsed < float(60 * 2 * refresh_interval):
             time_elapsed = time.time() - start_time
