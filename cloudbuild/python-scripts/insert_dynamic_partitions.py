@@ -137,7 +137,7 @@ def main(argv: Sequence[str]) -> None:
 
         # We wait until the read streams are formed again.
         # So that the records just created can be read.
-        sleep_for_seconds(float(60 * 2 * refresh_interval) - time_elapsed)
+        sleep_for_seconds(float(60 * refresh_interval) - time_elapsed)
 
 
 if __name__ == '__main__':
