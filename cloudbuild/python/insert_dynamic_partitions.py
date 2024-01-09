@@ -1,37 +1,31 @@
-"""
-Python script to dynamically partitions to a BigQuery partitioned table.
-"""
+"""Python script to dynamically partitions to a BigQuery partitioned table."""
+
 import argparse
 from collections.abc import Sequence
 import datetime
+import logging
 import threading
 import time
 from absl import app
 from utils import utils
 
 
-def wait():
-    print(
-        'Going to sleep, waiting for connector to read existing, Time:'
-        f' {datetime.datetime.now()}'
+def sleep_for_seconds(duration):
+    logging.info(
+        'Going to sleep, waiting for connector to read existing, Time: %s',
+        datetime.datetime.now()
     )
-    # This is the time connector takes to read the previous rows
-    time.sleep(2.5 * 60)
+    # Buffer time to ensure that new partitions are created
+    # after previous read session and before next split discovery.
+    time.sleep(duration)
 
 
 def main(argv: Sequence[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--now_timestamp',
-        dest='now_timestamp',
-        help='Timestamp at the time of execution of the script.',
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
         '--refresh_interval',
         dest='refresh_interval',
-        help='.',
+        help='Minutes between checking new data',
         type=int,
         required=True,
     )
@@ -56,6 +50,15 @@ def main(argv: Sequence[str]) -> None:
         type=str,
         required=True,
     )
+    parser.add_argument(
+        '-n',
+        '--number_of_rows_per_partition',
+        dest='number_of_rows_per_partition',
+        help='Number of rows to insert per partition.',
+        type=int,
+        required=False,
+        default=30000,
+    )
 
     args = parser.parse_args(argv[1:])
 
@@ -63,17 +66,18 @@ def main(argv: Sequence[str]) -> None:
     project_name = args.project_name
     dataset_name = args.dataset_name
     table_name = args.table_name
-    now_timestamp = args.now_timestamp
-    now_timestamp = datetime.datetime.strptime(
-        now_timestamp, '%Y-%m-%d'
-    ).astimezone(datetime.timezone.utc)
+    number_of_rows_per_partition = args.number_of_rows_per_partition
+
+    execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     refresh_interval = int(args.refresh_interval)
 
     # Set the partitioned table.
     table_id = f'{project_name}.{dataset_name}.{table_name}'
 
     # Now add the partitions to the table.
-    # Hardcoded schema. Needs to be same as that in `create_partitioned_table.py`
+    # Hardcoded schema. Needs to be same as that in the pre-created table.
     simple_avro_schema_fields_string = (
         '"fields": [{"name": "name", "type": "string"},{"name": "number",'
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
@@ -82,17 +86,16 @@ def main(argv: Sequence[str]) -> None:
     simple_avro_schema_string = (
         '{"namespace": "project.dataset","type": "record","name":'
         ' "table","doc": "Avro Schema for project.dataset.table",'
-        + simple_avro_schema_fields_string
-        + '}'
+        f'{simple_avro_schema_fields_string}'
+        '}'
     )
 
+    # hardcoded for e2e test.
     # partitions[i] * number_of_rows_per_partition are inserted per phase.
     partitions = [2, 1, 2]
-    number_of_rows_per_partition = 100
-    number_of_threads = 10
-    number_of_rows_per_thread = int(
-        number_of_rows_per_partition / number_of_threads
-    )
+    #  BQ rate limit is exceeded due to large number of rows.
+    number_of_threads = 2
+    number_of_rows_per_thread = number_of_rows_per_partition // number_of_threads
 
     avro_file_local = 'mockData.avro'
     table_creation_utils = utils.TableCreationUtils(
@@ -101,15 +104,14 @@ def main(argv: Sequence[str]) -> None:
         table_id,
     )
 
-    # Insert in phases.
+    # Insert iteratively.
     prev_partitions_offset = 0
     for number_of_partitions in partitions:
         start_time = time.time()
-        prev_partitions_offset += 1
-        # Wait for the connector to read previously inserted rows.
-        wait()
+        # Wait for read stream formation.
+        sleep_for_seconds(2.5 * 60)
 
-        # This is a phase of insertion.
+        # This represents one iteration.
         for partition_number in range(number_of_partitions):
             threads = list()
             # Insert via concurrent threads.
@@ -117,25 +119,25 @@ def main(argv: Sequence[str]) -> None:
                 avro_file_local_identifier = avro_file_local.replace(
                     '.', '_' + str(thread_number) + '.'
                 )
-                x = threading.Thread(
+                thread = threading.Thread(
                     target=table_creation_utils.avro_to_bq_with_cleanup,
                     kwargs={
                         'avro_file_local_identifier': avro_file_local_identifier,
                         'partition_number': partition_number + prev_partitions_offset,
-                        'current_timestamp': now_timestamp,
+                        'current_timestamp': execution_timestamp,
                     },
                 )
-                threads.append(x)
-                x.start()
+                threads.append(thread)
+                thread.start()
             for _, thread in enumerate(threads):
                 thread.join()
 
         time_elapsed = time.time() - start_time
         prev_partitions_offset += number_of_partitions
-        # We wait for the refresh to happen
-        # so that the data just created can be read.
-        while time_elapsed < float(60 * 2 * refresh_interval):
-            time_elapsed = time.time() - start_time
+
+        # We wait until the read streams are formed again.
+        # So that the records just created can be read.
+        sleep_for_seconds(float(60 * refresh_interval) - time_elapsed)
 
 
 if __name__ == '__main__':
