@@ -36,7 +36,13 @@ if [ "$MODE" == "bounded" ]
 then
   echo "Bounded Mode!"
   source cloudbuild/e2e-test-scripts/bounded_table_read.sh
-
+elif [ "$MODE" == "unbounded" ]
+then
+  echo "Unbounded Mode!"
+  source cloudbuild/e2e-test-scripts/unbounded_table_read.sh
+else
+  echo "Invalid 'MODE' provided. Please provide 'bounded' or 'unbounded'!"
+  exit 1
 fi
 
 # Wait for the logs to be saved.
