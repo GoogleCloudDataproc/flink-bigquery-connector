@@ -7,7 +7,7 @@ import logging
 import threading
 import time
 from absl import app
-from utils import utils
+import utils
 
 
 def sleep_for_seconds(duration):
