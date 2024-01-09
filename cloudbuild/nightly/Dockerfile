@@ -15,5 +15,5 @@ RUN apt-get -y install python3 && apt clean
 RUN apt-get -y install python3-pip && apt clean
 # For md5sum
 RUN apt-get -y install coreutils && apt clean
-COPY ./cloudbuild/python/nightly_job/requirements.txt /workspace/
+COPY ./cloudbuild/nightly/scripts/python-scripts/requirements.txt /workspace/
 RUN pip3 install -r /workspace/requirements.txt
