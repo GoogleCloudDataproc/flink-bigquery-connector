@@ -77,6 +77,24 @@ steps:
       - 'TABLE_NAME_LARGE_TABLE=${_TABLE_NAME_LARGE_TABLE}'
       - 'AGG_PROP_NAME_LARGE_TABLE=${_AGG_PROP_NAME_LARGE_TABLE}'
 
+# 7. Start the unbounded source table e2e test
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'e2e-unbounded-read-test'
+    waitFor: ['init']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly.sh', 'e2e_unbounded_read_test']
+    env:
+      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'REGION_UNBOUNDED_TABLE_TEST=${_REGION_UNBOUNDED_TABLE_TEST}'
+      - 'CLUSTER_NAME_UNBOUNDED_TABLE_TEST=${_CLUSTER_NAME_UNBOUNDED_TABLE_TEST}'
+      - 'PROJECT_NAME=${_PROJECT_NAME}'
+      - 'DATASET_NAME=${_DATASET_NAME}'
+      - 'TABLE_NAME_UNBOUNDED_TABLE=${_TABLE_NAME_UNBOUNDED_TABLE}'
+      - 'AGG_PROP_NAME_UNBOUNDED_TABLE=${_AGG_PROP_NAME_UNBOUNDED_TABLE}'
+      - 'PARTITION_DISCOVERY_INTERVAL=${_PARTITION_DISCOVERY_INTERVAL}'
+      - 'TS_PROP_NAME=${_TS_PROP_NAME}'
+
 # Maximum tolerance 60 minutes.
 timeout: 3600s
 logsBucket: '${_LOGS_BUCKET}'
