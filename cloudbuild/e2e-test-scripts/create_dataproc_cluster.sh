@@ -39,4 +39,4 @@ gcloud dataproc clusters create "$CLUSTER_NAME" \
     --num-workers="$NUM_WORKERS" \
     --bucket="$STAGING_BUCKET" \
     --temp-bucket="$TEMP_BUCKET" \
-    --initialization-actions=INITIALISATION_ACTION_SCRIPT_URI
+    --initialization-actions="$INITIALISATION_ACTION_SCRIPT_URI"
