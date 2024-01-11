@@ -14,6 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Get the timestamp to annotate the copy of the partitioned table.
+timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+
+# Copy the table
+bq cp -f "$DATASET_NAME"."$TABLE_NAME" "$DATASET_NAME"."$TABLE_NAME"_"$timestamp"
+
+# Change the table name for all future uses.
+TABLE_NAME="$TABLE_NAME"_"$timestamp"
+
+# Set the expiration time to 1 hour.
+bq update --expiration 3600 "$DATASET_NAME"."$TABLE_NAME"
+
 # Running this job async to make sure it exits so that dynamic data can be added
 gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --async -- --gcp-project "$PROJECT_NAME" --bq-dataset "$DATASET_NAME" --bq-table "$TABLE_NAME" --mode unbounded --agg-prop "$AGG_PROP_NAME" --ts-prop "$TS_PROP_NAME" --partition-discovery-interval "$PARTITION_DISCOVERY_INTERVAL"
 
