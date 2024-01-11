@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Get the timestamp to annotate the copy of the partitioned table.
-timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+timestamp=$(date +"%Y%m%d%H%M%S")
 
 # Copy the table
 bq cp -f "$DATASET_NAME"."$TABLE_NAME" "$DATASET_NAME"."$TABLE_NAME"_"$timestamp"
