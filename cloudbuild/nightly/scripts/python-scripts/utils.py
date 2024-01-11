@@ -24,7 +24,7 @@ def generate_random_string():
 
 
 def generate_random_long():
-    return random.choice(range(0, 10000000))
+    return random.randint(0, 10000000)
 
 
 def generate_random_timestamp(current_timestamp):

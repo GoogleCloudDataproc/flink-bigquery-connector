@@ -35,10 +35,14 @@ echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$TABLE_NAME" Read] Created JOB ID: 
 if [ "$MODE" == "bounded" ]
 then
   echo "Bounded Mode!"
-  source cloudbuild/e2e-test-scripts/bounded_table_read.sh
-else
+  source cloudbuild/nightly/scripts/bounded_table_read.sh
+elif [ "$MODE" == "unbounded" ]
+then
   echo "Unbounded Mode!"
-  source cloudbuild/e2e-test-scripts/unbounded_table_read.sh
+  source cloudbuild/nightly/scripts/unbounded_table_read.sh
+else
+  echo "Invalid 'MODE' provided. Please provide 'bounded' or 'unbounded'!"
+  exit 1
 fi
 
 # Wait for the logs to be saved.
@@ -47,7 +51,7 @@ fi
 sleep 5
 
 # Now check the success of the job
-python3 cloudbuild/python/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --query "$QUERY_STRING"
+python3 cloudbuild/nightly/scripts/python-scripts/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --query "$QUERY_STRING"
 ret=$?
 
 if [ $ret -ne 0 ]
