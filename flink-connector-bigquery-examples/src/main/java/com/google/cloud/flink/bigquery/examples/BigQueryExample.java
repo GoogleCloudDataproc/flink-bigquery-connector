@@ -20,16 +20,17 @@ package com.google.cloud.flink.bigquery.examples;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.base.source.hybrid.HybridSource;
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import org.apache.avro.generic.GenericRecord;
@@ -164,6 +165,8 @@ public class BigQueryExample {
                 break;
             case "unbounded":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                boolean exactlyOnceSink = parameterTool.getBoolean("exactly-once", false);
+                String destTable = parameterTool.getRequired("destination-table");
                 runStreamingFlinkJob(
                         projectName,
                         datasetName,
@@ -177,7 +180,9 @@ public class BigQueryExample {
                         partitionDiscoveryInterval,
                         maxOutOfOrder,
                         maxIdleness,
-                        windowSize);
+                        windowSize,
+                        exactlyOnceSink,
+                        destTable);
                 break;
             case "hybrid":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -218,6 +223,7 @@ public class BigQueryExample {
 
     private static void runJob(
             Source<GenericRecord, ?, ?> source,
+            Sink sink,
             TypeInformation<GenericRecord> typeInfo,
             String sourceName,
             String jobName,
@@ -230,7 +236,7 @@ public class BigQueryExample {
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
+        env.enableCheckpointing(checkpointInterval, CheckpointingMode.EXACTLY_ONCE);
 
         env.fromSource(
                         source,
@@ -242,11 +248,9 @@ public class BigQueryExample {
                                 .withIdleness(Duration.ofMinutes(maxIdleness)),
                         sourceName,
                         typeInfo)
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(mappedTuple -> mappedTuple.f0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(windowSize)))
-                .sum("f1")
-                .print();
+                .keyBy(record -> record.get("name").hashCode() % 100)
+                .map(record -> record.get("name"))
+                .sinkTo(sink);
 
         env.execute(jobName);
     }
@@ -298,18 +302,21 @@ public class BigQueryExample {
             Integer partitionDiscoveryInterval,
             Integer maxOutOfOrder,
             Integer maxIdleness,
-            Integer windowSize)
+            Integer windowSize,
+            boolean exactlyOnceSink,
+            String destTable)
             throws Exception {
 
+        BigQueryConnectOptions bqConnectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId(projectName)
+                        .setDataset(datasetName)
+                        .setTable(tableName)
+                        .build();
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.streamAvros(
                         BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
+                                .setBigQueryConnectOptions(bqConnectOptions)
                                 .setRowRestriction(rowRestriction)
                                 .setLimit(limit)
                                 .setOldestPartitionId(oldestPartition)
@@ -317,8 +324,15 @@ public class BigQueryExample {
                                         partitionDiscoveryInterval)
                                 .build());
 
+        BigQuerySink sink =
+                new BigQuerySink(
+                        exactlyOnceSink,
+                        bqConnectOptions,
+                        "projects/testproject-398714/datasets/sink_test_data/tables/" + destTable);
+
         runJob(
                 source,
+                sink,
                 source.getProducedType(),
                 "BigQueryStreamingSource",
                 "Flink BigQuery Unbounded Read Example",
@@ -380,6 +394,7 @@ public class BigQueryExample {
 
         runJob(
                 hybridSource,
+                null,
                 streamingSource.getProducedType(),
                 "BigQueryHybridSource",
                 "Flink BigQuery Hybrid Read Example",
