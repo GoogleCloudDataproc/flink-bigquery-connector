@@ -261,7 +261,7 @@ public class BigQueryIntegrationTest {
                             }
                         });
         try {
-            handle.get(timeoutTimePeriod, TimeUnit.SECONDS);
+            handle.get(timeoutTimePeriod, TimeUnit.MINUTES);
         } catch (TimeoutException e) {
             LOG.info("Job Cancelled!");
         }
