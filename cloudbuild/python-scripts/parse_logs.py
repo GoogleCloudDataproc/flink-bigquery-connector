@@ -415,7 +415,7 @@ def read_logs(cluster_temp_bucket, logs_pattern, query, mode):
     # If not raise an Exception.
     if mode == 'unbounded' and not is_unbounded_result_found:
         raise RuntimeError('Number of records processed are less than the expected count '
-                           'provided./n[OR]/n'
+                           'provided.\n[OR]\n'
                            'Unable to find the unbounded read results in any of the logs')
 
     # If found in any of the logs, return the value, else raise an error.
