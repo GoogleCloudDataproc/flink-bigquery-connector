@@ -153,6 +153,7 @@ def get_blob_and_check_metric(
     metric_string,
     end_of_metric_string,
     query,
+    mode,
 ):
     """Method to extract the yarn logs file as a string and find metric string.
 
@@ -162,6 +163,7 @@ def get_blob_and_check_metric(
       metric_string: The string to be found
       end_of_metric_string: Delimiter at the end of the value.
       query: Query string [if any] that was provided to the connector.
+      mode: Mode of execution of the job (bounded/unbounded).
 
     Returns:
     Tuple [Metric Value (String), Is Query Result Present (Boolean)]
@@ -172,6 +174,7 @@ def get_blob_and_check_metric(
     """
     # Obtain the yarn logs as a string from the GCS bucket.
     is_query_result_present = False
+    is_unbounded_result_present = False
     metric_value = -1
     try:
         storage_client = storage.Client()
@@ -181,7 +184,7 @@ def get_blob_and_check_metric(
     except Exception as e:
         logging.warning('File %s Not Found.\nError: %s', gcs_log_object, e)
         # Return in case the file was not found is not found.
-        return metric_value, is_query_result_present
+        return metric_value, is_query_result_present, is_unbounded_result_present
 
     if query:
         # In case query has been set:
@@ -189,6 +192,41 @@ def get_blob_and_check_metric(
         is_query_result_present = check_query_correctness(
             gcs_log_object, logs_as_string
         )
+
+    if mode == 'unbounded':
+        '''
+        Check if blob containing the logs contain the string of the form 
+        "Number of records processed (%d) exceed the expected count (%d)"
+        then throw an error,
+        If not get logs of type  "%d number of records have been processed".
+        Read the blob and get the metric from them,
+        and check if they match the bigquery table count.     
+        '''
+        # This is hardcoded on the basis of logs
+        records_exceed_log_pattern = (r'Number of records processed \((\d+)\) exceed the expected '
+                                      r'count \((\d+)\)')
+        match = re.search(records_exceed_log_pattern, logs_as_string)
+
+        # Check if blob containing the logs contain the string of the form
+        # "Number of records processed (%d) exceed the expected count (%d)"
+        # then throw an error.
+        if match:
+            records_processed = int(match.group(1))
+            expected_count = int(match.group(2))
+            raise RuntimeError(f'Records processed: {records_processed},'
+                               f' exceed the Expected count: {expected_count}')
+
+        # If not get logs of type  "%d number of records have been processed".
+        # Read the blob and get the metric from them,
+        records_counted_log_pattern = r'(\d+) number of records have been processed'
+        match = re.search(records_counted_log_pattern, logs_as_string)
+        if match:
+            records_processed = int(match.group(1))
+            metric_value = records_processed
+            is_unbounded_result_present = True
+        else:
+            logging.warning('No unbounded read result obtained in %s', gcs_log_object)
+        return metric_value, is_query_result_present, is_unbounded_result_present
 
     # Update the metric value to the actual value.
     if metric_string in logs_as_string:
@@ -198,7 +236,7 @@ def get_blob_and_check_metric(
         )
 
     # If not return the default value (-1) indicating metric not found.
-    return metric_value, is_query_result_present
+    return metric_value, is_query_result_present, is_unbounded_result_present
 
 
 def get_logs_pattern(client_project_name, region, job_id):
@@ -297,7 +335,7 @@ def get_bucket_contents(bucket):
     return bucket_contents
 
 
-def read_logs(cluster_temp_bucket, logs_pattern, query):
+def read_logs(cluster_temp_bucket, logs_pattern, query, mode):
     """Method to parse the number of records from the yarn logs.
 
     Args:
@@ -306,6 +344,7 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
         logs_pattern: pattern in which logs are found inside the cluster temp
           bucket.
         query: query set by the user to be executed before the BQ table read.
+        mode: Mode of execution of the job (bounded/unbounded).
 
     Returns:
         Sum of metric values in all the files.
@@ -324,6 +363,7 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     # Check if metric is present in at least one of the files.
     is_metric_found = False
     is_query_result_found = False
+    is_unbounded_result_found = False
     # Get all the contents in the GCS Bucket.
     gcs_bucket_contents = get_bucket_contents(cluster_temp_bucket)
 
@@ -340,17 +380,24 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     ]
     for gcs_log_object in gcs_log_objects:
         # -1 is returned in case metric not found in the log file.
-        (metric_value, is_query_result_present) = get_blob_and_check_metric(
+        (metric_value, is_query_result_present,
+         is_unbounded_result_present) = get_blob_and_check_metric(
             gcs_log_object,
             cluster_temp_bucket,
             metric_string,
             end_of_metric_string,
-            query,
+            query, mode
         )
         if metric_value != -1:
             is_metric_found = True
             # Sum up all the values.
             total_metric_count += metric_value
+
+        # Check if unbounded read result is found in any one of the files.
+        # True if found in at least one of the files.
+        # False in case not found in any.
+        if is_unbounded_result_present:
+            is_unbounded_result_found = True
 
         # Check if query result is found in any one of the files.
         # True if found in at least one of the files.
@@ -362,6 +409,14 @@ def read_logs(cluster_temp_bucket, logs_pattern, query):
     # at least one of the logs. If not raise an Exception.
     if query and not is_query_result_found:
         raise RuntimeError('Unable to find the query results in any of the logs')
+
+    # If the mode is set as unbounded, check if the expected count is reached.
+    # This is same as logs being found in at least one of the logs.
+    # If not raise an Exception.
+    if mode == 'unbounded' and not is_unbounded_result_found:
+        raise RuntimeError('Number of records processed are less than the expected count '
+                           'provided./n[OR]/n'
+                           'Unable to find the unbounded read results in any of the logs')
 
     # If found in any of the logs, return the value, else raise an error.
     if is_metric_found:
@@ -380,6 +435,7 @@ def run(
     arg_dataset,
     arg_table,
     query,
+    mode
 ):
     """Method that calls all the helper function to determine success of a job.
 
@@ -393,6 +449,7 @@ def run(
       arg_dataset: Resource dataset name (from which rows are read)
       arg_table: Resource table name (from which rows are read)
       query: String containing the query incase needs to be run by the connector.
+      mode: The mode of execution of the job (bounded/unbounded).
 
     Raises:
       AssertionError: When the rows read by connector and in the BQ table do not
@@ -404,8 +461,8 @@ def run(
     )
     # Get the pattern of logs inside the temp bucket in GCS.
     logs_pattern = get_logs_pattern(cluster_project_name, region, job_id)
-    # Read the blob and get the metric from them
-    metric = read_logs(cluster_temp_bucket, logs_pattern, query)
+
+    metric = read_logs(cluster_temp_bucket, logs_pattern, query, mode)
     bq_table_rows = get_bq_table_row_count(
         cluster_project_name, arg_project, arg_dataset, arg_table, query
     )
@@ -476,6 +533,15 @@ def main(argv: Sequence[str]) -> None:
         type=str,
         required=False,
     )
+    parser.add_argument(
+        '--mode',
+        dest='mode',
+        help='Mode of execution(bounded/unbounded)',
+        choices=['bounded', 'unbounded'],
+        default='bounded',
+        type=str,
+        required=False,
+    )
     args = parser.parse_args(argv[1:])
 
     # Providing the values.
@@ -487,6 +553,7 @@ def main(argv: Sequence[str]) -> None:
     dataset_name = args.dataset_name
     table_name = args.table_name
     query = args.query
+    mode = args.mode
 
     run(
         project_id,
@@ -496,7 +563,7 @@ def main(argv: Sequence[str]) -> None:
         project_name,
         dataset_name,
         table_name,
-        query,
+        query, mode
     )
 
 

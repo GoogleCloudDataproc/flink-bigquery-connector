@@ -19,8 +19,11 @@
 package com.google.cloud.flink.bigquery.integration;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -28,8 +31,7 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -40,6 +42,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * The Integration Test <b>is for internal use only</b>. It sets up a pipeline which will try to
@@ -74,6 +80,10 @@ import java.time.Duration;
  *         <li>--partition-discovery-interval {optional; minutes between polling table for new data.
  *             Used in unbounded/hybrid mode} <br>
  *         <li>--mode {unbounded in this case}.
+ *         <li>--expected-records {optional; The total number of records expected to be read.
+ *         Default Value: 12}.
+ *         <li>--timeout {optional; Time Interval (in minutes) after which the job is terminated.
+ *         Default Value: 18}.
  *       </ul>
  *       The sequence of operations in this pipeline is the same as bounded one. This job is run
  *       asynchronously. The test appends newer partitions to check the read correctness. Hence,
@@ -93,7 +103,6 @@ public class BigQueryIntegrationTest {
     private static final Long CHECKPOINT_INTERVAL = 60000L;
     private static final Integer MAX_OUT_OF_ORDER = 10;
     private static final Integer MAX_IDLENESS = 20;
-    private static final Integer WINDOW_SIZE = 1;
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
@@ -124,6 +133,8 @@ public class BigQueryIntegrationTest {
         String tableName = parameterTool.getRequired("bq-table");
         String mode = parameterTool.get("mode", "bounded");
         String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
+        Long expectedNumberOfRecords = parameterTool.getLong("expected-records", 12);
+        Integer timeoutTimePeriod = parameterTool.getInt("timeout", 18);
 
         Integer partitionDiscoveryInterval =
                 parameterTool.getInt("partition-discovery-interval", 10);
@@ -139,9 +150,10 @@ public class BigQueryIntegrationTest {
                         projectName,
                         datasetName,
                         tableName,
-                        recordPropertyToAggregate,
                         recordPropertyForTimestamps,
-                        partitionDiscoveryInterval);
+                        partitionDiscoveryInterval,
+                        expectedNumberOfRecords,
+                        timeoutTimePeriod);
                 break;
             default:
                 throw new IllegalArgumentException(
@@ -167,8 +179,8 @@ public class BigQueryIntegrationTest {
     private static void runJob(
             Source<GenericRecord, ?, ?> source,
             TypeInformation<GenericRecord> typeInfo,
-            String recordPropertyToAggregate,
-            String recordPropertyForTimestamps)
+            String recordPropertyForTimestamps,
+            Long expectedValue, Integer timeoutTimePeriod)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -184,13 +196,67 @@ public class BigQueryIntegrationTest {
                                 .withIdleness(Duration.ofMinutes(MAX_IDLENESS)),
                         "BigQueryStreamingSource",
                         typeInfo)
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
+                .flatMap(
+                        (FlatMapFunction<GenericRecord, Tuple2<String, Integer>>) (value, out) -> out.collect(Tuple2.of("commonKey", 1)))
                 .keyBy(mappedTuple -> mappedTuple.f0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(WINDOW_SIZE)))
-                .sum("f1");
+                .process(
+                        new KeyedProcessFunction<String, Tuple2<String, Integer>, Long>() {
+
+                            transient ValueState<Long> numRecords;
+
+                            @Override
+                            public void open(Configuration config) {
+                                ValueStateDescriptor<Long> descriptor =
+                                        new ValueStateDescriptor<>(
+                                                "numRecords", TypeInformation.of(Long.class), 0L);
+                                this.numRecords = getRuntimeContext().getState(descriptor);
+                            }
+
+                            @Override
+                            public void processElement(
+                                    Tuple2<String, Integer> value,
+                                    KeyedProcessFunction<String, Tuple2<String, Integer>, Long>
+                                                    .Context
+                                            ctx,
+                                    Collector<Long> out)
+                                    throws Exception {
+
+                                this.numRecords.update(this.numRecords.value() + 1);
+
+                                if (this.numRecords.value() > expectedValue) {
+                                    LOG.info(
+                                            String.format(
+                                                    "Number of records processed (%d) exceed the expected count (%d)",
+                                                    this.numRecords.value(), expectedValue));
+
+                                } else if (Objects.equals(this.numRecords.value(), expectedValue)) {
+                                    LOG.info(
+                                            String.format(
+                                                    "%d number of records have been processed",
+                                                    expectedValue));
+                                }
+                                out.collect(this.numRecords.value());
+                            }
+                        })
+                .print();
 
         String jobName = "Flink BigQuery Unbounded Read Integration Test";
-        env.execute(jobName);
+
+        CompletableFuture<Void> handle =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                env.execute(jobName);
+                            } catch (Exception e) {
+                                LOG.error(e.getMessage());
+                            }
+                        });
+        try {
+            handle.get(timeoutTimePeriod, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            LOG.info("Job Cancelled!");
+        }
+
     }
 
     private static void runBoundedFlinkJob(
@@ -226,9 +292,10 @@ public class BigQueryIntegrationTest {
             String projectName,
             String datasetName,
             String tableName,
-            String recordPropertyToAggregate,
             String recordPropertyForTimestamps,
-            Integer partitionDiscoveryInterval)
+            Integer partitionDiscoveryInterval,
+            Long expectedNumberOfRecords,
+            Integer timeoutTimePeriod)
             throws Exception {
 
         BigQuerySource<GenericRecord> source =
@@ -247,8 +314,8 @@ public class BigQueryIntegrationTest {
         runJob(
                 source,
                 source.getProducedType(),
-                recordPropertyToAggregate,
-                recordPropertyForTimestamps);
+                recordPropertyForTimestamps,
+                expectedNumberOfRecords, timeoutTimePeriod);
     }
 
     static class FlatMapper extends RichFlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
