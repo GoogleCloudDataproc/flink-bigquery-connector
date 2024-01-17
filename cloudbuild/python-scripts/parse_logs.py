@@ -22,6 +22,7 @@ In case the number of records match that of BQ table it returns, in case of
 mismatch, it throws an error.
 """
 import argparse
+import time
 from collections.abc import Sequence
 import re
 
@@ -364,21 +365,32 @@ def read_logs(cluster_temp_bucket, logs_pattern, query, mode):
     is_metric_found = False
     is_query_result_found = False
     is_unbounded_result_found = False
-    # Get all the contents in the GCS Bucket.
-    gcs_bucket_contents = get_bucket_contents(cluster_temp_bucket)
 
     # Form the logs_pattern.
     # logs are stored in files having names of the format 'log_pattern/...'
     # the pattern enables searching for the same.
     logs_pattern = re.compile(rf'{re.escape(logs_pattern)}/.+')
 
-    # Find all strings in the array that match the pattern.
-    gcs_log_objects = [
-        gcs_log_object
-        for gcs_log_object in gcs_bucket_contents
-        if logs_pattern.match(gcs_log_object)
-    ]
+    # Retry to make sure the logs are actually absent.
+    no_retries = 5
+    wait_time = 5
+    gcs_log_objects = []
+    while len(gcs_log_objects) == 0 and no_retries > 0:
+        logging.info('Attempting to find log file.')
+        no_retries -= 1
+        time.sleep(wait_time)
+        # Get all the contents in the GCS Bucket.
+        gcs_bucket_contents = get_bucket_contents(cluster_temp_bucket)
+        # Find all strings in the array that match the pattern.
+        gcs_log_objects = [
+            gcs_log_object
+            for gcs_log_object in gcs_bucket_contents
+            if logs_pattern.match(gcs_log_object)
+        ]
+        wait_time *= 2
+
     for gcs_log_object in gcs_log_objects:
+        logging.info(f'Logs found in the file: {gcs_log_object}')
         # -1 is returned in case metric not found in the log file.
         (metric_value, is_query_result_present,
          is_unbounded_result_present) = get_blob_and_check_metric(
