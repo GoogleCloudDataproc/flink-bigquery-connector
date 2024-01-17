@@ -198,8 +198,14 @@ public class BigQueryIntegrationTest {
                         "BigQueryStreamingSource",
                         typeInfo)
                 .flatMap(
-                        (FlatMapFunction<GenericRecord, Tuple2<String, Integer>>)
-                                (value, out) -> out.collect(Tuple2.of("commonKey", 1)))
+                        new FlatMapFunction<GenericRecord, Tuple2<String, Integer>>() {
+                            @Override
+                            public void flatMap(
+                                    GenericRecord value, Collector<Tuple2<String, Integer>> out)
+                                    throws Exception {
+                                out.collect(Tuple2.of("commonKey", 1));
+                            }
+                        })
                 .keyBy(mappedTuple -> mappedTuple.f0)
                 .process(
                         new KeyedProcessFunction<String, Tuple2<String, Integer>, Long>() {
@@ -239,7 +245,8 @@ public class BigQueryIntegrationTest {
                                 }
                                 out.collect(this.numRecords.value());
                             }
-                        }).returns(TypeInformation.of(Long.class))
+                        })
+                .returns(TypeInformation.of(Long.class))
                 .print();
 
         String jobName = "Flink BigQuery Unbounded Read Integration Test";
