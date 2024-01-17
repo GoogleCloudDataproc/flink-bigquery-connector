@@ -81,9 +81,9 @@ import java.util.concurrent.TimeoutException;
  *             Used in unbounded/hybrid mode} <br>
  *         <li>--mode {unbounded in this case}.
  *         <li>--expected-records {optional; The total number of records expected to be read.
- *         Default Value: 12}.
+ *             Default Value: 12}.
  *         <li>--timeout {optional; Time Interval (in minutes) after which the job is terminated.
- *         Default Value: 18}.
+ *             Default Value: 18}.
  *       </ul>
  *       The sequence of operations in this pipeline is the same as bounded one. This job is run
  *       asynchronously. The test appends newer partitions to check the read correctness. Hence,
@@ -180,7 +180,8 @@ public class BigQueryIntegrationTest {
             Source<GenericRecord, ?, ?> source,
             TypeInformation<GenericRecord> typeInfo,
             String recordPropertyForTimestamps,
-            Long expectedValue, Integer timeoutTimePeriod)
+            Long expectedValue,
+            Integer timeoutTimePeriod)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -197,7 +198,8 @@ public class BigQueryIntegrationTest {
                         "BigQueryStreamingSource",
                         typeInfo)
                 .flatMap(
-                        (FlatMapFunction<GenericRecord, Tuple2<String, Integer>>) (value, out) -> out.collect(Tuple2.of("commonKey", 1)))
+                        (FlatMapFunction<GenericRecord, Tuple2<String, Integer>>)
+                                (value, out) -> out.collect(Tuple2.of("commonKey", 1)))
                 .keyBy(mappedTuple -> mappedTuple.f0)
                 .process(
                         new KeyedProcessFunction<String, Tuple2<String, Integer>, Long>() {
@@ -256,7 +258,6 @@ public class BigQueryIntegrationTest {
         } catch (TimeoutException e) {
             LOG.info("Job Cancelled!");
         }
-
     }
 
     private static void runBoundedFlinkJob(
@@ -315,7 +316,8 @@ public class BigQueryIntegrationTest {
                 source,
                 source.getProducedType(),
                 recordPropertyForTimestamps,
-                expectedNumberOfRecords, timeoutTimePeriod);
+                expectedNumberOfRecords,
+                timeoutTimePeriod);
     }
 
     static class FlatMapper extends RichFlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
