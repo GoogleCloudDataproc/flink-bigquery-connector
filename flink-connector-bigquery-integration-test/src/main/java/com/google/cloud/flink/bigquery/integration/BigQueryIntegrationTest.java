@@ -239,7 +239,7 @@ public class BigQueryIntegrationTest {
                                 }
                                 out.collect(this.numRecords.value());
                             }
-                        })
+                        }).returns(TypeInformation.of(Long.class))
                 .print();
 
         String jobName = "Flink BigQuery Unbounded Read Integration Test";
