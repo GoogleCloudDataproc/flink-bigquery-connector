@@ -133,7 +133,7 @@ public class BigQueryIntegrationTest {
         String tableName = parameterTool.getRequired("bq-table");
         String mode = parameterTool.get("mode", "bounded");
         String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
-        Long expectedNumberOfRecords = parameterTool.getLong("expected-records", 12);
+        Long expectedNumberOfRecords = parameterTool.getLong("expected-records", 210000L);
         Integer timeoutTimePeriod = parameterTool.getInt("timeout", 18);
 
         Integer partitionDiscoveryInterval =
