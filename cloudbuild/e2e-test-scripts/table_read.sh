@@ -40,6 +40,8 @@ elif [ "$MODE" == "unbounded" ]
 then
   echo "Unbounded Mode!"
   source cloudbuild/e2e-test-scripts/unbounded_table_read.sh
+  # Add more sleep time. as IO might take time.
+  sleep 55
 else
   echo "Invalid 'MODE' provided. Please provide 'bounded' or 'unbounded'!"
   exit 1

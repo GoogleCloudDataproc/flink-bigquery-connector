@@ -371,13 +371,20 @@ def read_logs(cluster_temp_bucket, logs_pattern, query, mode):
     # the pattern enables searching for the same.
     logs_pattern = re.compile(rf'{re.escape(logs_pattern)}/.+')
 
+    wait_time = 5
+    # Get all the contents in the GCS Bucket.
+    gcs_bucket_contents = get_bucket_contents(cluster_temp_bucket)
+    # Find all strings in the array that match the pattern.
+    gcs_log_objects = [
+        gcs_log_object
+        for gcs_log_object in gcs_bucket_contents
+        if logs_pattern.match(gcs_log_object)
+    ]
+    #  If the logs have not been found yet.
     # Retry to make sure the logs are actually absent.
     no_retries = 5
-    wait_time = 5
-    gcs_log_objects = []
     while len(gcs_log_objects) == 0 and no_retries > 0:
-        logging.info('Attempting to find log file.')
-        no_retries -= 1
+        logging.info('Attempting to find log files again.')
         time.sleep(wait_time)
         # Get all the contents in the GCS Bucket.
         gcs_bucket_contents = get_bucket_contents(cluster_temp_bucket)
@@ -387,10 +394,9 @@ def read_logs(cluster_temp_bucket, logs_pattern, query, mode):
             for gcs_log_object in gcs_bucket_contents
             if logs_pattern.match(gcs_log_object)
         ]
-        wait_time *= 2
 
     for gcs_log_object in gcs_log_objects:
-        logging.info(f'Logs found in the file: {gcs_log_object}')
+        logging.info(f'Found logs file: {gcs_log_object}')
         # -1 is returned in case metric not found in the log file.
         (metric_value, is_query_result_present,
          is_unbounded_result_present) = get_blob_and_check_metric(
