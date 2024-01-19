@@ -20,7 +20,7 @@ timestamp=$(date +"%Y%m%d%H%M%S")
 # Copy the table
 bq cp -f "$DATASET_NAME"."$TABLE_NAME" "$DATASET_NAME"."$TABLE_NAME"_"$timestamp"
 
-# Change the table name for all future uses.
+# Set the table name to above copy for using in this test.
 TABLE_NAME="$TABLE_NAME"_"$timestamp"
 
 # Set the expiration time to 1 hour.
