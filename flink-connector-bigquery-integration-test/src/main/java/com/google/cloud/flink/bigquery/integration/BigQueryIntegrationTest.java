@@ -81,7 +81,7 @@ import java.util.concurrent.TimeoutException;
  *             Used in unbounded/hybrid mode} <br>
  *         <li>--mode {unbounded in this case}.
  *         <li>--expected-records {optional; The total number of records expected to be read.
- *             Default Value: 12}.
+ *             Default Value: 210000}.
  *         <li>--timeout {optional; Time Interval (in minutes) after which the job is terminated.
  *             Default Value: 18}.
  *       </ul>
