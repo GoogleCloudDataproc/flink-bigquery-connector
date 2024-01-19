@@ -36,21 +36,21 @@ if [ "$MODE" == "bounded" ]
 then
   echo "Bounded Mode!"
   source cloudbuild/e2e-test-scripts/bounded_table_read.sh
+  # Wait for the logs to be saved.
+  # Logs take some time to be saved and be available.
+  # wait for a few seconds to ensure smooth execution.
+  sleep 5
 elif [ "$MODE" == "unbounded" ]
 then
   echo "Unbounded Mode!"
   source cloudbuild/e2e-test-scripts/unbounded_table_read.sh
   # Add more sleep time. as IO might take time.
-  sleep 55
+  # Logs take some time to be saved and be available.
+  sleep 60
 else
   echo "Invalid 'MODE' provided. Please provide 'bounded' or 'unbounded'!"
   exit 1
 fi
-
-# Wait for the logs to be saved.
-# Logs take some time to be saved and be available.
-# wait for a few seconds to ensure smooth execution.
-sleep 5
 
 # Now check the success of the job
 # Mode helps in checking ofr unbounded job separately.
