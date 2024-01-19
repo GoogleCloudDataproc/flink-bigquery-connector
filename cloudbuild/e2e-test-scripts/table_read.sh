@@ -53,7 +53,7 @@ else
 fi
 
 # Now check the success of the job
-# Mode helps in checking ofr unbounded job separately.
+# Mode helps in checking for unbounded job separately.
 python3 cloudbuild/python-scripts/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --query "$QUERY_STRING" --mode "$MODE"
 ret=$?
 
