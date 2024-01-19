@@ -22,7 +22,6 @@ In case the number of records match that of BQ table it returns, in case of
 mismatch, it throws an error.
 """
 import argparse
-import time
 from collections.abc import Sequence
 import re
 
@@ -200,17 +199,16 @@ def get_blob_and_check_metric(
                                       r'count \((\d+)\)')
         match = re.search(records_exceed_log_pattern, logs_as_string)
 
-        # Check if blob containing the logs contain the string of the form
-        # "Number of records processed (%d) exceed the expected count (%d)"
-        # then throw an error.
+        # If logs contain the string mentioned below,
+        # then count of records has exceeded the expected count, so throw an error.
         if match:
             records_processed = int(match.group(1))
             expected_count = int(match.group(2))
             raise RuntimeError(f'Records processed: {records_processed},'
                                f' exceed the Expected count: {expected_count}')
 
-        # If not get logs of type  "%d number of records have been processed".
-        # Read the blob and get the metric from them,
+        # If no error log was found,
+        # then ensure the expected record count was reached.
         records_counted_log_pattern = r'(\d+) number of records have been processed'
         match = re.search(records_counted_log_pattern, logs_as_string)
         if match:
