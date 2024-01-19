@@ -195,14 +195,6 @@ def get_blob_and_check_metric(
         )
 
     if mode == 'unbounded':
-        '''
-        Check if blob containing the logs contain the string of the form 
-        "Number of records processed (%d) exceed the expected count (%d)"
-        then throw an error,
-        If not get logs of type  "%d number of records have been processed".
-        Read the blob and get the metric from them,
-        and check if they match the bigquery table count.     
-        '''
         # This is hardcoded on the basis of logs
         records_exceed_log_pattern = (r'Number of records processed \((\d+)\) exceed the expected '
                                       r'count \((\d+)\)')
