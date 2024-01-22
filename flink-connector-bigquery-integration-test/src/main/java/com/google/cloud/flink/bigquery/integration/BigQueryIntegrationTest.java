@@ -207,42 +207,7 @@ public class BigQueryIntegrationTest {
                             }
                         })
                 .keyBy(mappedTuple -> mappedTuple.f0)
-                .process(
-                        new KeyedProcessFunction<String, Tuple2<String, Integer>, Long>() {
-
-                            transient ValueState<Long> numRecords;
-
-                            @Override
-                            public void open(Configuration config) {
-                                ValueStateDescriptor<Long> descriptor =
-                                        new ValueStateDescriptor<>(
-                                                "numRecords", TypeInformation.of(Long.class), 0L);
-                                this.numRecords = getRuntimeContext().getState(descriptor);
-                            }
-
-                            @Override
-                            public void processElement(
-                                    Tuple2<String, Integer> value,
-                                    KeyedProcessFunction<String, Tuple2<String, Integer>, Long>
-                                                    .Context
-                                            ctx,
-                                    Collector<Long> out)
-                                    throws Exception {
-                                this.numRecords.update(this.numRecords.value() + 1);
-                                if (this.numRecords.value() > expectedValue) {
-                                    LOG.info(
-                                            String.format(
-                                                    "Number of records processed (%d) exceed the expected count (%d)",
-                                                    this.numRecords.value(), expectedValue));
-                                } else if (Objects.equals(this.numRecords.value(), expectedValue)) {
-                                    LOG.info(
-                                            String.format(
-                                                    "%d number of records have been processed",
-                                                    expectedValue));
-                                }
-                                out.collect(this.numRecords.value());
-                            }
-                        })
+                .process(new CustomKeyedProcessFunction(expectedValue))
                 .returns(TypeInformation.of(Long.class))
                 .print();
 
@@ -378,6 +343,44 @@ public class BigQueryIntegrationTest {
         public String map(GenericRecord value) throws Exception {
             this.counter.inc();
             return "[ " + value.get("HOUR") + ", " + value.get("DAY") + " ]";
+        }
+    }
+
+    static class CustomKeyedProcessFunction
+            extends KeyedProcessFunction<String, Tuple2<String, Integer>, Long> {
+
+        private transient ValueState<Long> numRecords;
+        private final Long expectedValue;
+
+        CustomKeyedProcessFunction(Long expectedValue) {
+            this.expectedValue = expectedValue;
+        }
+
+        @Override
+        public void open(Configuration config) {
+            ValueStateDescriptor<Long> descriptor =
+                    new ValueStateDescriptor<>("numRecords", TypeInformation.of(Long.class), 0L);
+            this.numRecords = getRuntimeContext().getState(descriptor);
+        }
+
+        @Override
+        public void processElement(
+                Tuple2<String, Integer> value,
+                KeyedProcessFunction<String, Tuple2<String, Integer>, Long>.Context ctx,
+                Collector<Long> out)
+                throws Exception {
+            this.numRecords.update(this.numRecords.value() + 1);
+            if (this.numRecords.value() > this.expectedValue) {
+                LOG.info(
+                        String.format(
+                                "Number of records processed (%d) exceed the expected count (%d)",
+                                this.numRecords.value(), this.expectedValue));
+            } else if (Objects.equals(this.numRecords.value(), this.expectedValue)) {
+                LOG.info(
+                        String.format(
+                                "%d number of records have been processed", this.expectedValue));
+            }
+            out.collect(this.numRecords.value());
         }
     }
 }
