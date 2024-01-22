@@ -228,15 +228,12 @@ public class BigQueryIntegrationTest {
                                             ctx,
                                     Collector<Long> out)
                                     throws Exception {
-
                                 this.numRecords.update(this.numRecords.value() + 1);
-
                                 if (this.numRecords.value() > expectedValue) {
                                     LOG.info(
                                             String.format(
                                                     "Number of records processed (%d) exceed the expected count (%d)",
                                                     this.numRecords.value(), expectedValue));
-
                                 } else if (Objects.equals(this.numRecords.value(), expectedValue)) {
                                     LOG.info(
                                             String.format(
@@ -250,7 +247,6 @@ public class BigQueryIntegrationTest {
                 .print();
 
         String jobName = "Flink BigQuery Unbounded Read Integration Test";
-
         CompletableFuture<Void> handle =
                 CompletableFuture.runAsync(
                         () -> {
@@ -330,7 +326,6 @@ public class BigQueryIntegrationTest {
     static class FlatMapper extends RichFlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
 
         private final String recordPropertyToAggregate;
-
         private transient Counter counter;
 
         @Override
@@ -347,7 +342,6 @@ public class BigQueryIntegrationTest {
         public void flatMap(GenericRecord readRecord, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
             this.counter.inc();
-
             out.collect(
                     Tuple2.of(
                             String.valueOf(
