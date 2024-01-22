@@ -379,7 +379,8 @@ def read_logs(cluster_temp_bucket, logs_pattern, query, mode):
             cluster_temp_bucket,
             metric_string,
             end_of_metric_string,
-            query, mode
+            query,
+            mode
         )
         if metric_value != -1:
             is_metric_found = True
@@ -556,7 +557,8 @@ def main(argv: Sequence[str]) -> None:
         project_name,
         dataset_name,
         table_name,
-        query, mode
+        query,
+        mode
     )
 
 
