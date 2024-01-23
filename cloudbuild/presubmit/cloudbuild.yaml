@@ -2,14 +2,14 @@ steps:
   # 1. Create a Docker image containing flink-bigquery-connector repo
   - name: 'gcr.io/cloud-builders/docker'
     id: 'docker-build'
-    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit', '-f', 'cloudbuild/Dockerfile', '.']
+    args: ['build', '--tag=gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit', '-f', 'cloudbuild/presubmit/Dockerfile', '.']
 
 # 2. Fetch maven and dependencies
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-presubmit'
     id: 'init'
     waitFor: ['docker-build']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/presubmit.sh', 'init']
+    args: ['/workspace/cloudbuild/presubmit/presubmit.sh', 'init']
     env:
     - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
 
@@ -18,7 +18,7 @@ steps:
     id: 'unit-tests'
     waitFor: ['init']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/presubmit.sh', 'tests']
+    args: ['/workspace/cloudbuild/presubmit/presubmit.sh', 'tests']
     env:
     - 'CODECOV_TOKEN=${_CODECOV_TOKEN}'
 
