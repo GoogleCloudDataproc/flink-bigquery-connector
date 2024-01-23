@@ -5,10 +5,9 @@
 #PROPERTIES=flink:state.backend.type=rocksdb,flink:state.backend.incremental=true,flink:state.backend.rocksdb.memory.managed=true,flink:state.checkpoints.dir=gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir/,flink:taskmanager.numberOfTaskSlots=4,flink:parallelism.default=16,flink:jobmanager.memory.process.size=7g,flink:taskmanager.memory.process.size=10g,flink:classloader.resolve-order=parent-first
 CLUSTER_NAME=$1
 REGION=$2
-PROPERTIES=$3
-NUM_WORKERS=$4
-TEMP_BUCKET=$5
-STAGING_BUCKET=$6
+NUM_WORKERS=$3
+TEMP_BUCKET=$4
+STAGING_BUCKET=$5
 
 # Set the project, location and zone for the cluster creation.
 gcloud config set project "$PROJECT_ID"
@@ -34,7 +33,6 @@ gcloud dataproc clusters create "$CLUSTER_NAME" \
     --image-version="$DATAPROC_IMAGE_VERSION" \
     --optional-components=FLINK \
     --enable-component-gateway \
-    --properties="$PROPERTIES" \
     --num-masters=1 \
     --num-workers="$NUM_WORKERS" \
     --bucket="$STAGING_BUCKET" \
