@@ -14,15 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Get the timestamp to annotate the copy of the partitioned table.
+timestamp=$(date +"%Y%m%d%H%M%S")
+
+# Copy the table
+bq cp -f "$DATASET_NAME"."$TABLE_NAME" "$DATASET_NAME"."$TABLE_NAME"_"$timestamp"
+
+# Set the table name to above copy for using in this test.
+TABLE_NAME="$TABLE_NAME"_"$timestamp"
+
+# Set the expiration time to 1 hour.
+bq update --expiration 3600 "$DATASET_NAME"."$TABLE_NAME"
+
 # Running this job async to make sure it exits so that dynamic data can be added
-gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --async -- --gcp-project "$PROJECT_NAME" --bq-dataset "$DATASET_NAME" --bq-table "$TABLE_NAME" --mode unbounded --agg-prop "$AGG_PROP_NAME" --ts-prop "$TS_PROP_NAME" --partition-discovery-interval "$PARTITION_DISCOVERY_INTERVAL"
+gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties=taskmanager.numberOfTaskSlots=1,parallelism.default=1 --async -- --gcp-project "$PROJECT_NAME" --bq-dataset "$DATASET_NAME" --bq-table "$TABLE_NAME" --mode unbounded --agg-prop "$AGG_PROP_NAME" --ts-prop "$TS_PROP_NAME" --partition-discovery-interval "$PARTITION_DISCOVERY_INTERVAL"
 
 # Dynamically adding the data. This is timed 2.5 min wait for read and 5 min refresh time.
 python3 cloudbuild/nightly/scripts/python-scripts/insert_dynamic_partitions.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --refresh_interval "$PARTITION_DISCOVERY_INTERVAL"
 
-# Wait for a bit, as mapping and output of records takes some time.
-sleep 3m
-
-# Kill the dataproc job
-# quiet flag will not ask for console input.
-gcloud dataproc jobs kill "$JOB_ID" --region="$REGION" --quiet
+# Now the Dataproc job will automatically succeed after stipulated time (18 minutes hardcoded).
+# we wait for it to succeed or finish.
+gcloud dataproc jobs wait "$JOB_ID" --region "$REGION" --project "$PROJECT_NAME"
