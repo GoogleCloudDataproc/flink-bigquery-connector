@@ -19,7 +19,7 @@ steps:
     id: 'create-clusters'
     waitFor: ['init']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly-job/nightly.sh', 'create_clusters']
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'create_clusters']
     env:
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'DATAPROC_IMAGE_VERSION=${_DATAPROC_IMAGE_VERSION}'
