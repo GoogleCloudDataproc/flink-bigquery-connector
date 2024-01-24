@@ -57,13 +57,14 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
             "lifecycle_config": {"auto_delete_ttl": '3600s'},
         }
     }
-    # Create the cluster.
-    operation = cluster_client.create_cluster(
-        request={"project_id": project_id, "region": region, "cluster": cluster}
-    )
+
 
     try:
-        result = operation.result()
+        # Create the cluster.
+        operation = cluster_client.create_cluster(
+            request={"project_id": project_id, "region": region, "cluster": cluster}
+        )
+        operation.result()
     except Exception as e:
         raise RuntimeError("Cluster could not be created.")
 
