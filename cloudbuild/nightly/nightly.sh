@@ -37,14 +37,9 @@ case $STEP in
     CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST"
     REGION_SMALL_TEST="$REGION"
-    # store multiple values as environment variables
-    export REGION_SMALL_TEST="$REGION"
-    export CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"
-    echo "$CLUSTER_NAME_SMALL_TEST" > /workspace/build_vars
-    echo "$REGION_SMALL_TEST" > /workspace/build_vars
-    # write all variables to the persistent volume "/workspace"
-    env | grep "REGION_SMALL_TEST" > /workspace/build_vars
-    env | grep "CLUSTER_NAME_SMALL_TEST" > /workspace/build_vars
+    echo "$$CLUSTER_NAME_SMALL_TEST" > /workspace/cluster_small_test.txt
+    echo "$$REGION_SMALL_TEST" > /workspace/region_small_test.txt
+
 
 #    # 2. Create the second cluster for unbounded read.
 #    # Modify the cluster name, staging and temp bucket names for all tests.
@@ -56,9 +51,8 @@ case $STEP in
 
   # Run the small table read bounded e2e test.
   e2e_bounded_read_small_table_test)
-    source /workspace/build_vars
-    echo "$REGION_SMALL_TEST"
     echo "$CLUSTER_NAME_SMALL_TEST"
+    echo "$REGION_SMALL_TEST"
     # Run the simple bounded table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded"
     exit

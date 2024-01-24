@@ -58,8 +58,8 @@ steps:
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
-#      - 'REGION_SMALL_TEST=${_REGION_SMALL_TEST}'
-#      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
+      - 'REGION_SMALL_TEST=$(cat /workspace/region_small_test.txt)'
+      - 'CLUSTER_NAME_SMALL_TEST=$(cat /workspace/cluster_small_test.txt)'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_DATASET_NAME}'
       - 'TABLE_NAME_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
