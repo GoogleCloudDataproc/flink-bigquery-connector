@@ -48,6 +48,8 @@ steps:
       - 'TABLE_NAME_SIMPLE_TABLE=${_TABLE_NAME_SIMPLE_TABLE}'
       - 'AGG_PROP_NAME_SIMPLE_TABLE=${_AGG_PROP_NAME_SIMPLE_TABLE}'
       - 'PROPERTIES_BOUNDED_JOB=${_PROPERTIES_BOUNDED_JOB}'
+      - 'REGION_SMALL_TEST=$(cat /workspace/region_small_test.txt)'
+      - 'CLUSTER_NAME_SMALL_TEST=$(cat /workspace/cluster_small_test.txt)'
 
 # 5. Start the nested schema table read e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
