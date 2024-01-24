@@ -54,6 +54,11 @@ case $STEP in
   e2e_bounded_read_small_table_test)
     echo "$CLUSTER_NAME_SMALL_TEST"
     echo "$REGION_SMALL_TEST"
+    export REGION_SMALL_TEST=$(cat /workspace/region_small_test.txt)
+    export CLUSTER_NAME_SMALL_TEST=$(cat /workspace/cluster_small_test.txt)
+
+    echo "$CLUSTER_NAME_SMALL_TEST"
+    echo "$REGION_SMALL_TEST"
     # Run the simple bounded table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded"
     exit
