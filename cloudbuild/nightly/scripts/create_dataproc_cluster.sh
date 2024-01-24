@@ -30,15 +30,16 @@ do
   # Create the cluster
   # max-age indicates that the cluster will auto delete in an hour.
   # use the default created staging and temp buckets.
-  gcloud dataproc clusters create "$CLUSTER_NAME" \
-      --region="$REGION" \
-      --image-version="$DATAPROC_IMAGE_VERSION" \
-      --optional-components=FLINK \
-      --enable-component-gateway \
-      --num-masters=1 \
-      --max-age=1h \
-      --num-workers="$NUM_WORKERS" \
-      --initialization-actions="$INITIALISATION_ACTION_SCRIPT_URI"
+#  gcloud dataproc clusters create "$CLUSTER_NAME" \
+#      --region="$REGION" \
+#      --image-version="$DATAPROC_IMAGE_VERSION" \
+#      --optional-components=FLINK \
+#      --enable-component-gateway \
+#      --num-masters=1 \
+#      --max-age=1h \
+#      --num-workers="$NUM_WORKERS" \
+#      --initialization-actions="$INITIALISATION_ACTION_SCRIPT_URI"
+  echo "Hello World"
   # Check if cluster creation succeeds.
   result=$?
   if [[ $result -eq 0 ]]
