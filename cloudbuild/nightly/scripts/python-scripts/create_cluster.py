@@ -62,9 +62,10 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         request={"project_id": project_id, "region": region, "cluster": cluster}
     )
 
-    result = operation.result()
-    print(result)
-    print("here as well")
+    try:
+        result = operation.result()
+    except Exception as e:
+        raise RuntimeError("Cluster could not be created.")
 
 
 def main(argv: Sequence[str]) -> None:
