@@ -49,7 +49,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
             "config_bucket": staging_bucket_name,
             "temp_bucket": temp_bucket_name,
             "master_config": {"num_instances": 1, "machine_type_uri": "n1-standard-2"},
-            "worker_config": {"num_instances": num_workers, "machine_type_uri": "n1-standard-2"},
+            "worker_config": {"num_instances": num_workers, "machine_type_uri": "n2-standard-4"},
             "software_config": {
                 "image_version": dataproc_image_version,
                 "optional_components": ["FLINK"]},
