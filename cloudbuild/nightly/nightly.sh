@@ -35,7 +35,7 @@ case $STEP in
     # 1. Create the first cluster for bounded read.
     # Modify the cluster name, staging and temp bucket names for all tests.
     CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST"
     REGION_SMALL_TEST="$REGION"
     echo "$REGION_SMALL_TEST"
     # store multiple values as environment variables
