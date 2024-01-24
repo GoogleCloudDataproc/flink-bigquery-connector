@@ -28,12 +28,14 @@ gcloud storage buckets create gs://"$STAGING_BUCKET" \
 
 
 # Create the cluster
+# max-age indicates that the cluster will auto delete in an hour.
 gcloud dataproc clusters create "$CLUSTER_NAME" \
     --region="$REGION" \
     --image-version="$DATAPROC_IMAGE_VERSION" \
     --optional-components=FLINK \
     --enable-component-gateway \
     --num-masters=1 \
+    --max-age=1h \
     --num-workers="$NUM_WORKERS" \
     --bucket="$STAGING_BUCKET" \
     --temp-bucket="$TEMP_BUCKET" \
