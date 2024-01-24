@@ -44,7 +44,7 @@ do
   # Create the cluster
   python3 cloudbuild/nightly/scripts/python-scripts/create_cluster.py -- --region "$REGION" --project_id \
   "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --dataproc_image_version "$DATAPROC_IMAGE_VERSION" --num_workers "$NUM_WORKERS" \
-  --initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --temp_bucket_name "$TEMP_BUCKET_NAME" --staging_bucket_name "$STAGING_BUCKET_NAME"
+  --initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --temp_bucket_name "$TEMP_BUCKET" --staging_bucket_name "$STAGING_BUCKET"
 
   # Check if cluster creation succeeds.
   result=$?
