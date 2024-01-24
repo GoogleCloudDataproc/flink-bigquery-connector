@@ -29,7 +29,7 @@ case $STEP in
     ;;
 
   # Create the cluster
-  create_clusters)
+  create_clusters_bounded_small_table)
     #  Get the timestamp to append to cluster name.
     timestamp=$(date +"%Y%m%d%H%M%S")
     # 1. Create the first cluster for bounded read.
@@ -43,7 +43,12 @@ case $STEP in
     # - save the cluster and region for future uses
     echo "$CLUSTER_NAME_SMALL_TEST" > /workspace/cluster_small_test.txt
     echo "$REGION_SMALL_TEST" > /workspace/region_small_test.txt
+    exit
+    ;;
 
+  create_clusters_bounded_large_table)
+    #  Get the timestamp to append to cluster name.
+    timestamp=$(date +"%Y%m%d%H%M%S")
     # 2. Create the second cluster for large table read.
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_LARGE_TABLE_TEST="$CLUSTER_NAME_LARGE_TABLE_TEST"-"$timestamp"
@@ -55,7 +60,12 @@ case $STEP in
     # - save the cluster and region for future uses
     echo "$CLUSTER_NAME_LARGE_TABLE_TEST" > /workspace/cluster_large_table_test.txt
     echo "$REGION_LARGE_TABLE_TEST" > /workspace/region_large_table_test.txt
+    exit
+    ;;
 
+  create_clusters_unbounded_table)
+    #  Get the timestamp to append to cluster name.
+    timestamp=$(date +"%Y%m%d%H%M%S")
     # 3. Create the third cluster for unbounded read.
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_UNBOUNDED_TABLE_TEST="$CLUSTER_NAME_UNBOUNDED_TABLE_TEST"-"$timestamp"
