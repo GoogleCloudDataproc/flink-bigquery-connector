@@ -37,10 +37,11 @@ case $STEP in
     CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST"
     REGION_SMALL_TEST="$REGION"
-    echo "$REGION_SMALL_TEST"
     # store multiple values as environment variables
     export REGION_SMALL_TEST="$REGION"
     export CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"
+    echo "$CLUSTER_NAME_SMALL_TEST" > /workspace/build_vars
+    echo "$REGION_SMALL_TEST" > /workspace/build_vars
     # write all variables to the persistent volume "/workspace"
     env | grep "REGION_SMALL_TEST" > /workspace/build_vars
     env | grep "CLUSTER_NAME_SMALL_TEST" > /workspace/build_vars
