@@ -17,6 +17,8 @@
 CLUSTER_NAME=$1
 REGION_ARRAY_STRING=$2
 NUM_WORKERS=$3
+TEMP_BUCKET=$4
+STAGING_BUCKET=$5
 
 # Set the project, location and zone for the cluster creation.
 gcloud config set project "$PROJECT_ID"
@@ -27,19 +29,23 @@ do
   # Change the region.
   gcloud config set compute/region "$REGION"
 
+  # Create the temp bucket for the cluster.
+  gcloud storage buckets create gs://"$TEMP_BUCKET" \
+      --project="$PROJECT_ID" --location="$REGION" \
+      --uniform-bucket-level-access \
+      --public-access-prevention
+
+  # Create the staging bucket for the cluster.
+  gcloud storage buckets create gs://"$STAGING_BUCKET" \
+      --project="$PROJECT_ID" --location="$REGION" \
+      --uniform-bucket-level-access \
+      --public-access-prevention
+
   # Create the cluster
-  # max-age indicates that the cluster will auto delete in an hour.
-  # use the default created staging and temp buckets.
-#  gcloud dataproc clusters create "$CLUSTER_NAME" \
-#      --region="$REGION" \
-#      --image-version="$DATAPROC_IMAGE_VERSION" \
-#      --optional-components=FLINK \
-#      --enable-component-gateway \
-#      --num-masters=1 \
-#      --max-age=1h \
-#      --num-workers="$NUM_WORKERS" \
-#      --initialization-actions="$INITIALISATION_ACTION_SCRIPT_URI"
-  echo "Hello World"
+  python3 cloudbuild/nightly/scripts/python-scripts/create_cluster.py -- --region "$REGION" --project_id \
+  "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --dataproc_image_version "$DATAPROC_IMAGE_VERSION" --num_workers "$NUM_WORKERS" \
+  --initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --temp_bucket_name "$TEMP_BUCKET_NAME" --staging_bucket_name "$STAGING_BUCKET_NAME"
+
   # Check if cluster creation succeeds.
   result=$?
   if [[ $result -eq 0 ]]
@@ -48,6 +54,8 @@ do
     break
   else
     echo "Cluster Creation Failed."
-    sleep 5
+    # Delete the created buckets.
+    gcloud storage rm --recursive "$TEMP_BUCKET"
+    gcloud storage rm --recursive "$STAGING_BUCKET"
   fi
 done
