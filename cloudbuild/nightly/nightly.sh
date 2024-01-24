@@ -37,8 +37,8 @@ case $STEP in
     CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST"
     REGION_SMALL_TEST="$REGION"
-    echo "$$CLUSTER_NAME_SMALL_TEST" > /workspace/cluster_small_test.txt
-    echo "$$REGION_SMALL_TEST" > /workspace/region_small_test.txt
+    echo "$CLUSTER_NAME_SMALL_TEST" > /workspace/cluster_small_test.txt
+    echo "$REGION_SMALL_TEST" > /workspace/region_small_test.txt
 
 
 #    # 2. Create the second cluster for unbounded read.
