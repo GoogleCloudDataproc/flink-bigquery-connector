@@ -39,6 +39,7 @@ case $STEP in
     REGION_SMALL_TEST="$REGION"
     echo "$CLUSTER_NAME_SMALL_TEST" > /workspace/cluster_small_test.txt
     echo "$REGION_SMALL_TEST" > /workspace/region_small_test.txt
+    cat /workspace/region_small_test.txt
 
 
 #    # 2. Create the second cluster for unbounded read.
