@@ -23,8 +23,8 @@ cd /workspace
 case $STEP in
   # Download maven and all the dependencies
   init)
-    $MVN clean install -DskipTests
-    gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
+#    $MVN clean install -DskipTests
+#    gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
     exit
     ;;
 
@@ -35,20 +35,29 @@ case $STEP in
     # 1. Create the first cluster for bounded read.
     # Modify the cluster name, staging and temp bucket names for all tests.
     CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
-    TEMP_BUCKET_SMALL_TEST="$TEMP_BUCKET_SMALL_TEST"-"$timestamp"
-    STAGING_BUCKET_SMALL_TEST="$STAGING_BUCKET_SMALL_TEST"-"$timestamp"
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST"
-    # 2. Create the second cluster for unbounded read.
-    # Modify the cluster name, staging and temp bucket names for all tests.
-    CLUSTER_NAME_UNBOUNDED_TABLE_TEST="$CLUSTER_NAME_UNBOUNDED_TABLE_TEST"-"$timestamp"
-    TEMP_BUCKET_UNBOUNDED_TABLE_TEST="$TEMP_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
-    STAGING_BUCKET_UNBOUNDED_TABLE_TEST="$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$TEMP_BUCKET_UNBOUNDED_TABLE_TEST" "$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST"
+    REGION_SMALL_TEST="$REGION"
+    echo "$REGION_SMALL_TEST"
+    # store multiple values as environment variables
+    export REGION_SMALL_TEST="$REGION"
+    export CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"
+    # write all variables to the persistent volume "/workspace"
+    env | grep "REGION_SMALL_TEST" > /workspace/build_vars
+    env | grep "CLUSTER_NAME_SMALL_TEST" > /workspace/build_vars
+
+#    # 2. Create the second cluster for unbounded read.
+#    # Modify the cluster name, staging and temp bucket names for all tests.
+#    CLUSTER_NAME_UNBOUNDED_TABLE_TEST="$CLUSTER_NAME_UNBOUNDED_TABLE_TEST"-"$timestamp"
+#    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$TEMP_BUCKET_UNBOUNDED_TABLE_TEST" "$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"
+#    REGION_UNBOUNDED_TABLE_TEST="$REGION"
     exit
     ;;
 
   # Run the small table read bounded e2e test.
   e2e_bounded_read_small_table_test)
+    source /workspace/build_vars
+    echo "$REGION_SMALL_TEST"
+    echo "$CLUSTER_NAME_SMALL_TEST"
     # Run the simple bounded table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded"
     exit
@@ -66,6 +75,8 @@ case $STEP in
     # Run the query test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded"
     exit
+    # TODO: delete this cluster's staging and temp bucket
+    # delete the cluster.
     ;;
 
   # Run the large table O(GB's) read bounded e2e test.
@@ -73,6 +84,8 @@ case $STEP in
     # Run the large table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_LARGE_TABLE" "$AGG_PROP_NAME_LARGE_TABLE" "" "bounded"
     exit
+    #  TODO: delete this cluster's staging and temp bucket
+    # delete the cluster
     ;;
 
   # Run the e2e tests unbounded partitioned table
@@ -80,6 +93,8 @@ case $STEP in
     # Run the unbounded source test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_UNBOUNDED_TABLE" "$AGG_PROP_NAME_UNBOUNDED_TABLE" "" "unbounded"
     exit
+    # TODO: delete this cluster's staging and temp bucket
+    # delete the cluster.
     ;;
 
   *)

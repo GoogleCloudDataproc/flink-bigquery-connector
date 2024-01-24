@@ -1,42 +1,52 @@
-#This is for the unbounded read.
-#PROPERTIES=flink:state.backend.type=rocksdb,flink:state.backend.incremental=true,flink:state.backend.rocksdb.memory.managed=true,flink:state.checkpoints.dir=gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir/,flink:taskmanager.numberOfTaskSlots=2,flink:parallelism.default=4,flink:jobmanager.memory.process.size=2708m,flink:taskmanager.memory.process.size=2708m,flink:classloader.resolve-order=parent-first
+#!/bin/bash
 
-#This is for the bounded read.
-#PROPERTIES=flink:state.backend.type=rocksdb,flink:state.backend.incremental=true,flink:state.backend.rocksdb.memory.managed=true,flink:state.checkpoints.dir=gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir/,flink:taskmanager.numberOfTaskSlots=4,flink:parallelism.default=16,flink:jobmanager.memory.process.size=7g,flink:taskmanager.memory.process.size=10g,flink:classloader.resolve-order=parent-first
+# Copyright 2022 Google Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the 'License');
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#            http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an 'AS IS' BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 CLUSTER_NAME=$1
-REGION=$2
+REGION_ARRAY_STRING=$2
 NUM_WORKERS=$3
-TEMP_BUCKET=$4
-STAGING_BUCKET=$5
 
 # Set the project, location and zone for the cluster creation.
 gcloud config set project "$PROJECT_ID"
-gcloud config set compute/region "$REGION"
+# Convert the REGION_ARRAY_STRING to actual array which can be iterated upon.
+read -a REGION_ARRAY <<< "$REGION_ARRAY_STRING"
+for REGION in "${REGION_ARRAY[@]}"
+do
+  # Change the region.
+  gcloud config set compute/region "$REGION"
 
-# Create the temp bucket for the cluster.
-gcloud storage buckets create gs://"$TEMP_BUCKET" \
-    --project="$PROJECT_ID" --location="$REGION" \
-    --uniform-bucket-level-access \
-    --public-access-prevention
-
-
-# Create the staging bucket for the cluster.
-gcloud storage buckets create gs://"$STAGING_BUCKET" \
-    --project="$PROJECT_ID" --location="$REGION" \
-    --uniform-bucket-level-access \
-    --public-access-prevention
-
-
-# Create the cluster
-# max-age indicates that the cluster will auto delete in an hour.
-gcloud dataproc clusters create "$CLUSTER_NAME" \
-    --region="$REGION" \
-    --image-version="$DATAPROC_IMAGE_VERSION" \
-    --optional-components=FLINK \
-    --enable-component-gateway \
-    --num-masters=1 \
-    --max-age=1h \
-    --num-workers="$NUM_WORKERS" \
-    --bucket="$STAGING_BUCKET" \
-    --temp-bucket="$TEMP_BUCKET" \
-    --initialization-actions="$INITIALISATION_ACTION_SCRIPT_URI"
+  # Create the cluster
+  # max-age indicates that the cluster will auto delete in an hour.
+  # use the default created staging and temp buckets.
+  gcloud dataproc clusters create "$CLUSTER_NAME" \
+      --region="$REGION" \
+      --image-version="$DATAPROC_IMAGE_VERSION" \
+      --optional-components=FLINK \
+      --enable-component-gateway \
+      --num-masters=1 \
+      --max-age=1h \
+      --num-workers="$NUM_WORKERS" \
+      --initialization-actions="$INITIALISATION_ACTION_SCRIPT_URI"
+  # Check if cluster creation succeeds.
+  result=$?
+  if [[ $result -eq 0 ]]
+  then
+    echo "Cluster Successfully Created!"
+    break
+  else
+    echo "Cluster Creation Failed."
+    sleep 5
+  fi
+done
