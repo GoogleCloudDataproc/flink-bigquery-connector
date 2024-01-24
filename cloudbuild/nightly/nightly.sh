@@ -34,15 +34,15 @@ case $STEP in
     timestamp=$(date +"%Y%m%d%H%M%S")
     # 1. Create the first cluster for bounded read.
     # Modify the cluster name, staging and temp bucket names for all tests.
-    CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"_"$timestamp"
-    TEMP_BUCKET_SMALL_TEST="$TEMP_BUCKET_SMALL_TEST"_"$timestamp"
-    STAGING_BUCKET_SMALL_TEST="$STAGING_BUCKET_SMALL_TEST"_"$timestamp"
+    CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
+    TEMP_BUCKET_SMALL_TEST="$TEMP_BUCKET_SMALL_TEST"-"$timestamp"
+    STAGING_BUCKET_SMALL_TEST="$STAGING_BUCKET_SMALL_TEST"-"$timestamp"
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST"
     # 2. Create the second cluster for unbounded read.
     # Modify the cluster name, staging and temp bucket names for all tests.
-    CLUSTER_NAME_UNBOUNDED_TABLE_TEST="$CLUSTER_NAME_UNBOUNDED_TABLE_TEST"_"$timestamp"
-    TEMP_BUCKET_UNBOUNDED_TABLE_TEST="$TEMP_BUCKET_UNBOUNDED_TABLE_TEST"_"$timestamp"
-    STAGING_BUCKET_UNBOUNDED_TABLE_TEST="$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"_"$timestamp"
+    CLUSTER_NAME_UNBOUNDED_TABLE_TEST="$CLUSTER_NAME_UNBOUNDED_TABLE_TEST"-"$timestamp"
+    TEMP_BUCKET_UNBOUNDED_TABLE_TEST="$TEMP_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
+    STAGING_BUCKET_UNBOUNDED_TABLE_TEST="$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$TEMP_BUCKET_UNBOUNDED_TABLE_TEST" "$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"
     exit
     ;;
