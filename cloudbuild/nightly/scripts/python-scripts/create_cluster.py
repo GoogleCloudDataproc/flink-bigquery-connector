@@ -13,6 +13,8 @@
 # limitations under the License
 
 import argparse
+import sys
+
 from absl import app
 from collections.abc import Sequence
 
@@ -66,7 +68,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         )
         operation.result()
     except Exception as e:
-        raise RuntimeError("Cluster could not be created.")
+        sys.exit(1)
 
 
 def main(argv: Sequence[str]) -> None:
