@@ -55,7 +55,7 @@ case $STEP in
     # - call script that creates cluster with retries.
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$TEMP_BUCKET_LARGE_TABLE_TEST" "$STAGING_BUCKET_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST_FILE"
     # - save the cluster for future uses
-    echo "$CLUSTER_LARGE_TABLE_TEST" > "$CLUSTER_LARGE_TABLE_TEST_FILE"
+    echo "$CLUSTER_NAME_LARGE_TABLE_TEST" > "$CLUSTER_LARGE_TABLE_TEST_FILE"
     exit
     ;;
 
