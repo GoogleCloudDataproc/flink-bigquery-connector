@@ -76,12 +76,13 @@ def create_bucket(bucket_name, project_id, region, ):
     """Creates a new bucket."""
     storage_client = storage.Client()
     bucket = storage_client.create_bucket(bucket_name, project=project_id, location=region)
+    logging.info(f"Bucket {bucket.name} created")
     bucket.iam_configuration.uniform_bucket_level_access_enabled = True
     bucket.iam_configuration.public_access_prevention = (
         PUBLIC_ACCESS_PREVENTION_ENFORCED
     )
     bucket.patch()
-    logging.info(f"Bucket {bucket.name} created")
+    logging.info(f"Patch applied to {bucket.name}")
 
 
 def delete_bucket(bucket_name):
