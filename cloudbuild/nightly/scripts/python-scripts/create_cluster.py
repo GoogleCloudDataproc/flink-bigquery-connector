@@ -13,11 +13,12 @@
 # limitations under the License
 
 import argparse
-
+from absl import logging
 from absl import app
 from collections.abc import Sequence
 
-from google.cloud import dataproc_v1 as dataproc
+from google.cloud.storage.constants import PUBLIC_ACCESS_PREVENTION_ENFORCED
+from google.cloud import dataproc_v1 as dataproc, storage
 
 
 def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image_version,
@@ -41,7 +42,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         client_options={"api_endpoint": f"{region}-dataproc.googleapis.com:443"}
     )
 
-    # TODO: --enable-component-gateway.
+    # TODO: enable-component-gateway
     # Create the cluster config.
     cluster = {
         "project_id": project_id,
@@ -58,17 +59,35 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
             "lifecycle_config": {"auto_delete_ttl": '3600s'},
         }
     }
-
-
     try:
         # Create the cluster.
         operation = cluster_client.create_cluster(
             request={"project_id": project_id, "region": region, "cluster": cluster}
         )
-        operation.result()
+        result = operation.result()
+        logging.info(result)
+        return True
     except Exception as e:
-        print("Could not create cluster")
-        exit(1)
+        return False
+
+
+def create_bucket(bucket_name, project_id, region, ):
+    """Creates a new bucket."""
+    storage_client = storage.Client()
+    bucket = storage_client.create_bucket(bucket_name, project=project_id, location=region)
+    bucket.iam_configuration.uniform_bucket_level_access_enabled = True
+    bucket.iam_configuration.public_access_prevention = (
+        PUBLIC_ACCESS_PREVENTION_ENFORCED
+    )
+    bucket.patch()
+    logging.info(f"Bucket {bucket.name} created")
+
+
+def delete_bucket(bucket_name):
+    client = storage.Client()
+    bucket = client.get_bucket(bucket_name)
+    logging.info(f"Bucket {bucket.name} deleted")
+    bucket.delete()
 
 
 def main(argv: Sequence[str]) -> None:
@@ -88,11 +107,11 @@ def main(argv: Sequence[str]) -> None:
         required=True,
     )
     parser.add_argument(
-        '--region',
-        dest='region',
-        help='Region to create the cluster.',
+        '--region_array_string',
+        dest='region_array_string',
+        help='Space separated string of regions.',
         type=str,
-        required=True,
+        required=True
     )
     parser.add_argument(
         '--dataproc_image_version',
@@ -129,20 +148,41 @@ def main(argv: Sequence[str]) -> None:
         type=str,
         required=True,
     )
-    args = parser.parse_args(argv[1:])
+    parser.add_argument(
+        '--region_saving_file',
+        dest='region_saving_file',
+        help='Location of the file to save the final location in which the cluster is created.',
+        type=str,
+        required=True
+    )
 
+    args = parser.parse_args(argv[1:])
     # Providing the values.
     cluster_name = args.cluster_name
-    region = args.region
+    region_array = args.region_array_string.split(' ')
     dataproc_image_version = args.dataproc_image_version
     num_workers = int(args.num_workers)
     initialisation_action_script_uri = args.initialisation_action_script_uri
     project_id = args.project_id
     staging_bucket_name = args.staging_bucket_name
-    temp_bucket_name=args.temp_bucket_name
+    temp_bucket_name = args.temp_bucket_name
+    region_saving_file = args.region_saving_file
 
-    create_cluster(project_id, region, cluster_name, num_workers, dataproc_image_version,
-                   initialisation_action_script_uri, temp_bucket_name, staging_bucket_name)
+    for region in region_array:
+        logging.info(f"Attempting cluster creation with region {region}")
+        create_bucket(temp_bucket_name, project_id, region)
+        create_bucket(staging_bucket_name, project_id, region)
+        is_bucket_created = create_cluster(project_id, region, cluster_name, num_workers,
+                                           dataproc_image_version,
+                                           initialisation_action_script_uri, temp_bucket_name,
+                                           staging_bucket_name)
+        if not is_bucket_created:
+            delete_bucket(temp_bucket_name)
+            delete_bucket(staging_bucket_name)
+        else:
+            file = open(region_saving_file, 'w')
+            file.write(region)
+            file.close()
 
 
 if __name__ == '__main__':

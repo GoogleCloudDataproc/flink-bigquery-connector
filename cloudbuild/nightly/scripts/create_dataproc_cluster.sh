@@ -19,43 +19,12 @@ REGION_ARRAY_STRING=$2
 NUM_WORKERS=$3
 TEMP_BUCKET=$4
 STAGING_BUCKET=$5
+REGION_SAVING_FILE=$6
 
 # Set the project, location and zone for the cluster creation.
 gcloud config set project "$PROJECT_ID"
-# Convert the REGION_ARRAY_STRING to actual array which can be iterated upon.
-read -a REGION_ARRAY <<< "$REGION_ARRAY_STRING"
-for REGION in "${REGION_ARRAY[@]}"
-do
-  # Change the region.
-  gcloud config set compute/region "$REGION"
-
-  # Create the temp bucket for the cluster.
-  gcloud storage buckets create gs://"$TEMP_BUCKET" \
-      --project="$PROJECT_ID" --location="$REGION" \
-      --uniform-bucket-level-access \
-      --public-access-prevention
-
-  # Create the staging bucket for the cluster.
-  gcloud storage buckets create gs://"$STAGING_BUCKET" \
-      --project="$PROJECT_ID" --location="$REGION" \
-      --uniform-bucket-level-access \
-      --public-access-prevention
-
-  # Create the cluster
-  python3 cloudbuild/nightly/scripts/python-scripts/create_cluster.py -- --region "$REGION" --project_id \
-  "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --dataproc_image_version "$DATAPROC_IMAGE_VERSION" --num_workers "$NUM_WORKERS" \
-  --initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --temp_bucket_name "$TEMP_BUCKET" --staging_bucket_name "$STAGING_BUCKET"
-
-  # Check if cluster creation succeeds.
-  result=$?
-  if [[ $result -eq 0 ]]
-  then
-    echo "Cluster Successfully Created!"
-    break
-  else
-    echo "Cluster Creation Failed."
-    # Delete the created buckets.
-    gcloud storage rm --recursive "$TEMP_BUCKET"
-    gcloud storage rm --recursive "$STAGING_BUCKET"
-  fi
-done
+# Create the cluster
+# The script retries to create from the list of regions provided.
+python3 cloudbuild/nightly/scripts/python-scripts/create_cluster.py -- --region_array_string "$REGION_REGION_ARRAY_STRING" --project_id \
+"$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --dataproc_image_version "$DATAPROC_IMAGE_VERSION" --num_workers "$NUM_WORKERS" \
+--initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --temp_bucket_name "$TEMP_BUCKET" --staging_bucket_name "$STAGING_BUCKET" --region_saving_file "$REGION_SAVING_FILE"

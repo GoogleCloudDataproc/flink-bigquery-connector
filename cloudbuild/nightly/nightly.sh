@@ -39,9 +39,8 @@ case $STEP in
     STAGING_BUCKET_SMALL_TEST="$STAGING_BUCKET_SMALL_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST"
-    REGION_SMALL_TEST="$REGION"
-    # - save the cluster and region for future uses
-    echo "$CLUSTER_NAME_SMALL_TEST" > /workspace/cluster_small_test.txt
+    "/workspace/cluster_small_test.txt"
+    # - save the cluster for future uses
     echo "$REGION_SMALL_TEST" > /workspace/region_small_test.txt
     exit
     ;;
@@ -56,9 +55,8 @@ case $STEP in
     STAGING_BUCKET_LARGE_TABLE_TEST="$STAGING_BUCKET_LARGE_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$TEMP_BUCKET_LARGE_TABLE_TEST" "$STAGING_BUCKET_LARGE_TABLE_TEST"
-    REGION_LARGE_TABLE_TEST="$REGION"
-    # - save the cluster and region for future uses
-    echo "$CLUSTER_NAME_LARGE_TABLE_TEST" > /workspace/cluster_large_table_test.txt
+    "/workspace/cluster_large_table_test.txt"
+    # - save the cluster for future uses
     echo "$REGION_LARGE_TABLE_TEST" > /workspace/region_large_table_test.txt
     exit
     ;;
@@ -73,9 +71,8 @@ case $STEP in
     STAGING_BUCKET_UNBOUNDED_TABLE_TEST="$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
     source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$TEMP_BUCKET_UNBOUNDED_TABLE_TEST" "$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"
-    REGION_UNBOUNDED_TABLE_TEST="$REGION"
-    # - save the cluster and region for future uses
-    echo "$REGION_UNBOUNDED_TABLE_TEST" > /workspace/region_unbounded_table_test.txt
+    "/workspace/region_unbounded_table_test.txt"
+    # - save the cluster for future uses
     echo "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" > /workspace/cluster_unbounded_table_test.txt
     exit
     ;;
