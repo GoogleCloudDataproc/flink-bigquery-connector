@@ -24,6 +24,7 @@ TABLE_NAME=$6
 AGG_PROP_NAME=$7
 QUERY_STRING=$8
 MODE=$9
+PROPERTIES=$9
 
 set -euxo pipefail
 gcloud config set project "$PROJECT_ID"
@@ -35,7 +36,7 @@ echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$TABLE_NAME" Read] Created JOB ID: 
 if [ "$MODE" == "bounded" ]
 then
   echo "Bounded Mode!"
-  source cloudbuild/nightly/scripts/bounded_table_read.sh
+  source cloudbuild/nightly/scripts/bounded_table_read.sh "$PROPERTIES"
   # Wait for the logs to be saved.
   # Logs take some time to be saved and be available.
   # wait for a few seconds to ensure smooth execution.
@@ -43,7 +44,7 @@ then
 elif [ "$MODE" == "unbounded" ]
 then
   echo "Unbounded Mode!"
-  source cloudbuild/nightly/scripts/unbounded_table_read.sh
+  source cloudbuild/nightly/scripts/unbounded_table_read.sh "$PROPERTIES"
   # Add more sleep time. as IO might take time.
   # Logs take some time to be saved and be available.
   sleep 60
