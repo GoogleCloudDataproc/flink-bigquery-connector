@@ -38,9 +38,9 @@ case $STEP in
     TEMP_BUCKET_SMALL_TEST="$TEMP_BUCKET_SMALL_TEST"-"$timestamp"
     STAGING_BUCKET_SMALL_TEST="$STAGING_BUCKET_SMALL_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST" "/workspace/cluster_small_test.txt"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST" "$REGION_SMALL_TEST_FILE"
     # - save the cluster for future uses
-    echo "$REGION_SMALL_TEST" > /workspace/region_small_test.txt
+    echo "$CLUSTER_NAME_SMALL_TEST" > "$CLUSTER_SMALL_TEST_FILE"
     exit
     ;;
 
@@ -53,9 +53,9 @@ case $STEP in
     TEMP_BUCKET_LARGE_TABLE_TEST="$TEMP_BUCKET_LARGE_TABLE_TEST"-"$timestamp"
     STAGING_BUCKET_LARGE_TABLE_TEST="$STAGING_BUCKET_LARGE_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$TEMP_BUCKET_LARGE_TABLE_TEST" "$STAGING_BUCKET_LARGE_TABLE_TEST" "/workspace/cluster_large_table_test.txt"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$TEMP_BUCKET_LARGE_TABLE_TEST" "$STAGING_BUCKET_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST_FILE"
     # - save the cluster for future uses
-    echo "$REGION_LARGE_TABLE_TEST" > /workspace/region_large_table_test.txt
+    echo "$CLUSTER_LARGE_TABLE_TEST" > "$CLUSTER_LARGE_TABLE_TEST_FILE"
     exit
     ;;
 
@@ -68,17 +68,17 @@ case $STEP in
     TEMP_BUCKET_UNBOUNDED_TABLE_TEST="$TEMP_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
     STAGING_BUCKET_UNBOUNDED_TABLE_TEST="$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$TEMP_BUCKET_UNBOUNDED_TABLE_TEST" "$STAGING_BUCKET_UNBOUNDED_TABLE_TEST" "/workspace/region_unbounded_table_test.txt"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$TEMP_BUCKET_UNBOUNDED_TABLE_TEST" "$STAGING_BUCKET_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST_FILE"
     # - save the cluster for future uses
-    echo "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" > /workspace/cluster_unbounded_table_test.txt
+    echo "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" > "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE"
     exit
     ;;
 
   # Run the small table read bounded e2e test.
   e2e_bounded_read_small_table_test)
     # Get the final region and the cluster name.
-    export REGION_SMALL_TEST=$(cat /workspace/region_small_test.txt)
-    export CLUSTER_NAME_SMALL_TEST=$(cat /workspace/cluster_small_test.txt)
+    export REGION_SMALL_TEST=$(cat "$REGION_SMALL_TEST_FILE")
+    export CLUSTER_NAME_SMALL_TEST=$(cat "$CLUSTER_SMALL_TEST_FILE")
     # Run the simple bounded table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded"
     exit
@@ -87,8 +87,8 @@ case $STEP in
   # Run the nested schema table read bounded e2e test.
   e2e_bounded_read_nested_schema_table_test)
     # Get the final region and the cluster name.
-    export REGION_SMALL_TEST=$(cat /workspace/region_small_test.txt)
-    export CLUSTER_NAME_SMALL_TEST=$(cat /workspace/cluster_small_test.txt)
+    export REGION_SMALL_TEST=$(cat "$REGION_SMALL_TEST_FILE")
+    export CLUSTER_NAME_SMALL_TEST=$(cat "$CLUSTER_SMALL_TEST_FILE")
     # Run the complex schema table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_COMPLEX_SCHEMA_TABLE" "$AGG_PROP_NAME_COMPLEX_SCHEMA_TABLE" "" "bounded"
     exit
@@ -97,8 +97,8 @@ case $STEP in
   # Run the query read bounded e2e test.
   e2e_bounded_read_query_test)
     # Get the final region and the cluster name.
-    export REGION_SMALL_TEST=$(cat /workspace/region_small_test.txt)
-    export CLUSTER_NAME_SMALL_TEST=$(cat /workspace/cluster_small_test.txt)
+    export REGION_SMALL_TEST=$(cat "$REGION_SMALL_TEST_FILE")
+    export CLUSTER_NAME_SMALL_TEST=$(cat "$CLUSTER_SMALL_TEST_FILE")
     # Run the query test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded"
     # Delete the cluster as well as its staging and temp buckets.
@@ -109,8 +109,8 @@ case $STEP in
   # Run the large table O(GB's) read bounded e2e test.
   e2e_bounded_read_large_table_test)
     # Get the final region and the cluster name.
-    export REGION_LARGE_TABLE_TEST=$(cat /workspace/region_large_table_test.txt)
-    export CLUSTER_NAME_LARGE_TABLE_TEST=$(cat /workspace/cluster_large_table_test.txt)
+    export REGION_LARGE_TABLE_TEST=$(cat "$REGION_LARGE_TABLE_TEST_FILE")
+    export CLUSTER_NAME_LARGE_TABLE_TEST=$(cat "$CLUSTER_LARGE_TABLE_TEST_FILE")
     # Run the large table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_LARGE_TABLE" "$AGG_PROP_NAME_LARGE_TABLE" "" "bounded"
     # Delete the cluster as well as its staging and temp buckets.
@@ -120,8 +120,8 @@ case $STEP in
 
   # Run the e2e tests unbounded partitioned table
   e2e_unbounded_read_test)
-    export REGION_UNBOUNDED_TABLE_TEST=$(cat /workspace/region_unbounded_table_test.txt)
-    export CLUSTER_NAME_UNBOUNDED_TABLE_TEST=$(cat /workspace/cluster_unbounded_table_test.txt)
+    export REGION_UNBOUNDED_TABLE_TEST=$(cat "$REGION_UNBOUNDED_TABLE_TEST_FILE")
+    export CLUSTER_NAME_UNBOUNDED_TABLE_TEST=$(cat "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE")
     # Run the unbounded source test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_UNBOUNDED_TABLE" "$AGG_PROP_NAME_UNBOUNDED_TABLE" "" "unbounded"
     # Delete the cluster as well as its staging and temp buckets.

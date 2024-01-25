@@ -25,6 +25,6 @@ REGION_SAVING_FILE=$6
 gcloud config set project "$PROJECT_ID"
 # Create the cluster
 # The script retries to create from the list of regions provided.
-python3 cloudbuild/nightly/scripts/python-scripts/create_cluster.py -- --region_array_string "$REGION_REGION_ARRAY_STRING" --project_id \
+python3 cloudbuild/nightly/scripts/python-scripts/create_cluster.py -- --region_array_string "$REGION_ARRAY_STRING" --project_id \
 "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --dataproc_image_version "$DATAPROC_IMAGE_VERSION" --num_workers "$NUM_WORKERS" \
 --initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --temp_bucket_name "$TEMP_BUCKET" --staging_bucket_name "$STAGING_BUCKET" --region_saving_file "$REGION_SAVING_FILE"
