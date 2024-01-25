@@ -68,7 +68,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         operation.result()
     except Exception as e:
         print("Could not create cluster")
-        exit(0)
+        exit(1)
 
 
 def main(argv: Sequence[str]) -> None:
