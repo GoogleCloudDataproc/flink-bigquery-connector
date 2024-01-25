@@ -75,25 +75,14 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
 
 def create_bucket(bucket_name, project_id, region):
     """Creates a new bucket."""
-    # storage_client = storage.Client()
-    # bucket = storage_client.create_bucket(bucket_name, project=project_id, location=region)
-    #
-    # bucket.iam_configuration.uniform_bucket_level_access_enabled = True
-    # bucket.iam_configuration.public_access_prevention = (
-    #     PUBLIC_ACCESS_PREVENTION_ENFORCED
-    # )
-    # bucket.patch()
-    # logging.info(f"Patch applied to {bucket_name}")
     os.system(f'gcloud storage buckets create gs://{bucket_name}  --project={project_id} '
               f'--location={region} --uniform-bucket-level-access --public-access-prevention')
     logging.info(f"Bucket {bucket_name} created")
 
 
 def delete_bucket(bucket_name):
-    client = storage.Client()
-    bucket = client.get_bucket(bucket_name)
-    logging.info(f"Bucket {bucket.name} deleted")
-    bucket.delete()
+    os.system(f'gcloud storage rm --recursive gs://{bucket_name}')
+    logging.info(f"Bucket {bucket_name} deleted")
 
 
 def main(argv: Sequence[str]) -> None:
