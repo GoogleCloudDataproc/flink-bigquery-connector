@@ -37,6 +37,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         staging_bucket_name (string): Location of the staging bucket for the cluster.
         temp_bucket_name (string): Location of the temporary bucket for the cluster
     """
+    logging.info(f"Creating cluster {cluster_name} in region {region}")
     # Create a client with the endpoint set to the desired cluster region.
     cluster_client = dataproc.ClusterControllerClient(
         client_options={"api_endpoint": f"{region}-dataproc.googleapis.com:443"}
@@ -185,6 +186,7 @@ def main(argv: Sequence[str]) -> None:
             file = open(region_saving_file, 'w')
             file.write(region)
             file.close()
+            break
 
 
 if __name__ == '__main__':
