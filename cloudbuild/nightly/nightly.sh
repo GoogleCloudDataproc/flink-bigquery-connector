@@ -102,7 +102,7 @@ case $STEP in
     # Run the query test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_SMALL_TEST" "$REGION_SMALL_TEST" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
     # Delete the cluster as well as its staging and temp buckets.
-    python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME_SMALL_TEST" --region "$REGION_SMALL_TEST"
+    python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME_SMALL_TEST" --region "$REGION_SMALL_TEST" --project_id "$PROJECT_ID"
     exit
     ;;
 
@@ -114,7 +114,7 @@ case $STEP in
     # Run the large table test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_LARGE_TABLE" "$AGG_PROP_NAME_LARGE_TABLE" "" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB"
     # Delete the cluster as well as its staging and temp buckets.
-    python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME_LARGE_TABLE_TEST" --region "$REGION_LARGE_TABLE_TEST"
+    python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME_LARGE_TABLE_TEST" --region "$REGION_LARGE_TABLE_TEST" --project_id "$PROJECT_ID"
     exit
     ;;
 
@@ -125,7 +125,7 @@ case $STEP in
     # Run the unbounded source test.
     source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_UNBOUNDED_TABLE" "$AGG_PROP_NAME_UNBOUNDED_TABLE" "" "unbounded" "$PROPERTIES_UNBOUNDED_JOB"
     # Delete the cluster as well as its staging and temp buckets.
-    python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" --region "$REGION_UNBOUNDED_TABLE_TEST"
+    python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" --region "$REGION_UNBOUNDED_TABLE_TEST" --project_id "$PROJECT_ID"
     exit
     ;;
 
