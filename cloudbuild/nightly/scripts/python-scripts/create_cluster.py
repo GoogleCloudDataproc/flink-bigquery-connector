@@ -17,8 +17,7 @@ from absl import logging
 from absl import app
 from collections.abc import Sequence
 import os
-from google.cloud.storage.constants import PUBLIC_ACCESS_PREVENTION_ENFORCED
-from google.cloud import dataproc_v1 as dataproc, storage
+from google.cloud import dataproc_v1 as dataproc
 
 
 def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image_version,
