@@ -32,12 +32,7 @@ gcloud config set project "$PROJECT_ID"
 # Create a random JOB_ID
 JOB_ID=$(echo "$RANDOM" | md5sum | cut -c 1-30)
 echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$TABLE_NAME" Read] Created JOB ID: "$JOB_ID"
-# Create GCS Checkpoint Bucket
-#gcloud storage buckets create gs://flink-bq-connector-chkdir-"$JOB_ID"
-# Create another folder in the GCS Bucket
-#gcloud storage cp gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir gs://flink-bq-connector-chkdir-"$JOB_ID" --recursive
-#PROPERTIES="$PROPERTIES",state.checkpoints.dir=gs://flink-bq-connector-chkdir-"$JOB_ID"/flink-bq-connector-checkpoint-dir
-PROPERTIES="$PROPERTIES",state.checkpoints.dir=gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir/
+# We sleep so that buckets are created properly.
 sleep 20
 if [ "$MODE" == "bounded" ]
 then
@@ -63,11 +58,6 @@ fi
 # Mode helps in checking for unbounded job separately.
 python3 cloudbuild/nightly/scripts/python-scripts/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --query "$QUERY_STRING" --mode "$MODE"
 ret=$?
-
-# Delete the checkpoint directory.
-#echo "Delete the checkpoint Directory"
-#gcloud storage rm  --recursive gs://flink-bq-connector-chkdir-"$JOB_ID"
-
 if [ $ret -ne 0 ]
 then
    echo Run Failed
