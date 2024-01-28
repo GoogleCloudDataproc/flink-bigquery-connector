@@ -33,10 +33,12 @@ gcloud config set project "$PROJECT_ID"
 JOB_ID=$(echo "$RANDOM" | md5sum | cut -c 1-30)
 echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$TABLE_NAME" Read] Created JOB ID: "$JOB_ID"
 # Create GCS Checkpoint Bucket
-gcloud storage buckets create gs://flink-bq-connector-chkdir-"$JOB_ID"
+#gcloud storage buckets create gs://flink-bq-connector-chkdir-"$JOB_ID"
 # Create another folder in the GCS Bucket
-gcloud storage cp gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir gs://flink-bq-connector-chkdir-"$JOB_ID" --recursive
-PROPERTIES="$PROPERTIES",state.checkpoints.dir=gs://flink-bq-connector-chkdir-"$JOB_ID"/flink-bq-connector-checkpoint-dir
+#gcloud storage cp gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir gs://flink-bq-connector-chkdir-"$JOB_ID" --recursive
+#PROPERTIES="$PROPERTIES",state.checkpoints.dir=gs://flink-bq-connector-chkdir-"$JOB_ID"/flink-bq-connector-checkpoint-dir
+PROPERTIES="$PROPERTIES",state.checkpoints.dir=gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir/
+sleep 20
 if [ "$MODE" == "bounded" ]
 then
   echo "Bounded Mode!"
