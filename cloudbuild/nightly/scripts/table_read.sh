@@ -58,6 +58,10 @@ fi
 python3 cloudbuild/nightly/scripts/python-scripts/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --query "$QUERY_STRING" --mode "$MODE"
 ret=$?
 
+# Delete the checkpoint directory.
+echo "Delete the checkpoint Directory"
+gcloud storage rm gs://flink-bq-connector-nightly-job/flink-bq-connector-checkpoint-dir/"$JOB_ID"
+
 if [ $ret -ne 0 ]
 then
    echo Run Failed
