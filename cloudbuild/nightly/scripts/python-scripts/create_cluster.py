@@ -13,6 +13,8 @@
 # limitations under the License
 
 import argparse
+import time
+
 from absl import logging
 from absl import app
 from collections.abc import Sequence
@@ -67,7 +69,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         result = operation.result()
         logging.info(result)
         return True
-    except Exception as e:
+    except Exception as _:
         logging.info(f"Could not create cluster {cluster} in {region}")
         return False
 
@@ -177,6 +179,20 @@ def main(argv: Sequence[str]) -> None:
             file = open(region_saving_file, 'w')
             file.write(region)
             file.close()
+
+            #  Check if staging and temp bucket exists.
+            from google.cloud import storage
+            client = storage.Client()
+
+            for bucket_name in [temp_bucket_name, staging_bucket_name]:
+                no_retries = 5
+                bucket = client.bucket(bucket_name)
+                while (not bucket.exists()) and (no_retries > 0):
+                    time.sleep(10)
+                    bucket = client.bucket(bucket_name)
+                    no_retries -= 1
+                if not bucket.exists():
+                    raise RuntimeError(f'Bucket {bucket_name} does not exist')
             break
 
 
