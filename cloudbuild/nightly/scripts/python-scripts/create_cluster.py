@@ -19,7 +19,20 @@ from absl import logging
 from absl import app
 from collections.abc import Sequence
 import os
-from google.cloud import dataproc_v1 as dataproc
+from google.cloud import dataproc_v1 as dataproc, storage
+
+
+def wait_for_bucket_creation(project_id, temp_bucket_name, staging_bucket_name):
+    #  Check if staging and temp bucket exists.
+    client = storage.Client()
+    for bucket_name in [temp_bucket_name, staging_bucket_name]:
+        logging.info(f'Attempting to find bucket {bucket_name}')
+        bucket = client.bucket(bucket_name, user_project=project_id)
+        while not bucket.exists():
+            logging.info('Retrying...')
+            bucket = client.bucket(bucket_name)
+            time.sleep(10)
+        logging.info(f'Bucket {bucket_name} found!')
 
 
 def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image_version,
@@ -62,6 +75,8 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         }
     }
     try:
+        # Wait for bucket_creation.
+        wait_for_bucket_creation(project_id, temp_bucket_name, staging_bucket_name)
         # Create the cluster.
         operation = cluster_client.create_cluster(
             request={"project_id": project_id, "region": region, "cluster": cluster}
@@ -179,20 +194,7 @@ def main(argv: Sequence[str]) -> None:
             file = open(region_saving_file, 'w')
             file.write(region)
             file.close()
-
-            #  Check if staging and temp bucket exists.
-            from google.cloud import storage
-            client = storage.Client()
-
-            for bucket_name in [temp_bucket_name, staging_bucket_name]:
-                no_retries = 5
-                bucket = client.bucket(bucket_name)
-                while (not bucket.exists()) and (no_retries > 0):
-                    time.sleep(10)
-                    bucket = client.bucket(bucket_name)
-                    no_retries -= 1
-                if not bucket.exists():
-                    raise RuntimeError(f'Bucket {bucket_name} does not exist')
+            wait_for_bucket_creation(project_id, temp_bucket_name, staging_bucket_name)
             break
 
 
