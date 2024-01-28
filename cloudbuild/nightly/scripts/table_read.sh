@@ -65,8 +65,8 @@ python3 cloudbuild/nightly/scripts/python-scripts/parse_logs.py -- --job_id "$JO
 ret=$?
 
 # Delete the checkpoint directory.
-echo "Delete the checkpoint Directory"
-gcloud storage rm  --recursive gs://flink-bq-connector-chkdir-"$JOB_ID"
+#echo "Delete the checkpoint Directory"
+#gcloud storage rm  --recursive gs://flink-bq-connector-chkdir-"$JOB_ID"
 
 if [ $ret -ne 0 ]
 then
