@@ -32,8 +32,7 @@ gcloud config set project "$PROJECT_ID"
 # Create a random JOB_ID
 JOB_ID=$(echo "$RANDOM" | md5sum | cut -c 1-30)
 echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$TABLE_NAME" Read] Created JOB ID: "$JOB_ID"
-# We sleep so that buckets are created properly.
-sleep 20
+
 if [ "$MODE" == "bounded" ]
 then
   echo "Bounded Mode!"
