@@ -31,7 +31,7 @@ gcloud config set project "$PROJECT_ID"
 
 # Create a random JOB_ID
 JOB_ID=$(echo "$RANDOM" | md5sum | cut -c 1-30)
-# Adds timestamp to jobid to prevent job_id repetition.
+# Adds timestamp to job_id to prevent repetition.
 JOB_ID="$JOB_ID"_$(date +"%Y%m%d%H%M%S")
 echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$TABLE_NAME" Read] Created JOB ID: "$JOB_ID"
 

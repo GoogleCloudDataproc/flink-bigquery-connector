@@ -13,30 +13,15 @@
 # limitations under the License
 
 import argparse
-import time
 
 from absl import logging
 from absl import app
 from collections.abc import Sequence
-import os
 from google.cloud import dataproc_v1 as dataproc, storage
 
 
-def wait_for_bucket_creation(project_id, temp_bucket_name, staging_bucket_name):
-    #  Check if staging and temp bucket exists.
-    client = storage.Client()
-    for bucket_name in [temp_bucket_name, staging_bucket_name]:
-        logging.info(f'Attempting to find bucket {bucket_name}')
-        bucket = client.bucket(bucket_name, user_project=project_id)
-        while not bucket.exists():
-            logging.info('Retrying...')
-            bucket = client.bucket(bucket_name)
-            time.sleep(10)
-        logging.info(f'Bucket {bucket_name} found!')
-
-
 def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image_version,
-                   initialisation_action_script_uri, staging_bucket_name, temp_bucket_name):
+                   initialisation_action_script_uri):
     """This sample walks a user through creating a Cloud Dataproc cluster
     using the Python client library.
 
@@ -48,8 +33,6 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         dataproc_image_version (string): The Dataproc Image version used to create the cluster.
         initialisation_action_script_uri (string): Link to the initialisation script for
          the cluster.
-        staging_bucket_name (string): Location of the staging bucket for the cluster.
-        temp_bucket_name (string): Location of the temporary bucket for the cluster
     """
     logging.info(f"Creating cluster {cluster_name} in region {region}")
     # Create a client with the endpoint set to the desired cluster region.
@@ -63,8 +46,6 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         "project_id": project_id,
         "cluster_name": cluster_name,
         "config": {
-            "config_bucket": staging_bucket_name,
-            "temp_bucket": temp_bucket_name,
             "master_config": {"num_instances": 1, "machine_type_uri": "n1-standard-2"},
             "worker_config": {"num_instances": num_workers, "machine_type_uri": "n2-standard-4"},
             "software_config": {
@@ -75,8 +56,6 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         }
     }
     try:
-        # Wait for bucket_creation.
-        wait_for_bucket_creation(project_id, temp_bucket_name, staging_bucket_name)
         # Create the cluster.
         operation = cluster_client.create_cluster(
             request={"project_id": project_id, "region": region, "cluster": cluster}
@@ -87,18 +66,6 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
     except Exception as _:
         logging.info(f"Could not create cluster {cluster} in {region}")
         return False
-
-
-def create_bucket(bucket_name, project_id, region):
-    """Creates a new bucket."""
-    os.system(f'gcloud storage buckets create gs://{bucket_name}  --project={project_id} '
-              f'--location={region} --uniform-bucket-level-access --public-access-prevention')
-    logging.info(f"Bucket {bucket_name} created")
-
-
-def delete_bucket(bucket_name):
-    os.system(f'gcloud storage rm --recursive gs://{bucket_name}')
-    logging.info(f"Bucket {bucket_name} deleted")
 
 
 def main(argv: Sequence[str]) -> None:
@@ -146,20 +113,6 @@ def main(argv: Sequence[str]) -> None:
         required=True,
     )
     parser.add_argument(
-        '--temp_bucket_name',
-        dest='temp_bucket_name',
-        help='Location of the temporary bucket for the cluster.',
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
-        '--staging_bucket_name',
-        dest='staging_bucket_name',
-        help='Location of the staging bucket for the cluster.',
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
         '--region_saving_file',
         dest='region_saving_file',
         help='Location of the file to save the final location in which the cluster is created.',
@@ -175,26 +128,17 @@ def main(argv: Sequence[str]) -> None:
     num_workers = int(args.num_workers)
     initialisation_action_script_uri = args.initialisation_action_script_uri
     project_id = args.project_id
-    staging_bucket_name = args.staging_bucket_name
-    temp_bucket_name = args.temp_bucket_name
     region_saving_file = args.region_saving_file
 
     for region in region_array:
         logging.info(f"Attempting cluster creation with region {region}")
-        create_bucket(temp_bucket_name, project_id, region)
-        create_bucket(staging_bucket_name, project_id, region)
-        is_bucket_created = create_cluster(project_id, region, cluster_name, num_workers,
-                                           dataproc_image_version,
-                                           initialisation_action_script_uri, temp_bucket_name,
-                                           staging_bucket_name)
-        if not is_bucket_created:
-            delete_bucket(temp_bucket_name)
-            delete_bucket(staging_bucket_name)
-        else:
+        is_cluster_created = create_cluster(project_id, region, cluster_name, num_workers,
+                                            dataproc_image_version,
+                                            initialisation_action_script_uri)
+        if is_cluster_created:
             file = open(region_saving_file, 'w')
             file.write(region)
             file.close()
-            wait_for_bucket_creation(project_id, temp_bucket_name, staging_bucket_name)
             break
 
 

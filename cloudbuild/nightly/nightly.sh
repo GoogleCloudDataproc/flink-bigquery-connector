@@ -35,10 +35,8 @@ case $STEP in
     # 1. Create the first cluster for bounded read.
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
-    TEMP_BUCKET_SMALL_TEST="$TEMP_BUCKET_SMALL_TEST"-"$timestamp"
-    STAGING_BUCKET_SMALL_TEST="$STAGING_BUCKET_SMALL_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$TEMP_BUCKET_SMALL_TEST" "$STAGING_BUCKET_SMALL_TEST" "$REGION_SMALL_TEST_FILE"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$REGION_SMALL_TEST_FILE"
     # - save the cluster for future uses
     echo "$CLUSTER_NAME_SMALL_TEST" > "$CLUSTER_SMALL_TEST_FILE"
     exit
@@ -50,10 +48,8 @@ case $STEP in
     # 2. Create the second cluster for large table read.
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_LARGE_TABLE_TEST="$CLUSTER_NAME_LARGE_TABLE_TEST"-"$timestamp"
-    TEMP_BUCKET_LARGE_TABLE_TEST="$TEMP_BUCKET_LARGE_TABLE_TEST"-"$timestamp"
-    STAGING_BUCKET_LARGE_TABLE_TEST="$STAGING_BUCKET_LARGE_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$TEMP_BUCKET_LARGE_TABLE_TEST" "$STAGING_BUCKET_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST_FILE"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST_FILE"
     # - save the cluster for future uses
     echo "$CLUSTER_NAME_LARGE_TABLE_TEST" > "$CLUSTER_LARGE_TABLE_TEST_FILE"
     exit
@@ -65,10 +61,8 @@ case $STEP in
     # 3. Create the third cluster for unbounded read.
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_UNBOUNDED_TABLE_TEST="$CLUSTER_NAME_UNBOUNDED_TABLE_TEST"-"$timestamp"
-    TEMP_BUCKET_UNBOUNDED_TABLE_TEST="$TEMP_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
-    STAGING_BUCKET_UNBOUNDED_TABLE_TEST="$STAGING_BUCKET_UNBOUNDED_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$TEMP_BUCKET_UNBOUNDED_TABLE_TEST" "$STAGING_BUCKET_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST_FILE"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST_FILE"
     # - save the cluster for future uses
     echo "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" > "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE"
     exit
