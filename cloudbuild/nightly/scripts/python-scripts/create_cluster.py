@@ -17,7 +17,7 @@ import argparse
 from absl import logging
 from absl import app
 from collections.abc import Sequence
-from google.cloud import dataproc_v1 as dataproc, storage
+from google.cloud import dataproc_v1 as dataproc
 
 
 def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image_version,
