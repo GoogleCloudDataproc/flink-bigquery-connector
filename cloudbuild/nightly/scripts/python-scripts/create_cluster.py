@@ -34,37 +34,35 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         initialisation_action_script_uri (string): Link to the initialisation script for
          the cluster.
     """
-    logging.info(f"Creating cluster {cluster_name} in region {region}")
+    logging.info(f'Creating cluster {cluster_name} in region {region}')
     # Create a client with the endpoint set to the desired cluster region.
     cluster_client = dataproc.ClusterControllerClient(
-        client_options={"api_endpoint": f"{region}-dataproc.googleapis.com:443"}
+        client_options={'api_endpoint': f'{region}-dataproc.googleapis.com:443'}
     )
-
-    # TODO: enable-component-gateway
     # Create the cluster config.
     cluster = {
-        "project_id": project_id,
-        "cluster_name": cluster_name,
-        "config": {
-            "master_config": {"num_instances": 1, "machine_type_uri": "n1-standard-2"},
-            "worker_config": {"num_instances": num_workers, "machine_type_uri": "n2-standard-4"},
-            "software_config": {
-                "image_version": dataproc_image_version,
-                "optional_components": ["FLINK"]},
-            "initialization_actions": [{"executable_file": initialisation_action_script_uri}],
-            "lifecycle_config": {"auto_delete_ttl": '3600s'},
+        'project_id': project_id,
+        'cluster_name': cluster_name,
+        'config': {
+            'master_config': {'num_instances': 1, 'machine_type_uri': 'n1-standard-2'},
+            'worker_config': {'num_instances': num_workers, 'machine_type_uri': 'n2-standard-4'},
+            'software_config': {
+                'image_version': dataproc_image_version,
+                'optional_components': ['FLINK']},
+            'initialization_actions': [{'executable_file': initialisation_action_script_uri}],
+            'lifecycle_config': {'auto_delete_ttl': '3600s'},
         }
     }
     try:
         # Create the cluster.
         operation = cluster_client.create_cluster(
-            request={"project_id": project_id, "region": region, "cluster": cluster}
+            request={'project_id': project_id, 'region': region, 'cluster': cluster}
         )
         result = operation.result()
         logging.info(result)
         return True
     except Exception as _:
-        logging.info(f"Could not create cluster {cluster} in {region}")
+        logging.info(f'Could not create cluster {cluster} in {region}')
         return False
 
 
@@ -131,7 +129,7 @@ def main(argv: Sequence[str]) -> None:
     region_saving_file = args.region_saving_file
 
     for region in region_array:
-        logging.info(f"Attempting cluster creation with region {region}")
+        logging.info(f'Attempting cluster creation with region {region}')
         is_cluster_created = create_cluster(project_id, region, cluster_name, num_workers,
                                             dataproc_image_version,
                                             initialisation_action_script_uri)

@@ -83,9 +83,9 @@ def delete_cluster_buckets(project_id, cluster_name, region):
     cluster_resource = cluster_client.get_cluster(get_cluster_request)
 
     cluster_id = cluster_resource.cluster_uuid
-    temp_bucket_location = cluster_resource.config.temp_bucket+"/"+cluster_id
-    staging_bucket_location = cluster_resource.config.config_bucket+("/google-cloud-dataproc"
-                                                                     "-metainfo/")+cluster_id
+    temp_bucket_location = cluster_resource.config.temp_bucket+'/'+cluster_id
+    staging_bucket_location = cluster_resource.config.config_bucket+('/google-cloud-dataproc'
+                                                                     '-metainfo/')+cluster_id
     delete_bucket(temp_bucket_location)
     delete_bucket(staging_bucket_location)
     logging.info(f'Delete all the buckets connected to cluster {cluster_name}.')
