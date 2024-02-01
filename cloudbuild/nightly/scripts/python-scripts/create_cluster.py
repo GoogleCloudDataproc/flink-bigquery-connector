@@ -46,7 +46,8 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         'cluster_name': cluster_name,
         'config': {
             'master_config': {'num_instances': 1, 'machine_type_uri': 'n2-standard-2'},
-            'worker_config': {'num_instances': num_workers, 'machine_type_uri': worker_machine_type},
+            'worker_config': {'num_instances': num_workers,
+                              'machine_type_uri': worker_machine_type},
             'software_config': {
                 'image_version': dataproc_image_version,
                 'optional_components': ['FLINK']},
@@ -137,16 +138,28 @@ def main(argv: Sequence[str]) -> None:
     region_saving_file = args.region_saving_file
     worker_machine_type = args.worker_machine_type
 
+    '''This approach retries cluster creation across different regions to address regional CPU 
+    quota limitations (i.e., a limit of 24 N2 CPUs per project per region). 
+    If a cluster creation attempt fails in one region, the process automatically retries 
+    another region from a hardcoded list provided as test variable.
+    It throws an error in case cluster was not created in any of the regions'''
+    is_cluster_created = False
     for region in region_array:
         logging.info(f'Attempting cluster creation with region {region}')
-        is_cluster_created = create_cluster(project_id, region, cluster_name, num_workers,
-                                            dataproc_image_version,
-                                            initialisation_action_script_uri, worker_machine_type)
+        is_cluster_created = is_cluster_created or create_cluster(project_id, region, cluster_name,
+                                                                  num_workers,
+                                                                  dataproc_image_version,
+                                                                  initialisation_action_script_uri,
+                                                                  worker_machine_type)
         if is_cluster_created:
             file = open(region_saving_file, 'w')
             file.write(region)
             file.close()
             break
+
+    if not is_cluster_created:
+        raise RuntimeError(f'The cluster could not be created in any of the '
+                           f'{len(region_array)} regions - {region_array}')
 
 
 if __name__ == '__main__':
