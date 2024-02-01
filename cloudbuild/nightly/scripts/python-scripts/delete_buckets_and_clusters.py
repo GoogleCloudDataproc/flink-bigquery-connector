@@ -26,11 +26,11 @@ def clear_all_dataproc_dependencies(project_id, cluster_name, region):
 
 
 def delete_cluster_buckets(project_id, cluster_name, region):
-    """Function to list and cancel all running jobs on dataproc cluster.
-    Args:
-      project_id: the project id to which the cluster and job belongs.
-      region: Region to which the cluster belongs.
-      cluster_name: Name of the cluster on which the jobs need to be deleted.
+    """Function to clean up cluster specific directories from its temporary and staging GCS
+    buckets.
+    Args: project_id: the project id to which the cluster and job belongs. region: Region
+    to which the cluster belongs. cluster_name: Name of the cluster on which the jobs need to be
+    deleted.
     """
     logging.info(f'Attempting to delete cluster {cluster_name} buckets')
     cluster_client = dataproc_v1.ClusterControllerClient(
@@ -57,7 +57,7 @@ def delete_bucket(bucket_name):
 
 
 def delete_cluster(project_id, cluster_name, region):
-    """Function to list and cancel all running jobs on dataproc cluster.
+    """Function to delete a dataproc cluster.
     Args:
       project_id: the project id to which the cluster and job belongs.
       region: Region to which the cluster belongs.
