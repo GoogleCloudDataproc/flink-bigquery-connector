@@ -21,49 +21,8 @@ from google.cloud import dataproc_v1
 
 
 def clear_all_dataproc_dependencies(project_id, cluster_name, region):
-    delete_active_jobs(project_id, cluster_name, region)
     delete_cluster_buckets(project_id, cluster_name, region)
     delete_cluster(project_id, cluster_name, region)
-
-
-def delete_active_jobs(project_id, cluster_name, region):
-    """Function to list and cancel all running jobs on dataproc cluster.
-    Args:
-      project_id: the project id to which the cluster and job belongs.
-      region: Region to which the cluster belongs.
-      cluster_name: Name of the cluster on which the jobs need to be deleted.
-    """
-    logging.info(f'Attempting to get active job ids on cluster {cluster_name}.')
-    # Create the dataproc client.
-    client = dataproc_v1.JobControllerClient(
-        client_options={
-            'api_endpoint': f'{region}-dataproc.googleapis.com:443'
-        }
-    )
-    # Make the list jobs request.
-    request = dataproc_v1.ListJobsRequest(
-        project_id=project_id,
-        cluster_name=cluster_name,
-        region=region,
-        filter='status.state = ACTIVE',
-    )
-    active_jobs = client.list_jobs(request=request)
-    active_job_ids = [active_job.reference.job_id for active_job in active_jobs]
-
-    for job_id in active_job_ids:
-        # Cancel all the active jobs.
-        cancel_dataproc_request = dataproc_v1.CancelJobRequest(
-            project_id=project_id,
-            region=region,
-            job_id=job_id,
-        )
-        client.cancel_job(request=cancel_dataproc_request)
-        logging.info(
-            'Cancelled dataproc job with id'
-            f' "{job_id}", in project "{project_id}" and region'
-            f' "{region}"'
-        )
-    logging.info(f'Cancelled all active jobs on cluster "{cluster_name}".')
 
 
 def delete_cluster_buckets(project_id, cluster_name, region):
