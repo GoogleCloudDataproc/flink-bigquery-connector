@@ -21,7 +21,7 @@ from google.cloud import dataproc_v1 as dataproc
 
 
 def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image_version,
-                   initialisation_action_script_uri):
+                   initialisation_action_script_uri, worker_machine_type):
     """This sample walks a user through creating a Cloud Dataproc cluster
     using the Python client library.
 
@@ -33,6 +33,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         dataproc_image_version (string): The Dataproc Image version used to create the cluster.
         initialisation_action_script_uri (string): Link to the initialisation script for
          the cluster.
+        worker_machine_type (string): The Compute Engine machine type used for cluster(worker) instances.
     """
     logging.info(f'Creating cluster {cluster_name} in region {region}')
     # Create a client with the endpoint set to the desired cluster region.
@@ -44,8 +45,8 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         'project_id': project_id,
         'cluster_name': cluster_name,
         'config': {
-            'master_config': {'num_instances': 1, 'machine_type_uri': 'n1-standard-2'},
-            'worker_config': {'num_instances': num_workers, 'machine_type_uri': 'n2-standard-4'},
+            'master_config': {'num_instances': 1, 'machine_type_uri': 'n2-standard-2'},
+            'worker_config': {'num_instances': num_workers, 'machine_type_uri': worker_machine_type},
             'software_config': {
                 'image_version': dataproc_image_version,
                 'optional_components': ['FLINK']},
@@ -117,6 +118,13 @@ def main(argv: Sequence[str]) -> None:
         type=str,
         required=True
     )
+    parser.add_argument(
+        '--worker_machine_type',
+        dest='worker_machine_type',
+        help='The Compute Engine machine type used for cluster(worker) instances.',
+        type=str,
+        required=True
+    )
 
     args = parser.parse_args(argv[1:])
     # Providing the values.
@@ -127,12 +135,13 @@ def main(argv: Sequence[str]) -> None:
     initialisation_action_script_uri = args.initialisation_action_script_uri
     project_id = args.project_id
     region_saving_file = args.region_saving_file
+    worker_machine_type = args.worker_machine_type
 
     for region in region_array:
         logging.info(f'Attempting cluster creation with region {region}')
         is_cluster_created = create_cluster(project_id, region, cluster_name, num_workers,
                                             dataproc_image_version,
-                                            initialisation_action_script_uri)
+                                            initialisation_action_script_uri, worker_machine_type)
         if is_cluster_created:
             file = open(region_saving_file, 'w')
             file.write(region)

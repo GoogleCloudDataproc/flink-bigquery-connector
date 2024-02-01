@@ -36,7 +36,7 @@ case $STEP in
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_SMALL_TEST="$CLUSTER_NAME_SMALL_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$REGION_SMALL_TEST_FILE"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$REGION_SMALL_TEST_FILE" "$WORKER_MACHINE_TYPE_SMALL_BOUNDED"
     # - save the cluster for future uses
     echo "$CLUSTER_NAME_SMALL_TEST" > "$CLUSTER_SMALL_TEST_FILE"
     exit
@@ -49,7 +49,7 @@ case $STEP in
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_LARGE_TABLE_TEST="$CLUSTER_NAME_LARGE_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST_FILE"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST_FILE" "$WORKER_MACHINE_TYPE_LARGE_BOUNDED"
     # - save the cluster for future uses
     echo "$CLUSTER_NAME_LARGE_TABLE_TEST" > "$CLUSTER_LARGE_TABLE_TEST_FILE"
     exit
@@ -62,7 +62,7 @@ case $STEP in
     # - Modify the cluster name for all tests.
     CLUSTER_NAME_UNBOUNDED_TABLE_TEST="$CLUSTER_NAME_UNBOUNDED_TABLE_TEST"-"$timestamp"
     # - call script that creates cluster with retries.
-    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST_FILE"
+    source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$WORKER_MACHINE_TYPE_UNBOUNDED"
     # - save the cluster for future uses
     echo "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" > "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE"
     exit

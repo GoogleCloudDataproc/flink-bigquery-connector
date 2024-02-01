@@ -18,6 +18,8 @@ CLUSTER_NAME=$1
 REGION_ARRAY_STRING=$2
 NUM_WORKERS=$3
 REGION_SAVING_FILE=$4
+WORKER_MACHINE_TYPE=$5
+
 
 # Set the project, location and zone for the cluster creation.
 gcloud config set project "$PROJECT_ID"
@@ -25,4 +27,4 @@ gcloud config set project "$PROJECT_ID"
 # The script retries to create from the list of regions provided.
 python3 cloudbuild/nightly/scripts/python-scripts/create_cluster.py -- --region_array_string "$REGION_ARRAY_STRING" --project_id \
 "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --dataproc_image_version "$DATAPROC_IMAGE_VERSION" --num_workers "$NUM_WORKERS" \
---initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --region_saving_file "$REGION_SAVING_FILE"
+--initialisation_action_script_uri "$INITIALISATION_ACTION_SCRIPT_URI" --region_saving_file "$REGION_SAVING_FILE" --worker_machine_type "$WORKER_MACHINE_TYPE"
