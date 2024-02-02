@@ -20,6 +20,7 @@ readonly STEP=$1
 
 cd /workspace
 
+# Function to create a cluster with the specified parameters.
 create_cluster(){
   CLUSTER_NAME=$1
   REGION_ARRAY_STRING=$2
@@ -38,6 +39,7 @@ create_cluster(){
   echo "$CLUSTER_NAME" > "$CLUSTER_FILE"
 }
 
+# Function to run the test to check BQ Table Read.
 run_test(){
   PROJECT_ID=$1
   REGION_FILE=$2
@@ -55,6 +57,9 @@ run_test(){
   # Run the simple bounded table test.
   source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME" "$AGG_PROP_NAME" "$QUERY" "$MODE" "$PROPERTIES"
 }
+
+# Function to run the test to check BQ Table Read.
+# Also, delete the cluster and its buckets.
 run_test_delete_cluster(){
   PROJECT_ID=$1
   # Run the test.
@@ -71,17 +76,19 @@ case $STEP in
     exit
     ;;
 
-  # Create the cluster
+  # Create the cluster - Small Read bounded job.
   create_clusters_bounded_small_table)
     create_cluster "$CLUSTER_NAME_SMALL_TEST" "$REGION_ARRAY_STRING_SMALL_TEST" "$NUM_WORKERS_SMALL_TEST" "$REGION_SMALL_TEST_FILE" "$WORKER_MACHINE_TYPE_SMALL_BOUNDED" "$CLUSTER_SMALL_TEST_FILE"
     exit
     ;;
 
+  # Create the cluster - Large Table Read bounded job.
   create_clusters_bounded_large_table)
     create_cluster "$CLUSTER_NAME_LARGE_TABLE_TEST" "$REGION_ARRAY_STRING_LARGE_TABLE_TEST" "$NUM_WORKERS_LARGE_TABLE_TEST" "$REGION_LARGE_TABLE_TEST_FILE" "$WORKER_MACHINE_TYPE_LARGE_BOUNDED" "$CLUSTER_LARGE_TABLE_TEST_FILE"
     exit
     ;;
 
+  # Create the cluster - Unbounded Read job.
   create_clusters_unbounded_table)
     create_cluster "$CLUSTER_NAME_UNBOUNDED_TABLE_TEST" "$REGION_ARRAY_STRING_UNBOUNDED_TABLE_TEST" "$NUM_WORKERS_UNBOUNDED_TABLE_TEST" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$WORKER_MACHINE_TYPE_UNBOUNDED" "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE"
     exit
