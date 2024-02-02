@@ -48,7 +48,7 @@ run_test(){
   AGG_PROP_NAME=$7
   QUERY=$8
   MODE=$9
-  PROPERTIES=$(10)
+  PROPERTIES=${10}
   # Get the final region and the cluster name.
   export REGION=$(cat "$REGION_FILE")
   export CLUSTER_NAME=$(cat "$CLUSTER_FILE")
@@ -58,7 +58,7 @@ run_test(){
 run_test_delete_cluster(){
   PROJECT_ID=$1
   # Run the test.
-  run_test "$PROJECT_ID" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "$(10)"
+  run_test "$PROJECT_ID" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}"
   # REGION and CLUSTER_NAME should be in scope (from previous function).
   # Delete the cluster as well as its staging and temp buckets.
   python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_id "$PROJECT_ID"
