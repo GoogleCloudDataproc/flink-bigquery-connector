@@ -97,11 +97,81 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
                             + ": FlushRows rpc failed for "
                             + committable.getStreamName(),
                     e);
-            throw new RuntimeException(
+            //            throw new RuntimeException(
+            //                    Thread.currentThread().getId()
+            //                            + ": Commit failed for "
+            //                            + committable.getStreamName(),
+            //                    e);
+        }
+        try (BigQueryServices.StorageWriteClient writeClient =
+                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
+            LOG.info(
                     Thread.currentThread().getId()
-                            + ": Commit failed for "
+                            + ": Calling second flush on stream "
+                            + committable.getStreamName()
+                            + " till offset "
+                            + (committable.getStreamOffset() - 2));
+            FlushRowsResponse response =
+                    writeClient
+                            .flushRows(
+                                    FlushRowsRequest.newBuilder()
+                                            .setOffset(
+                                                    Int64Value.of(
+                                                            committable.getStreamOffset() - 2))
+                                            .setWriteStream(committable.getStreamName())
+                                            .build())
+                            .get();
+            LOG.info(
+                    Thread.currentThread().getId()
+                            + ": Offset returned by second flush on "
+                            + committable.getStreamName()
+                            + " is "
+                            + response.getOffset());
+        } catch (Exception e) {
+            LOG.error(
+                    Thread.currentThread().getId()
+                            + ": Second FlushRows rpc failed for "
                             + committable.getStreamName(),
                     e);
+            //            throw new RuntimeException(
+            //                    Thread.currentThread().getId()
+            //                            + ": Commit failed for "
+            //                            + committable.getStreamName(),
+            //                    e);
+        }
+        try (BigQueryServices.StorageWriteClient writeClient =
+                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
+            LOG.info(
+                    Thread.currentThread().getId()
+                            + ": Calling third flush on stream "
+                            + committable.getStreamName()
+                            + " till offset "
+                            + (committable.getStreamOffset()));
+            FlushRowsResponse response =
+                    writeClient
+                            .flushRows(
+                                    FlushRowsRequest.newBuilder()
+                                            .setOffset(Int64Value.of(committable.getStreamOffset()))
+                                            .setWriteStream(committable.getStreamName())
+                                            .build())
+                            .get();
+            LOG.info(
+                    Thread.currentThread().getId()
+                            + ": Offset returned by third flush on "
+                            + committable.getStreamName()
+                            + " is "
+                            + response.getOffset());
+        } catch (Exception e) {
+            LOG.error(
+                    Thread.currentThread().getId()
+                            + ": Third FlushRows rpc failed for "
+                            + committable.getStreamName(),
+                    e);
+            //            throw new RuntimeException(
+            //                    Thread.currentThread().getId()
+            //                            + ": Commit failed for "
+            //                            + committable.getStreamName(),
+            //                    e);
         }
     }
 

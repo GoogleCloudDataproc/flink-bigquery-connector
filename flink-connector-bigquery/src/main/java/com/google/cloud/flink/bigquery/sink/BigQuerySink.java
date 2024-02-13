@@ -21,6 +21,8 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
+import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamRequest;
+import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
@@ -34,6 +36,7 @@ import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriter;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterState;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterStateSerializer;
+import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,6 +65,11 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
     @Override
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
             createWriter(InitContext context) throws IOException {
+        //        try {
+        //            experiment();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: experiment failed!", e);
+        //        }
         LOG.info(Thread.currentThread().getId() + ": Calling createWriter");
         try (BigQueryServices.StorageWriteClient writeClient =
                 BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
@@ -116,5 +124,181 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
     @Override
     public SimpleVersionedSerializer<BigQueryWriterState> getWriterStateSerializer() {
         return new BigQueryWriterStateSerializer();
+    }
+
+    private void experiment() throws InterruptedException {
+        BigQueryServices.StorageWriteClient writeClient;
+        try {
+            writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
+        } catch (IOException e) {
+            throw new RuntimeException("Could not create write client for experiment in sink");
+        }
+        String writeStreamName =
+                writeClient
+                        .createWriteStream(
+                                CreateWriteStreamRequest.newBuilder()
+                                        .setParent(tablePath)
+                                        .setWriteStream(
+                                                WriteStream.newBuilder()
+                                                        .setType(WriteStream.Type.BUFFERED)
+                                                        .build())
+                                        .build())
+                        .getName();
+
+        //        try {
+        //            streamWriter
+        //                    .append(
+        //                            ProtoRows.newBuilder()
+        //                                    .addSerializedRows(ByteString.copyFromUtf8("FooBar"))
+        //                                    .build(),
+        //                            1)
+        //                    .get();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: dummy append at wrong offset (1) failed", e);
+        //            Thread.sleep(5000L);
+        //        }
+
+        //        try {
+        //            streamWriter.append(ProtoRows.newBuilder().build(), 0).get();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: empty append failed", e);
+        //        }
+        //
+        //        try {
+        //            streamWriter.append(ProtoRows.newBuilder().build(), 1).get();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: empty append at wrong offset failed", e);
+        //        }
+
+        try (StreamWriter streamWriter =
+                writeClient.createStreamWriter(
+                        protoSchema, RetrySettings.newBuilder().build(), writeStreamName)) {
+            streamWriter
+                    .append(
+                            ProtoRows.newBuilder()
+                                    .addSerializedRows(
+                                            ProtobufUtils.createMessage("Jayant").toByteString())
+                                    .build(),
+                            0)
+                    .get();
+        } catch (Exception e) {
+            LOG.error("LOOK_ME_UP: proper append failed.. WTF!?", e);
+            Thread.sleep(5000L);
+            LOG.error("Returning ...");
+            return;
+        }
+
+        try (StreamWriter streamWriter =
+                writeClient.createStreamWriter(
+                        protoSchema, RetrySettings.newBuilder().build(), writeStreamName)) {
+            streamWriter
+                    .append(
+                            ProtoRows.newBuilder()
+                                    .addSerializedRows(ByteString.copyFromUtf8("FooBar"))
+                                    .build(),
+                            1)
+                    .get();
+        } catch (Exception e) {
+            LOG.error("LOOK_ME_UP: dummy append failed", e);
+            Thread.sleep(5000L);
+        }
+
+        try (StreamWriter streamWriter =
+                writeClient.createStreamWriter(
+                        protoSchema, RetrySettings.newBuilder().build(), writeStreamName)) {
+            streamWriter
+                    .append(
+                            ProtoRows.newBuilder()
+                                    .addSerializedRows(ByteString.copyFromUtf8("FooBar"))
+                                    .build(),
+                            2)
+                    .get();
+        } catch (Exception e) {
+            LOG.error("LOOK_ME_UP: dummy append at wrong offset (2) failed", e);
+            Thread.sleep(5000L);
+        }
+
+        try {
+            writeClient
+                    .finalizeWriteStream(
+                            FinalizeWriteStreamRequest.newBuilder()
+                                    .setName(writeStreamName)
+                                    .build())
+                    .get();
+        } catch (Exception e) {
+            LOG.error("LOOK_ME_UP: finalize failed.. WTF!?", e);
+            Thread.sleep(5000L);
+            LOG.error("Returning ...");
+            return;
+        }
+
+        try (StreamWriter streamWriter =
+                writeClient.createStreamWriter(
+                        protoSchema, RetrySettings.newBuilder().build(), writeStreamName)) {
+            streamWriter
+                    .append(
+                            ProtoRows.newBuilder()
+                                    .addSerializedRows(ByteString.copyFromUtf8("FooBar"))
+                                    .build(),
+                            1)
+                    .get();
+        } catch (Exception e) {
+            LOG.error("LOOK_ME_UP: dummy append on finalized stream failed", e);
+            Thread.sleep(5000L);
+        }
+
+        try (StreamWriter streamWriter =
+                writeClient.createStreamWriter(
+                        protoSchema, RetrySettings.newBuilder().build(), writeStreamName)) {
+            streamWriter
+                    .append(
+                            ProtoRows.newBuilder()
+                                    .addSerializedRows(ByteString.copyFromUtf8("FooBar"))
+                                    .build(),
+                            2)
+                    .get();
+        } catch (Exception e) {
+            LOG.error("LOOK_ME_UP: dummy append on finalized stream at wrong offset failed", e);
+            Thread.sleep(5000L);
+        }
+
+        //        try {
+        //            streamWriter.append(ProtoRows.newBuilder().build(), 1).get();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: empty append on finalized stream failed", e);
+        //        }
+
+        //        try {
+        //            streamWriter.append(ProtoRows.newBuilder().build(), 2).get();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: empty append on finalized stream at wrong offset
+        // failed", e);
+        //        }
+
+        //        try {
+        //            streamWriter
+        //                    .append(
+        //                            ProtoRows.newBuilder()
+        //                                    .addSerializedRows(
+        //
+        // ProtobufUtils.createMessage("Jayant").toByteString())
+        //                                    .build(),
+        //                            1)
+        //                    .get();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: proper append on finalized stream failed", e);
+        //        }
+
+        //        try {
+        //            writeClient
+        //                    .flushRows(
+        //                            FlushRowsRequest.newBuilder()
+        //                                    .setOffset(Int64Value.of(0L))
+        //                                    .setWriteStream(writeStreamName)
+        //                                    .build())
+        //                    .get();
+        //        } catch (Exception e) {
+        //            LOG.error("LOOK_ME_UP: flush on finalized stream failed.. weird", e);
+        //        }
     }
 }
