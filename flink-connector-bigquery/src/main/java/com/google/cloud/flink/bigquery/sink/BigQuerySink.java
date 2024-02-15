@@ -51,6 +51,7 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
     private final BigQueryConnectOptions connectOptions;
     private final ProtoSchema protoSchema;
     private final String tablePath;
+    private int writerCount = 0;
 
     public BigQuerySink(
             boolean enableExactlyOnce, BigQueryConnectOptions connectOptions, String tablePath) {
@@ -70,7 +71,8 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
         //        } catch (Exception e) {
         //            LOG.error("LOOK_ME_UP: experiment failed!", e);
         //        }
-        LOG.info(Thread.currentThread().getId() + ": Calling createWriter");
+        writerCount++;
+        LOG.info(Thread.currentThread().getId() + ": Calling createWriter " + writerCount);
         try (BigQueryServices.StorageWriteClient writeClient =
                 BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
             String writeStreamName =

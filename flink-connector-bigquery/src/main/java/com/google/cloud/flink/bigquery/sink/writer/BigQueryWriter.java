@@ -97,17 +97,17 @@ public class BigQueryWriter<IN>
             if (protoRowsBuilder.getSerializedRowsCount() == 1000) {
                 appendRows();
             }
-            TempUtils.globalWriteCounter++;
-            if (TempUtils.globalWriteCounter == 5000) {
-                LOG.error(
-                        Thread.currentThread().getId()
-                                + ": Intentionally failing write for "
-                                + streamWriter.getStreamName());
-                throw new RuntimeException(
-                        Thread.currentThread().getId()
-                                + ": Intentional failure at write for "
-                                + streamWriter.getStreamName());
-            }
+            //            TempUtils.globalWriteCounter++;
+            //            if (TempUtils.globalWriteCounter == 5000) {
+            //                LOG.error(
+            //                        Thread.currentThread().getId()
+            //                                + ": Intentionally failing write for "
+            //                                + streamWriter.getStreamName());
+            //                throw new RuntimeException(
+            //                        Thread.currentThread().getId()
+            //                                + ": Intentional failure at write for "
+            //                                + streamWriter.getStreamName());
+            //            }
         } catch (Exception e) {
             LOG.error(
                     Thread.currentThread().getId()
