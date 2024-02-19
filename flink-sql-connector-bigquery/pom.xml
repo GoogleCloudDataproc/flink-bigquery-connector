@@ -24,7 +24,7 @@ under the License.
     <parent>
         <groupId>com.google.cloud.flink</groupId>
         <artifactId>flink-connector-bigquery-parent</artifactId>
-        <version>0.1.0-preview</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>flink-sql-connector-bigquery</artifactId>
@@ -39,8 +39,8 @@ under the License.
     <dependencies>
         <dependency>
             <groupId>com.google.cloud.flink</groupId>
-            <artifactId>flink-connector-bigquery</artifactId>
-            <version>${project.version}</version>
+            <artifactId>flink-connector-bigquery-common</artifactId>
+            <version>${revision}</version>
         </dependency>
     </dependencies>
 

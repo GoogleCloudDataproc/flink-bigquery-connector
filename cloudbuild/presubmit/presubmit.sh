@@ -35,7 +35,7 @@ case $STEP in
 
   # Run unit & integration tests
   tests)
-    $MVN clean clover:setup verify clover:aggregate clover:clover -Pclover
+    $MVN clean clover:setup verify clover:aggregate clover:check clover:clover -Pclover
     ;;
 
   *)

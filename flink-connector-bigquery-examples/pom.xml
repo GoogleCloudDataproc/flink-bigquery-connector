@@ -24,12 +24,12 @@ under the License.
     <parent>
         <groupId>com.google.cloud.flink</groupId>
         <artifactId>flink-connector-bigquery-parent</artifactId>
-        <version>0.1.0-preview</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>flink-connector-bigquery-examples</artifactId>
     <name>Flink : Connectors : Google BigQuery Examples</name>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <properties>
         <japicmp.skip>true</japicmp.skip>
@@ -38,97 +38,14 @@ under the License.
     <dependencies>
         <dependency>
             <groupId>com.google.cloud.flink</groupId>
-            <artifactId>flink-connector-bigquery</artifactId>
+            <artifactId>flink-connector-bigquery-common</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-base</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-streaming-java</artifactId>
-            <version>${flink.version}</version>
         </dependency>
     </dependencies>
 
-    <build>
-        <finalName>BigQueryExample</finalName>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-deploy-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>shade-flink</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <shadedArtifactAttached>false</shadedArtifactAttached>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <resources>
-                                <resource>
-                                    <directory>src/test/resources</directory>
-                                </resource>
-                            </resources>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.google.cloud.flink.bigquery.examples.BigQueryExample</mainClass>
-                                </transformer>
-                            </transformers>
-                            <artifactSet>
-                                <includes>
-                                    <include>org.apache.flink:flink-connector-bigquery</include>
-                                    <include>org.apache.flink:flink-avro</include>
-                                    <include>org.apache.flink:flink-metrics-dropwizard</include>
-                                    <include>com.google.*:*</include>
-                                    <include>commons-codec:commons-codec</include>    
-                                    <include>dev.failsafe:*</include>                                
-                                    <include>org.apache.avro:*</include>
-                                    <include>org.apache.httpcomponents:*</include>
-                                    <include>org.codehaus.mojo:animal-sniffer-annotations</include>
-                                    <include>org.conscrypt:*</include>
-                                    <include>com.fasterxml.jackson.*:*</include>
-                                    <include>org.threeten:*</include>
-                                    <include>org.checkerframework:*</include>
-                                    <include>io.dropwizard.metrics:*</include>
-                                    <include>io.grpc:*</include>
-                                    <include>io.opencensus:*</include>
-                                    <include>io.perfmark:*</include>
-                                </includes>
-                            </artifactSet>
-                            <relocations>
-                                <relocation>
-                                    <pattern>com.google</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.examples.shaded.com.google</shadedPattern>
-                                    <excludes>
-                                        <exclude>com.google.cloud.flink.bigquery.**</exclude>
-                                    </excludes>
-                                </relocation>
-                            </relocations>
+	<!-- Building this module would build all the examples - for all flink versions -->
+	<modules>
+		<module>flink-connector-bigquery-example-flink-1.17</module>
+	</modules>
 
-                            <filters>
-                                <filter>
-                                    <artifact>org.apache.flink:flink-connector-bigquery-examples*</artifact>
-                                    <includes>
-                                        <include>com/google/cloud/flink/bigquery/examples/**</include>
-                                    </includes>
-                                </filter>
-                            </filters>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>
