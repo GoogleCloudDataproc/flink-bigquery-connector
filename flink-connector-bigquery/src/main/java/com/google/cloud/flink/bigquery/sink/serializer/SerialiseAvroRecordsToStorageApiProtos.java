@@ -164,7 +164,7 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
                         .get(updatedRef.getProjectId(), updatedRef.getDatasetId(), updatedRef.getTableId())
                         .setPrettyPrint(false);
 
-        // TODO: obtain with retries.
+        // TODO: obtain with retries and exponential backoff.
         return get.execute();
     }
     private static Table getBigQueryTable(TableReference tableReference) throws IOException {
