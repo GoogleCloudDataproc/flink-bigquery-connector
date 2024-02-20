@@ -174,7 +174,13 @@ under the License.
             <artifactId>flink-architecture-tests-production</artifactId>
             <scope>test</scope>
         </dependency>
-    </dependencies>
+		<dependency>
+			<groupId>com.google.apis</groupId>
+			<artifactId>google-api-services-bigquery</artifactId>
+			<version>v2-rev20231111-2.0.0</version>
+			<scope>compile</scope>
+		</dependency>
+	</dependencies>
 
     <dependencyManagement>
         <dependencies>

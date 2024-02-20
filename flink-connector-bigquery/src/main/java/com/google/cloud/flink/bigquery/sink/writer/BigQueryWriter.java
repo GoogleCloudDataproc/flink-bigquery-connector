@@ -22,6 +22,7 @@ import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.flink.bigquery.common.utils.ProtobufUtils;
 import com.google.cloud.flink.bigquery.sink.TwoPhaseCommittingStatefulSink;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittable;
+import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,9 +91,13 @@ public class BigQueryWriter<IN>
     @Override
     public void write(IN element, Context context) throws IOException, InterruptedException {
         try {
-            assert element instanceof String;
+
+            //            assert element instanceof String;
+
+            LOG.info("@prashastia: Element schema description: " + element.getClass());
+            LOG.info("@prashastia: Element schema description: " + element);
             protoRowsBuilder.addSerializedRows(
-                    ProtobufUtils.createMessage(element.toString()).toByteString());
+                    ProtobufUtils.createMessage((GenericRecord) element).toByteString());
             writeCount++;
             if (protoRowsBuilder.getSerializedRowsCount() == 1000) {
                 appendRows();

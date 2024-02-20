@@ -16,15 +16,20 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
+import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriter;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
+import org.apache.avro.generic.GenericRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** */
 public class ProtobufUtils {
 
     public static final DescriptorProtos.DescriptorProto DESCRIPTOR_PROTO;
     public static final Descriptors.Descriptor DESCRIPTOR;
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryWriter.class);
 
     static {
         DescriptorProtos.DescriptorProto.Builder descriptorProtoBuilder =
@@ -36,6 +41,18 @@ public class ProtobufUtils {
                         .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED)
                         .setNumber(1)
                         .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING));
+        descriptorProtoBuilder.addField(
+                DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        .setName("number")
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED)
+                        .setNumber(2)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING));
+        descriptorProtoBuilder.addField(
+                DescriptorProtos.FieldDescriptorProto.newBuilder()
+                        .setName("ts")
+                        .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED)
+                        .setNumber(3)
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.T));
         DESCRIPTOR_PROTO = descriptorProtoBuilder.build();
 
         DescriptorProtos.FileDescriptorProto fileDescriptorProto =
@@ -58,5 +75,12 @@ public class ProtobufUtils {
         return DynamicMessage.newBuilder(DESCRIPTOR)
                 .setField(DESCRIPTOR.findFieldByNumber(1), value)
                 .build();
+    }
+
+    public static DynamicMessage createMessage(GenericRecord value) {
+        DynamicMessage.Builder message = DynamicMessage.newBuilder(DESCRIPTOR);
+            message.setField(field, value.get(field.getName()).toString());
+
+        return message.build();
     }
 }

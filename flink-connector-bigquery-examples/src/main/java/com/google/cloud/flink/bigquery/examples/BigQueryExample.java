@@ -248,8 +248,6 @@ public class BigQueryExample {
                                 .withIdleness(Duration.ofMinutes(maxIdleness)),
                         sourceName,
                         typeInfo)
-                .keyBy(record -> record.get("name").hashCode() % 100)
-                .map(record -> record.get("name"))
                 .sinkTo(sink);
 
         env.execute(jobName);
@@ -328,7 +326,7 @@ public class BigQueryExample {
                 new BigQuerySink(
                         exactlyOnceSink,
                         bqConnectOptions,
-                        "projects/testproject-398714/datasets/sink_test_data/tables/" + destTable);
+                        "projects/bqrampupprashasti/datasets/sink_test_data/tables/" + destTable);
 
         runJob(
                 source,
