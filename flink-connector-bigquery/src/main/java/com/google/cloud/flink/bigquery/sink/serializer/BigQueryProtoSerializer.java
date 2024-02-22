@@ -6,5 +6,5 @@ import com.google.protobuf.ByteString;
 /** */
 public interface BigQueryProtoSerializer<IN> {
 
-    public ByteString serializeToProto(IN record) throws BigQuerySerializationException;
+    public ByteString serialize(IN record) throws BigQuerySerializationException;
 }
