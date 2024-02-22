@@ -37,36 +37,22 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryCommitter.class);
 
-    private final boolean enableExactlyOnce;
     private final BigQueryConnectOptions connectOptions;
 
-    public BigQueryCommitter(BigQueryConnectOptions connectOptions, boolean enableExactlyOnce) {
+    public BigQueryCommitter(BigQueryConnectOptions connectOptions) {
         this.connectOptions = connectOptions;
-        this.enableExactlyOnce = enableExactlyOnce;
     }
 
     @Override
     public void commit(Collection<CommitRequest<BigQueryCommittable>> commitRequests)
             throws IOException, InterruptedException {
-        if (!enableExactlyOnce) {
-            LOG.info(
-                    Thread.currentThread().getId()
-                            + ": Called commit with no commit requests. Weird!");
-            assert commitRequests.isEmpty();
-            return;
-        }
+
+        // committer should not be invoked with 0 or >1 commit requests.
         assert commitRequests.size() == 1;
+
         BigQueryCommittable committable =
                 (BigQueryCommittable)
                         ((CommitRequest) commitRequests.toArray()[0]).getCommittable();
-        if (committable.getStreamOffset() == 0) {
-            LOG.info(
-                    Thread.currentThread().getId()
-                            + ": Commit called for "
-                            + committable.getStreamName()
-                            + " with no records to flush. No Op!");
-            return;
-        }
         try (BigQueryServices.StorageWriteClient writeClient =
                 BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
             LOG.info(
@@ -103,76 +89,78 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
             //                            + committable.getStreamName(),
             //                    e);
         }
-//        try (BigQueryServices.StorageWriteClient writeClient =
-//                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
-//            LOG.info(
-//                    Thread.currentThread().getId()
-//                            + ": Calling second flush on stream "
-//                            + committable.getStreamName()
-//                            + " till offset "
-//                            + (committable.getStreamOffset() - 2));
-//            FlushRowsResponse response =
-//                    writeClient
-//                            .flushRows(
-//                                    FlushRowsRequest.newBuilder()
-//                                            .setOffset(
-//                                                    Int64Value.of(
-//                                                            committable.getStreamOffset() - 2))
-//                                            .setWriteStream(committable.getStreamName())
-//                                            .build())
-//                            .get();
-//            LOG.info(
-//                    Thread.currentThread().getId()
-//                            + ": Offset returned by second flush on "
-//                            + committable.getStreamName()
-//                            + " is "
-//                            + response.getOffset());
-//        } catch (Exception e) {
-//            LOG.error(
-//                    Thread.currentThread().getId()
-//                            + ": Second FlushRows rpc failed for "
-//                            + committable.getStreamName(),
-//                    e);
-//            //            throw new RuntimeException(
-//            //                    Thread.currentThread().getId()
-//            //                            + ": Commit failed for "
-//            //                            + committable.getStreamName(),
-//            //                    e);
-//        }
-//        try (BigQueryServices.StorageWriteClient writeClient =
-//                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
-//            LOG.info(
-//                    Thread.currentThread().getId()
-//                            + ": Calling third flush on stream "
-//                            + committable.getStreamName()
-//                            + " till offset "
-//                            + (committable.getStreamOffset()));
-//            FlushRowsResponse response =
-//                    writeClient
-//                            .flushRows(
-//                                    FlushRowsRequest.newBuilder()
-//                                            .setOffset(Int64Value.of(committable.getStreamOffset()))
-//                                            .setWriteStream(committable.getStreamName())
-//                                            .build())
-//                            .get();
-//            LOG.info(
-//                    Thread.currentThread().getId()
-//                            + ": Offset returned by third flush on "
-//                            + committable.getStreamName()
-//                            + " is "
-//                            + response.getOffset());
-//        } catch (Exception e) {
-//            LOG.error(
-//                    Thread.currentThread().getId()
-//                            + ": Third FlushRows rpc failed for "
-//                            + committable.getStreamName(),
-//                    e);
-//            //            throw new RuntimeException(
-//            //                    Thread.currentThread().getId()
-//            //                            + ": Commit failed for "
-//            //                            + committable.getStreamName(),
-//            //                    e);
-//        }
+        //        try (BigQueryServices.StorageWriteClient writeClient =
+        //                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
+        //            LOG.info(
+        //                    Thread.currentThread().getId()
+        //                            + ": Calling second flush on stream "
+        //                            + committable.getStreamName()
+        //                            + " till offset "
+        //                            + (committable.getStreamOffset() - 2));
+        //            FlushRowsResponse response =
+        //                    writeClient
+        //                            .flushRows(
+        //                                    FlushRowsRequest.newBuilder()
+        //                                            .setOffset(
+        //                                                    Int64Value.of(
+        //                                                            committable.getStreamOffset()
+        // - 2))
+        //                                            .setWriteStream(committable.getStreamName())
+        //                                            .build())
+        //                            .get();
+        //            LOG.info(
+        //                    Thread.currentThread().getId()
+        //                            + ": Offset returned by second flush on "
+        //                            + committable.getStreamName()
+        //                            + " is "
+        //                            + response.getOffset());
+        //        } catch (Exception e) {
+        //            LOG.error(
+        //                    Thread.currentThread().getId()
+        //                            + ": Second FlushRows rpc failed for "
+        //                            + committable.getStreamName(),
+        //                    e);
+        //            //            throw new RuntimeException(
+        //            //                    Thread.currentThread().getId()
+        //            //                            + ": Commit failed for "
+        //            //                            + committable.getStreamName(),
+        //            //                    e);
+        //        }
+        //        try (BigQueryServices.StorageWriteClient writeClient =
+        //                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
+        //            LOG.info(
+        //                    Thread.currentThread().getId()
+        //                            + ": Calling third flush on stream "
+        //                            + committable.getStreamName()
+        //                            + " till offset "
+        //                            + (committable.getStreamOffset()));
+        //            FlushRowsResponse response =
+        //                    writeClient
+        //                            .flushRows(
+        //                                    FlushRowsRequest.newBuilder()
+        //
+        // .setOffset(Int64Value.of(committable.getStreamOffset()))
+        //                                            .setWriteStream(committable.getStreamName())
+        //                                            .build())
+        //                            .get();
+        //            LOG.info(
+        //                    Thread.currentThread().getId()
+        //                            + ": Offset returned by third flush on "
+        //                            + committable.getStreamName()
+        //                            + " is "
+        //                            + response.getOffset());
+        //        } catch (Exception e) {
+        //            LOG.error(
+        //                    Thread.currentThread().getId()
+        //                            + ": Third FlushRows rpc failed for "
+        //                            + committable.getStreamName(),
+        //                    e);
+        //            //            throw new RuntimeException(
+        //            //                    Thread.currentThread().getId()
+        //            //                            + ": Commit failed for "
+        //            //                            + committable.getStreamName(),
+        //            //                    e);
+        //        }
     }
 
     @Override

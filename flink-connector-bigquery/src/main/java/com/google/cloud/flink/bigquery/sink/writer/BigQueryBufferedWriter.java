@@ -31,20 +31,18 @@ import java.util.Collections;
 import java.util.List;
 
 /** */
-public class BigQueryWriter<IN>
+public class BigQueryBufferedWriter<IN>
         implements TwoPhaseCommittingStatefulSink.PrecommittingStatefulSinkWriter<
                 IN, BigQueryWriterState, BigQueryCommittable> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(BigQueryWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryBufferedWriter.class);
 
-    private final boolean enableExactlyOnce;
     private ProtoRows.Builder protoRowsBuilder;
     private long writeCount;
     private long streamOffset;
     private final StreamWriter streamWriter;
 
-    public BigQueryWriter(boolean enableExactlyOnce, StreamWriter streamWriter) {
-        this.enableExactlyOnce = enableExactlyOnce;
+    public BigQueryBufferedWriter(StreamWriter streamWriter) {
         protoRowsBuilder = ProtoRows.newBuilder();
         this.streamWriter = streamWriter;
     }
@@ -52,6 +50,7 @@ public class BigQueryWriter<IN>
     @Override
     public Collection<BigQueryCommittable> prepareCommit()
             throws IOException, InterruptedException {
+        // ensure non-zero writes before preparing commit.
         TempUtils.globalPrepareCommitCounter++;
         LOG.info(
                 Thread.currentThread().getId()
@@ -73,16 +72,12 @@ public class BigQueryWriter<IN>
         //                            + ": Intentional failure at prepareCommit for "
         //                            + streamWriter.getStreamName());
         //        }
-        if (!enableExactlyOnce) {
-            return Collections.EMPTY_LIST;
-        } else {
-            LOG.info(
-                    Thread.currentThread().getId()
-                            + ": Preparing to commit "
-                            + streamWriter.getStreamName()
-                            + " till offset "
-                            + (streamOffset - 1));
-        }
+        LOG.info(
+                Thread.currentThread().getId()
+                        + ": Preparing to commit "
+                        + streamWriter.getStreamName()
+                        + " till offset "
+                        + (streamOffset - 1));
         return Collections.singletonList(
                 new BigQueryCommittable(streamOffset, streamWriter.getStreamName()));
     }
@@ -98,16 +93,16 @@ public class BigQueryWriter<IN>
                 appendRows();
             }
             //            TempUtils.globalWriteCounter++;
-            //            if (TempUtils.globalWriteCounter == 5000) {
-            //                LOG.error(
-            //                        Thread.currentThread().getId()
-            //                                + ": Intentionally failing write for "
-            //                                + streamWriter.getStreamName());
-            //                throw new RuntimeException(
-            //                        Thread.currentThread().getId()
-            //                                + ": Intentional failure at write for "
-            //                                + streamWriter.getStreamName());
-            //            }
+            if (writeCount == 5000) {
+                LOG.error(
+                        Thread.currentThread().getId()
+                                + ": Intentionally failing write for "
+                                + streamWriter.getStreamName());
+                throw new RuntimeException(
+                        Thread.currentThread().getId()
+                                + ": Intentional failure at write for "
+                                + streamWriter.getStreamName());
+            }
         } catch (Exception e) {
             LOG.error(
                     Thread.currentThread().getId()
@@ -128,7 +123,8 @@ public class BigQueryWriter<IN>
     public void close() throws Exception {
         LOG.info(Thread.currentThread().getId() + ": writer closed");
         // TODO: finalize buffered stream!
-        this.streamWriter.close();
+        streamWriter.close();
+        protoRowsBuilder.clear();
     }
 
     @Override
@@ -152,11 +148,7 @@ public class BigQueryWriter<IN>
         ProtoRows rowsToAppend = protoRowsBuilder.build();
         AppendRowsResponse response;
         try {
-            if (enableExactlyOnce) {
-                response = streamWriter.append(rowsToAppend, streamOffset).get();
-            } else {
-                response = streamWriter.append(rowsToAppend).get();
-            }
+            response = streamWriter.append(rowsToAppend, streamOffset).get();
         } catch (Exception e) {
             LOG.error(
                     Thread.currentThread().getId()
