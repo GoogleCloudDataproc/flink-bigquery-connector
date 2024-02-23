@@ -19,7 +19,11 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
 
-/** Base interface for defining a Flink record to BigQuery proto serializer. */
+/**
+ * Base interface for defining a Flink record to BigQuery proto serializer.
+ * 
+ * @param <IN> Type of records to be written to BigQuery.
+ */
 public interface BigQueryProtoSerializer<IN> {
 
     public ByteString serialize(IN record) throws BigQuerySerializationException;
