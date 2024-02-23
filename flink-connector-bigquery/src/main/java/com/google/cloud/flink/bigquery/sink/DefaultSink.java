@@ -27,7 +27,7 @@ import org.apache.flink.api.connector.sink2.SinkWriter;
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
  * <li>{@link CheckpointingMode#NONE}: at-most-once write consistency.
  */
-public class DefaultSink extends BaseSink {
+class DefaultSink extends BaseSink {
 
     @Override
     public SinkWriter createWriter(InitContext context) {
