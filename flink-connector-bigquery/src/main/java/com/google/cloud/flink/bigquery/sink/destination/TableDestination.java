@@ -1,20 +1,20 @@
-package com.google.cloud.flink.bigquery.sink.Destination;
+package com.google.cloud.flink.bigquery.sink.destination;
 
-import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableReference;
-import com.google.cloud.bigquery.storage.v1.TableSchema;
 
 import java.io.Serializable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/** javadoc. */
 public class TableDestination implements Serializable {
     private final String tableSpec;
 
     /**
      * Project IDs must contain 6-63 lowercase letters, digits, or dashes. IDs must start with a
      * letter and may not end with a dash. This regex isn't exact - this allows for patterns that
-     * would be rejected by the service, but this is sufficient for basic parsing of table references.
+     * would be rejected by the service, but this is sufficient for basic parsing of table
+     * references.
      */
     private static final String PROJECT_ID_REGEXP = "[a-z][-a-z0-9:.]{4,61}[a-z0-9]";
 
@@ -63,12 +63,13 @@ public class TableDestination implements Serializable {
 
         return ref.setDatasetId(match.group("DATASET")).setTableId(match.group("TABLE"));
     }
-    public TableDestination(TableReference tableReference){
+
+    public TableDestination(TableReference tableReference) {
         this.tableSpec = toTableSpec(tableReference);
     }
-    // ToDO: Make constructors.
-    public TableReference getTableReference(){
-        return parseTableSpec(this.tableSpec);
 
+    // ToDO: Make constructors.
+    public TableReference getTableReference() {
+        return parseTableSpec(this.tableSpec);
     }
 }

@@ -52,7 +52,7 @@ public class ProtobufUtils {
                         .setName("ts")
                         .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED)
                         .setNumber(3)
-                        .setType(DescriptorProtos.FieldDescriptorProto.Type.T));
+                        .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING));
         DESCRIPTOR_PROTO = descriptorProtoBuilder.build();
 
         DescriptorProtos.FileDescriptorProto fileDescriptorProto =
@@ -78,9 +78,8 @@ public class ProtobufUtils {
     }
 
     public static DynamicMessage createMessage(GenericRecord value) {
-        DynamicMessage.Builder message = DynamicMessage.newBuilder(DESCRIPTOR);
-            message.setField(field, value.get(field.getName()).toString());
-
-        return message.build();
+        return DynamicMessage.newBuilder(DESCRIPTOR)
+                .setField(DESCRIPTOR.findFieldByNumber(1), value.get("name"))
+                .build();
     }
 }

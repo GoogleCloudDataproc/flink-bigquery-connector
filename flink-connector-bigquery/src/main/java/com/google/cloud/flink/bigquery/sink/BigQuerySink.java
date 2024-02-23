@@ -16,11 +16,6 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
-import com.google.cloud.flink.bigquery.sink.Destination.Destination;
-import com.google.cloud.flink.bigquery.sink.serializer.SerialiseAvroRecordsToStorageApiProtos;
-
-import com.google.cloud.flink.bigquery.sink.serializer.SerialiseRecords;
-
 import org.apache.flink.api.connector.sink2.Committer;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
@@ -36,9 +31,12 @@ import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittable;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittableSerializer;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
+import com.google.cloud.flink.bigquery.sink.destination.BigQueryConstantTableDestination;
+import com.google.cloud.flink.bigquery.sink.destination.Destination;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriter;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterState;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterStateSerializer;
+import com.google.protobuf.Descriptors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,39 +49,23 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
     private final boolean enableExactlyOnce;
     private final BigQueryConnectOptions connectOptions;
-    private final ProtoSchema protoSchema;
     private final String tablePath;
-    private final SerialiseRecords serialiser;
+    private final ProtoSchema protoSchema;
+    private final Destination destination;
 
     public BigQuerySink(
-            boolean enableExactlyOnce, BigQueryConnectOptions connectOptions, Destination destination, SerialiseAvroRecordsToStorageApiProtos serializer) {
+            boolean enableExactlyOnce, BigQueryConnectOptions connectOptions, String tablePath)
+            throws Descriptors.DescriptorValidationException, IOException {
         this.connectOptions = connectOptions;
         this.enableExactlyOnce = enableExactlyOnce;
-//        this.protoSchema =
-//                ProtoSchema.newBuilder().setProtoDescriptor(ProtobufUtils.DESCRIPTOR_PROTO).build();
-        // TODO: 1. Get the Avro Schema
-        // 1.1 Get the existing Table Schema
-        // 1.2 SchemaTransform.
+        this.protoSchema =
+                ProtoSchema.newBuilder().setProtoDescriptor(ProtobufUtils.DESCRIPTOR_PROTO).build();
+        this.tablePath = tablePath;
+        LOG.info(Thread.currentThread().getId() + ": BigQuerySink has been initialized");
 
         LOG.info(Thread.currentThread().getId() + ": BigQuerySink has been initialized");
 
-        this.serialiser = new SerialiseAvroRecordsToStorageApiProtos(destination);
-
-        // (Avro -> Beam Schema) -> to Table Schema
-        // toTableSchema() converts Beam Schema to BQ Table Schema
-        // toTableFieldSchema :: Is the actual function that converts.
-        bqTableSchema = BigQueryUtils.toTableSchema(AvroUtils.toBeamSchema(avroSchema));
-        // avro -> Proto Table Schema
-        protoTableSchema =
-                AvroGenericRecordToStorageApiProto.protoTableSchemaFromAvroSchema(avroSchema);
-        // Proto Table Schema -> Protobuf Descriptor. (now this can be provided to write payload)
-        descriptor =
-                TableRowToStorageApiProto.getDescriptorFromTableSchema(protoTableSchema, true, false);
-
-        // TODO: HANDLE CDC.
-        // TODO: 2. Convert to Avro Format
-        // TODO: 3. Obtain the Avro - Proto Table Schema
-        // TODO: 4. Obtain Proto Table Schema -> Descriptor.
+        this.destination = new BigQueryConstantTableDestination();
     }
 
     @Override
