@@ -25,7 +25,7 @@ public class BigQuerySink {
                 || sinkConfig.parallelism > sinkConfig.maxParallelism) {
             throw new IllegalArgumentException("Invalid sink parallelism configured");
         }
-        dataStream.sinkTo(bqSink).setParallelism(sinkConfig.parallelism);
+        dataStream.rebalance().sinkTo(bqSink).setParallelism(sinkConfig.parallelism);
     }
 
     private static Sink createSink(
