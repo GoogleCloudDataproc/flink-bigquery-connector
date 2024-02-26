@@ -53,6 +53,8 @@ public class SchemaTransform {
     static final Map<String, List<Schema.Type>> BIG_QUERY_TO_AVRO_TYPES =
             initializeBigQueryToAvroTypesMapping();
 
+    //    public static final LegacySQLTypeName INTERVAL;
+
     private static Map<String, List<Schema.Type>> initializeBigQueryToAvroTypesMapping() {
         Map<String, List<Schema.Type>> mapping = new HashMap<>();
 

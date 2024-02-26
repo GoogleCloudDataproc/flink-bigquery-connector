@@ -2,26 +2,27 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.Iterables;
 
-import com.google.api.client.util.BackOff;
-import com.google.api.client.util.BackOffUtils;
 import com.google.api.client.util.Preconditions;
-import com.google.api.client.util.Sleeper;
 import com.google.cloud.bigquery.storage.v1.TableFieldSchema;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /** Javadoc. */
 public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToStorageApiProto {
@@ -78,6 +79,13 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
     }
 
+    private Schema getAvroSchema(com.google.cloud.bigquery.Schema bigQuerySchema) {
+
+        // Convert to Table Schema.
+        // And then Avro Schema by calling getAvroSchema(TableSchema)
+        return getAvroSchema(SchemaTransform.bigQuerySchemaToTableSchema(bigQuerySchema));
+    }
+
     /**
      * Given an Avro Schema, returns a protocol-buffer TableSchema that can be used to write data
      * through BigQuery Storage API.
@@ -97,26 +105,109 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         return builder.build();
     }
 
+    /**
+     * Given an Avro Schema Field, returns a protocol-buffer TableFieldSchema that can be used to
+     * create the TableSchema.
+     *
+     * @param field An Avro Schema Field
+     * @return Returns the TableFieldSchema created from the provided Field
+     */
     private static TableFieldSchema getTableFieldFromAvroField(Schema.Field field) {
         @Nullable Schema schema = field.schema();
-        // Check if schema is not null
+
         Preconditions.checkNotNull(schema, "Unexpected null schema!");
-
-        // TODO: Check if the field name is a CDC Column.
-
         TableFieldSchema.Builder builder =
                 TableFieldSchema.newBuilder().setName(field.name().toLowerCase());
-        Schema elementType = schema;
+        Schema elementType = null;
+        boolean isNullable = false;
+
         switch (schema.getType()) {
             case RECORD:
+                elementType = schema;
+
                 throw new UnsupportedOperationException("Operation is not supported yet.");
             case ARRAY:
-                throw new UnsupportedOperationException("Operation is not supported yet.");
+                elementType = schema.getElementType();
+                if (elementType == null) {
+                    throw new RuntimeException("Unexpected null element type!");
+                }
+                Preconditions.checkState(
+                        elementType.getType() != Schema.Type.ARRAY,
+                        "Nested arrays not supported by BigQuery.");
+
+                TableFieldSchema elementFieldSchema =
+                        getTableFieldFromAvroField(
+                                new Schema.Field(
+                                        field.name(),
+                                        elementType,
+                                        field.doc(),
+                                        field.defaultVal()));
+                builder = builder.setType(elementFieldSchema.getType());
+                builder.addAllFields(elementFieldSchema.getFieldsList());
+                builder = builder.setMode(TableFieldSchema.Mode.REPEATED);
+                break;
             case MAP:
-                throw new UnsupportedOperationException("Operation is not supported yet.");
+                Schema keyType = Schema.create(Schema.Type.STRING);
+                Schema valueType = schema.getElementType();
+                if (valueType == null) {
+                    throw new RuntimeException("Unexpected null element type!");
+                }
+                TableFieldSchema keyFieldSchema =
+                        getTableFieldFromAvroField(
+                                new Schema.Field(
+                                        "key", keyType, " Map entry key", Schema.Field.NULL_VALUE));
+                TableFieldSchema valueFieldSchema =
+                        getTableFieldFromAvroField(
+                                new Schema.Field(
+                                        "value",
+                                        valueType,
+                                        "Map entry value",
+                                        Schema.Field.NULL_VALUE));
+                builder =
+                        builder.setType(TableFieldSchema.Type.STRUCT)
+                                .addFields(keyFieldSchema)
+                                .addFields(valueFieldSchema)
+                                .setMode(TableFieldSchema.Mode.REPEATED);
+                break;
             case UNION:
-                throw new UnsupportedOperationException("Operation is not supported yet.");
+                // Types can be ["null"] - Not supported in BigQuery.
+                // ["null", something]  - Bigquery Field of type something with mode NULLABLE
+                // ["null", something1, something2], [something1, something2] - Are invalid types
+                // not supported in BQ
+                elementType = schema;
+                List<Schema> types = elementType.getTypes();
+                // don't need recursion because nested unions aren't supported in AVRO
+                // Extract all the nonNull Datatypes.
+                List<org.apache.avro.Schema> nonNullSchemaTypes =
+                        types.stream()
+                                .filter(schemaType -> schemaType.getType() != Schema.Type.NULL)
+                                .collect(Collectors.toList());
+
+                int nonNullSchemaTypesSize = nonNullSchemaTypes.size();
+
+                if (nonNullSchemaTypesSize == 1) {
+                    elementType = nonNullSchemaTypes.get(0);
+                    isNullable = true;
+                } else {
+                    throw new IllegalArgumentException(
+                            "Multiple non-null union types are not supported.");
+                }
+                if (elementType == null) {
+                    throw new RuntimeException("Unexpected null element type!");
+                }
+                TableFieldSchema unionFieldSchema =
+                        getTableFieldFromAvroField(
+                                new Schema.Field(
+                                        field.name(),
+                                        elementType,
+                                        field.doc(),
+                                        field.defaultVal()));
+                builder =
+                        builder.setType(unionFieldSchema.getType())
+                                .addAllFields(unionFieldSchema.getFieldsList());
+                break;
             default:
+                elementType = schema;
                 // Handling of the Logical or Primitive Type.
                 @Nullable
                 TableFieldSchema.Type primitiveType =
@@ -126,18 +217,14 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
                 if (primitiveType == null) {
                     throw new RuntimeException("Unsupported type " + elementType.getType());
                 }
-                // a scalar will be required by default, if defined as part of union then
-                // caller will set nullability requirements
                 builder = builder.setType(primitiveType);
         }
         if (builder.getMode() != TableFieldSchema.Mode.REPEATED) {
-            //            if (TypeWithNullability.create(schema).isNullable()) {
-            //                builder =
-            // builder.setMode(TableFieldSchema.Mode.NULLABLE);
-            //            } else {
-            //            TODO: Implement TypeWithNullability() here.
-            builder = builder.setMode(TableFieldSchema.Mode.REQUIRED);
-            //            }
+            if (isNullable) {
+                builder = builder.setMode(TableFieldSchema.Mode.NULLABLE);
+            } else {
+                builder = builder.setMode(TableFieldSchema.Mode.REQUIRED);
+            }
         }
         if (field.doc() != null) {
             builder = builder.setDescription(field.doc());
@@ -145,65 +232,7 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         return builder.build();
     }
 
-    //    static final Map<TableFieldSchema.Type, DescriptorProtos.FieldDescriptorProto.Type>
-    //            PRIMITIVE_TYPES_BQ_TO_PROTO =
-    //                    ImmutableMap
-    //                            .<TableFieldSchema.Type,
-    // DescriptorProtos.FieldDescriptorProto.Type>
-    //                                    builder()
-    //                            .put(
-    //                                    TableFieldSchema.Type.INT64,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.DOUBLE,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_DOUBLE)
-    //                            .put(
-    //                                    TableFieldSchema.Type.STRING,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
-    //                            .put(
-    //                                    TableFieldSchema.Type.BOOL,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_BOOL)
-    //                            .put(
-    //                                    TableFieldSchema.Type.BYTES,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-    //                            .put(
-    //                                    TableFieldSchema.Type.NUMERIC,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-    //                            .put(
-    //                                    TableFieldSchema.Type.BIGNUMERIC,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES)
-    //                            .put(
-    //                                    TableFieldSchema.Type.GEOGRAPHY,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type
-    //                                            .TYPE_STRING) // Pass through the JSON encoding.
-    //                            .put(
-    //                                    TableFieldSchema.Type.DATE,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
-    //                            .put(
-    //                                    TableFieldSchema.Type.TIME,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.DATETIME,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.TIMESTAMP,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.JSON,
-    //                                    DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
-    //                            .build();
-
-    private static boolean nextBackOff(Sleeper sleeper, BackOff backoff)
-            throws InterruptedException {
-        try {
-            return BackOffUtils.next(sleeper, backoff);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public static Descriptors.Descriptor wrapDescriptorProto(
-            DescriptorProtos.DescriptorProto descriptorProto)
+    public static Descriptor wrapDescriptorProto(DescriptorProto descriptorProto)
             throws Descriptors.DescriptorValidationException {
         FileDescriptorProto fileDescriptorProto =
                 FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build();
@@ -214,43 +243,44 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         return Iterables.getOnlyElement(fileDescriptor.getMessageTypes());
     }
 
-    private static DescriptorProtos.DescriptorProto descriptorSchemaFromTableFieldSchemas(
-            Iterable<TableFieldSchema> tableFieldSchemas,
-            boolean respectRequired,
-            boolean includeCdcColumns) {
-        DescriptorProtos.DescriptorProto.Builder descriptorBuilder =
-                DescriptorProtos.DescriptorProto.newBuilder();
+    /**
+     * Defines descriptor for the Table Schema.
+     *
+     * @param tableSchema for which descriptor needs to be defined.
+     * @return Descriptor that describes the TableSchema
+     * @throws Descriptors.DescriptorValidationException
+     */
+    public static Descriptor getDescriptorFromTableSchema(TableSchema tableSchema)
+            throws Descriptors.DescriptorValidationException {
+        return wrapDescriptorProto(descriptorSchemaFromTableSchema(tableSchema));
+    }
+
+    /**
+     * Obtains a Descriptor Proto by obtaining Descriptor Proto field by field.
+     *
+     * @param tableSchema Table Schema for which descriptor is needed.
+     * @return DescriptorProto describing the Schema.
+     */
+    static DescriptorProto descriptorSchemaFromTableSchema(TableSchema tableSchema) {
+        return descriptorSchemaFromTableFieldSchemas(tableSchema.getFieldsList());
+    }
+
+    /**
+     * Obtains a Descriptor Proto by obtaining Descriptor Proto field by field.
+     *
+     * <p>Iterates over TableSchemaField to obtain FieldDescriptorProto for it.
+     *
+     * @param tableFieldSchemas List of Table Schema Fields for which descriptor is needed.
+     * @return DescriptorProto describing the Schema.
+     */
+    private static DescriptorProto descriptorSchemaFromTableFieldSchemas(
+            Iterable<TableFieldSchema> tableFieldSchemas) {
+        DescriptorProto.Builder descriptorBuilder = DescriptorProto.newBuilder();
         // Create a unique name for the descriptor ('-' characters cannot be used).
         descriptorBuilder.setName("D" + UUID.randomUUID().toString().replace("-", "_"));
         int i = 1;
         for (TableFieldSchema fieldSchema : tableFieldSchemas) {
-            fieldDescriptorFromTableField(fieldSchema, i++, descriptorBuilder, respectRequired);
-        }
-        if (includeCdcColumns) {
-            DescriptorProtos.FieldDescriptorProto.Builder fieldDescriptorBuilder =
-                    DescriptorProtos.FieldDescriptorProto.newBuilder();
-            //           TODO:  fieldDescriptorBuilder =
-            // fieldDescriptorBuilder.setName(StorageApiCDC.CHANGE_TYPE_COLUMN);
-            fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(i++);
-            fieldDescriptorBuilder =
-                    fieldDescriptorBuilder.setType(
-                            DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
-            fieldDescriptorBuilder =
-                    fieldDescriptorBuilder.setLabel(
-                            DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
-            descriptorBuilder.addField(fieldDescriptorBuilder.build());
-
-            fieldDescriptorBuilder = DescriptorProtos.FieldDescriptorProto.newBuilder();
-            //          TODO:  fieldDescriptorBuilder =
-            // fieldDescriptorBuilder.setName(StorageApiCDC.CHANGE_SQN_COLUMN);
-            fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(i++);
-            fieldDescriptorBuilder =
-                    fieldDescriptorBuilder.setType(
-                            DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
-            fieldDescriptorBuilder =
-                    fieldDescriptorBuilder.setLabel(
-                            DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
-            descriptorBuilder.addField(fieldDescriptorBuilder.build());
+            fieldDescriptorFromTableField(fieldSchema, i++, descriptorBuilder);
         }
         return descriptorBuilder.build();
     }
@@ -258,31 +288,24 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
     private static void fieldDescriptorFromTableField(
             TableFieldSchema fieldSchema,
             int fieldNumber,
-            DescriptorProtos.DescriptorProto.Builder descriptorBuilder,
-            boolean respectRequired) {
-        // TODO: Throw an error if CDC column
-        //        if (StorageApiCDC.COLUMNS.contains(fieldSchema.getName())) {
-        //            throw new RuntimeException(
-        //                    "Reserved field name " + fieldSchema.getName() + " in user schema.");
-        //        }
-        DescriptorProtos.FieldDescriptorProto.Builder fieldDescriptorBuilder =
-                DescriptorProtos.FieldDescriptorProto.newBuilder();
+            DescriptorProto.Builder descriptorBuilder) {
+
+        FieldDescriptorProto.Builder fieldDescriptorBuilder = FieldDescriptorProto.newBuilder();
         fieldDescriptorBuilder =
                 fieldDescriptorBuilder.setName(fieldSchema.getName().toLowerCase());
         fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(fieldNumber);
         switch (fieldSchema.getType()) {
             case STRUCT:
                 DescriptorProtos.DescriptorProto nested =
-                        descriptorSchemaFromTableFieldSchemas(
-                                fieldSchema.getFieldsList(), respectRequired, false);
+                        descriptorSchemaFromTableFieldSchemas(fieldSchema.getFieldsList());
                 descriptorBuilder.addNestedType(nested);
                 fieldDescriptorBuilder =
                         fieldDescriptorBuilder
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
                                 .setTypeName(nested.getName());
                 break;
             default:
-                @Nullable DescriptorProtos.FieldDescriptorProto.Type type = null;
+                @Nullable FieldDescriptorProto.Type type = null;
                 //                        PRIMITIVE_TYPES_BQ_TO_PROTO.get(fieldSchema.getType());
                 if (type == null) {
                     throw new UnsupportedOperationException(
@@ -295,31 +318,21 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
 
         if (fieldSchema.getMode() == TableFieldSchema.Mode.REPEATED) {
             fieldDescriptorBuilder =
-                    fieldDescriptorBuilder.setLabel(
-                            DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED);
-        } else if (!respectRequired || fieldSchema.getMode() != TableFieldSchema.Mode.REQUIRED) {
+                    fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
+        } else if (fieldSchema.getMode() != TableFieldSchema.Mode.REQUIRED) {
             fieldDescriptorBuilder =
-                    fieldDescriptorBuilder.setLabel(
-                            DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                    fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL);
         } else {
             fieldDescriptorBuilder =
-                    fieldDescriptorBuilder.setLabel(
-                            DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED);
+                    fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED);
         }
         descriptorBuilder.addField(fieldDescriptorBuilder.build());
     }
 
-    public static Descriptors.Descriptor getDescriptorFromTableSchema(
-            TableSchema tableSchema, boolean respectRequired, boolean includeCdcColumns)
-            throws Descriptors.DescriptorValidationException {
-        return wrapDescriptorProto(
-                descriptorSchemaFromTableSchema(tableSchema, respectRequired, includeCdcColumns));
-    }
+    public SerialiseAvroRecordsToStorageApiProtos(com.google.cloud.bigquery.Schema schema) {
+        Schema avroSchema = getAvroSchema(schema);
 
-    static DescriptorProtos.DescriptorProto descriptorSchemaFromTableSchema(
-            TableSchema tableSchema, boolean respectRequired, boolean includeCdcColumns) {
-        return descriptorSchemaFromTableFieldSchemas(
-                tableSchema.getFieldsList(), respectRequired, includeCdcColumns);
+        TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
     }
 
     public SerialiseAvroRecordsToStorageApiProtos(
@@ -329,14 +342,9 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
 
         TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
 
-        //        TableSchema storageTableSchema = destination.getStorageTableSchema();
-
         // TODO: 3. Proto Table Schema -> Descriptor.
-        /*
-
-        */
         //        Descriptors.Descriptor descriptor =
-        //                getDescriptorFromTableSchema(protoTableSchema, false, false);
+        // getDescriptorFromTableSchema(protoTableSchema);
 
         // TODO: 4. Message from GenericRecord()
         /*
@@ -348,4 +356,53 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         // messageValueFromGenericRecordValue() -> toProtoValue()
 
     }
+
+    //    static final Map<TableFieldSchema.Type, FieldDescriptorProto.Type>
+    //            PRIMITIVE_TYPES_BQ_TO_PROTO =
+    //                    ImmutableMap
+    //                            .<TableFieldSchema.Type,
+    // FieldDescriptorProto.Type>
+    //                                    builder()
+    //                            .put(
+    //                                    TableFieldSchema.Type.INT64,
+    //                                    FieldDescriptorProto.Type.TYPE_INT64)
+    //                            .put(
+    //                                    TableFieldSchema.Type.DOUBLE,
+    //                                    FieldDescriptorProto.Type.TYPE_DOUBLE)
+    //                            .put(
+    //                                    TableFieldSchema.Type.STRING,
+    //                                    FieldDescriptorProto.Type.TYPE_STRING)
+    //                            .put(
+    //                                    TableFieldSchema.Type.BOOL,
+    //                                    FieldDescriptorProto.Type.TYPE_BOOL)
+    //                            .put(
+    //                                    TableFieldSchema.Type.BYTES,
+    //                                    FieldDescriptorProto.Type.TYPE_BYTES)
+    //                            .put(
+    //                                    TableFieldSchema.Type.NUMERIC,
+    //                                    FieldDescriptorProto.Type.TYPE_BYTES)
+    //                            .put(
+    //                                    TableFieldSchema.Type.BIGNUMERIC,
+    //                                    FieldDescriptorProto.Type.TYPE_BYTES)
+    //                            .put(
+    //                                    TableFieldSchema.Type.GEOGRAPHY,
+    //                                    FieldDescriptorProto.Type
+    //                                            .TYPE_STRING) // Pass through the JSON encoding.
+    //                            .put(
+    //                                    TableFieldSchema.Type.DATE,
+    //                                    FieldDescriptorProto.Type.TYPE_INT32)
+    //                            .put(
+    //                                    TableFieldSchema.Type.TIME,
+    //                                    FieldDescriptorProto.Type.TYPE_INT64)
+    //                            .put(
+    //                                    TableFieldSchema.Type.DATETIME,
+    //                                    FieldDescriptorProto.Type.TYPE_INT64)
+    //                            .put(
+    //                                    TableFieldSchema.Type.TIMESTAMP,
+    //                                    FieldDescriptorProto.Type.TYPE_INT64)
+    //                            .put(
+    //                                    TableFieldSchema.Type.JSON,
+    //                                    FieldDescriptorProto.Type.TYPE_STRING)
+    //                            .build();
+
 }
