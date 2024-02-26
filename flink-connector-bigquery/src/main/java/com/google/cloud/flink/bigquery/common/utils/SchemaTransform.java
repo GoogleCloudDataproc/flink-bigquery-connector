@@ -59,23 +59,29 @@ public class SchemaTransform {
         Map<String, List<Schema.Type>> mapping = new HashMap<>();
 
         mapping.put("STRING", Arrays.asList(Schema.Type.STRING));
-        mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));
         mapping.put("BYTES", Arrays.asList(Schema.Type.BYTES));
         mapping.put("INTEGER", Arrays.asList(Schema.Type.LONG));
         mapping.put("INT64", Arrays.asList(Schema.Type.LONG));
         mapping.put("FLOAT", Arrays.asList(Schema.Type.DOUBLE));
         mapping.put("FLOAT64", Arrays.asList(Schema.Type.DOUBLE));
-        mapping.put("NUMERIC", Arrays.asList(Schema.Type.BYTES));
-        mapping.put("BIGNUMERIC", Arrays.asList(Schema.Type.BYTES));
         mapping.put("BOOLEAN", Arrays.asList(Schema.Type.BOOLEAN));
+        mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
         mapping.put("BOOL", Arrays.asList(Schema.Type.BOOLEAN));
-        mapping.put("TIMESTAMP", Arrays.asList(Schema.Type.LONG));
+        // Handled Recursively.
         mapping.put("RECORD", Arrays.asList(Schema.Type.RECORD));
         mapping.put("STRUCT", Arrays.asList(Schema.Type.RECORD));
+        // Now the special ones (set logical types so that can be inferred later)
+        // TODO:
+        mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));
+        mapping.put("TIMESTAMP", Arrays.asList(Schema.Type.LONG));
         mapping.put("DATE", Arrays.asList(Schema.Type.STRING, Schema.Type.INT));
         mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
         mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
-        mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
+        mapping.put("NUMERIC", Arrays.asList(Schema.Type.BYTES));
+        mapping.put("BIGNUMERIC", Arrays.asList(Schema.Type.BYTES));
+        mapping.put("RANGE", Arrays.asList(Schema.Type.STRING));
+        // TODO: RANGE is of the form [start, end) so this is represented via string only, needs
+        // to be handled.
 
         return mapping;
     }
@@ -165,6 +171,8 @@ public class SchemaTransform {
         "nullness" // Avro library not annotated
     })
     private static Schema.Field convertField(TableFieldSchema bigQueryField, String namespace) {
+        System.out.println(">> [BQ TYPE] " + bigQueryField.getType());
+        System.out.println(">> [BQ NAME] " + bigQueryField.getName());
         List<Schema.Type> avroTypes = BIG_QUERY_TO_AVRO_TYPES.get(bigQueryField.getType());
         if (avroTypes.isEmpty()) {
             throw new IllegalArgumentException(
@@ -221,12 +229,32 @@ public class SchemaTransform {
                         Optional.ofNullable(bigQueryField.getScale()).orElse(38L).intValue();
                 return LogicalTypes.decimal(precisionBigNumeric, scaleBigNumeric)
                         .addToSchema(Schema.create(Schema.Type.BYTES));
+            case "TIME":
+                return LogicalTypes.timeMicros().addToSchema(Schema.create(Schema.Type.LONG));
+            case "DATETIME":
+                return LogicalTypes.localTimestampMicros()
+                        .addToSchema(Schema.create(Schema.Type.LONG));
+            case "DATE":
+                return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
             case "TIMESTAMP":
                 return LogicalTypes.timestampMicros().addToSchema(Schema.create(Schema.Type.LONG));
             case "GEOGRAPHY":
                 Schema geoSchema = Schema.create(Schema.Type.STRING);
                 geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
                 return geoSchema;
+            case "RANGE":
+                Schema rangeSchema = Schema.create(Schema.Type.STRING);
+                String rangeElementType = bigQueryField.getRangeElementType().getType();
+                if (rangeElementType.equals("DATE")
+                        || rangeElementType.equals("DATETIME")
+                        || rangeElementType.equals("TIMESTAMP")) {
+                    rangeSchema.addProp(
+                            LogicalType.LOGICAL_TYPE_PROP, "{range, " + rangeElementType + "}");
+                } else {
+                    throw new UnsupportedOperationException(
+                            "Type " + rangeElementType + " is not supported yet.");
+                }
+                return rangeSchema;
             default:
                 return Schema.create(avroType);
         }

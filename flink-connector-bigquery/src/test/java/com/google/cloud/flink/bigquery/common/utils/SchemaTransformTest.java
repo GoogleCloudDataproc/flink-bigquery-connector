@@ -157,17 +157,19 @@ public class SchemaTransformTest {
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
-                                Schema.create(Schema.Type.STRING)));
+                                LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT))));
         assertThat(avroSchema.getField("anniversaryDatetime").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
-                                Schema.create(Schema.Type.STRING)));
+                                LogicalTypes.localTimestampMicros()
+                                        .addToSchema(Schema.create(Schema.Type.LONG))));
         assertThat(avroSchema.getField("anniversaryTime").schema())
                 .isEqualTo(
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
-                                Schema.create(Schema.Type.STRING)));
+                                LogicalTypes.timeMicros()
+                                        .addToSchema(Schema.create(Schema.Type.LONG))));
         Schema geoSchema = Schema.create(Schema.Type.STRING);
         geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
         assertThat(avroSchema.getField("geoPositions").schema())

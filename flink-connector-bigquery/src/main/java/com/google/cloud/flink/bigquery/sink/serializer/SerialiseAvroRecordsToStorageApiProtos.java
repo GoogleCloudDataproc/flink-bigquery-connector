@@ -6,12 +6,12 @@ import com.google.api.client.util.Preconditions;
 import com.google.cloud.bigquery.storage.v1.TableFieldSchema;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
-import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
+import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 
@@ -32,6 +32,34 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
     static final Map<Schema.Type, TableFieldSchema.Type> PRIMITIVE_TYPES =
             initializePrimitiveAvroToTableFieldTypes();
 
+    static final Map<TableFieldSchema.Type, FieldDescriptorProto.Type> PRIMITIVE_TYPES_BQ_TO_PROTO =
+            initializeProtoFieldToFieldDescriptorTypes();
+
+    private static Map<TableFieldSchema.Type, FieldDescriptorProto.Type>
+            initializeProtoFieldToFieldDescriptorTypes() {
+
+        Map<TableFieldSchema.Type, FieldDescriptorProto.Type> mapping = new HashMap<>();
+
+        mapping.put(TableFieldSchema.Type.INT64, FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(TableFieldSchema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
+        mapping.put(TableFieldSchema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(TableFieldSchema.Type.BOOL, FieldDescriptorProto.Type.TYPE_BOOL);
+        mapping.put(TableFieldSchema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
+        mapping.put(TableFieldSchema.Type.NUMERIC, FieldDescriptorProto.Type.TYPE_BYTES);
+        mapping.put(TableFieldSchema.Type.BIGNUMERIC, FieldDescriptorProto.Type.TYPE_BYTES);
+        mapping.put(
+                TableFieldSchema.Type.GEOGRAPHY,
+                FieldDescriptorProto.Type.TYPE_STRING); // Pass through the JSON encoding.
+        mapping.put(TableFieldSchema.Type.DATE, FieldDescriptorProto.Type.TYPE_INT32);
+        mapping.put(TableFieldSchema.Type.TIME, FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(TableFieldSchema.Type.DATETIME, FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(TableFieldSchema.Type.TIMESTAMP, FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(TableFieldSchema.Type.JSON, FieldDescriptorProto.Type.TYPE_STRING);
+        // TODO: Handle This
+        mapping.put(TableFieldSchema.Type.INTERVAL, FieldDescriptorProto.Type.TYPE_STRING);
+        return mapping;
+    }
+
     /**
      * Function to initialize the conversion Map which converts LogicalType to TableFieldSchema
      * Type.
@@ -48,8 +76,12 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         // These are newly added.
         mapping.put(LogicalTypes.timeMillis().getName(), TableFieldSchema.Type.TIME);
         mapping.put(LogicalTypes.timeMicros().getName(), TableFieldSchema.Type.TIME);
-        mapping.put(LogicalTypes.localTimestampMillis().getName(), TableFieldSchema.Type.DATETIME);
         mapping.put(LogicalTypes.localTimestampMicros().getName(), TableFieldSchema.Type.DATETIME);
+        mapping.put(LogicalTypes.localTimestampMicros().getName(), TableFieldSchema.Type.DATETIME);
+        mapping.put("geography_wkt", TableFieldSchema.Type.GEOGRAPHY);
+        mapping.put("{range, DATE}", TableFieldSchema.Type.INTERVAL);
+        mapping.put("{range, TIME}", TableFieldSchema.Type.INTERVAL);
+        mapping.put("{range, TIMESTAMP}", TableFieldSchema.Type.INTERVAL);
         return mapping;
     }
 
@@ -211,8 +243,8 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
                 // Handling of the Logical or Primitive Type.
                 @Nullable
                 TableFieldSchema.Type primitiveType =
-                        Optional.ofNullable(LogicalTypes.fromSchema(elementType))
-                                .map(logicalType -> LOGICAL_TYPES.get(logicalType.getName()))
+                        Optional.ofNullable(elementType.getProp(LogicalType.LOGICAL_TYPE_PROP))
+                                .map(LOGICAL_TYPES::get)
                                 .orElse(PRIMITIVE_TYPES.get(elementType.getType()));
                 if (primitiveType == null) {
                     throw new RuntimeException("Unsupported type " + elementType.getType());
@@ -296,26 +328,21 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(fieldNumber);
         switch (fieldSchema.getType()) {
             case STRUCT:
-                DescriptorProtos.DescriptorProto nested =
-                        descriptorSchemaFromTableFieldSchemas(fieldSchema.getFieldsList());
-                descriptorBuilder.addNestedType(nested);
-                fieldDescriptorBuilder =
-                        fieldDescriptorBuilder
-                                .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setTypeName(nested.getName());
-                break;
+                throw new UnsupportedOperationException("Operation is not supported yet.");
             default:
-                @Nullable FieldDescriptorProto.Type type = null;
-                //                        PRIMITIVE_TYPES_BQ_TO_PROTO.get(fieldSchema.getType());
+                @Nullable
+                FieldDescriptorProto.Type type =
+                        PRIMITIVE_TYPES_BQ_TO_PROTO.get(fieldSchema.getType());
                 if (type == null) {
                     throw new UnsupportedOperationException(
                             "Converting BigQuery type "
                                     + fieldSchema.getType()
-                                    + " to Beam type is unsupported");
+                                    + " to Storage API Proto type is unsupported");
                 }
                 fieldDescriptorBuilder = fieldDescriptorBuilder.setType(type);
         }
 
+        // Set the Labels for different Modes - REPEATED, REQUIRED, NULLABLE.
         if (fieldSchema.getMode() == TableFieldSchema.Mode.REPEATED) {
             fieldDescriptorBuilder =
                     fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
@@ -329,11 +356,13 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         descriptorBuilder.addField(fieldDescriptorBuilder.build());
     }
 
-    public SerialiseAvroRecordsToStorageApiProtos(com.google.cloud.bigquery.Schema schema) {
-        Schema avroSchema = getAvroSchema(schema);
+    /** Uncomment for Approach 2. */
 
-        TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
-    }
+    //    public SerialiseAvroRecordsToStorageApiProtos(com.google.cloud.bigquery.Schema schema) {
+    //        Schema avroSchema = getAvroSchema(schema);
+    //
+    //        TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
+    //    }
 
     public SerialiseAvroRecordsToStorageApiProtos(
             com.google.api.services.bigquery.model.TableSchema tableSchema) {
@@ -346,63 +375,10 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         //        Descriptors.Descriptor descriptor =
         // getDescriptorFromTableSchema(protoTableSchema);
 
-        // TODO: 4. Message from GenericRecord()
-        /*
-
-        */
         // TODO: 5. .toMessage() {NOT IN THE CONSTRUCTOR}
         // messageFromGenericRecord(descriptor, record)
         // Check if descriptor has the same fields as that in the record.
         // messageValueFromGenericRecordValue() -> toProtoValue()
 
     }
-
-    //    static final Map<TableFieldSchema.Type, FieldDescriptorProto.Type>
-    //            PRIMITIVE_TYPES_BQ_TO_PROTO =
-    //                    ImmutableMap
-    //                            .<TableFieldSchema.Type,
-    // FieldDescriptorProto.Type>
-    //                                    builder()
-    //                            .put(
-    //                                    TableFieldSchema.Type.INT64,
-    //                                    FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.DOUBLE,
-    //                                    FieldDescriptorProto.Type.TYPE_DOUBLE)
-    //                            .put(
-    //                                    TableFieldSchema.Type.STRING,
-    //                                    FieldDescriptorProto.Type.TYPE_STRING)
-    //                            .put(
-    //                                    TableFieldSchema.Type.BOOL,
-    //                                    FieldDescriptorProto.Type.TYPE_BOOL)
-    //                            .put(
-    //                                    TableFieldSchema.Type.BYTES,
-    //                                    FieldDescriptorProto.Type.TYPE_BYTES)
-    //                            .put(
-    //                                    TableFieldSchema.Type.NUMERIC,
-    //                                    FieldDescriptorProto.Type.TYPE_BYTES)
-    //                            .put(
-    //                                    TableFieldSchema.Type.BIGNUMERIC,
-    //                                    FieldDescriptorProto.Type.TYPE_BYTES)
-    //                            .put(
-    //                                    TableFieldSchema.Type.GEOGRAPHY,
-    //                                    FieldDescriptorProto.Type
-    //                                            .TYPE_STRING) // Pass through the JSON encoding.
-    //                            .put(
-    //                                    TableFieldSchema.Type.DATE,
-    //                                    FieldDescriptorProto.Type.TYPE_INT32)
-    //                            .put(
-    //                                    TableFieldSchema.Type.TIME,
-    //                                    FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.DATETIME,
-    //                                    FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.TIMESTAMP,
-    //                                    FieldDescriptorProto.Type.TYPE_INT64)
-    //                            .put(
-    //                                    TableFieldSchema.Type.JSON,
-    //                                    FieldDescriptorProto.Type.TYPE_STRING)
-    //                            .build();
-
 }
