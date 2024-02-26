@@ -19,17 +19,22 @@ package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.base.source.hybrid.HybridSource;
+import org.apache.flink.streaming.api.CheckpointingMode;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Collector;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.BigQuerySink;
+import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfigurations;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import org.apache.avro.generic.GenericRecord;
@@ -37,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A simple BigQuery table read example with Flink's DataStream API.
@@ -164,6 +170,9 @@ public class BigQueryExample {
                 break;
             case "unbounded":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                boolean exactlyOnceSink = parameterTool.getBoolean("exactly-once", false);
+                String destTable = parameterTool.getRequired("destination-table");
+                Integer parallelism = Integer.valueOf(parameterTool.getRequired("parallelism"));
                 runStreamingFlinkJob(
                         projectName,
                         datasetName,
@@ -177,7 +186,10 @@ public class BigQueryExample {
                         partitionDiscoveryInterval,
                         maxOutOfOrder,
                         maxIdleness,
-                        windowSize);
+                        windowSize,
+                        exactlyOnceSink,
+                        destTable,
+                        parallelism);
                 break;
             case "hybrid":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -218,6 +230,7 @@ public class BigQueryExample {
 
     private static void runJob(
             Source<GenericRecord, ?, ?> source,
+            BigQuerySinkConfigurations sinkConfig,
             TypeInformation<GenericRecord> typeInfo,
             String sourceName,
             String jobName,
@@ -230,23 +243,25 @@ public class BigQueryExample {
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
+        env.enableCheckpointing(checkpointInterval, CheckpointingMode.EXACTLY_ONCE);
 
-        env.fromSource(
-                        source,
-                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
-                                        Duration.ofMinutes(maxOutOfOrder))
-                                .withTimestampAssigner(
-                                        (event, timestamp) ->
-                                                (Long) event.get(recordPropertyForTimestamps))
-                                .withIdleness(Duration.ofMinutes(maxIdleness)),
-                        sourceName,
-                        typeInfo)
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(mappedTuple -> mappedTuple.f0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(windowSize)))
-                .sum("f1")
-                .print();
+        DataStream ds =
+                env.fromSource(
+                                source,
+                                WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
+                                                Duration.ofMinutes(maxOutOfOrder))
+                                        .withTimestampAssigner(
+                                                (event, timestamp) ->
+                                                        (Long)
+                                                                event.get(
+                                                                        recordPropertyForTimestamps))
+                                        .withIdleness(Duration.ofMinutes(maxIdleness)),
+                                sourceName,
+                                typeInfo)
+                        .keyBy(record -> record.get("name").hashCode() % 100)
+                        .map(record -> record.get("name"));
+
+        BigQuerySink.addBigQuerySink(sinkConfig, env, ds);
 
         env.execute(jobName);
     }
@@ -298,18 +313,22 @@ public class BigQueryExample {
             Integer partitionDiscoveryInterval,
             Integer maxOutOfOrder,
             Integer maxIdleness,
-            Integer windowSize)
+            Integer windowSize,
+            boolean exactlyOnceSink,
+            String destTable,
+            int parallelism)
             throws Exception {
 
+        BigQueryConnectOptions bqConnectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId(projectName)
+                        .setDataset(datasetName)
+                        .setTable(tableName)
+                        .build();
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.streamAvros(
                         BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
+                                .setBigQueryConnectOptions(bqConnectOptions)
                                 .setRowRestriction(rowRestriction)
                                 .setLimit(limit)
                                 .setOldestPartitionId(oldestPartition)
@@ -317,8 +336,23 @@ public class BigQueryExample {
                                         partitionDiscoveryInterval)
                                 .build());
 
+        BigQuerySinkConfigurations sinkConfig =
+                new BigQuerySinkConfigurations(
+                        parallelism,
+                        100,
+                        BigQueryConnectOptions.builder()
+                                .setProjectId(projectName)
+                                .setDataset("sink_test_data")
+                                .setTable(destTable)
+                                .build(),
+                        exactlyOnceSink
+                                ? DeliveryGuarantee.EXACTLY_ONCE
+                                : DeliveryGuarantee.AT_LEAST_ONCE,
+                        RestartStrategies.fixedDelayRestart(3, Time.of(10, TimeUnit.SECONDS)));
+
         runJob(
                 source,
+                sinkConfig,
                 source.getProducedType(),
                 "BigQueryStreamingSource",
                 "Flink BigQuery Unbounded Read Example",
@@ -380,6 +414,7 @@ public class BigQueryExample {
 
         runJob(
                 hybridSource,
+                null,
                 streamingSource.getProducedType(),
                 "BigQueryHybridSource",
                 "Flink BigQuery Hybrid Read Example",
