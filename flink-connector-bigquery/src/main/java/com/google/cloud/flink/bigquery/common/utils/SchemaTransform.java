@@ -53,8 +53,6 @@ public class SchemaTransform {
     static final Map<String, List<Schema.Type>> BIG_QUERY_TO_AVRO_TYPES =
             initializeBigQueryToAvroTypesMapping();
 
-    //    public static final LegacySQLTypeName INTERVAL;
-
     private static Map<String, List<Schema.Type>> initializeBigQueryToAvroTypesMapping() {
         Map<String, List<Schema.Type>> mapping = new HashMap<>();
 
@@ -64,25 +62,21 @@ public class SchemaTransform {
         mapping.put("INT64", Arrays.asList(Schema.Type.LONG));
         mapping.put("FLOAT", Arrays.asList(Schema.Type.DOUBLE));
         mapping.put("FLOAT64", Arrays.asList(Schema.Type.DOUBLE));
+        mapping.put("NUMERIC", Arrays.asList(Schema.Type.BYTES));
+        mapping.put("BIGNUMERIC", Arrays.asList(Schema.Type.BYTES));
         mapping.put("BOOLEAN", Arrays.asList(Schema.Type.BOOLEAN));
-        mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
         mapping.put("BOOL", Arrays.asList(Schema.Type.BOOLEAN));
         // Handled Recursively.
         mapping.put("RECORD", Arrays.asList(Schema.Type.RECORD));
-        mapping.put("STRUCT", Arrays.asList(Schema.Type.RECORD));
-        // Now the special ones (set logical types so that can be inferred later)
-        // TODO:
-        mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));
         mapping.put("TIMESTAMP", Arrays.asList(Schema.Type.LONG));
         mapping.put("DATE", Arrays.asList(Schema.Type.STRING, Schema.Type.INT));
-        mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
         mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
-        mapping.put("NUMERIC", Arrays.asList(Schema.Type.BYTES));
-        mapping.put("BIGNUMERIC", Arrays.asList(Schema.Type.BYTES));
+        mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
+        mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
+        mapping.put("STRUCT", Arrays.asList(Schema.Type.RECORD));
+        mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));
+        // TODO: RANGE is of the form [start, end) so this is represented via string only.
         mapping.put("RANGE", Arrays.asList(Schema.Type.STRING));
-        // TODO: RANGE is of the form [start, end) so this is represented via string only, needs
-        // to be handled.
-
         return mapping;
     }
 
@@ -171,8 +165,6 @@ public class SchemaTransform {
         "nullness" // Avro library not annotated
     })
     private static Schema.Field convertField(TableFieldSchema bigQueryField, String namespace) {
-        System.out.println(">> [BQ TYPE] " + bigQueryField.getType());
-        System.out.println(">> [BQ NAME] " + bigQueryField.getName());
         List<Schema.Type> avroTypes = BIG_QUERY_TO_AVRO_TYPES.get(bigQueryField.getType());
         if (avroTypes.isEmpty()) {
             throw new IllegalArgumentException(

@@ -45,7 +45,11 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         mapping.put(TableFieldSchema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put(TableFieldSchema.Type.BOOL, FieldDescriptorProto.Type.TYPE_BOOL);
         mapping.put(TableFieldSchema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
+
+        // Is this ever obtained??
         mapping.put(TableFieldSchema.Type.NUMERIC, FieldDescriptorProto.Type.TYPE_BYTES);
+        mapping.put(TableFieldSchema.Type.JSON, FieldDescriptorProto.Type.TYPE_STRING);
+
         mapping.put(TableFieldSchema.Type.BIGNUMERIC, FieldDescriptorProto.Type.TYPE_BYTES);
         mapping.put(
                 TableFieldSchema.Type.GEOGRAPHY,
@@ -53,9 +57,7 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
         mapping.put(TableFieldSchema.Type.DATE, FieldDescriptorProto.Type.TYPE_INT32);
         mapping.put(TableFieldSchema.Type.TIME, FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(TableFieldSchema.Type.DATETIME, FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(TableFieldSchema.Type.TIMESTAMP, FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(TableFieldSchema.Type.JSON, FieldDescriptorProto.Type.TYPE_STRING);
-        // TODO: Handle This
+        mapping.put(TableFieldSchema.Type.TIMESTAMP, FieldDescriptorProto.Type.TYPE_INT64); // Check with String as Time-Zone has to be present.
         mapping.put(TableFieldSchema.Type.INTERVAL, FieldDescriptorProto.Type.TYPE_STRING);
         return mapping;
     }
@@ -69,6 +71,7 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
     private static Map<String, TableFieldSchema.Type> initializeLogicalAvroToTableFieldTypes() {
         Map<String, TableFieldSchema.Type> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), TableFieldSchema.Type.DATE);
+
         mapping.put(LogicalTypes.decimal(1).getName(), TableFieldSchema.Type.BIGNUMERIC);
         mapping.put(LogicalTypes.timestampMicros().getName(), TableFieldSchema.Type.TIMESTAMP);
         mapping.put(LogicalTypes.timestampMillis().getName(), TableFieldSchema.Type.TIMESTAMP);
