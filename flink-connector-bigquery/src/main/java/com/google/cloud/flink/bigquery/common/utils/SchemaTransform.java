@@ -66,12 +66,11 @@ public class SchemaTransform {
         mapping.put("BIGNUMERIC", Arrays.asList(Schema.Type.BYTES));
         mapping.put("BOOLEAN", Arrays.asList(Schema.Type.BOOLEAN));
         mapping.put("BOOL", Arrays.asList(Schema.Type.BOOLEAN));
-        // Handled Recursively.
         mapping.put("RECORD", Arrays.asList(Schema.Type.RECORD));
         mapping.put("TIMESTAMP", Arrays.asList(Schema.Type.LONG));
         mapping.put("DATE", Arrays.asList(Schema.Type.STRING, Schema.Type.INT));
         mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
-        mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
+        mapping.put("DATETIME", Arrays.asList(Schema.Type.LONG));
         mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
         mapping.put("STRUCT", Arrays.asList(Schema.Type.RECORD));
         mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));

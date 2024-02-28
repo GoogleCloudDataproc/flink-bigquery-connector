@@ -23,7 +23,16 @@ import java.io.IOException;
 public class BigQueryConstantTableDestination extends Destination {
 
     com.google.api.services.bigquery.model.TableSchema tableSchema = getSchema();
-    SerialiseRecords serialiseRecords = new SerialiseAvroRecordsToStorageApiProtos(tableSchema);
+
+    SerialiseRecords serialiseRecords;
+
+    {
+        try {
+            serialiseRecords = new SerialiseAvroRecordsToStorageApiProtos(tableSchema);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public BigQueryConstantTableDestination()
             throws Descriptors.DescriptorValidationException, IOException {}
