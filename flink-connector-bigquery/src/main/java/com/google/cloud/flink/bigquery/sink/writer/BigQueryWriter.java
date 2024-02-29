@@ -19,9 +19,10 @@ package com.google.cloud.flink.bigquery.sink.writer;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
-import com.google.cloud.flink.bigquery.common.utils.ProtobufUtils;
 import com.google.cloud.flink.bigquery.sink.TwoPhaseCommittingStatefulSink;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittable;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerSerializer;
+import com.google.protobuf.Descriptors;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,10 +45,16 @@ public class BigQueryWriter<IN>
     private long streamOffset;
     private final StreamWriter streamWriter;
 
-    public BigQueryWriter(boolean enableExactlyOnce, StreamWriter streamWriter) {
+    private final Descriptors.Descriptor descriptor;
+
+    public BigQueryWriter(
+            boolean enableExactlyOnce,
+            StreamWriter streamWriter,
+            Descriptors.Descriptor descriptor) {
         this.enableExactlyOnce = enableExactlyOnce;
         protoRowsBuilder = ProtoRows.newBuilder();
         this.streamWriter = streamWriter;
+        this.descriptor = descriptor;
     }
 
     @Override
@@ -97,9 +104,11 @@ public class BigQueryWriter<IN>
             LOG.info("@prashastia: Element schema description: " + element.getClass());
             LOG.info("@prashastia: Element schema description: " + element);
             protoRowsBuilder.addSerializedRows(
-                    ProtobufUtils.createMessage((GenericRecord) element).toByteString());
+                    AvroToProtoSerializerSerializer.getDynamicMessageFromGenericRecord(
+                                    (GenericRecord) element, this.descriptor)
+                            .toByteString());
             writeCount++;
-            if (protoRowsBuilder.getSerializedRowsCount() == 1000) {
+            if (protoRowsBuilder.getSerializedRowsCount() == 5) {
                 appendRows();
             }
             TempUtils.globalWriteCounter++;

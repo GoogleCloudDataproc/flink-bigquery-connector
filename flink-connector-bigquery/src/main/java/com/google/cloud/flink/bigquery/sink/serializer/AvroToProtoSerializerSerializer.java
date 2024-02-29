@@ -6,6 +6,7 @@ import com.google.api.client.util.Preconditions;
 import com.google.cloud.bigquery.storage.v1.TableFieldSchema;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.services.BigQueryUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
@@ -28,13 +29,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-/** Javadoc. */
-public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToStorageApiProto {
+/** Class to Serialise Avro Generic Records to Storage API protos. */
+public class AvroToProtoSerializerSerializer extends BigQueryProtoSerializer {
 
     private static final Map<String, TableFieldSchema.Type> LOGICAL_TYPES =
             initializeLogicalAvroToTableFieldTypes();
@@ -401,7 +401,7 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
             Iterable<TableFieldSchema> tableFieldSchemas) {
         DescriptorProto.Builder descriptorBuilder = DescriptorProto.newBuilder();
         // Create a unique name for the descriptor ('-' characters cannot be used).
-        descriptorBuilder.setName("D" + UUID.randomUUID().toString().replace("-", "_"));
+        descriptorBuilder.setName(BigQueryUtils.bqSanitizedRandomUUID());
         int i = 1;
         for (TableFieldSchema fieldSchema : tableFieldSchemas) {
             fieldDescriptorFromTableField(fieldSchema, i++, descriptorBuilder);
@@ -459,11 +459,13 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
     }
 
     @VisibleForTesting
+    @Override
     public DescriptorProto getDescriptorProto() {
         return descriptorProto;
     }
 
     @VisibleForTesting
+    @Override
     public Descriptor getDescriptor() {
         return descriptor;
     }
@@ -480,7 +482,7 @@ public class SerialiseAvroRecordsToStorageApiProtos extends SerialiseRecordsToSt
      * @throws Exception In case DescriptorProto could not be converted to Descriptor or there is
      *     any error in the conversion.
      */
-    public SerialiseAvroRecordsToStorageApiProtos(
+    public AvroToProtoSerializerSerializer(
             com.google.api.services.bigquery.model.TableSchema tableSchema) throws Exception {
         Schema avroSchema = getAvroSchema(tableSchema);
         TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);

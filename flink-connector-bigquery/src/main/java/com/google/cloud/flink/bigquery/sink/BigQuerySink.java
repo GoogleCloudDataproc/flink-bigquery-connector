@@ -16,27 +16,31 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
+import com.google.protobuf.Descriptors;
+import org.apache.beam.sdk.io.gcp.bigquery.AvroGenericRecordToStorageApiProto;
+
+import org.apache.beam.sdk.io.gcp.bigquery.TableRowToStorageApiProto;
+
 import org.apache.flink.api.connector.sink2.Committer;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import com.google.api.gax.retrying.RetrySettings;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.utils.ProtobufUtils;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittable;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittableSerializer;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
-import com.google.cloud.flink.bigquery.sink.destination.BigQueryConstantTableDestination;
-import com.google.cloud.flink.bigquery.sink.destination.Destination;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriter;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterState;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterStateSerializer;
-import com.google.protobuf.Descriptors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,22 +54,35 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
     private final boolean enableExactlyOnce;
     private final BigQueryConnectOptions connectOptions;
     private final String tablePath;
-    private final ProtoSchema protoSchema;
-    private final Destination destination;
 
-    public BigQuerySink(
-            boolean enableExactlyOnce, BigQueryConnectOptions connectOptions, String tablePath)
-            throws Descriptors.DescriptorValidationException, IOException {
+    private final BigQueryProtoSerializer serializer;
+    private final ProtoSchema protoSchema;
+
+    public BigQuerySink(boolean enableExactlyOnce, BigQueryConnectOptions connectOptions)
+            throws Exception {
         this.connectOptions = connectOptions;
         this.enableExactlyOnce = enableExactlyOnce;
+        BigQueryServices.SinkDataClient sinkDataClient =
+                BigQueryServicesFactory.instance(connectOptions).sinkDataClient();
+        TableSchema tableSchema =
+                sinkDataClient.getBigQueryTableSchema(
+                        connectOptions.getProjectId(),
+                        connectOptions.getDataset(),
+                        connectOptions.getTable());
+        Descriptors.Descriptor descriptor = AvroGenericRecordToStorageApiProto.protoTableSchemaFromAvroSchema(
+        this.serializer = new AvroToProtoSerializerSerializer(tableSchema);
         this.protoSchema =
-                ProtoSchema.newBuilder().setProtoDescriptor(ProtobufUtils.DESCRIPTOR_PROTO).build();
-        this.tablePath = tablePath;
+                ProtoSchema.newBuilder()
+                        .setProtoDescriptor(serializer.getDescriptorProto())
+                        .build();
+        this.tablePath =
+                "projects/"
+                        + connectOptions.getProjectId()
+                        + "/datasets/"
+                        + connectOptions.getDataset()
+                        + "/tables/"
+                        + connectOptions.getTable();
         LOG.info(Thread.currentThread().getId() + ": BigQuerySink has been initialized");
-
-        LOG.info(Thread.currentThread().getId() + ": BigQuerySink has been initialized");
-
-        this.destination = new BigQueryConstantTableDestination();
     }
 
     @Override
@@ -97,7 +114,7 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
                     Thread.currentThread().getId()
                             + ": Created writer for stream "
                             + writeStreamName);
-            return new BigQueryWriter(enableExactlyOnce, streamWriter);
+            return new BigQueryWriter(enableExactlyOnce, streamWriter, serializer.getDescriptor());
         } catch (Exception e) {
             throw new RuntimeException(
                     Thread.currentThread().getId() + ": Failed to create writer", e);
@@ -126,5 +143,9 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
     @Override
     public SimpleVersionedSerializer<BigQueryWriterState> getWriterStateSerializer() {
         return new BigQueryWriterStateSerializer();
+    }
+
+    public BigQueryProtoSerializer getSerializer() {
+        TableRowToStorageApiProto.getDescriptorFromTableSchema();
     }
 }

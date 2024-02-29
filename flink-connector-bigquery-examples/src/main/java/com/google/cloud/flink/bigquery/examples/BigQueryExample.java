@@ -322,11 +322,14 @@ public class BigQueryExample {
                                         partitionDiscoveryInterval)
                                 .build());
 
-        BigQuerySink sink =
-                new BigQuerySink(
-                        exactlyOnceSink,
-                        bqConnectOptions,
-                        "projects/bqrampupprashasti/datasets/sink_test_data/tables/" + destTable);
+        BigQueryConnectOptions bqWriteConnectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId(projectName)
+                        .setDataset(datasetName)
+                        .setTable(destTable)
+                        .build();
+
+        BigQuerySink sink = new BigQuerySink(exactlyOnceSink, bqWriteConnectOptions);
 
         runJob(
                 source,

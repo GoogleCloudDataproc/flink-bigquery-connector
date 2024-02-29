@@ -40,6 +40,12 @@ public class BigQueryServicesTest {
                             }
 
                             @Override
+                            public BigQueryServices.SinkDataClient getSinkDataClient(
+                                    CredentialsOptions credentialsOptions) {
+                                return null;
+                            }
+
+                            @Override
                             public BigQueryServices.StorageReadClient getStorageReadClient(
                                     CredentialsOptions credentialsOptions) throws IOException {
                                 return null;

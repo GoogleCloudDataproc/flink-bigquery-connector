@@ -167,7 +167,7 @@ public class BigQueryUtils {
 
     public static Table tableInfo(
             Bigquery client, String projectId, String datasetId, String tableId)
-            throws IOException, InterruptedException {
+            throws IOException {
         return executeOperation(
                 buildRetriableExecutorForOperation(
                         String.format("GetTable - %s.%s.%s", projectId, datasetId, tableId)),

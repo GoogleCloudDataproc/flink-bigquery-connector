@@ -92,6 +92,7 @@ under the License.
                                     <include>org.apache.flink:flink-avro</include>
                                     <include>org.apache.flink:flink-metrics-dropwizard</include>
                                     <include>com.google.*:*</include>
+									<include>com.google.cloud:google-cloud-bigquery</include>
                                     <include>commons-codec:commons-codec</include>    
                                     <include>dev.failsafe:*</include>                                
                                     <include>org.apache.avro:*</include>

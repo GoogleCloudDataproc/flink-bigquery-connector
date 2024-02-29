@@ -21,6 +21,7 @@ import org.apache.flink.annotation.Internal;
 import com.google.api.core.ApiFuture;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.services.bigquery.model.Job;
+import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
@@ -55,6 +56,14 @@ public interface BigQueryServices extends Serializable {
      * @return a Query data client for BigQuery.
      */
     QueryDataClient getQueryDataClient(CredentialsOptions credentialsOptions);
+
+    /**
+     * Retrieves a real, mock or fake {@link SinkDataClient}.
+     *
+     * @param credentialsOptions The options for the read operation.
+     * @return a Sink data client for BigQuery.
+     */
+    SinkDataClient getSinkDataClient(CredentialsOptions credentialsOptions);
 
     /**
      * Returns a real, mock, or fake {@link StorageReadClient}.
@@ -144,6 +153,34 @@ public interface BigQueryServices extends Serializable {
          */
         @Override
         void close();
+    }
+
+    /** An interface representing the client interactions needed to sink data to BigQuery. */
+    interface SinkDataClient extends Serializable {
+
+        /**
+         * Function to obtain a {@link Table} Object corresponding to the entered parameters.
+         *
+         * @param projectId Project ID to which the table belongs.
+         * @param datasetId Dataset ID to which the table belongs.
+         * @param tableId Table ID for the desired table.
+         * @return {@link Table} Object corresponding to the entered parameters
+         * @throws IOException in case of connection error with the table.
+         */
+        Table getBigQueryTable(String projectId, String datasetId, String tableId)
+                throws IOException;
+
+        /**
+         * Retrieves {@link TableSchema} object for the specified table.
+         *
+         * @param projectId Project ID to which the table belongs.
+         * @param datasetId Dataset ID to which the table belongs.
+         * @param tableId Table ID for the desired table.
+         * @return {@link TableSchema} object for the specified table
+         * @throws IOException in case of connection error with the table.
+         */
+        TableSchema getBigQueryTableSchema(String projectId, String datasetId, String tableId)
+                throws IOException;
     }
 
     /**
