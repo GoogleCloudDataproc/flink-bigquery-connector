@@ -1,7 +1,6 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import java.io.IOException;
-import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 
 /** Javadoc. */
 public class SinkTest {
@@ -30,10 +29,6 @@ public class SinkTest {
                     + " \"doc\": \"Translated Avro Schema for project.dataset.table\",\n"
                     + SIMPLE_AVRO_SCHEMA_FIELDS_STRING
                     + "}";
-
-    BigQueryIO.
-
-
 
     //    BigQueryReadOptions readOptions =
     //            BigQueryReadOptions.builder()

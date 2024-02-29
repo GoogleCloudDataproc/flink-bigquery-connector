@@ -56,7 +56,7 @@ under the License.
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-metrics-dropwizard</artifactId>
         </dependency>
-        
+
         <!-- Google BigQuery Storage Client -->
         <dependency>
             <groupId>com.google.cloud</groupId>
@@ -68,13 +68,13 @@ under the License.
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-bigquery</artifactId>
         </dependency>
-        
+
         <!-- Utilities -->
         <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
-                
+
         <!-- Table ecosystem -->
 
         <!-- Projects depending on this project won't depend on flink-table-*. -->
@@ -155,7 +155,19 @@ under the License.
             <artifactId>flink-architecture-tests-test</artifactId>
             <scope>test</scope>
         </dependency>
-    </dependencies>
+		<dependency>
+			<groupId>org.apache.avro</groupId>
+			<artifactId>avro</artifactId>
+			<version>1.12.0-SNAPSHOT</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.avro</groupId>
+			<artifactId>avro</artifactId>
+			<version>1.12.0-SNAPSHOT</version>
+			<scope>compile</scope>
+		</dependency>
+	</dependencies>
 
     <build>
         <plugins>
