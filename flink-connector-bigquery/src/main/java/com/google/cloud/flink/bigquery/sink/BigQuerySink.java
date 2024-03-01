@@ -64,19 +64,14 @@ public class BigQuerySink<IN> implements TwoPhaseCommittingStatefulSink<IN> {
         this.enableExactlyOnce = enableExactlyOnce;
         BigQueryServices.SinkDataClient sinkDataClient =
                 BigQueryServicesFactory.instance(connectOptions).sinkDataClient();
-        LOG.info("@prashastia: Created SinkDataClient");
         TableSchema tableSchema =
                 sinkDataClient.getBigQueryTableSchema(
                         connectOptions.getProjectId(),
                         connectOptions.getDataset(),
                         connectOptions.getTable());
-        LOG.info("@prashastia: Got TableSchema " + tableSchema);
         this.serializer = new AvroToProtoSerializer(tableSchema);
-        LOG.info("@prashastia: Got Serializer " + serializer);
         this.descriptorProto = serializer.getDescriptorProto();
-        LOG.info("@prashastia: Got descriptorProto " + descriptorProto);
         this.protoSchema = ProtoSchema.newBuilder().setProtoDescriptor(descriptorProto).build();
-        LOG.info("@prashastia: Got protoSchema " + protoSchema);
         this.tablePath =
                 "projects/"
                         + connectOptions.getProjectId()

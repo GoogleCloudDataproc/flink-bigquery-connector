@@ -97,8 +97,6 @@ public class BigQueryWriter<IN>
     @Override
     public void write(IN element, Context context) throws IOException, InterruptedException {
         try {
-            LOG.info("@prashastia: Element schema description: " + element.getClass());
-            LOG.info("@prashastia: Element schema description: " + element);
             protoRowsBuilder.addSerializedRows(
                     AvroToProtoSerializer.getDynamicMessageFromGenericRecord(
                                     (GenericRecord) element, this.descriptor)

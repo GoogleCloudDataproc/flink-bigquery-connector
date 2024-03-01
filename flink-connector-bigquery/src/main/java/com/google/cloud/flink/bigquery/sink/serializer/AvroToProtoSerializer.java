@@ -57,28 +57,19 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
     private static Map<TableFieldSchema.Type, FieldDescriptorProto.Type>
             initializeProtoFieldToFieldDescriptorTypes() {
 
-        LOG.info("@prashastia:[initializeProtoFieldToFieldDescriptorTypes]");
-
         Map<TableFieldSchema.Type, FieldDescriptorProto.Type> mapping = new HashMap<>();
-
         mapping.put(TableFieldSchema.Type.INT64, FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(TableFieldSchema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
         mapping.put(TableFieldSchema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put(TableFieldSchema.Type.BOOL, FieldDescriptorProto.Type.TYPE_BOOL);
         mapping.put(TableFieldSchema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
-
         mapping.put(TableFieldSchema.Type.DATE, FieldDescriptorProto.Type.TYPE_INT32);
         mapping.put(TableFieldSchema.Type.TIME, FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(TableFieldSchema.Type.DATETIME, FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(
-                TableFieldSchema.Type.TIMESTAMP,
-                FieldDescriptorProto.Type
-                        .TYPE_INT64); // Check with String as Time-Zone has to be present.
-
+        mapping.put(TableFieldSchema.Type.TIMESTAMP, FieldDescriptorProto.Type.TYPE_INT64);
         // Are these ever obtained??
         mapping.put(TableFieldSchema.Type.NUMERIC, FieldDescriptorProto.Type.TYPE_BYTES);
         mapping.put(TableFieldSchema.Type.JSON, FieldDescriptorProto.Type.TYPE_STRING);
-
         mapping.put(TableFieldSchema.Type.BIGNUMERIC, FieldDescriptorProto.Type.TYPE_BYTES);
         mapping.put(
                 TableFieldSchema.Type.GEOGRAPHY,
@@ -94,10 +85,9 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return Hashmap containing the mapping for conversion.
      */
     private static Map<String, TableFieldSchema.Type> initializeLogicalAvroToTableFieldTypes() {
-        LOG.info("@prashastia:[initializeLogicalAvroToTableFieldTypes]");
+
         Map<String, TableFieldSchema.Type> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), TableFieldSchema.Type.DATE);
-
         mapping.put(LogicalTypes.decimal(1).getName(), TableFieldSchema.Type.BIGNUMERIC);
         mapping.put(LogicalTypes.timestampMicros().getName(), TableFieldSchema.Type.TIMESTAMP);
         mapping.put(LogicalTypes.timestampMillis().getName(), TableFieldSchema.Type.TIMESTAMP);
@@ -123,11 +113,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
     private static Map<Schema.Type, TableFieldSchema.Type>
             initializePrimitiveAvroToTableFieldTypes() {
 
-        LOG.info("@prashastia:[initializePrimitiveAvroToTableFieldTypes]");
-
         Map<Schema.Type, TableFieldSchema.Type> mapping = new HashMap<>();
         mapping.put(Schema.Type.INT, TableFieldSchema.Type.INT64);
-        // Is this ever obtained ?
         mapping.put(Schema.Type.FIXED, TableFieldSchema.Type.BYTES);
         mapping.put(Schema.Type.LONG, TableFieldSchema.Type.INT64);
         mapping.put(Schema.Type.FLOAT, TableFieldSchema.Type.DOUBLE);
@@ -146,8 +133,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return Map containing mapping from Primitive Avro Schema Type with encoder function.
      */
     private static Map<Schema.Type, UnaryOperator<Object>> initializePrimitiveEncoderFunction() {
-
-        LOG.info("@prashastia:[initializePrimitiveEncoderFunction]");
 
         Map<Schema.Type, UnaryOperator<Object>> mapping = new HashMap<>();
         mapping.put(Schema.Type.INT, o -> Long.valueOf((int) o));
@@ -171,9 +156,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return Converted Avro Schema
      */
     private Schema getAvroSchema(com.google.api.services.bigquery.model.TableSchema tableSchema) {
-
-        LOG.info("@prashastia:[AvroToProtoSerializer.getAvroSchema]");
-
         return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
     }
 
@@ -185,9 +167,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return Returns the TableSchema created from the provided Schema
      */
     private static TableSchema getProtoSchemaFromAvroSchema(Schema schema) {
-
-        LOG.info("@prashastia: [AvroToProtoSerializer.getProtoSchemaFromAvroSchema]");
-
         // Iterate over each table fields and add them to schema.
         Preconditions.checkState(!schema.getFields().isEmpty());
 
@@ -206,9 +185,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return Returns the TableFieldSchema created from the provided Field
      */
     private static TableFieldSchema getTableFieldFromAvroField(Schema.Field field) {
-
-        LOG.info("@prashastia: [AvroToProtoSerializer.getTableFieldFromAvroField]");
-
         @Nullable Schema schema = field.schema();
 
         Preconditions.checkNotNull(schema, "Unexpected null schema!");
@@ -324,15 +300,11 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      */
     public static Descriptor getDescriptorFromDescriptorProto(DescriptorProto descriptorProto)
             throws DescriptorValidationException {
-        LOG.info("@prashastia: [descriptorProto] " + descriptorProto);
         FileDescriptorProto fileDescriptorProto =
                 FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build();
-        LOG.info("@prashastia: [fileDescriptorProto] " + fileDescriptorProto);
         Descriptors.FileDescriptor fileDescriptor =
                 Descriptors.FileDescriptor.buildFrom(
                         fileDescriptorProto, new Descriptors.FileDescriptor[0]);
-        LOG.info("@prashastia: [fileDescriptor] " + fileDescriptor);
-
         List<Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
         if (descriptorTypeList.size() == 1) {
             return descriptorTypeList.get(0);
@@ -392,8 +364,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return DescriptorProto describing the Schema.
      */
     private static DescriptorProto descriptorSchemaFromTableSchema(TableSchema tableSchema) {
-        LOG.info("@prashastia: [AvroToProtoSerializer.descriptorSchemaFromTableSchema]");
-
         return descriptorSchemaFromTableFieldSchemas(tableSchema.getFieldsList());
     }
 
@@ -407,8 +377,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      */
     private static DescriptorProto descriptorSchemaFromTableFieldSchemas(
             Iterable<TableFieldSchema> tableFieldSchemas) {
-        LOG.info("@prashastia: [AvroToProtoSerializer.descriptorSchemaFromTableFieldSchemas]");
-
         DescriptorProto.Builder descriptorBuilder = DescriptorProto.newBuilder();
         // Create a unique name for the descriptor ('-' characters cannot be used).
         // Replace with "_" and prepend "D".
@@ -434,8 +402,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
             TableFieldSchema fieldSchema,
             int fieldNumber,
             DescriptorProto.Builder descriptorBuilder) {
-        LOG.info("@prashastia: [AvroToProtoSerializer.fieldDescriptorFromTableField]");
-
         FieldDescriptorProto.Builder fieldDescriptorBuilder = FieldDescriptorProto.newBuilder();
         fieldDescriptorBuilder =
                 fieldDescriptorBuilder.setName(fieldSchema.getName().toLowerCase());
@@ -472,7 +438,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
 
     @Override
     public DescriptorProto getDescriptorProto() {
-        LOG.info("@prashastia: [AvroToProtoSerializer.getDescriptorProto]");
         return descriptorProto;
     }
 
@@ -485,13 +450,9 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      *     com.google.api.services.bigquery.model.TableSchema} object )
      */
     public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema) {
-        LOG.info("@prashastia: Starting Serializer....");
         Schema avroSchema = getAvroSchema(tableSchema);
-        LOG.info("@prashastia: [avroSchema] " + avroSchema);
         TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
-        LOG.info("@prashastia: [protoTableSchema] " + protoTableSchema);
         descriptorProto = descriptorSchemaFromTableFieldSchemas(protoTableSchema.getFieldsList());
-        LOG.info("@prashastia: [descriptorProto] " + descriptorProto);
     }
 
     /**
@@ -504,10 +465,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      */
     public static DynamicMessage getDynamicMessageFromGenericRecord(
             GenericRecord element, Descriptor descriptor) {
-
-        LOG.info("@prashastia: [AvroProtoSerializer.getDynamicMessageFromGenericRecord() ]");
-        LOG.info("@prashastia: [element] " + element);
-        LOG.info("@prashastia: [descriptor] " + descriptor);
         Schema schema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         // Get the record's schema and find the field descriptor for each field one by one.
