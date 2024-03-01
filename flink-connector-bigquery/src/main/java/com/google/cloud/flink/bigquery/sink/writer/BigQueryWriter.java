@@ -58,8 +58,7 @@ public class BigQueryWriter<IN>
     }
 
     @Override
-    public Collection<BigQueryCommittable> prepareCommit()
-            throws IOException, InterruptedException {
+    public Collection<BigQueryCommittable> prepareCommit() {
         TempUtils.globalPrepareCommitCounter++;
         LOG.info(
                 Thread.currentThread().getId()

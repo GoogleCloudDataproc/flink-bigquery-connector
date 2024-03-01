@@ -87,6 +87,10 @@ public class BigQueryUtils {
         return UUID.randomUUID().toString().replaceAll("-", "");
     }
 
+    public static String bqSanitizedRandomUUIDForDescriptor() {
+        return "D" + UUID.randomUUID().toString().replaceAll("-", "_");
+    }
+
     static <T> FailsafeExecutor<T> buildRetriableExecutorForOperation(String operationName) {
         return Failsafe.with(
                 RetryPolicy.<T>builder()

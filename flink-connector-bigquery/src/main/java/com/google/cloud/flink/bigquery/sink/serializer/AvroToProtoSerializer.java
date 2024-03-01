@@ -1,11 +1,10 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.Iterables;
-
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.bigquery.storage.v1.TableFieldSchema;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.services.BigQueryUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
@@ -29,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -335,8 +333,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                         fileDescriptorProto, new Descriptors.FileDescriptor[0]);
         LOG.info("@prashastia: [fileDescriptor] " + fileDescriptor);
 
-        // TODO: Remove dependency on guava.
-        return Iterables.getOnlyElement(fileDescriptor.getMessageTypes());
+        List<Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
+        if (descriptorTypeList.size() == 1) {
+            return descriptorTypeList.get(0);
+        } else {
+            throw new IllegalArgumentException(
+                    String.format("Expected one element but was %s", descriptorTypeList));
+        }
     }
 
     /**
@@ -408,10 +411,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
 
         DescriptorProto.Builder descriptorBuilder = DescriptorProto.newBuilder();
         // Create a unique name for the descriptor ('-' characters cannot be used).
-        //        String uuidName = BigQueryUtils.bqSanitizedRandomUUID();
-        String uuidName = "D" + UUID.randomUUID().toString().replace("-", "_");
-        System.out.println("@prashastia [here] " + uuidName);
-        descriptorBuilder.setName(uuidName);
+        // Replace with "_" and prepend "D".
+        descriptorBuilder.setName(BigQueryUtils.bqSanitizedRandomUUIDForDescriptor());
         int i = 1;
         for (TableFieldSchema fieldSchema : tableFieldSchemas) {
             fieldDescriptorFromTableField(fieldSchema, i++, descriptorBuilder);
@@ -482,11 +483,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      *
      * @param tableSchema Table Schema for the Sink Table ({@link
      *     com.google.api.services.bigquery.model.TableSchema} object )
-     * @throws Exception In case DescriptorProto could not be converted to Descriptor or there is
-     *     any error in the conversion.
      */
-    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema)
-            throws Exception {
+    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema) {
         LOG.info("@prashastia: Starting Serializer....");
         Schema avroSchema = getAvroSchema(tableSchema);
         LOG.info("@prashastia: [avroSchema] " + avroSchema);
@@ -494,8 +492,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         LOG.info("@prashastia: [protoTableSchema] " + protoTableSchema);
         descriptorProto = descriptorSchemaFromTableFieldSchemas(protoTableSchema.getFieldsList());
         LOG.info("@prashastia: [descriptorProto] " + descriptorProto);
-        //        descriptor = getDescriptorFromDescriptorProto(descriptorProto);
-        //        LOG.info("@prashastia: [descriptor] " + descriptor);
     }
 
     /**
