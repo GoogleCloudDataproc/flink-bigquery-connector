@@ -8,10 +8,8 @@ import com.google.cloud.flink.bigquery.services.BigQueryUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
@@ -19,11 +17,10 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +32,6 @@ import java.util.stream.StreamSupport;
 /** Class to Serialise Avro Generic Records to Storage API protos. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AvroToProtoSerializer.class);
-
     private static final Map<String, TableFieldSchema.Type> LOGICAL_TYPES =
             initializeLogicalAvroToTableFieldTypes();
     private static final Map<Schema.Type, TableFieldSchema.Type> PRIMITIVE_TYPES =
@@ -44,6 +39,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
 
     private static final Map<TableFieldSchema.Type, FieldDescriptorProto.Type>
             PRIMITIVE_TYPES_BQ_TO_PROTO = initializeProtoFieldToFieldDescriptorTypes();
+
+    private static final Map<Schema.Type, FieldDescriptorProto.Type> AVRO_TYPES_TO_PROTO =
+            initializeAvroFieldToFieldDescriptorTypes();
+
+    private static final Map<String, FieldDescriptorProto.Type> LOGICAL_AVRO_TYPES_TO_PROTO =
+            initializeLogicalAvroFieldToFieldDescriptorTypes();
 
     private static final Map<Schema.Type, UnaryOperator<Object>> PRIMITIVE_ENCODERS =
             initializePrimitiveEncoderFunction();
@@ -54,10 +55,10 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      *
      * @return Hashmap containing the mapping for conversion.
      */
-    private static Map<TableFieldSchema.Type, FieldDescriptorProto.Type>
+    private static EnumMap<TableFieldSchema.Type, FieldDescriptorProto.Type>
             initializeProtoFieldToFieldDescriptorTypes() {
-
-        Map<TableFieldSchema.Type, FieldDescriptorProto.Type> mapping = new HashMap<>();
+        EnumMap<TableFieldSchema.Type, FieldDescriptorProto.Type> mapping =
+                new EnumMap<>(TableFieldSchema.Type.class);
         mapping.put(TableFieldSchema.Type.INT64, FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(TableFieldSchema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
         mapping.put(TableFieldSchema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
@@ -85,7 +86,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return Hashmap containing the mapping for conversion.
      */
     private static Map<String, TableFieldSchema.Type> initializeLogicalAvroToTableFieldTypes() {
-
         Map<String, TableFieldSchema.Type> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), TableFieldSchema.Type.DATE);
         mapping.put(LogicalTypes.decimal(1).getName(), TableFieldSchema.Type.BIGNUMERIC);
@@ -110,10 +110,9 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      *
      * @return Hashmap containing the mapping for conversion.
      */
-    private static Map<Schema.Type, TableFieldSchema.Type>
+    private static EnumMap<Schema.Type, TableFieldSchema.Type>
             initializePrimitiveAvroToTableFieldTypes() {
-
-        Map<Schema.Type, TableFieldSchema.Type> mapping = new HashMap<>();
+        EnumMap<Schema.Type, TableFieldSchema.Type> mapping = new EnumMap<>(Schema.Type.class);
         mapping.put(Schema.Type.INT, TableFieldSchema.Type.INT64);
         mapping.put(Schema.Type.FIXED, TableFieldSchema.Type.BYTES);
         mapping.put(Schema.Type.LONG, TableFieldSchema.Type.INT64);
@@ -132,20 +131,43 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      *
      * @return Map containing mapping from Primitive Avro Schema Type with encoder function.
      */
-    private static Map<Schema.Type, UnaryOperator<Object>> initializePrimitiveEncoderFunction() {
-
-        Map<Schema.Type, UnaryOperator<Object>> mapping = new HashMap<>();
-        mapping.put(Schema.Type.INT, o -> Long.valueOf((int) o));
-        mapping.put(Schema.Type.FIXED, o -> ByteString.copyFrom(((GenericData.Fixed) o).bytes()));
+    private static EnumMap<Schema.Type, UnaryOperator<Object>>
+            initializePrimitiveEncoderFunction() {
+        EnumMap<Schema.Type, UnaryOperator<Object>> mapping = new EnumMap<>(Schema.Type.class);
+        mapping.put(Schema.Type.INT, o -> (long) (int) o); // INT -> long
         mapping.put(Schema.Type.LONG, UnaryOperator.identity());
-        mapping.put(
-                Schema.Type.FLOAT, o -> Double.parseDouble(Float.valueOf((float) o).toString()));
         mapping.put(Schema.Type.DOUBLE, UnaryOperator.identity());
-        mapping.put(Schema.Type.STRING, Object::toString);
         mapping.put(Schema.Type.BOOLEAN, UnaryOperator.identity());
+        mapping.put(
+                Schema.Type.FLOAT,
+                o -> Double.parseDouble(String.valueOf((float) o))); // FLOAT -> Double
+        mapping.put(Schema.Type.STRING, Object::toString);
         mapping.put(Schema.Type.ENUM, Object::toString);
+        mapping.put(Schema.Type.FIXED, o -> ByteString.copyFrom(((GenericData.Fixed) o).bytes()));
         mapping.put(Schema.Type.BYTES, o -> ByteString.copyFrom((byte[]) o));
         return mapping;
+    }
+
+    private static EnumMap<Schema.Type, FieldDescriptorProto.Type>
+            initializeAvroFieldToFieldDescriptorTypes() {
+        EnumMap<Schema.Type, FieldDescriptorProto.Type> mapping = new EnumMap<>(Schema.Type.class);
+        mapping.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_FIXED64);
+        mapping.put(Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
+        mapping.put(Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
+        mapping.put(Schema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(Schema.Type.BOOLEAN, FieldDescriptorProto.Type.TYPE_BOOL);
+        mapping.put(Schema.Type.ENUM, FieldDescriptorProto.Type.TYPE_ENUM);
+        mapping.put(Schema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
+        return mapping;
+    }
+
+    private static Map<String, FieldDescriptorProto.Type>
+            initializeLogicalAvroFieldToFieldDescriptorTypes() {
+        //        Map<Schema.Type, FieldDescriptorProto.Type> mapping = new HashMap<>();
+        //        return mapping;
+        return new HashMap<>();
     }
 
     /**
@@ -190,17 +212,21 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         Preconditions.checkNotNull(schema, "Unexpected null schema!");
         TableFieldSchema.Builder builder =
                 TableFieldSchema.newBuilder().setName(field.name().toLowerCase());
-        Schema elementType = null;
+        Schema elementType = schema;
         boolean isNullable = false;
 
         switch (schema.getType()) {
             case RECORD:
-                elementType = schema;
-                throw new UnsupportedOperationException("Operation is not supported yet.");
+                Preconditions.checkState(!schema.getFields().isEmpty());
+                builder = builder.setType(TableFieldSchema.Type.STRUCT);
+                for (Schema.Field recordField : schema.getFields()) {
+                    builder = builder.addFields(getTableFieldFromAvroField(recordField));
+                }
+                break;
             case ARRAY:
                 elementType = schema.getElementType();
                 if (elementType == null) {
-                    throw new RuntimeException("Unexpected null element type!");
+                    throw new IllegalArgumentException("Unexpected null element type!");
                 }
                 Preconditions.checkState(
                         elementType.getType() != Schema.Type.ARRAY,
@@ -221,7 +247,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                 Schema keyType = Schema.create(Schema.Type.STRING);
                 Schema valueType = schema.getElementType();
                 if (valueType == null) {
-                    throw new RuntimeException("Unexpected null element type!");
+                    throw new IllegalArgumentException("Unexpected null element type!");
                 }
                 TableFieldSchema keyFieldSchema =
                         getTableFieldFromAvroField(
@@ -250,7 +276,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                 isNullable = pair.getRight();
 
                 if (elementType == null) {
-                    throw new RuntimeException("Unexpected null element type!");
+                    throw new IllegalArgumentException("Unexpected null element type!");
                 }
                 TableFieldSchema unionFieldSchema =
                         getTableFieldFromAvroField(
@@ -264,7 +290,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                                 .addAllFields(unionFieldSchema.getFieldsList());
                 break;
             default:
-                elementType = schema;
                 // Handling of the Logical or Primitive Type.
                 @Nullable
                 TableFieldSchema.Type primitiveType =
@@ -288,30 +313,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
             builder = builder.setDescription(field.doc());
         }
         return builder.build();
-    }
-
-    /**
-     * Function to convert the {@link DescriptorProto} Type to {@link Descriptor}. This is necessary
-     * as a Descriptor is needed for DynamicMessage (used to write to Storage API).
-     *
-     * @param descriptorProto input which needs to be converted to a Descriptor.
-     * @return Descriptor obtained form the input DescriptorProto
-     * @throws DescriptorValidationException in case the conversion is not possible.
-     */
-    public static Descriptor getDescriptorFromDescriptorProto(DescriptorProto descriptorProto)
-            throws DescriptorValidationException {
-        FileDescriptorProto fileDescriptorProto =
-                FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build();
-        Descriptors.FileDescriptor fileDescriptor =
-                Descriptors.FileDescriptor.buildFrom(
-                        fileDescriptorProto, new Descriptors.FileDescriptor[0]);
-        List<Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
-        if (descriptorTypeList.size() == 1) {
-            return descriptorTypeList.get(0);
-        } else {
-            throw new IllegalArgumentException(
-                    String.format("Expected one element but was %s", descriptorTypeList));
-        }
     }
 
     /**
@@ -343,28 +344,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         } else {
             throw new IllegalArgumentException("Multiple non-null union types are not supported.");
         }
-    }
-
-    /**
-     * Obtains descriptor for the Table Schema.
-     *
-     * @param tableSchema for which descriptor needs to be defined.
-     * @return Descriptor that describes the TableSchema
-     * @throws DescriptorValidationException in case Descriptor cannot be created from the input.
-     */
-    private static Descriptor getDescriptorFromTableSchema(TableSchema tableSchema)
-            throws Descriptors.DescriptorValidationException {
-        return getDescriptorFromDescriptorProto(descriptorSchemaFromTableSchema(tableSchema));
-    }
-
-    /**
-     * Obtains a Descriptor Proto by obtaining Descriptor Proto field by field.
-     *
-     * @param tableSchema Table Schema for which descriptor is needed.
-     * @return DescriptorProto describing the Schema.
-     */
-    private static DescriptorProto descriptorSchemaFromTableSchema(TableSchema tableSchema) {
-        return descriptorSchemaFromTableFieldSchemas(tableSchema.getFieldsList());
     }
 
     /**
@@ -409,7 +388,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
 
         TableFieldSchema.Type fieldSchemaType = fieldSchema.getType();
         if (fieldSchemaType.equals(TableFieldSchema.Type.STRUCT)) {
-            throw new UnsupportedOperationException("Operation is not supported yet.");
+            DescriptorProto nested =
+                    descriptorSchemaFromTableFieldSchemas(fieldSchema.getFieldsList());
+            descriptorBuilder.addNestedType(nested);
+            fieldDescriptorBuilder =
+                    fieldDescriptorBuilder
+                            .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName(nested.getName());
         } else {
             @Nullable
             FieldDescriptorProto.Type type = PRIMITIVE_TYPES_BQ_TO_PROTO.get(fieldSchema.getType());
@@ -443,6 +428,129 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
 
     private final DescriptorProto descriptorProto;
 
+    public void fieldDescriptorFromSchemaField(
+            Schema.Field field, int fieldNumber, DescriptorProto.Builder descriptorProtoBuilder) {
+
+        System.out.println("In [fieldDescriptorFromSchemaField] ");
+        @Nullable Schema schema = field.schema();
+        System.out.println("For [schema] " + schema);
+        System.out.println("For [schemaTYPE] " + schema.getType());
+        Preconditions.checkNotNull(schema, "Unexpected null schema!");
+
+        FieldDescriptorProto.Builder fieldDescriptorBuilder = FieldDescriptorProto.newBuilder();
+        fieldDescriptorBuilder = fieldDescriptorBuilder.setName(field.name().toLowerCase());
+        fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(fieldNumber);
+
+        Schema elementType = schema;
+        boolean isNullable = false;
+
+        switch (schema.getType()) {
+            case RECORD:
+                System.out.println("In RECORD");
+                Preconditions.checkState(!schema.getFields().isEmpty());
+                // Check if this is right.
+                DescriptorProto nested = getDescriptorSchemaFromAvroSchema(schema);
+                descriptorProtoBuilder.addNestedType(nested);
+                fieldDescriptorBuilder =
+                        fieldDescriptorBuilder
+                                .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setTypeName(nested.getName());
+                break;
+            case ARRAY:
+                System.out.println("In ARRAY");
+                elementType = schema.getElementType();
+                if (elementType == null) {
+                    throw new IllegalArgumentException("Unexpected null element type!");
+                }
+                Preconditions.checkState(
+                        elementType.getType() != Schema.Type.ARRAY,
+                        "Nested arrays not supported by BigQuery.");
+                DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
+                fieldDescriptorFromSchemaField(
+                        new Schema.Field(
+                                field.name(), elementType, field.doc(), field.defaultVal()),
+                        fieldNumber,
+                        arrayFieldBuilder);
+                fieldDescriptorBuilder =
+                        arrayFieldBuilder
+                                .getFieldBuilder(0)
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
+                // Add any nested types.
+                descriptorProtoBuilder.addAllNestedType(arrayFieldBuilder.getNestedTypeList());
+                break;
+            case MAP:
+                throw new UnsupportedOperationException("Operation is not supported yet.");
+            case UNION:
+                System.out.println("In UNION");
+                // Types can be ["null"] - Not supported in BigQuery.
+                // ["null", something]  - Bigquery Field of type something with mode NULLABLE
+                // ["null", something1, something2], [something1, something2] - Are invalid types
+                // not supported in BQ
+                ImmutablePair<Schema, Boolean> pair = handleUnionSchema(schema);
+                elementType = pair.getLeft();
+                isNullable = pair.getRight();
+                System.out.println("LEFT [elementType] " + elementType);
+                System.out.println("RIGHT [elementType] " + isNullable);
+
+                if (elementType == null) {
+                    throw new IllegalArgumentException("Unexpected null element type!");
+                }
+                DescriptorProto.Builder unionFieldBuilder = DescriptorProto.newBuilder();
+                fieldDescriptorFromSchemaField(
+                        new Schema.Field(
+                                field.name(), elementType, field.doc(), field.defaultVal()),
+                        fieldNumber,
+                        unionFieldBuilder);
+                System.out.println("unionField\n" + unionFieldBuilder.build());
+                fieldDescriptorBuilder = unionFieldBuilder.getFieldBuilder(0);
+                descriptorProtoBuilder.addAllNestedType(unionFieldBuilder.getNestedTypeList());
+                System.out.println("fieldDescriptorBuilder\n" + fieldDescriptorBuilder);
+                break;
+            default:
+                @Nullable
+                FieldDescriptorProto.Type type =
+                        Optional.ofNullable(elementType.getProp(LogicalType.LOGICAL_TYPE_PROP))
+                                .map(LOGICAL_AVRO_TYPES_TO_PROTO::get)
+                                .orElse(AVRO_TYPES_TO_PROTO.get(elementType.getType()));
+                if (type == null) {
+                    throw new UnsupportedOperationException(
+                            "Converting AVRO type "
+                                    + elementType.getType()
+                                    + " to Storage API Proto type is unsupported");
+                }
+                fieldDescriptorBuilder = fieldDescriptorBuilder.setType(type);
+        }
+        // Set the Labels for different Modes - REPEATED, REQUIRED, NULLABLE.
+        if (fieldDescriptorBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REPEATED) {
+            if (isNullable) {
+                fieldDescriptorBuilder =
+                        fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            } else {
+                fieldDescriptorBuilder =
+                        fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED);
+            }
+        }
+        System.out.println("Descriptor for \n" + fieldDescriptorBuilder.getName());
+        System.out.println("FieldDescriptor \n" + fieldDescriptorBuilder.build());
+
+        descriptorProtoBuilder.addField(fieldDescriptorBuilder.build());
+    }
+
+    public DescriptorProto getDescriptorSchemaFromAvroSchema(Schema schema) {
+        // Iterate over each table fields and add them to schema.
+        Preconditions.checkState(!schema.getFields().isEmpty());
+
+        DescriptorProto.Builder descriptorBuilder = DescriptorProto.newBuilder();
+        // Create a unique name for the descriptor ('-' characters cannot be used).
+        // Replace with "_" and prepend "D".
+        descriptorBuilder.setName(BigQueryUtils.bqSanitizedRandomUUIDForDescriptor());
+        int i = 1;
+        for (Schema.Field field : schema.getFields()) {
+            fieldDescriptorFromSchemaField(field, i++, descriptorBuilder);
+        }
+        return descriptorBuilder.build();
+    }
+
     /**
      * Constructor for the Serializer.
      *
@@ -451,8 +559,20 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      */
     public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema) {
         Schema avroSchema = getAvroSchema(tableSchema);
+        System.out.println("avroSchema\n" + avroSchema);
         TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
-        descriptorProto = descriptorSchemaFromTableFieldSchemas(protoTableSchema.getFieldsList());
+
+        //        System.out.println("Method 1...");
+        //        descriptorProto =
+        // descriptorSchemaFromTableFieldSchemas(protoTableSchema.getFieldsList());
+        //        System.out.println(
+        //                "Descriptor Proto[descriptorSchemaFromTableFieldSchemas]" +
+        // descriptorProto);
+
+        System.out.println("Method 2...");
+        descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
+        System.out.println(
+                "Descriptor Proto[getDescriptorSchemaFromAvroSchema] " + descriptorProto);
     }
 
     /**
@@ -568,6 +688,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      * @return Encoder Function which converts AvroSchemaField to DynamicMessage
      */
     private static UnaryOperator<Object> getLogicalEncoder(String logicalTypeString) {
+        throw new UnsupportedOperationException(
+                String.format("Logical Type '%s' is not supported.", logicalTypeString));
 
         //        Map<String, Function<Object, Object>> mapping = new HashMap<>();
         //        mapping.put(LogicalTypes.date().getName(),
@@ -585,6 +707,5 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         //        mapping.put("{range, TIME}", (value) -> );
         //        mapping.put("{range, TIMESTAMP}", (value) -> );
         //        return mapping.get(logicalTypeString);
-        return null;
     }
 }

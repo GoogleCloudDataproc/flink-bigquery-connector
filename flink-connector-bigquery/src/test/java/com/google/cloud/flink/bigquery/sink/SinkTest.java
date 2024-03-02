@@ -1,6 +1,28 @@
 package com.google.cloud.flink.bigquery.sink;
 
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+
+import com.google.api.gax.retrying.RetrySettings;
+import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.ProtoRows;
+import com.google.cloud.bigquery.storage.v1.ProtoSchema;
+import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
+import com.google.cloud.flink.bigquery.source.BigQuerySource;
+import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
+import org.apache.avro.generic.GenericRecord;
+import org.junit.Test;
+
 import java.io.IOException;
+import java.util.List;
 
 /** Javadoc. */
 public class SinkTest {
@@ -30,33 +52,33 @@ public class SinkTest {
                     + SIMPLE_AVRO_SCHEMA_FIELDS_STRING
                     + "}";
 
-    //    BigQueryReadOptions readOptions =
-    //            BigQueryReadOptions.builder()
-    //                    .setBigQueryConnectOptions(
-    //                            BigQueryConnectOptions.builder()
-    //                                    .setProjectId("bqrampupprashasti")
-    //                                    .setDataset("Prashasti")
-    //                                    .setTable("simple_table")
-    //                                    .build())
-    //                    .build();
-    //
-    //    BigQueryConnectOptions readConnectOptions = readOptions.getBigQueryConnectOptions();
-    //
-    //    CredentialsOptions readCredentialsOptions = readConnectOptions.getCredentialsOptions();
-    //
-    //    BigQueryReadOptions writeOptions =
-    //            BigQueryReadOptions.builder()
-    //                    .setBigQueryConnectOptions(
-    //                            BigQueryConnectOptions.builder()
-    //                                    .setProjectId("bqrampupprashasti")
-    //                                    .setDataset("Prashasti")
-    //                                    .setTable("simple_table_write")
-    //                                    .build())
-    //                    .build();
-    //
-    //    BigQueryConnectOptions writeConnectOptions = writeOptions.getBigQueryConnectOptions();
+    BigQueryReadOptions readOptions =
+            BigQueryReadOptions.builder()
+                    .setBigQueryConnectOptions(
+                            BigQueryConnectOptions.builder()
+                                    .setProjectId("bqrampupprashasti")
+                                    .setDataset("Prashasti")
+                                    .setTable("simple_table")
+                                    .build())
+                    .build();
 
-    //    CredentialsOptions writeCredentialsOptions = writeConnectOptions.getCredentialsOptions();
+    BigQueryConnectOptions readConnectOptions = readOptions.getBigQueryConnectOptions();
+
+    CredentialsOptions readCredentialsOptions = readConnectOptions.getCredentialsOptions();
+
+    BigQueryReadOptions writeOptions =
+            BigQueryReadOptions.builder()
+                    .setBigQueryConnectOptions(
+                            BigQueryConnectOptions.builder()
+                                    .setProjectId("bqrampupprashasti")
+                                    .setDataset("Prashasti")
+                                    .setTable("simple_table_write")
+                                    .build())
+                    .build();
+
+    BigQueryConnectOptions writeConnectOptions = writeOptions.getBigQueryConnectOptions();
+
+    CredentialsOptions writeCredentialsOptions = writeConnectOptions.getCredentialsOptions();
 
     public SinkTest() throws IOException {}
 
@@ -99,77 +121,87 @@ public class SinkTest {
     //        return table.getSchema();
     //    }
     //
-    //    private List<GenericRecord> readRows() throws Exception {
-    //        final StreamExecutionEnvironment env =
-    // StreamExecutionEnvironment.getExecutionEnvironment();
-    //        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(readOptions);
-    //        return env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-    //                .executeAndCollect(10);
-    //    }
 
-    //    @Test
-    //    public void checkSerialisation() throws Exception {
-    //        // Create the write stream.
-    //        // write using the Storage Write API.
-    //        String tablePath =
-    //                "projects/"
-    //                        + writeConnectOptions.getProjectId()
-    //                        + "/datasets/"
-    //                        + writeConnectOptions.getDataset()
-    //                        + "/tables/"
-    //                        + writeConnectOptions.getTable();
-    //
-    //        System.out.println("@prashastia serializer initiated.");
-    //        AvroToProtoSerializerSerializer serialiseAvroRecordsToStorageApiProtos =
-    //                new AvroToProtoSerializerSerializer(getTableSchema());
-    //
-    //        DescriptorProtos.DescriptorProto descriptorProto =
-    //                serialiseAvroRecordsToStorageApiProtos.getDescriptorProto();
-    //        System.out.println("@prashastia [DescriptorProto] " + descriptorProto);
-    //
-    //        Descriptors.Descriptor descriptor =
-    // serialiseAvroRecordsToStorageApiProtos.getDescriptor();
-    //        System.out.println("@prashastia [Descriptor] " + descriptor);
-    //
-    //        ProtoSchema protoSchema =
-    //                ProtoSchema.newBuilder().setProtoDescriptor(descriptorProto).build();
-    //
-    //        ProtoRows.Builder protoRowsBuilder = ProtoRows.newBuilder();
-    //
-    //        try (BigQueryServices.StorageWriteClient writeClient =
-    //                BigQueryServicesFactory.instance(writeConnectOptions).storageWrite()) {
-    //            System.out.println("@prashastia writeClient formed " + writeClient);
-    //            String writeStreamName = String.format("%s/streams/_default", tablePath);
-    //            StreamWriter streamWriter =
-    //                    writeClient.createStreamWriter(
-    //                            protoSchema, RetrySettings.newBuilder().build(), writeStreamName);
-    //            System.out.println("@prashastia streamWriter formed " + streamWriter);
-    //            System.out.println(
-    //                    "@prashastia streamWriter.getStreamName() formed "
-    //                            + streamWriter.getStreamName());
-    //
-    //            System.out.println("@prashastia readRows() Started... ");
-    //            List<GenericRecord> records = readRows();
-    //            System.out.println("@prashastia readRows() Finished. [size] " + records.size());
-    //
-    //            for (GenericRecord element : records) {
-    //                System.out.println("@prashastia record write [" + element + "]");
-    //                // Add the serialisation step here.
-    //                protoRowsBuilder.addSerializedRows(
-    //                        AvroToProtoSerializerSerializer.getDynamicMessageFromGenericRecord(
-    //                                        (GenericRecord) element, descriptor)
-    //                                .toByteString());
-    //                System.out.println("@prashastia addSerialisedRow completed.");
-    //            }
-    //            ProtoRows rowsToAppend = protoRowsBuilder.build();
-    //            System.out.println("@prashastia append()  Started...");
-    //            AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
-    //            System.out.println("@prashastia: [response]" + response);
-    //
-    //        } catch (Exception e) {
-    //            System.out.println("@prashastia: [exception] " + e.getMessage());
-    //        }
-    //    }
+    private List<GenericRecord> readRows() throws Exception {
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        System.out.println("env formed");
+        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(readOptions);
+        System.out.println("source formed");
+        return env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
+                .executeAndCollect(100);
+    }
+
+    @Test
+    public void checkSerialisation() throws Exception {
+        // Create the write stream.
+        // write using the Storage Write API.
+        String tablePath =
+                "projects/"
+                        + writeConnectOptions.getProjectId()
+                        + "/datasets/"
+                        + writeConnectOptions.getDataset()
+                        + "/tables/"
+                        + writeConnectOptions.getTable();
+        BigQueryServices.SinkDataClient sinkDataClient =
+                BigQueryServicesFactory.instance(writeConnectOptions).sinkDataClient();
+        TableSchema tableSchema =
+                sinkDataClient.getBigQueryTableSchema(
+                        writeConnectOptions.getProjectId(),
+                        writeConnectOptions.getDataset(),
+                        writeConnectOptions.getTable());
+
+        System.out.println("@prashastia serializer initiated.");
+        AvroToProtoSerializer serialiseAvroRecordsToStorageApiProtos =
+                new AvroToProtoSerializer(tableSchema);
+
+        DescriptorProtos.DescriptorProto descriptorProto =
+                serialiseAvroRecordsToStorageApiProtos.getDescriptorProto();
+        System.out.println("@prashastia [DescriptorProto] " + descriptorProto);
+
+        Descriptors.Descriptor descriptor =
+                AvroToProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        System.out.println("@prashastia [Descriptor] " + descriptor);
+
+        ProtoSchema protoSchema =
+                ProtoSchema.newBuilder().setProtoDescriptor(descriptorProto).build();
+
+        ProtoRows.Builder protoRowsBuilder = ProtoRows.newBuilder();
+
+        try (BigQueryServices.StorageWriteClient writeClient =
+                BigQueryServicesFactory.instance(writeConnectOptions).storageWrite()) {
+            System.out.println("@prashastia writeClient formed " + writeClient);
+            String writeStreamName = String.format("%s/streams/_default", tablePath);
+            StreamWriter streamWriter =
+                    writeClient.createStreamWriter(
+                            protoSchema, RetrySettings.newBuilder().build(), writeStreamName);
+            System.out.println("@prashastia streamWriter formed " + streamWriter);
+            System.out.println(
+                    "@prashastia streamWriter.getStreamName() formed "
+                            + streamWriter.getStreamName());
+
+            System.out.println("@prashastia readRows() Started... ");
+            List<GenericRecord> records = readRows();
+            System.out.println("@prashastia readRows() Finished. [size] " + records.size());
+
+            for (GenericRecord element : records) {
+                System.out.println("@prashastia record write [" + element + "]");
+                // Add the serialisation step here.
+                protoRowsBuilder.addSerializedRows(
+                        AvroToProtoSerializer.getDynamicMessageFromGenericRecord(
+                                        (GenericRecord) element, descriptor)
+                                .toByteString());
+                System.out.println("@prashastia addSerialisedRow completed.");
+            }
+            ProtoRows rowsToAppend = protoRowsBuilder.build();
+            System.out.println("@prashastia append()  Started...");
+            AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
+            System.out.println("@prashastia: [response]" + response);
+            streamWriter
+
+        } catch (Exception e) {
+            System.out.println("@prashastia: [exception] " + e.getMessage());
+        }
+    }
 
     //    @Test
     //    public void testEnumStateSerializerInitialState() throws IOException, IOException {
