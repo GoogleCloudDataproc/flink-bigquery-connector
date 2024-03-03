@@ -45,8 +45,6 @@ import java.util.stream.Collectors;
  */
 public class SchemaTransform {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SchemaTransform.class);
-
     public static final String DEFAULT_NAMESPACE = "com.google.cloud.flink.bigquery";
     /**
      * Defines the valid mapping between BigQuery types and native Avro types.
@@ -120,7 +118,6 @@ public class SchemaTransform {
     public static Schema toGenericAvroSchema(
             String schemaName, List<TableFieldSchema> fieldSchemas, String namespace) {
 
-        LOG.info("toGenericAvroSchema() [schemaName] " + schemaName);
         String nextNamespace =
                 namespace == null ? null : String.format("%s.%s", namespace, schemaName);
 
@@ -169,7 +166,6 @@ public class SchemaTransform {
         "nullness" // Avro library not annotated
     })
     private static Schema.Field convertField(TableFieldSchema bigQueryField, String namespace) {
-        LOG.info("convertField() [bigQueryField] " + bigQueryField);
         List<Schema.Type> avroTypes = BIG_QUERY_TO_AVRO_TYPES.get(bigQueryField.getType());
         if (avroTypes.isEmpty()) {
             throw new IllegalArgumentException(
@@ -181,12 +177,10 @@ public class SchemaTransform {
         Schema.Type avroType = avroTypes.iterator().next();
         Schema elementSchema;
         if (avroType == Schema.Type.RECORD) {
-            LOG.info("convertField() [RECORD] ");
             elementSchema =
                     toGenericAvroSchema(
                             bigQueryField.getName(), bigQueryField.getFields(), namespace);
         } else {
-            LOG.info("convertField() [handleAvroLogicalTypes()] ");
             elementSchema = handleAvroLogicalTypes(bigQueryField, avroType);
         }
         Schema fieldSchema;

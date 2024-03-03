@@ -46,8 +46,6 @@ public class AvroToRowDataDeserializationSchema
 
     @Override
     public RowData deserialize(GenericRecord record) throws IOException {
-        LOG.info("AvroToRowDataDeserializationSchema [record]" + record);
-        LOG.info("AvroToRowDataDeserializationSchema [convertor]" + converter);
         return (GenericRowData) converter.convert(record);
     }
 

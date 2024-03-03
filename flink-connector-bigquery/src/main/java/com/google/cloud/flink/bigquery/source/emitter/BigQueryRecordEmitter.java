@@ -55,7 +55,6 @@ public class BigQueryRecordEmitter<T>
         splitState.updateOffset();
         // Sink the record to source output.
         sourceOutputWrapper.setSourceOutput(output);
-        LOG.info("BigQueryRecordEmitter [deserialize]" + record + " -- " + sourceOutputWrapper);
         deserializationSchema.deserialize(record, sourceOutputWrapper);
     }
 
