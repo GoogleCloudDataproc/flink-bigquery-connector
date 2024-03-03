@@ -6,6 +6,7 @@ import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryUtils;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
@@ -17,9 +18,12 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.nio.ByteBuffer;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +35,8 @@ import java.util.stream.StreamSupport;
 
 /** Class to Serialise Avro Generic Records to Storage API protos. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AvroToProtoSerializer.class);
 
     private static final Map<String, TableFieldSchema.Type> LOGICAL_TYPES =
             initializeLogicalAvroToTableFieldTypes();
@@ -144,7 +150,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         mapping.put(Schema.Type.STRING, Object::toString);
         mapping.put(Schema.Type.ENUM, Object::toString);
         mapping.put(Schema.Type.FIXED, o -> ByteString.copyFrom(((GenericData.Fixed) o).bytes()));
-        mapping.put(Schema.Type.BYTES, o -> ByteString.copyFrom((byte[]) o));
+        mapping.put(Schema.Type.BYTES, o -> ByteString.copyFrom(((ByteBuffer) o).array()));
         return mapping;
     }
 
@@ -158,7 +164,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         mapping.put(Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
         mapping.put(Schema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put(Schema.Type.BOOLEAN, FieldDescriptorProto.Type.TYPE_BOOL);
-        mapping.put(Schema.Type.ENUM, FieldDescriptorProto.Type.TYPE_ENUM);
+        mapping.put(Schema.Type.ENUM, FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put(Schema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
         return mapping;
     }
@@ -585,7 +591,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      */
     public static DynamicMessage getDynamicMessageFromGenericRecord(
             GenericRecord element, Descriptor descriptor) {
-        System.out.println("Element: " + element);
+        LOG.info("Element: " + element);
         Schema schema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         // Get the record's schema and find the field descriptor for each field one by one.
@@ -606,7 +612,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                                     + fieldDescriptor.getName());
                 }
             } else {
-                System.out.println("toProtoValue()");
+                LOG.info("toProtoValue()");
                 // Convert to Dynamic Message.
                 value = toProtoValue(fieldDescriptor, field.schema(), value);
                 builder.setField(fieldDescriptor, value);
@@ -628,12 +634,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
             Descriptors.FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
         switch (avroSchema.getType()) {
             case RECORD:
-                System.out.println("RECORD");
+                LOG.info("RECORD");
                 // Recursion
                 return getDynamicMessageFromGenericRecord(
                         (GenericRecord) value, fieldDescriptor.getMessageType());
             case ARRAY:
-                System.out.println("ARRAY");
+                LOG.info("ARRAY");
                 // Get an Iterable of all the values in the array.
                 Iterable<Object> iterable = (Iterable<Object>) value;
                 // Get the inner element type.
@@ -646,7 +652,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                         .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
                         .collect(Collectors.toList());
             case UNION:
-                System.out.println("UNION");
+                LOG.info("UNION");
                 ImmutablePair<Schema, Boolean> pair = handleUnionSchema(avroSchema);
                 Schema type = pair.getLeft();
                 // Get the schema of the field.
@@ -654,7 +660,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
             case MAP:
                 return new UnsupportedOperationException("Not supported yet");
             default:
-                System.out.println("scalarToProtoValue()c");
+                LOG.info("scalarToProtoValue()");
                 return scalarToProtoValue(avroSchema, value);
         }
     }

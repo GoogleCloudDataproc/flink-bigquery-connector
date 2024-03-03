@@ -1,5 +1,7 @@
 package com.google.cloud.flink.bigquery.sink;
 
+import org.apache.avro.Schema;
+
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -22,6 +24,8 @@ import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /** Javadoc. */
@@ -123,12 +127,15 @@ public class SinkTest {
     //
 
     private List<GenericRecord> readRows() throws Exception {
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        System.out.println("env formed");
-        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(readOptions);
-        System.out.println("source formed");
-        return env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                .executeAndCollect(100);
+//        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+//        System.out.println("env formed");
+//        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(readOptions);
+//        System.out.println("source formed");
+//        return env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
+//                .executeAndCollect(100);
+        String schema = "{ \"type\": \"record\", \"name\": \"MySchema\", \"namespace\": \"com.company\", \"fields\": [{\"name\": \"name\", \"type\": {\"type\": \"enum\", \"name\": \"Color\", \"symbols\": [\"UNKNOWN\", \"Prashasti\", \"Agarwal\"],\"default\": \"UNKNOWN\"}}]}";
+        Schema enumSchema = Schema.parse(schema);
+      return null;
     }
 
     @Test
