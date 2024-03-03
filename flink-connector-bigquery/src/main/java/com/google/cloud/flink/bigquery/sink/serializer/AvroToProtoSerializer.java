@@ -62,6 +62,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         return mapping;
     }
 
+    /**
+     * Function to map Avro Schema Type to FieldDescriptorProto Type which converts AvroSchema
+     * Primitive Type to Dynamic Message.
+     *
+     * @return Map containing mapping from Primitive Avro Schema Type to FieldDescriptorProto.
+     */
     private static EnumMap<Schema.Type, FieldDescriptorProto.Type>
             initializeAvroFieldToFieldDescriptorTypes() {
         EnumMap<Schema.Type, FieldDescriptorProto.Type> mapping = new EnumMap<>(Schema.Type.class);
@@ -77,6 +83,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         return mapping;
     }
 
+    /**
+     * Function to map Logical Avro Schema Type to FieldDescriptorProto Type which converts
+     * AvroSchema Primitive Type to Dynamic Message.
+     *
+     * @return Map containing mapping from Primitive Avro Schema Type to FieldDescriptorProto.
+     */
     private static Map<String, FieldDescriptorProto.Type>
             initializeLogicalAvroFieldToFieldDescriptorTypes() {
         //        Map<Schema.Type, FieldDescriptorProto.Type> mapping = new HashMap<>();
