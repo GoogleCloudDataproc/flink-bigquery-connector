@@ -24,6 +24,8 @@ import org.apache.flink.util.Collector;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.BigQueryDeserializationSchema;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitState;
 import org.apache.avro.generic.GenericRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The {@link RecordEmitter} implementation for {@link BigQuerySourceReader} .We would always update
@@ -35,6 +37,7 @@ import org.apache.avro.generic.GenericRecord;
 public class BigQueryRecordEmitter<T>
         implements RecordEmitter<GenericRecord, T, BigQuerySourceSplitState> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryRecordEmitter.class);
     private final BigQueryDeserializationSchema<GenericRecord, T> deserializationSchema;
     private final SourceOutputWrapper<T> sourceOutputWrapper;
 
@@ -52,6 +55,7 @@ public class BigQueryRecordEmitter<T>
         splitState.updateOffset();
         // Sink the record to source output.
         sourceOutputWrapper.setSourceOutput(output);
+        LOG.info("BigQueryRecordEmitter [deserialize]" + record + " -- " + sourceOutputWrapper);
         deserializationSchema.deserialize(record, sourceOutputWrapper);
     }
 

@@ -196,7 +196,7 @@ public class SinkTest {
             System.out.println("@prashastia append()  Started...");
             AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
             System.out.println("@prashastia: [response]" + response);
-            streamWriter
+            streamWriter.close();
 
         } catch (Exception e) {
             System.out.println("@prashastia: [exception] " + e.getMessage());

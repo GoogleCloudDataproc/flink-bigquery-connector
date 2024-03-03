@@ -560,7 +560,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
     public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema) {
         Schema avroSchema = getAvroSchema(tableSchema);
         System.out.println("avroSchema\n" + avroSchema);
-        TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
+        //        TableSchema protoTableSchema = getProtoSchemaFromAvroSchema(avroSchema);
 
         //        System.out.println("Method 1...");
         //        descriptorProto =
@@ -585,6 +585,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
      */
     public static DynamicMessage getDynamicMessageFromGenericRecord(
             GenericRecord element, Descriptor descriptor) {
+        System.out.println("Element: " + element);
         Schema schema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         // Get the record's schema and find the field descriptor for each field one by one.
@@ -605,6 +606,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                                     + fieldDescriptor.getName());
                 }
             } else {
+                System.out.println("toProtoValue()");
                 // Convert to Dynamic Message.
                 value = toProtoValue(fieldDescriptor, field.schema(), value);
                 builder.setField(fieldDescriptor, value);
@@ -626,10 +628,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
             Descriptors.FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
         switch (avroSchema.getType()) {
             case RECORD:
+                System.out.println("RECORD");
                 // Recursion
                 return getDynamicMessageFromGenericRecord(
                         (GenericRecord) value, fieldDescriptor.getMessageType());
             case ARRAY:
+                System.out.println("ARRAY");
                 // Get an Iterable of all the values in the array.
                 Iterable<Object> iterable = (Iterable<Object>) value;
                 // Get the inner element type.
@@ -642,6 +646,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
                         .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
                         .collect(Collectors.toList());
             case UNION:
+                System.out.println("UNION");
                 ImmutablePair<Schema, Boolean> pair = handleUnionSchema(avroSchema);
                 Schema type = pair.getLeft();
                 // Get the schema of the field.
@@ -649,6 +654,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
             case MAP:
                 return new UnsupportedOperationException("Not supported yet");
             default:
+                System.out.println("scalarToProtoValue()c");
                 return scalarToProtoValue(avroSchema, value);
         }
     }
