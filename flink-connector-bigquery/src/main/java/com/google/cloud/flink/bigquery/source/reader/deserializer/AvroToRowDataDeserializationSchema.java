@@ -24,8 +24,6 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 
 import org.apache.avro.generic.GenericRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -34,8 +32,6 @@ import java.io.IOException;
 public class AvroToRowDataDeserializationSchema
         implements BigQueryDeserializationSchema<GenericRecord, RowData> {
 
-    private static final Logger LOG =
-            LoggerFactory.getLogger(AvroToRowDataDeserializationSchema.class);
     private final AvroToRowDataConverters.AvroToRowDataConverter converter;
     private final TypeInformation<RowData> typeInfo;
 
