@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Google Inc.
+ * Copyright (C) 2023 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,15 +16,20 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
-import com.google.protobuf.ByteString;
+import org.junit.Test;
 
-/**
- * Interface for defining a Flink record to BigQuery proto serializer.
- *
- * @param <IN> Type of records to be written to BigQuery.
- */
-public interface BigQueryProtoSerializer<IN> {
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
-    public ByteString serialize(IN record) throws BigQuerySerializationException;
+/** Tests for {@link AvroToProtoSerializer}. */
+public class AvroToProtoSerializerTest {
+
+    @Test
+    public void testSerializeIsUnsupported() {
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> new AvroToProtoSerializer().serialize(null));
+        assertThat(exception).hasMessageThat().contains("serialize method is not supported");
+    }
 }

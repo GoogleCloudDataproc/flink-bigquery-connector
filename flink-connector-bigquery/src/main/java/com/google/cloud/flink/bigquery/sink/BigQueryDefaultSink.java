@@ -19,7 +19,7 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 
 /**
- * Sink to write data into a BigQuery table using {@link DefaultWriter}.
+ * Sink to write data into a BigQuery table using {@link BigQueryDefaultWriter}.
  *
  * <p>Depending on the checkpointing mode, this sink offers either at-least-once or at-most-once
  * consistency guarantee.
@@ -27,7 +27,7 @@ import org.apache.flink.api.connector.sink2.SinkWriter;
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
  * <li>{@link CheckpointingMode#NONE}: at-most-once write consistency.
  */
-class DefaultSink extends BaseSink {
+class BigQueryDefaultSink extends BigQueryBaseSink {
 
     @Override
     public SinkWriter createWriter(InitContext context) {

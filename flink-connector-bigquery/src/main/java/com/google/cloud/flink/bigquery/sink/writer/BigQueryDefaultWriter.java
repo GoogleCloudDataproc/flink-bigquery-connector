@@ -21,7 +21,7 @@ import org.apache.flink.api.connector.sink2.SinkWriter;
 import java.io.IOException;
 
 /**
- * Writer implementation for {@link DefaultSink}.
+ * Writer implementation for {@link BigQueryDefaultSink}.
  *
  * <p>This writer appends records to the BigQuery table's default write stream. This means that
  * records are written directly to the table with no additional commit required, and available for
@@ -32,9 +32,15 @@ import java.io.IOException;
  *
  * <p>Records are grouped to maximally utilize the BigQuery append request's payload.
  *
+ * <p>Depending on the checkpointing mode, this writer offers either at-least-once or at-most-once
+ * consistency guarantee.
+ * <li>{@link CheckpointingMode#EXACTLY_ONCE}: at-least-once write consistency.
+ * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
+ * <li>{@link CheckpointingMode#NONE}: at-most-once write consistency.
+ *
  * @param <IN> Type of records to be written to BigQuery.
  */
-public class DefaultWriter<IN> implements SinkWriter<IN> {
+public class BigQueryDefaultWriter<IN> implements SinkWriter<IN> {
 
     @Override
     public void write(IN element, Context context) throws IOException, InterruptedException {
