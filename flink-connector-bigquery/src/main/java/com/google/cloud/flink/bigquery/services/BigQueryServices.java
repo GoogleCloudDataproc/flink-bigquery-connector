@@ -16,25 +16,16 @@
 
 package com.google.cloud.flink.bigquery.services;
 
+import com.google.api.services.bigquery.model.Table;
+
 import org.apache.flink.annotation.Internal;
 
-import com.google.api.core.ApiFuture;
-import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.services.bigquery.model.Job;
-import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
-import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
-import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamRequest;
-import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
-import com.google.cloud.bigquery.storage.v1.FlushRowsRequest;
-import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
-import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
-import com.google.cloud.bigquery.storage.v1.StreamWriter;
-import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 
 import java.io.IOException;
@@ -58,9 +49,9 @@ public interface BigQueryServices extends Serializable {
     QueryDataClient getQueryDataClient(CredentialsOptions credentialsOptions);
 
     /**
-     * Retrieves a real, mock or fake {@link SinkDataClient}.
-     *
-     * @param credentialsOptions The options for the read operation.
+            * Retrieves a real, mock or fake {@link SinkDataClient}.
+            *
+            * @param credentialsOptions The options for the read operation.
      * @return a Sink data client for BigQuery.
      */
     SinkDataClient getSinkDataClient(CredentialsOptions credentialsOptions);
@@ -72,18 +63,7 @@ public interface BigQueryServices extends Serializable {
      * @return a storage read client object.
      * @throws IOException
      */
-    StorageReadClient getStorageReadClient(CredentialsOptions credentialsOptions)
-            throws IOException;
-
-    /**
-     * Returns a real, mock, or fake {@link StorageWriteClient}.
-     *
-     * @param credentialsOptions The options for the write operation.
-     * @return a storage read client object.
-     * @throws IOException
-     */
-    StorageWriteClient getStorageWriteClient(CredentialsOptions credentialsOptions)
-            throws IOException;
+    StorageReadClient getStorageClient(CredentialsOptions credentialsOptions) throws IOException;
 
     /**
      * Container for reading data from streaming endpoints.
@@ -100,7 +80,7 @@ public interface BigQueryServices extends Serializable {
         void cancel();
     }
 
-    /** Client object for making calls to the BigQuery Storage Read API. */
+    /** An interface representing a client object for making calls to the BigQuery Storage API. */
     interface StorageReadClient extends AutoCloseable {
         /**
          * Create a new BigQuery storage read session against an existing table.
@@ -117,33 +97,6 @@ public interface BigQueryServices extends Serializable {
          * @return a server stream response with the read rows.
          */
         BigQueryServerStream<ReadRowsResponse> readRows(ReadRowsRequest request);
-
-        /**
-         * Close the client object.
-         *
-         * <p>The override is required since {@link AutoCloseable} allows the close method to raise
-         * an exception.
-         */
-        @Override
-        void close();
-    }
-
-    /** Client object for making calls to the BigQuery Storage Write API. */
-    interface StorageWriteClient extends AutoCloseable {
-        /** ... */
-        WriteStream createWriteStream(CreateWriteStreamRequest request);
-
-        /** ... */
-        StreamWriter createStreamWriter(
-                ProtoSchema protoSchema, RetrySettings retrySettings, String writeStreamName);
-
-        /** ... */
-        ApiFuture<FlushRowsResponse> flushRows(FlushRowsRequest request)
-                throws IOException, InterruptedException;
-
-        /** ... */
-        ApiFuture<FinalizeWriteStreamResponse> finalizeWriteStream(
-                FinalizeWriteStreamRequest request);
 
         /**
          * Close the client object.
