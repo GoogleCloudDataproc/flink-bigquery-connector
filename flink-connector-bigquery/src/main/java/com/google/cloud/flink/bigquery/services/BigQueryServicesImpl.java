@@ -168,6 +168,11 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
     }
 
+    @Override
+    public SinkDataClient getSinkDataClient(CredentialsOptions credentialsOptions) {
+        return new SinkDataClientImpl(credentialsOptions);
+    }
+
     /** A wrapper implementation for the BigQuery service client library methods. */
     public static class SinkDataClientImpl implements SinkDataClient {
         private final BigQuery bigQuery;

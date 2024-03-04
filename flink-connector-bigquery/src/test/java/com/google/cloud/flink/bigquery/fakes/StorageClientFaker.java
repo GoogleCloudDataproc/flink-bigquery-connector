@@ -97,15 +97,9 @@ public class StorageClientFaker {
         }
 
         @Override
-        public StorageReadClient getStorageReadClient(CredentialsOptions readOptions)
+        public StorageReadClient getStorageClient(CredentialsOptions readOptions)
                 throws IOException {
             return storageReadClient;
-        }
-
-        @Override
-        public StorageWriteClient getStorageWriteClient(CredentialsOptions readOptions)
-                throws IOException {
-            return null;
         }
 
         @Override

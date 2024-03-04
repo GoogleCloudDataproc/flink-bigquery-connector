@@ -46,13 +46,7 @@ public class BigQueryServicesTest {
                             }
 
                             @Override
-                            public BigQueryServices.StorageReadClient getStorageReadClient(
-                                    CredentialsOptions credentialsOptions) throws IOException {
-                                return null;
-                            }
-
-                            @Override
-                            public BigQueryServices.StorageWriteClient getStorageWriteClient(
+                            public BigQueryServices.StorageReadClient getStorageClient(
                                     CredentialsOptions credentialsOptions) throws IOException {
                                 return null;
                             }
