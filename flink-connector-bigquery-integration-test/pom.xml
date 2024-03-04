@@ -28,7 +28,7 @@ under the License.
     </parent>
 
     <artifactId>flink-connector-bigquery-integration-test</artifactId>
-    <name>Flink : Connectors : Google BigQuery Integration Test</name>
+    <name>Flink : Connectors : Google BigQuery IT</name>
     <packaging>jar</packaging>
 
     <properties>

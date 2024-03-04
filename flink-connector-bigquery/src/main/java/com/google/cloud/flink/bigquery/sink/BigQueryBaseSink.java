@@ -18,5 +18,52 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Sink;
 
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** Base class for developing a BigQuery sink. */
-abstract class BigQueryBaseSink implements Sink {}
+abstract class BigQueryBaseSink implements Sink {
+
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
+
+    final BigQueryConnectOptions connectOptions;
+    final BigQuerySchemaProvider schemaProvider;
+    final BigQueryProtoSerializer serializer;
+    final String tablePath;
+
+    BigQueryBaseSink(BigQuerySinkConfig sinkConfig) {
+        validateSinkConfig(sinkConfig);
+        this.connectOptions = sinkConfig.getConnectOptions();
+        this.schemaProvider = sinkConfig.getSchemaProvider();
+        this.serializer = sinkConfig.getSerializer();
+        this.tablePath =
+                String.format(
+                        "projects/%s/datasets/%s/tables/%s",
+                        connectOptions.getProjectId(),
+                        connectOptions.getDataset(),
+                        connectOptions.getTable());
+    }
+
+    private void validateSinkConfig(BigQuerySinkConfig sinkConfig) {
+        if (sinkConfig.getConnectOptions() == null) {
+            throw new IllegalArgumentException("BigQuery connect options cannot be null");
+        }
+        if (sinkConfig.getSerializer() == null) {
+            throw new IllegalArgumentException("BigQuery serializer cannot be null");
+        }
+    }
+
+    /** Ensures Sink's parallelism does not exceed the allowed maximum when scaling Flink job. */
+    void checkParallelism(int numberOfParallelSubtasks) {
+        if (numberOfParallelSubtasks > BigQuerySink.MAX_SINK_PARALLELISM) {
+            logger.error(
+                    "Maximum allowed parallelism for Sink is {}, but attempting to create Writer number {}",
+                    BigQuerySink.MAX_SINK_PARALLELISM,
+                    numberOfParallelSubtasks);
+            throw new IllegalStateException("Attempting to create more Sink Writers than allowed");
+        }
+    }
+}

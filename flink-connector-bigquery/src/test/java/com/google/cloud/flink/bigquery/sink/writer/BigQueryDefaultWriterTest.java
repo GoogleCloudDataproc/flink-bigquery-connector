@@ -16,38 +16,33 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
-import org.junit.Test;
-
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
-
 /** Tests for {@link BigQueryDefaultWriter}. */
 public class BigQueryDefaultWriterTest {
 
-    @Test
-    public void testWriteIsUnsupported() {
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQueryDefaultWriter().write(null, null));
-        assertThat(exception).hasMessageThat().contains("write method is not supported");
-    }
-
-    @Test
-    public void testFlushIsUnsupported() {
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQueryDefaultWriter().flush(false));
-        assertThat(exception).hasMessageThat().contains("flush method is not supported");
-    }
-
-    @Test
-    public void testCloseIsUnsupported() {
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQueryDefaultWriter().close());
-        assertThat(exception).hasMessageThat().contains("close method is not supported");
-    }
+    //    @Test
+    //    public void testWriteIsUnsupported() {
+    //        UnsupportedOperationException exception =
+    //                assertThrows(
+    //                        UnsupportedOperationException.class,
+    //                        () -> new BigQueryDefaultWriter().write(null, null));
+    //        assertThat(exception).hasMessageThat().contains("write method is not supported");
+    //    }
+    //
+    //    @Test
+    //    public void testFlushIsUnsupported() {
+    //        UnsupportedOperationException exception =
+    //                assertThrows(
+    //                        UnsupportedOperationException.class,
+    //                        () -> new BigQueryDefaultWriter().flush(false));
+    //        assertThat(exception).hasMessageThat().contains("flush method is not supported");
+    //    }
+    //
+    //    @Test
+    //    public void testCloseIsUnsupported() {
+    //        UnsupportedOperationException exception =
+    //                assertThrows(
+    //                        UnsupportedOperationException.class,
+    //                        () -> new BigQueryDefaultWriter().close());
+    //        assertThat(exception).hasMessageThat().contains("close method is not supported");
+    //    }
 }

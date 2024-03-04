@@ -29,11 +29,13 @@ import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.AvroSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
+import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.ReadStream;
 import com.google.cloud.bigquery.storage.v1.StreamStats;
+import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
@@ -299,6 +301,19 @@ public class StorageClientFaker {
                         session.getEstimatedRowCount(),
                         request.getOffset(),
                         errorPercentage);
+            }
+
+            @Override
+            public void close() {}
+        }
+
+        /** Implementation for the storage write client for testing purposes. */
+        public static class FakeBigQueryStorageWriteClient implements StorageWriteClient {
+
+            @Override
+            public StreamWriter createStreamWriter(
+                    String streamName, ProtoSchema protoSchema, boolean enableConnectionPool) {
+                return null;
             }
 
             @Override

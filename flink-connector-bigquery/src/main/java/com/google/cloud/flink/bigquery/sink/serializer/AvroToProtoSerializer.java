@@ -27,4 +27,9 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     public ByteString serialize(GenericRecord record) throws BigQuerySerializationException {
         throw new UnsupportedOperationException("serialize method is not supported");
     }
+
+    @Override
+    public void init(BigQuerySchemaProvider schemaProvider) {
+        throw new UnsupportedOperationException("init method is not supported");
+    }
 }

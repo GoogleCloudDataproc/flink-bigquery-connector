@@ -18,6 +18,8 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.SinkWriter;
 
+import com.google.cloud.flink.bigquery.sink.writer.BigQueryDefaultWriter;
+
 /**
  * Sink to write data into a BigQuery table using {@link BigQueryDefaultWriter}.
  *
@@ -29,8 +31,14 @@ import org.apache.flink.api.connector.sink2.SinkWriter;
  */
 class BigQueryDefaultSink extends BigQueryBaseSink {
 
+    BigQueryDefaultSink(BigQuerySinkConfig sinkConfig) {
+        super(sinkConfig);
+    }
+
     @Override
     public SinkWriter createWriter(InitContext context) {
-        throw new UnsupportedOperationException("createWriter method is not supported");
+        checkParallelism(context.getNumberOfParallelSubtasks());
+        return new BigQueryDefaultWriter(
+                context.getSubtaskId(), connectOptions, schemaProvider, serializer, tablePath);
     }
 }

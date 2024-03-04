@@ -16,9 +16,16 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
-import org.apache.flink.api.connector.sink2.SinkWriter;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
+import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.protobuf.ByteString;
 
-import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Writer implementation for {@link BigQueryDefaultSink}.
@@ -40,20 +47,67 @@ import java.io.IOException;
  *
  * @param <IN> Type of records to be written to BigQuery.
  */
-public class BigQueryDefaultWriter<IN> implements SinkWriter<IN> {
+public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
-    @Override
-    public void write(IN element, Context context) throws IOException, InterruptedException {
-        throw new UnsupportedOperationException("write method is not supported");
+    public BigQueryDefaultWriter(
+            int subtaskId,
+            BigQueryConnectOptions connectOptions,
+            BigQuerySchemaProvider schemaProvider,
+            BigQueryProtoSerializer serializer,
+            String tablePath) {
+        super(subtaskId, connectOptions, schemaProvider, serializer);
+        streamName = String.format("%s/streams/_default", tablePath);
     }
 
+    /** Accept record for writing to BigQuery table. */
     @Override
-    public void flush(boolean endOfInput) throws IOException, InterruptedException {
-        throw new UnsupportedOperationException("flush method is not supported");
+    public void write(IN element, Context context) {
+        try {
+            ByteString protoRow = getProtoRow(element);
+            if (!fitsInAppendRequest(protoRow)) {
+                validateAppendResponses(false);
+                append();
+            }
+            addToAppendRequest(protoRow);
+        } catch (BigQuerySerializationException e) {
+            logger.error(String.format("Unable to serialize record %s. Dropping it!", element), e);
+        }
     }
 
+    /** Asynchronously append to BigQuery table's default stream. */
     @Override
-    public void close() {
-        throw new UnsupportedOperationException("close method is not supported");
+    void sendAppendRequest() {
+        if (streamWriter == null) {
+            streamWriter = createStreamWriter(true);
+        }
+        ApiFuture responseFuture = streamWriter.append(protoRowsBuilder.build());
+        appendResponseFuturesQueue.add(responseFuture);
+    }
+
+    /** Throws a RuntimeException if an error is found with append response. */
+    @Override
+    void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture) {
+        AppendRowsResponse response;
+        try {
+            response = appendResponseFuture.get();
+        } catch (ExecutionException | InterruptedException e) {
+            logger.error(
+                    String.format(
+                            "Exception while retrieving AppendRowsResponse in subtask %s",
+                            subtaskId),
+                    e);
+            throw new BigQueryConnectorException(
+                    "Error getting response for BigQuery write API", e);
+        }
+        if (response.hasError()) {
+            logger.error(
+                    String.format(
+                            "Request to AppendRows failed in subtask %s with error %s",
+                            subtaskId, response.getError().getMessage()));
+            throw new BigQueryConnectorException(
+                    String.format(
+                            "Exception while writing to BigQuery table: %s",
+                            response.getError().getMessage()));
+        }
     }
 }

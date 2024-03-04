@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Google Inc.
+ * Copyright (C) 2024 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,15 +16,19 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-/** Tests for {@link AvroToProtoSerializer}. */
-public class AvroToProtoSerializerTest {
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.Descriptors.Descriptor;
+import org.apache.avro.Schema;
 
-    //    @Test
-    //    public void testSerializeIsUnsupported() {
-    //        UnsupportedOperationException exception =
-    //                assertThrows(
-    //                        UnsupportedOperationException.class,
-    //                        () -> new AvroToProtoSerializer().serialize(null));
-    //        assertThat(exception).hasMessageThat().contains("serialize method is not supported");
-    //    }
+/**
+ * An interface to derive {@link Descriptor} for Generic Record serialization. Also provides {@link
+ * Schema} and {@link DescriptorProto}.
+ */
+public interface BigQuerySchemaProvider {
+
+    DescriptorProto getDescriptorProto();
+
+    Descriptor getDescriptor();
+
+    Schema getAvroSchema();
 }
