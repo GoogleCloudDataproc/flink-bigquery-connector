@@ -1,10 +1,10 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.protobuf.DescriptorProtos;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
-import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -44,5 +44,4 @@ public interface BigQueryProtoSerializer<IN> {
     }
 
     public ByteString serialize(IN record) throws BigQuerySerializationException;
-
 }

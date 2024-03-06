@@ -2,6 +2,7 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.Descriptors;
@@ -20,7 +21,7 @@ import java.util.Map;
 import java.util.function.UnaryOperator;
 
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
-public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord>  {
+public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
 
     private static final Map<Schema.Type, UnaryOperator<Object>> PRIMITIVE_ENCODERS =
             initializePrimitiveEncoderFunction();
@@ -66,36 +67,39 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
 
     private final DescriptorProto descriptorProto;
 
+    private final Descriptor descriptor;
+
     /**
      * Constructor for the Serializer.
      *
      * @param tableSchema Table Schema for the Sink Table ({@link
      *     com.google.api.services.bigquery.model.TableSchema} object )
      */
-    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema) {
+    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema)
+            throws Descriptors.DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
         // TODO: Decide on approach and obtain descriptorProto.
         descriptorProto = null;
+        this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
     }
 
     @Override
-    public ByteString serialize(GenericRecord record, Descriptor descriptor) throws BigQuerySerializationException {
-        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+    public ByteString serialize(GenericRecord record) throws BigQuerySerializationException {
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, this.descriptor);
         return message.toByteString();
-
     }
 
     /**
      * Function to convert a Generic Avro Record to Dynamic Message to write using the Storage Write
      * API.
      *
-     * @param element {@link GenericRecord} Object to convert to {@link DynamicMessage}
+     * @param record {@link GenericRecord} Object to convert to {@link DynamicMessage}
      * @param descriptor {@link Descriptor} describing the schema of the sink table.
      * @return {@link DynamicMessage} Object converted from the Generic Avro Record.
      */
     public static DynamicMessage getDynamicMessageFromGenericRecord(
-            GenericRecord element, Descriptor descriptor) {
-        Schema schema = element.getSchema();
+            GenericRecord record, Descriptor descriptor) {
+        Schema schema = record.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         // Get the record's schema and find the field descriptor for each field one by one.
         for (Schema.Field field : schema.getFields()) {
@@ -106,7 +110,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                             descriptor.findFieldByName(field.name().toLowerCase()));
             // Get the value for a field.
             // Check if the value is null.
-            @Nullable Object value = element.get(field.name());
+            @Nullable Object value = record.get(field.name());
             if (value == null) {
                 // If the field is not optional, throw error.
                 if (!fieldDescriptor.isOptional()) {
