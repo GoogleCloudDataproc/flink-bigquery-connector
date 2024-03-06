@@ -21,13 +21,12 @@ import org.apache.flink.api.connector.source.SourceOutput;
 import org.apache.flink.connector.base.source.reader.RecordEmitter;
 import org.apache.flink.util.Collector;
 
-import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReader;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.BigQueryDeserializationSchema;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitState;
 import org.apache.avro.generic.GenericRecord;
 
 /**
- * The {@link RecordEmitter} implementation for {@link BigQuerySourceReader} .We would always update
+ * The {@link RecordEmitter} implementation for {@link com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReader} .We would always update
  * the last consumed message id in this emitter.
  *
  * @param <T> the emitted type.

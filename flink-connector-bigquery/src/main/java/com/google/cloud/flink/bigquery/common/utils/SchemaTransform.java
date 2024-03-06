@@ -57,6 +57,7 @@ public class SchemaTransform {
         Map<String, List<Schema.Type>> mapping = new HashMap<>();
 
         mapping.put("STRING", Arrays.asList(Schema.Type.STRING));
+        mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));
         mapping.put("BYTES", Arrays.asList(Schema.Type.BYTES));
         mapping.put("INTEGER", Arrays.asList(Schema.Type.LONG));
         mapping.put("INT64", Arrays.asList(Schema.Type.LONG));
@@ -66,15 +67,14 @@ public class SchemaTransform {
         mapping.put("BIGNUMERIC", Arrays.asList(Schema.Type.BYTES));
         mapping.put("BOOLEAN", Arrays.asList(Schema.Type.BOOLEAN));
         mapping.put("BOOL", Arrays.asList(Schema.Type.BOOLEAN));
-        mapping.put("RECORD", Arrays.asList(Schema.Type.RECORD));
         mapping.put("TIMESTAMP", Arrays.asList(Schema.Type.LONG));
-        mapping.put("DATE", Arrays.asList(Schema.Type.STRING, Schema.Type.INT));
-        mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
-        mapping.put("DATETIME", Arrays.asList(Schema.Type.LONG));
-        mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
+        mapping.put("RECORD", Arrays.asList(Schema.Type.RECORD));
         mapping.put("STRUCT", Arrays.asList(Schema.Type.RECORD));
-        mapping.put("GEOGRAPHY", Arrays.asList(Schema.Type.STRING));
-        // TODO: RANGE is of the form [start, end) so this is represented via string only.
+        mapping.put("DATE", Arrays.asList(Schema.Type.STRING, Schema.Type.INT));
+        mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
+        mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
+        mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
+        // TODO: Add support for RANGE.
         mapping.put("RANGE", Arrays.asList(Schema.Type.STRING));
         return mapping;
     }

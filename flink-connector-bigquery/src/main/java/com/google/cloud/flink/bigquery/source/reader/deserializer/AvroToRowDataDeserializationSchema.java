@@ -31,7 +31,6 @@ import java.io.IOException;
 @Internal
 public class AvroToRowDataDeserializationSchema
         implements BigQueryDeserializationSchema<GenericRecord, RowData> {
-
     private final AvroToRowDataConverters.AvroToRowDataConverter converter;
     private final TypeInformation<RowData> typeInfo;
 
