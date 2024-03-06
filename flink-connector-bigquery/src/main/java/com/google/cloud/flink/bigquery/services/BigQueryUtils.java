@@ -30,8 +30,12 @@ import com.google.api.services.bigquery.model.JobConfiguration;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.Table;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.TableId;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
 import dev.failsafe.RetryPolicy;
@@ -43,6 +47,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Collection of functionalities that simplify BigQuery services interactions. */
@@ -186,5 +191,18 @@ public class BigQueryUtils {
                                 .get(projectId, datasetId, tableId)
                                 .setPrettyPrint(false)
                                 .execute());
+    }
+
+    public static TableSchema getTableSchema(
+            BigQuery client, String project, String dataset, String table) {
+        return Optional.ofNullable(client.getTable(TableId.of(project, dataset, table)))
+                .map(t -> t.getDefinition().getSchema())
+                .map(schema -> SchemaTransform.bigQuerySchemaToTableSchema(schema))
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        String.format(
+                                                "The provided table %s.%s.%s does not exists.",
+                                                project, dataset, table)));
     }
 }
