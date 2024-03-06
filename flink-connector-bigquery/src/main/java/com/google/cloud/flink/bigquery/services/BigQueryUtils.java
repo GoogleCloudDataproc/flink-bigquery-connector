@@ -87,6 +87,11 @@ public class BigQueryUtils {
         return UUID.randomUUID().toString().replaceAll("-", "");
     }
 
+    /** Function to obtain a Random Descriptor Name.
+     * Descriptor name starts with a "D" and cannot contain the character '-'
+     *
+     * @return String for descriptor name.
+     */
     public static String bqSanitizedRandomUUIDForDescriptor() {
         return "D" + UUID.randomUUID().toString().replaceAll("-", "_");
     }
@@ -171,7 +176,7 @@ public class BigQueryUtils {
 
     public static Table tableInfo(
             Bigquery client, String projectId, String datasetId, String tableId)
-            throws IOException {
+            throws IOException, InterruptedException {
         return executeOperation(
                 buildRetriableExecutorForOperation(
                         String.format("GetTable - %s.%s.%s", projectId, datasetId, tableId)),
