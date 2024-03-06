@@ -16,11 +16,10 @@
 
 package com.google.cloud.flink.bigquery.services;
 
-import com.google.api.services.bigquery.model.Table;
-
 import org.apache.flink.annotation.Internal;
 
 import com.google.api.services.bigquery.model.Job;
+import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
@@ -49,9 +48,9 @@ public interface BigQueryServices extends Serializable {
     QueryDataClient getQueryDataClient(CredentialsOptions credentialsOptions);
 
     /**
-            * Retrieves a real, mock or fake {@link SinkDataClient}.
-            *
-            * @param credentialsOptions The options for the read operation.
+     * Retrieves a real, mock or fake {@link SinkDataClient}.
+     *
+     * @param credentialsOptions The options for the read operation.
      * @return a Sink data client for BigQuery.
      */
     SinkDataClient getSinkDataClient(CredentialsOptions credentialsOptions);
@@ -121,7 +120,7 @@ public interface BigQueryServices extends Serializable {
          * @throws IOException in case of connection error with the table.
          */
         Table getBigQueryTable(String projectId, String datasetId, String tableId)
-                throws IOException;
+                throws IOException, InterruptedException;
 
         /**
          * Retrieves {@link TableSchema} object for the specified table.
@@ -133,7 +132,7 @@ public interface BigQueryServices extends Serializable {
          * @throws IOException in case of connection error with the table.
          */
         TableSchema getBigQueryTableSchema(String projectId, String datasetId, String tableId)
-                throws IOException;
+                throws IOException, InterruptedException;
     }
 
     /**

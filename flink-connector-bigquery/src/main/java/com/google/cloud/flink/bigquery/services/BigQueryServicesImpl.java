@@ -125,7 +125,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
             UnaryCallSettings.Builder<CreateReadSessionRequest, ReadSession>
                     createReadSessionSettings =
-                    settingsBuilder.getStubSettingsBuilder().createReadSessionSettings();
+                            settingsBuilder.getStubSettingsBuilder().createReadSessionSettings();
 
             createReadSessionSettings.setRetrySettings(
                     createReadSessionSettings
@@ -138,7 +138,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
             UnaryCallSettings.Builder<SplitReadStreamRequest, SplitReadStreamResponse>
                     splitReadStreamSettings =
-                    settingsBuilder.getStubSettingsBuilder().splitReadStreamSettings();
+                            settingsBuilder.getStubSettingsBuilder().splitReadStreamSettings();
 
             splitReadStreamSettings.setRetrySettings(
                     splitReadStreamSettings
@@ -189,13 +189,14 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
         @Override
         public Table getBigQueryTable(String projectId, String datasetId, String tableId)
-                throws IOException {
+                throws IOException, InterruptedException {
             return BigQueryUtils.tableInfo(this.bigquery, projectId, datasetId, tableId);
         }
 
         @Override
         public TableSchema getBigQueryTableSchema(
-                String projectId, String datasetId, String tableId) throws IOException {
+                String projectId, String datasetId, String tableId)
+                throws IOException, InterruptedException {
 
             @Nullable Table existingTable = this.getBigQueryTable(projectId, datasetId, tableId);
             // If the table does not exist, or the schema of the existing table is null or empty.

@@ -26,8 +26,9 @@ import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitState;
 import org.apache.avro.generic.GenericRecord;
 
 /**
- * The {@link RecordEmitter} implementation for {@link com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReader} .We would always update
- * the last consumed message id in this emitter.
+ * The {@link RecordEmitter} implementation for {@link
+ * com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReader} .We would always update the
+ * last consumed message id in this emitter.
  *
  * @param <T> the emitted type.
  */
