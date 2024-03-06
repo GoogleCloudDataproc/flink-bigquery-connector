@@ -53,6 +53,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -163,6 +165,48 @@ public class BigQueryServicesImpl implements BigQueryServices {
         @Override
         public void close() {
             client.close();
+        }
+    }
+
+    @Override
+    public SinkDataClient getSinkDataClient(CredentialsOptions credentialsOptions) {
+        return new SinkDataClientImpl(credentialsOptions);
+    }
+
+    /** A wrapper implementation for the BigQuery service client library methods. */
+    public static class SinkDataClientImpl implements SinkDataClient {
+        private final BigQuery bigQuery;
+        private final Bigquery bigquery;
+
+        public SinkDataClientImpl(CredentialsOptions options) {
+            bigQuery =
+                    BigQueryOptions.newBuilder()
+                            .setCredentials(options.getCredentials())
+                            .build()
+                            .getService();
+            bigquery = BigQueryUtils.newBigqueryBuilder(options).build();
+        }
+
+        @Override
+        public Table getBigQueryTable(String projectId, String datasetId, String tableId)
+                throws IOException, InterruptedException {
+            return BigQueryUtils.tableInfo(this.bigquery, projectId, datasetId, tableId);
+        }
+
+        @Override
+        public TableSchema getBigQueryTableSchema(
+                String projectId, String datasetId, String tableId)
+                throws IOException, InterruptedException {
+
+            @Nullable Table existingTable = this.getBigQueryTable(projectId, datasetId, tableId);
+            // If the table does not exist, or the schema of the existing table is null or empty.
+            if (existingTable == null
+                    || existingTable.getSchema() == null
+                    || existingTable.getSchema().isEmpty()) {
+                throw new UnsupportedOperationException("The specified table does not exist.");
+            } else {
+                return existingTable.getSchema();
+            }
         }
     }
 

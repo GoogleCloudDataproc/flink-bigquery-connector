@@ -16,12 +16,36 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
 public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
+    /**
+     * Function to convert TableSchema to Avro Schema.
+     *
+     * @param tableSchema A {@link com.google.api.services.bigquery.model.TableSchema} object to
+     *     cast to {@link Schema}
+     * @return Converted Avro Schema
+     */
+    private Schema getAvroSchema(com.google.api.services.bigquery.model.TableSchema tableSchema) {
+        return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
+    }
+
+    /**
+     * Constructor for the Serializer.
+     *
+     * @param tableSchema Table Schema for the Sink Table ({@link
+     *     com.google.api.services.bigquery.model.TableSchema} object )
+     */
+    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema) {
+        Schema avroSchema = getAvroSchema(tableSchema);
+    }
+
+    public AvroToProtoSerializer() {}
 
     @Override
     public ByteString serialize(GenericRecord record) throws BigQuerySerializationException {
