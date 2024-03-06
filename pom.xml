@@ -29,7 +29,7 @@ under the License.
 
     <groupId>com.google.cloud.flink</groupId>
     <artifactId>flink-connector-bigquery-parent</artifactId>
-    <version>0.1.0-preview</version>
+    <version>${revision}</version>
 
     <name>Flink : Connectors : Google BigQuery Parent</name>
     <packaging>pom</packaging>
@@ -45,10 +45,8 @@ under the License.
     </licenses>
 
     <properties>
+		<revision>0.1.0-preview</revision>
         <google-lib-bom.version>26.16.0</google-lib-bom.version>
-
-        <flink.version>1.17.1</flink.version>
-        <flink.shaded.version>17.0</flink.shaded.version>
 
         <junit5.version>5.9.3</junit5.version>
         <google-truth.version>1.1.4</google-truth.version>
@@ -66,30 +64,11 @@ under the License.
     </properties>
 
     <modules>
-        <module>flink-connector-bigquery</module>
-        <module>flink-sql-connector-bigquery</module>
-        <module>flink-connector-bigquery-examples</module>
-        <module>flink-connector-bigquery-integration-test</module>
-    </modules>
+        <module>flink-connector-bigquery-common</module>
+		<module>flink-sql-connector-bigquery</module>
+	</modules>
 
     <dependencies>
-        <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>google-cloud-bigquerystorage</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-avro</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-metrics-dropwizard</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-force-shading</artifactId>
-        </dependency>
-
         <!-- Root dependencies for all projects -->
         <dependency>
             <groupId>dev.failsafe</groupId>
@@ -138,7 +117,6 @@ under the License.
         </dependency>
 
         <!-- Tests will have log4j as the default logging framework available -->
-
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
@@ -156,31 +134,12 @@ under the License.
             <artifactId>log4j-core</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-test-utils-junit</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- ArchUit test dependencies -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-architecture-tests-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-architecture-tests-production</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <dependencyManagement>
         <dependencies>
 
             <!-- Google libraries BOM -->
-
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
@@ -194,62 +153,6 @@ under the License.
                 <groupId>dev.failsafe</groupId>
                 <artifactId>failsafe</artifactId>
                 <version>3.3.2</version>
-            </dependency>
-
-            <!-- Flink dependencies -->
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-avro</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-metrics-dropwizard</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-test-utils</artifactId>
-                <version>${flink.version}</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-test-utils-junit</artifactId>
-                <version>${flink.version}</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-shaded-force-shading</artifactId>
-                <version>${flink.shaded.version}</version>
-            </dependency>
-
-            <!-- Flink ArchUnit -->
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-architecture-tests-base</artifactId>
-                <version>${flink.version}</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-architecture-tests-test</artifactId>
-                <version>${flink.version}</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-architecture-tests-production</artifactId>
-                <version>${flink.version}</version>
-                <scope>test</scope>
             </dependency>
 
             <!-- This manages the 'javax.annotation' annotations (JSR305) -->
@@ -338,24 +241,35 @@ under the License.
                 <version>2.1</version>
             </dependency>
 
+			<!-- org.apache.commons - used by BigQueryPartitionUtils - StringUtils; -->
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-lang3</artifactId>
+				<version>3.14.0</version>
+				<scope>compile</scope>
+			</dependency>
+
+			<!-- org.apache.avro - used by SchemaTransform -->
+			<!-- Was earlier provided by org.apache.flink:flink-avro -->
+			<dependency>
+				<groupId>org.apache.avro</groupId>
+				<artifactId>avro</artifactId>
+				<version>1.12.0-SNAPSHOT</version>
+				<scope>compile</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>org.assertj</groupId>
+				<artifactId>assertj-core</artifactId>
+				<version>3.24.2</version>
+				<scope>test</scope>
+			</dependency>
         </dependencies>
     </dependencyManagement>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <inherited>false</inherited>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.apache.flink</groupId>
-                        <artifactId>flink-ci-tools</artifactId>
-                        <version>${flink.version}</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-
+			<!-- Moved "exec-maven-plugin" to flink specific module -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -365,6 +279,16 @@ under the License.
                 <!-- activate API compatibility checks -->
                 <groupId>io.github.zentol.japicmp</groupId>
                 <artifactId>japicmp-maven-plugin</artifactId>
+				<!--TODO: Remove this -->
+				<configuration>
+					<dependencies>
+						<dependency>
+							<groupId>org.apache.flink</groupId>
+							<artifactId>flink-annotations</artifactId>
+							<version>1.17.1</version>
+						</dependency>
+					</dependencies>
+				</configuration>
             </plugin>
 
             <plugin>
@@ -388,6 +312,13 @@ under the License.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+				<dependencies>
+					<dependency>
+						<groupId>org.junit.vintage</groupId>
+						<artifactId>junit-vintage-engine</artifactId>
+						<version>${junit5.version}</version>
+					</dependency>
+				</dependencies>
             </plugin>
 
             <plugin>
@@ -422,6 +353,14 @@ under the License.
         </plugins>
     </build>
     <profiles>
+		<profile>
+			<id>flink_1.17</id>
+			<modules>
+				<module>flink-connector-bigquery-flink-1.17</module>
+				<module>flink-connector-bigquery-examples/flink-connector-bigquery-example-flink-1.17</module>
+				<module>flink-connector-bigquery-integration-test/flink-connector-bigquery-integration-test-flink-1.17</module>
+			</modules>
+		</profile>
         <profile>
             <id>clover</id>
             <build>
@@ -433,9 +372,10 @@ under the License.
                         <configuration>
                             <!-- Use custom report descriptor -->
                             <reportDescriptor>${maven.multiModuleProjectDirectory}/tools/maven/clover.xml</reportDescriptor>
-                            <targetPercentage>60%</targetPercentage>
+                            <targetPercentage>80%</targetPercentage>
                             <excludes>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/config/*</exclude>
+								<exclude>**/com/google/cloud/flink/bigquery/common/utils/flink/**</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/utils/GoogleCredentialsSupplier.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/services/**Impl.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/source/config/*</exclude>
