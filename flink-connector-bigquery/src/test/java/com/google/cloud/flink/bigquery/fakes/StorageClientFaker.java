@@ -121,12 +121,6 @@ public class StorageClientFaker {
             }
 
             @Override
-            public Table getBigQueryTable(String projectId, String datasetId, String tableId)
-                    throws IOException {
-                return SIMPLE_BQ_TABLE;
-            }
-
-            @Override
             public TableSchema getBigQueryTableSchema(
                     String projectId, String datasetId, String tableId) throws IOException {
                 return SIMPLE_BQ_TABLE_SCHEMA;
