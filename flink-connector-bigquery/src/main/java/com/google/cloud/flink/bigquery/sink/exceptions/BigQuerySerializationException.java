@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Google Inc.
+ * Copyright (C) 2024 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -14,12 +14,16 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.sink.serializer;
+package com.google.cloud.flink.bigquery.sink.exceptions;
 
-import org.junit.Test;
+/** This class wraps errors found during serialization of Flink records to BigQuery protos. */
+public class BigQuerySerializationException extends Exception {
 
-/** Test to check if Avro to Proto Serialisation happens correctly. */
-public class AvroToProtoSerializerTest {
-    @Test
-    public void testDynamicMessageConversion() {}
+    public BigQuerySerializationException(String message) {
+        super(message);
+    }
+
+    public BigQuerySerializationException(String message, Throwable error) {
+        super(message, error);
+    }
 }

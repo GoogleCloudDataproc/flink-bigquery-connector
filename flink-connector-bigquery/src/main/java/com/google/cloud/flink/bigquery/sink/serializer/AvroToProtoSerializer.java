@@ -19,8 +19,8 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 
-/** Class to Serialise Avro Generic Records to Storage API protos. */
-public class AvroToProtoSerializer extends BigQueryProtoSerializer {
+/** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
+public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord>  {
 
     private static final Map<Schema.Type, UnaryOperator<Object>> PRIMITIVE_ENCODERS =
             initializePrimitiveEncoderFunction();
@@ -76,6 +76,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer {
         Schema avroSchema = getAvroSchema(tableSchema);
         // TODO: Decide on approach and obtain descriptorProto.
         descriptorProto = null;
+    }
+
+    @Override
+    public ByteString serialize(GenericRecord record, Descriptor descriptor) throws BigQuerySerializationException {
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        return message.toByteString();
+
     }
 
     /**

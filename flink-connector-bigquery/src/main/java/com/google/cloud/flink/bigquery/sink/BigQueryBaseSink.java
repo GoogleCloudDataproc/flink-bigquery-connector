@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Google Inc.
+ * Copyright (C) 2024 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -14,12 +14,9 @@
  * the License.
  */
 
-package com.google.cloud.flink.bigquery.sink.serializer;
+package com.google.cloud.flink.bigquery.sink;
 
-import org.junit.Test;
+import org.apache.flink.api.connector.sink2.Sink;
 
-/** Test to check if Avro to Proto Serialisation happens correctly. */
-public class AvroToProtoSerializerTest {
-    @Test
-    public void testDynamicMessageConversion() {}
-}
+/** Base class for developing a BigQuery sink. */
+abstract class BigQueryBaseSink implements Sink {}

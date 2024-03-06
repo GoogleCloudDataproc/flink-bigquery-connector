@@ -1,16 +1,19 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.protobuf.DescriptorProtos;
+import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.Descriptors;
 
 import java.io.Serializable;
 import java.util.List;
 
 /**
- * Abstract class to Serialise element T to Storage API Proto to write using the Storage Write API.
+ * Interface for defining a Flink record to BigQuery proto serializer.
+ *
+ * @param <IN> Type of records to be written to BigQuery.
  */
-public abstract class BigQueryProtoSerializer implements Serializable {
-    public abstract DescriptorProtos.DescriptorProto getDescriptorProto();
+public interface BigQueryProtoSerializer<IN> {
+    public DescriptorProtos.DescriptorProto getDescriptorProto();
 
     /**
      * Function to convert the {@link DescriptorProtos.DescriptorProto} Type to {@link
@@ -39,4 +42,7 @@ public abstract class BigQueryProtoSerializer implements Serializable {
                     String.format("Expected one element but was %s", descriptorTypeList));
         }
     }
+
+    public ByteString serialize(IN record) throws BigQuerySerializationException;
+
 }
