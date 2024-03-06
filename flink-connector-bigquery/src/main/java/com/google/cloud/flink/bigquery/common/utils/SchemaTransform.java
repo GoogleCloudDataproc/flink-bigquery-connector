@@ -74,9 +74,7 @@ public class SchemaTransform {
         mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
         mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
         mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
-        // TODO: Add support for RANGE.
-        mapping.put("RANGE", Arrays.asList(Schema.Type.STRING));
-
+        // TODO: Add support for RANGE type.
         return mapping;
     }
 
@@ -234,19 +232,6 @@ public class SchemaTransform {
                         .addToSchema(Schema.create(Schema.Type.LONG));
             case "DATE":
                 return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
-            case "RANGE":
-                Schema rangeSchema = Schema.create(Schema.Type.STRING);
-                String rangeElementType = bigQueryField.getRangeElementType().getType();
-                if (rangeElementType.equals("DATE")
-                        || rangeElementType.equals("DATETIME")
-                        || rangeElementType.equals("TIMESTAMP")) {
-                    rangeSchema.addProp(
-                            LogicalType.LOGICAL_TYPE_PROP, "{range, " + rangeElementType + "}");
-                } else {
-                    throw new UnsupportedOperationException(
-                            "Type " + rangeElementType + " is not supported yet.");
-                }
-                return rangeSchema;
             default:
                 return Schema.create(avroType);
         }
