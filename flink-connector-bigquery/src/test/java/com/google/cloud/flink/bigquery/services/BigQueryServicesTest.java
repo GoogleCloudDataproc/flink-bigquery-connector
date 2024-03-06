@@ -61,6 +61,7 @@ public class BigQueryServicesTest {
         assertThat(original.getTestingServices()).isNotNull();
         assertThat(original.queryClient()).isNull();
         assertThat(original.storageRead()).isNull();
+        assertThat(original.storageWrite()).isNull();
 
         original.defaultImplementation();
 
