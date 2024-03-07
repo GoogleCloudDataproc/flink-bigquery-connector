@@ -45,7 +45,7 @@ under the License.
     </licenses>
 
     <properties>
-        <google-lib-bom.version>26.27.0</google-lib-bom.version>
+        <google-lib-bom.version>26.33.0</google-lib-bom.version>
 
         <flink.version>1.17.1</flink.version>
         <flink.shaded.version>17.0</flink.shaded.version>

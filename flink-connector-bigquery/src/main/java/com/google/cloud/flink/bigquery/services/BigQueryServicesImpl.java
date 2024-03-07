@@ -213,8 +213,9 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .setMaxRetryDelay(Duration.ofSeconds(5))
                             .build();
             return StreamWriter.newBuilder(streamName, client)
-                    .setWriterSchema(protoSchema)
+                    .setEnableConnectionPool(true)
                     .setRetrySettings(retrySettings)
+                    .setWriterSchema(protoSchema)
                     .build();
         }
 
