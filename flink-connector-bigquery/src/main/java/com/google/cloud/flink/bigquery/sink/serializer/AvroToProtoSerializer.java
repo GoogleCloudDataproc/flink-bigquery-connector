@@ -23,6 +23,7 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
+import com.google.protobuf.Descriptors;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
 
     private final DescriptorProto descriptorProto;
+    private final Descriptors.Descriptor descriptor;
 
     private static final Map<Schema.Type, FieldDescriptorProto.Type> AVRO_TYPES_TO_PROTO =
             initializeAvroFieldToFieldDescriptorTypes();
@@ -180,16 +182,32 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 Preconditions.checkState(
                         elementType.getType() != Schema.Type.ARRAY,
                         "Nested arrays not supported by BigQuery.");
+                if (elementType.getType() == Schema.Type.MAP) {
+                    // Note this case would be covered in the check which is performed later,
+                    // but just in case the support for this is provided in the future,
+                    // it is explicitly mentioned.
+                    throw new UnsupportedOperationException("Array of Type MAP not supported yet.");
+                }
                 DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
                 fieldDescriptorFromSchemaField(
                         new Schema.Field(
                                 field.name(), elementType, field.doc(), field.defaultVal()),
                         fieldNumber,
                         arrayFieldBuilder);
+
+                FieldDescriptorProto.Builder arrayFieldElementBuilder =
+                        arrayFieldBuilder.getFieldBuilder(0);
+                // Check if the inner field is optional without any default value.
+                if (arrayFieldElementBuilder.getLabel()
+                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
+                    throw new IllegalArgumentException("Array cannot have a NULLABLE element");
+                }
+                // Default value derived from inner layers should not be the default value of array
+                // field.
                 fieldDescriptorBuilder =
-                        arrayFieldBuilder
-                                .getFieldBuilder(0)
-                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
+                        arrayFieldElementBuilder
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                                .clearDefaultValue();
                 // Add any nested types.
                 descriptorProtoBuilder.addAllNestedType(arrayFieldBuilder.getNestedTypeList());
                 break;
@@ -218,10 +236,19 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                                 field.name(), mapFieldSchema, field.doc(), field.defaultVal()),
                         fieldNumber,
                         mapFieldBuilder);
+
+                FieldDescriptorProto.Builder mapFieldElementBuilder =
+                        mapFieldBuilder.getFieldBuilder(0);
+                // Check if the inner field is optional without any default value.
+                // This should not be the case since we explicitly create the STRUCT.
+                if (mapFieldElementBuilder.getLabel()
+                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
+                    throw new IllegalArgumentException("MAP cannot have a null element");
+                }
                 fieldDescriptorBuilder =
-                        mapFieldBuilder
-                                .getFieldBuilder(0)
-                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED);
+                        mapFieldElementBuilder
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                                .clearDefaultValue();
 
                 // Add the nested types.
                 descriptorProtoBuilder.addAllNestedType(mapFieldBuilder.getNestedTypeList());
@@ -238,6 +265,11 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 isNullable = true;
                 if (elementType == null) {
                     throw new IllegalArgumentException("Unexpected null element type!");
+                }
+                if (elementType.getType() == Schema.Type.MAP
+                        || elementType.getType() == Schema.Type.ARRAY) {
+                    throw new UnsupportedOperationException(
+                            "MAP/ARRAYS in UNION types are not supported");
                 }
                 DescriptorProto.Builder unionFieldBuilder = DescriptorProto.newBuilder();
                 fieldDescriptorFromSchemaField(
@@ -261,6 +293,10 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                                     + " to Storage API Proto type is unsupported");
                 }
                 fieldDescriptorBuilder = fieldDescriptorBuilder.setType(type);
+                if (field.hasDefaultValue()) {
+                    fieldDescriptorBuilder =
+                            fieldDescriptorBuilder.setDefaultValue(field.defaultVal().toString());
+                }
         }
         // Set the Labels for different Modes - REPEATED, REQUIRED, NULLABLE.
         if (fieldDescriptorBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REPEATED) {
@@ -268,6 +304,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 fieldDescriptorBuilder =
                         fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL);
             } else {
+                // The Default Value is specified only in the case of scalar non-repeated fields.
+                // If it was a scalar type, the default value would already have been set.
                 fieldDescriptorBuilder =
                         fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED);
             }
@@ -304,9 +342,11 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      * @param tableSchema Table Schema for the Sink Table ({@link
      *     com.google.api.services.bigquery.model.TableSchema} object )
      */
-    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema) {
+    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema)
+            throws Descriptors.DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
+        this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
     }
 
     @Override

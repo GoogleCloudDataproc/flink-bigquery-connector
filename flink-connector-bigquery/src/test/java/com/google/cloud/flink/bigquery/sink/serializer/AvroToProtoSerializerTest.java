@@ -613,6 +613,34 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
+    public void testMapOfUnionSpecialSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+    }
+
+    @Test
+    public void testMapOfArraySpecialSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_field_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": \"float\"}]}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+    }
+
+    @Test
     public void testAllUnionSpecialSchemaConversion()
             throws Descriptors.DescriptorValidationException {
 
@@ -628,8 +656,6 @@ public class AvroToProtoSerializerTest {
                         + "{\"name\": \"another_value\",\"type\": \"string\"}"
                         + "]"
                         + "}]},\n"
-                        + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]},\n"
-                        + "   {\"name\": \"array_field_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": \"float\"}]},\n"
                         + "   {\"name\": \"record_field\", \"type\": {\"name\": \"inside_record_2\", \"type\": \"record\", \"fields\": [{\"name\": \"value\", \"type\": \"long\"},{\"name\": \"another_value\", \"type\": \"string\"}]}},\n"
                         + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", \"values\": \"long\"}},\n"
                         + "   {\"name\": \"array_field\", \"type\": {\"type\": \"array\", \"items\": \"float\"}}\n"
@@ -671,40 +697,8 @@ public class AvroToProtoSerializerTest {
 
         field = descriptor.findFieldByNumber(2).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("map_field_union");
-        assertThat(field.getNumber()).isEqualTo(2);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("key")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                                .setName("value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
-
-        field = descriptor.findFieldByNumber(3).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_FLOAT);
-        assertThat(field.getName()).isEqualTo("array_field_union");
-        assertThat(field.getNumber()).isEqualTo(3);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-
-        field = descriptor.findFieldByNumber(4).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("record_field");
-        assertThat(field.getNumber()).isEqualTo(4);
+        assertThat(field.getNumber()).isEqualTo(2);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
         assertThat(field.hasTypeName()).isTrue();
         assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
@@ -727,10 +721,10 @@ public class AvroToProtoSerializerTest {
                                                 .build())
                                 .build());
 
-        field = descriptor.findFieldByNumber(5).toProto();
+        field = descriptor.findFieldByNumber(3).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("map_field");
-        assertThat(field.getNumber()).isEqualTo(5);
+        assertThat(field.getNumber()).isEqualTo(3);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
         assertThat(field.hasTypeName()).isTrue();
         assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
@@ -753,10 +747,10 @@ public class AvroToProtoSerializerTest {
                                                 .build())
                                 .build());
 
-        field = descriptor.findFieldByNumber(6).toProto();
+        field = descriptor.findFieldByNumber(4).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_FLOAT);
         assertThat(field.getName()).isEqualTo("array_field");
-        assertThat(field.getNumber()).isEqualTo(6);
+        assertThat(field.getNumber()).isEqualTo(4);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
     }
 
@@ -778,17 +772,35 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
+    public void testUnionArrayOfRecordSchemaConversion() {
+
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_of_records_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": "
+                        + getRecord("inside_record_union")
+                        + "}]}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("MAP/ARRAYS in UNION types are not supported");
+    }
+
+    @Test
     public void testArrayOfRecordSchemaConversion()
             throws Descriptors.DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
-                        + "   {\"name\": \"array_of_records\", \"type\":{\"type\": \"array\", \"items\": "
+                        + "{\"name\": \"array_of_records\", \"type\":{\"type\": \"array\", \"items\": "
                         + getRecord("inside_record")
-                        + "}},\n"
-                        + "   {\"name\": \"array_of_records_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": "
-                        + getRecord("inside_record_union")
-                        + "}]}\n"
+                        + "}}"
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
@@ -824,102 +836,38 @@ public class AvroToProtoSerializerTest {
                                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                                 .build())
                                 .build());
-
-        field = descriptor.findFieldByNumber(2).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("array_of_records_union");
-        assertThat(field.getNumber()).isEqualTo(2);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                                .setName("value")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("another_value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
     }
 
     @Test
-    public void testArrayOfMapSchemaConversion() throws Descriptors.DescriptorValidationException {
+    public void testArrayOfMapSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_of_map\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
+                        + " ]\n";
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+        assertThat(exception).hasMessageThat().contains("Array of Type MAP not supported yet.");
+    }
+
+    @Test
+    public void testArrayOfUnionMapSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
-                        + "   {\"name\": \"array_of_map\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}},\n"
                         + "   {\"name\": \"array_of_map_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}]}\n"
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
-
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("array_of_map");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("key")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
-                                                .setName("value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
-
-        field = descriptor.findFieldByNumber(2).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("array_of_map_union");
-        assertThat(field.getNumber()).isEqualTo(2);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("key")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
-                                                .setName("value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("MAP/ARRAYS in UNION types are not supported");
     }
 
     @Test
@@ -1259,5 +1207,84 @@ public class AvroToProtoSerializerTest {
                                 .setNumber(10)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
+    }
+
+    @Test
+    public void testMultipleDatatypeUnionSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"multiple_type_union\","
+                        + " \"type\":[\"null\", \"string\", \"int\"]"
+                        + "}"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("Multiple non-null union types are not supported.");
+    }
+
+    @Test
+    public void testNestedArraysSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"nested_arrays\", \"type\":{\"type\": \"array\", \"items\": "
+                        + "{\"name\": \"array_inside\", \"type\": \"array\", \"items\": \"long\"}"
+                        + "}}"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+        assertThat(exception).hasMessageThat().contains("Nested arrays not supported by BigQuery.");
+    }
+
+    @Test
+    public void testDefaultValueSchemaConversion()
+            throws Descriptors.DescriptorValidationException {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"long_with_default\", \"type\": [\"long\", \"null\"], \"default\": 100}"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        DescriptorProto descriptorProto =
+                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
+
+        Descriptors.Descriptor descriptor =
+                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+
+        FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("long_with_default");
+        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
+        assertThat(fieldDescriptorProto.hasDefaultValue()).isTrue();
+        assertThat(fieldDescriptorProto.getDefaultValue()).isEqualTo("100");
+    }
+
+    @Test
+    public void testArrayWithUnionValueSchemaConversion()
+            throws Descriptors.DescriptorValidationException {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"array_with_union\", \"type\": "
+                        + "{\"type\": \"array\", \"items\":  [\"long\", \"null\"]}}"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+        assertThat(exception).hasMessageThat().contains("Array cannot have a NULLABLE element");
     }
 }
