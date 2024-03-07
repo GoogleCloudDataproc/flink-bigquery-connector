@@ -59,15 +59,6 @@ public class AvroToProtoSerializerTest {
     private final TableSchema tableSchema = new TableSchema().setFields(fields);
 
     @Test
-    public void testSerializeIsUnsupported() {
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new AvroToProtoSerializer(tableSchema).serialize(null));
-        assertThat(exception).hasMessageThat().contains("serialize method is not supported");
-    }
-
-    @Test
     public void testPrimitiveTypesConversion() throws Descriptors.DescriptorValidationException {
 
         BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
@@ -217,7 +208,7 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(4).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_FIXED64)
+                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
                                 .setName("fixed_field")
                                 .setNumber(4)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
@@ -559,7 +550,7 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(4).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_FIXED64)
+                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
                                 .setName("fixed_field")
                                 .setNumber(4)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)
