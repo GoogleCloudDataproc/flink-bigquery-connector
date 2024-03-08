@@ -47,14 +47,6 @@ public interface BigQueryServices extends Serializable {
     QueryDataClient getQueryDataClient(CredentialsOptions credentialsOptions);
 
     /**
-     * Retrieves a real, mock or fake {@link SinkDataClient}.
-     *
-     * @param credentialsOptions The options for the read operation.
-     * @return a Sink data client for BigQuery.
-     */
-    SinkDataClient getSinkDataClient(CredentialsOptions credentialsOptions);
-
-    /**
      * Returns a real, mock, or fake {@link StorageReadClient}.
      *
      * @param credentialsOptions The options for the read operation.
@@ -104,22 +96,6 @@ public interface BigQueryServices extends Serializable {
          */
         @Override
         void close();
-    }
-
-    /** An interface representing the client interactions needed to sink data to BigQuery. */
-    interface SinkDataClient extends Serializable {
-
-        /**
-         * Retrieves {@link TableSchema} object for the specified table.
-         *
-         * @param projectId Project ID to which the table belongs.
-         * @param datasetId Dataset ID to which the table belongs.
-         * @param tableId Table ID for the desired table.
-         * @return {@link TableSchema} object for the specified table
-         * @throws IOException in case of connection error with the table.
-         */
-        TableSchema getBigQueryTableSchema(String projectId, String datasetId, String tableId)
-                throws IOException, InterruptedException;
     }
 
     /**

@@ -107,26 +107,6 @@ public class StorageClientFaker {
             return FakeQueryDataClient.getInstance();
         }
 
-        @Override
-        public SinkDataClient getSinkDataClient(CredentialsOptions readOptions) {
-            return FakeSinkDataClient.getInstance();
-        }
-
-        static class FakeSinkDataClient implements SinkDataClient {
-
-            static FakeSinkDataClient instance = Mockito.spy(new FakeSinkDataClient());
-
-            static SinkDataClient getInstance() {
-                return instance;
-            }
-
-            @Override
-            public TableSchema getBigQueryTableSchema(
-                    String projectId, String datasetId, String tableId) throws IOException {
-                return SIMPLE_BQ_TABLE_SCHEMA;
-            }
-        }
-
         static class FakeQueryDataClient implements QueryDataClient {
 
             static FakeQueryDataClient instance = Mockito.spy(new FakeQueryDataClient());
