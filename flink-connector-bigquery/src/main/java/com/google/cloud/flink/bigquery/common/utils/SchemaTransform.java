@@ -74,7 +74,6 @@ public class SchemaTransform {
         mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
         mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
         mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
-        // TODO: Add support for RANGE type.
         return mapping;
     }
 

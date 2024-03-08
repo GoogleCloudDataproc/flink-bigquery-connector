@@ -80,18 +80,6 @@ public class BigQueryServicesFactory {
         return SERVICES.getQueryDataClient(bqConnectOptions.getCredentialsOptions());
     }
 
-    /**
-     * Returns a BigQuery query data client, given the factory's current internal state.
-     *
-     * @return A BigQuery query data client.
-     */
-    public BigQueryServices.SinkDataClient sinkDataClient() {
-        if (isTestingEnabled) {
-            return testingServices.getSinkDataClient(bqConnectOptions.getCredentialsOptions());
-        }
-        return SERVICES.getSinkDataClient(bqConnectOptions.getCredentialsOptions());
-    }
-
     @VisibleForTesting
     BigQueryServicesFactory withTestingServices(BigQueryServices testingServices) {
         Preconditions.checkNotNull(testingServices);
