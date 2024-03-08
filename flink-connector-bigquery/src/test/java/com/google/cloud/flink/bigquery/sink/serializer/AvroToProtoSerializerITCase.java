@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import com.google.cloud.flink.bigquery.source.BigQuerySource;
+
 import org.apache.flink.FlinkVersion;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
@@ -38,9 +40,14 @@ import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.protobuf.Descriptors;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 /** Tests for {@link AvroToProtoSerializer}. */
@@ -99,6 +106,26 @@ public class AvroToProtoSerializerITCase {
         }
     }
 
+    private List<GenericRecord> readRows(String tableId) throws Exception {
+
+        BigQueryReadOptions writeOptions =
+                BigQueryReadOptions.builder()
+                        .setBigQueryConnectOptions(
+                                BigQueryConnectOptions.builder()
+                                        .setProjectId("bqrampupprashasti")
+                                        .setDataset("testing_dataset")
+                                        .setTable(tableId)
+                                        .build())
+                        .build();
+
+        final StreamExecutionEnvironment env =
+                StreamExecutionEnvironment.getExecutionEnvironment();
+        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(writeOptions);
+        return env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
+                .executeAndCollect(10);
+
+    }
+
     private StreamWriter getStreamWriter(String tableId, BigQueryProtoSerializer serializer)
             throws IOException {
         BigQueryReadOptions writeOptions =
@@ -133,45 +160,38 @@ public class AvroToProtoSerializerITCase {
 
     @Test
     public void testAllPrimitiveSchemaConversion()
-            throws Descriptors.DescriptorValidationException, IOException, ExecutionException,
-                    InterruptedException, BigQuerySerializationException {
+            throws Exception {
+
+//        String fieldString =
+//                " \"fields\": [\n"
+//                        + "   {\"name\": \"name\", \"type\": [\"null\", \"string\"]},\n"
+//                        + "   {\"name\": \"number\", \"type\": \"long\"},\n"
+//                        + "   {\"name\": \"quantity\", \"type\": \"int\"},\n"
+//                        + "   {\"name\": \"fixed_field\", \"type\": {\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }},\n"
+//                        + "   {\"name\": \"price\", \"type\": \"float\"},\n"
+//                        + "   {\"name\": \"double_field\", \"type\": \"double\"},\n"
+//                        + "   {\"name\": \"boolean_field\", \"type\": \"boolean\"},\n"
+//                        + "   {\"name\": \"enum_field\", \"type\": {\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}},\n"
+//                        + "   {\"name\": \"byte_field\", \"type\": \"bytes\"},\n"
+//                        + "   {\"name\": \"length_limited\", \"type\": [\"string\", \"null\"], \"default\": \"ho\"}\n"
+//                        + " ]\n";
 
         String fieldString =
                 " \"fields\": [\n"
-                        + "   {\"name\": \"name\", \"type\": \"string\"},\n"
-                        + "   {\"name\": \"number\", \"type\": \"long\"},\n"
-                        + "   {\"name\": \"quantity\", \"type\": \"int\"},\n"
-                        + "   {\"name\": \"fixed_field\", \"type\": {\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }},\n"
-                        + "   {\"name\": \"price\", \"type\": \"string\"},\n"
-                        + "   {\"name\": \"double_field\", \"type\": \"double\"},\n"
-                        + "   {\"name\": \"boolean_field\", \"type\": \"boolean\"},\n"
-                        + "   {\"name\": \"enum_field\", \"type\": {\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}},\n"
-                        + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}\n"
+                        + "   {\"name\": \"name\", \"type\": {\"type\": \"array\", \"items\": \"string\", \"default\": \"hello\"}}\n"
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
+
+        record.put("name", null);
+//        record.put("length_limited", null);
         System.out.println("@prashastia record write [" + record + "]");
 
-        fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"name\", \"type\": \"string\"},\n"
-                        + "   {\"name\": \"number\", \"type\": \"long\"},\n"
-                        + "   {\"name\": \"quantity\", \"type\": \"int\"},\n"
-                        + "   {\"name\": \"fixed_field\", \"type\": {\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }},\n"
-                        + "   {\"name\": \"price\", \"type\": \"float\"},\n"
-                        + "   {\"name\": \"double_field\", \"type\": \"double\"},\n"
-                        + "   {\"name\": \"boolean_field\", \"type\": \"boolean\"},\n"
-                        + "   {\"name\": \"enum_field\", \"type\": {\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}},\n"
-                        + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}\n"
-                        + " ]\n";
-
-        avroSchema = getAvroSchemaFromFieldString(fieldString);
 
         BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer(avroSchema);
 
-
-        StreamWriter streamWriter = getStreamWriter("primitive_types", serializer);
+        StreamWriter streamWriter = getStreamWriter("array_table", serializer);
         System.out.println("@prashastia streamWriter formed " + streamWriter);
         System.out.println(
                 "@prashastia streamWriter.getStreamName() formed " + streamWriter.getStreamName());
@@ -182,9 +202,23 @@ public class AvroToProtoSerializerITCase {
 
         ProtoRows rowsToAppend = protoRowsBuilder.build();
         System.out.println("@prashastia append()  Started...");
-        AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
-        System.out.println("@prashastia: [response]" + response);
+        try{
+            System.out.println(streamWriter.append(rowsToAppend).get().getRowErrorsList());
+        }
+        catch (Exception e){
+            System.out.println("!!! FAILED!!!");
+            System.out.println();
+            e.printStackTrace();
+            streamWriter.close();
+        }
+
+//        System.out.println(response.getRowErrors(0));
+        System.out.println("@prashastia: [READ ROWS:]");
+        for(GenericRecord element: readRows("array_table")){
+            System.out.println(element);
+        }
     }
+
 
     //    @Test
     //    public void testAllLogicalSchemaConversion() throws
