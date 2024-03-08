@@ -22,7 +22,6 @@ import org.apache.flink.util.function.SerializableFunction;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobStatistics;
 import com.google.api.services.bigquery.model.JobStatistics2;
-import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
@@ -342,8 +341,6 @@ public class StorageClientFaker {
                                             .setName("ts")
                                             .setType("TIMESTAMP")
                                             .setMode("REQUIRED")));
-
-    public static final Table SIMPLE_BQ_TABLE = new Table();
 
     /** Represents the parameters needed for the Avro data generation. */
     public static class RecordGenerationParams implements Serializable {
