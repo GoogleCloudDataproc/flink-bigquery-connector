@@ -1274,4 +1274,113 @@ public class AvroToProtoSerializerTest {
                         () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
         assertThat(exception).hasMessageThat().contains("Array cannot have a NULLABLE element");
     }
+
+    @Test
+    public void testMapOfUnionSchemaConversion() throws DescriptorValidationException {
+
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_of_union\", \"type\": {\"type\": \"map\", \"values\": [\"float\", \"null\"]}}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+
+        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
+        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(field.getName()).isEqualTo("map_of_union");
+        assertThat(field.getNumber()).isEqualTo(1);
+        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+        assertThat(field.hasTypeName()).isTrue();
+        Descriptors.Descriptor nestedDescriptor =
+                descriptor.findNestedTypeByName(field.getTypeName());
+        FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptor.getName()).isEqualTo("key");
+        assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
+        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
+        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        fieldDescriptor = nestedDescriptor.findFieldByNumber(2).toProto();
+        assertThat(fieldDescriptor.getName()).isEqualTo("value");
+        assertThat(fieldDescriptor.getNumber()).isEqualTo(2);
+        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_FLOAT);
+        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+    }
+    @Test
+    public void testMapOfArraySchemaConversion() throws DescriptorValidationException {
+
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_of_array\", \"type\": {\"type\": \"map\", \"values\": {\"type\": \"array\", \"items\": \"long\", \"name\": \"array_in_map\"}}}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+
+        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
+        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(field.getName()).isEqualTo("map_of_array");
+        assertThat(field.getNumber()).isEqualTo(1);
+        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+        assertThat(field.hasTypeName()).isTrue();
+        Descriptors.Descriptor nestedDescriptor =
+                descriptor.findNestedTypeByName(field.getTypeName());
+        FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptor.getName()).isEqualTo("key");
+        assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
+        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
+        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        fieldDescriptor = nestedDescriptor.findFieldByNumber(2).toProto();
+        assertThat(fieldDescriptor.getName()).isEqualTo("value");
+        assertThat(fieldDescriptor.getNumber()).isEqualTo(2);
+        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
+        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+    }
+
+    @Test
+    public void testMapInRecordSchemaConversion() throws DescriptorValidationException {
+
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"record_with_map\", "
+                        + "\"type\": {\"name\": \"actual_record\", \"type\": \"record\", \"fields\": [{\"name\": \"map_in_record\", \"type\": { \"type\": \"map\", \"values\": \"long\"}}]}}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+
+        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
+        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(field.getName()).isEqualTo("record_with_map");
+        assertThat(field.getNumber()).isEqualTo(1);
+        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertThat(field.hasTypeName()).isTrue();
+
+        Descriptors.Descriptor nestedDescriptor =
+                descriptor.findNestedTypeByName(field.getTypeName());
+        FieldDescriptorProto fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("map_in_record");
+        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(fieldDescriptorProto.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+
+        nestedDescriptor =
+                nestedDescriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
+        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("key");
+        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
+        assertThat(fieldDescriptorProto.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(2).toProto();
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("value");
+        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(2);
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
+        assertThat(fieldDescriptorProto.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+    }
 }
