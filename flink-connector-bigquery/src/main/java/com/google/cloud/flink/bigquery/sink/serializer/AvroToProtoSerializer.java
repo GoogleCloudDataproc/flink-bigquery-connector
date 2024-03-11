@@ -34,12 +34,7 @@ import org.apache.avro.generic.GenericRecord;
 import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -95,15 +90,16 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         mapping.put(LogicalTypes.timestampMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(LogicalTypes.uuid().getName(), FieldDescriptorProto.Type.TYPE_STRING);
         // These are newly added.
-        mapping.put(LogicalTypes.timeMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(LogicalTypes.timeMicros().getName(), FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(LogicalTypes.timeMillis().getName(), FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(LogicalTypes.timeMicros().getName(), FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(
+                LogicalTypes.localTimestampMillis().getName(),
+                FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(
-                LogicalTypes.localTimestampMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
+                FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put("geography_wkt", FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put("Json", FieldDescriptorProto.Type.TYPE_STRING);
         return mapping;
     }
 
@@ -425,7 +421,6 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             @Nullable Object value = element.get(field.name());
             if (value == null) {
                 // If the field required, throw an error.
-                // TODO: Check null value insertion in a REPEATED field is handled
                 if (fieldDescriptor.isRequired()) {
                     throw new IllegalArgumentException(
                             "Received null value for non-nullable field "
@@ -516,28 +511,30 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     private static UnaryOperator<Object> getLogicalEncoder(String logicalTypeString) {
         Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), AvroToProtoSerializerUtils::convertDate);
-        //        mapping.put(LogicalTypes.decimal(1).getName(),
-        // AvroToProtoSerializerUtils.convertDecimal());
+        mapping.put(
+                LogicalTypes.decimal(1).getName(),
+                value -> AvroToProtoSerializerUtils.convertDecimal(LogicalTypes.decimal(1), value));
         mapping.put(
                 LogicalTypes.timestampMicros().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, true));
+                value -> AvroToProtoSerializerUtils.convertTimestamp(value, true, "Timestamp(micros/millis)"));
         mapping.put(
                 LogicalTypes.timestampMillis().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, false));
+                value -> AvroToProtoSerializerUtils.convertTimestamp(value, false, "Timestamp(micros/millis)"));
         mapping.put(LogicalTypes.uuid().getName(), AvroToProtoSerializerUtils::convertUUID);
         mapping.put(
                 LogicalTypes.timeMillis().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, false));
+                value -> AvroToProtoSerializerUtils.convertTime(value, false, "Time(micros/millis)"));
         mapping.put(
                 LogicalTypes.timeMicros().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, true));
+                value -> AvroToProtoSerializerUtils.convertTime(value, true, "Time(micros/millis)"));
         mapping.put(
                 LogicalTypes.localTimestampMillis().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, false));
+                value -> AvroToProtoSerializerUtils.convertDateTime(value, false, "Local Timestamp(micros/millis)"));
         mapping.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, true));
-        //        mapping.put("geography_wkt", (value) -> );
+                value -> AvroToProtoSerializerUtils.convertDateTime(value, true, "Local Timestamp(micros/millis)"));
+        mapping.put("geography_wkt", AvroToProtoSerializerUtils::convertGeography);
+        mapping.put("Json", AvroToProtoSerializerUtils::convertJson);
         return mapping.get(logicalTypeString);
     }
 }

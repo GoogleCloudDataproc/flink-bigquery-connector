@@ -224,6 +224,10 @@ public class SchemaTransform {
                 Schema geoSchema = Schema.create(Schema.Type.STRING);
                 geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
                 return geoSchema;
+            case "JSON":
+                Schema jsonSchema = Schema.create(Schema.Type.STRING);
+                jsonSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "Json");
+                return jsonSchema;
             case "TIME":
                 return LogicalTypes.timeMicros().addToSchema(Schema.create(Schema.Type.LONG));
             case "DATETIME":
