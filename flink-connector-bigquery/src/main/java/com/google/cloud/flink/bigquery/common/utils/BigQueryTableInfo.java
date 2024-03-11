@@ -21,7 +21,8 @@ public class BigQueryTableInfo {
      * @param table Table Name.
      * @return {@link TableSchema} Object containing the Table Schema requested.
      */
-    public static TableSchema getSchema(BigQuery client, String project, String dataset, String table) {
+    public static TableSchema getSchema(
+            BigQuery client, String project, String dataset, String table) {
         return Optional.ofNullable(client.getTable(TableId.of(project, dataset, table)))
                 .map(t -> t.getDefinition().getSchema())
                 .map(SchemaTransform::bigQuerySchemaToTableSchema)
