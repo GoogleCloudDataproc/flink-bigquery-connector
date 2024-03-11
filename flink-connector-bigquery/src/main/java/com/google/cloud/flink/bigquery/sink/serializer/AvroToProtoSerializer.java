@@ -266,7 +266,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      *
      * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object )
      */
-    public AvroToProtoSerializer(TableSchema tableSchema) {
+    public AvroToProtoSerializer(TableSchema tableSchema)
+            throws Descriptors.DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
         this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
