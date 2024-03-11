@@ -33,11 +33,11 @@ import java.util.List;
  */
 public interface BigQueryProtoSerializer<IN> {
 
-    public ByteString serialize(IN record) throws BigQuerySerializationException;
+    ByteString serialize(IN record) throws BigQuerySerializationException;
 
-    public DescriptorProto getDescriptorProto();
+    DescriptorProto getDescriptorProto();
 
-    public Descriptor getDescriptor();
+    Descriptor getDescriptor();
 
     /**
      * Function to convert the {@link DescriptorProto} Type to {@link Descriptor}.This is necessary
