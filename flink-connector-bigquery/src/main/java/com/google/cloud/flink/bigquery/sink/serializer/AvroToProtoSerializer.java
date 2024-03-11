@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.api.client.util.Preconditions;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryUtils;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
@@ -32,6 +33,7 @@ import org.apache.avro.generic.GenericRecord;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;

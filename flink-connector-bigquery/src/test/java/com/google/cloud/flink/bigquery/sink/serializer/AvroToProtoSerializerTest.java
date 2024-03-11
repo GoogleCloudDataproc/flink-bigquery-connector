@@ -18,7 +18,9 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -627,7 +629,6 @@ public class AvroToProtoSerializerTest {
         assertThat(fieldDescriptor.getDefaultValue()).isEqualTo(true);
     }
 
-
     @Test
     public void testMapOfUnionSpecialSchemaConversion() {
         String fieldString =
@@ -657,8 +658,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testAllUnionSpecialSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testAllUnionSpecialSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -678,12 +678,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -809,8 +806,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testArrayOfRecordSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testArrayOfRecordSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -820,12 +816,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -887,8 +880,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testArrayInRecordSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testArrayInRecordSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -896,12 +888,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -924,7 +913,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testMapOfRecordSchemaConversion() throws Descriptors.DescriptorValidationException {
+    public void testMapOfRecordSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -934,12 +923,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -982,7 +968,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testMapOfMapSchemaConversion() throws Descriptors.DescriptorValidationException {
+    public void testMapOfMapSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -990,12 +976,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1038,8 +1021,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordInRecordSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testRecordInRecordSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1051,12 +1033,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1089,8 +1068,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordOfLogicalTypeSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testRecordOfLogicalTypeSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1101,12 +1079,12 @@ public class AvroToProtoSerializerTest {
                         + "\"type\": \"record\","
                         + " \"fields\": "
                         + "["
-                        + "   {\"name\": \"tsMicros\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}},\n"
-                        + "   {\"name\": \"tsMillis\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}},\n"
-                        + "   {\"name\": \"timeMicros\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-micros\"}},\n"
-                        + "   {\"name\": \"timeMillis\", \"type\": {\"type\": \"int\", \"logicalType\": \"time-millis\"}},\n"
-                        + "   {\"name\": \"ltsMicros\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}},\n"
-                        + "   {\"name\": \"ltsMillis\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}},\n"
+                        + "   {\"name\": \"ts_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}},\n"
+                        + "   {\"name\": \"ts_millis\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}},\n"
+                        + "   {\"name\": \"time_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-micros\"}},\n"
+                        + "   {\"name\": \"time_millis\", \"type\": {\"type\": \"int\", \"logicalType\": \"time-millis\"}},\n"
+                        + "   {\"name\": \"lts_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}},\n"
+                        + "   {\"name\": \"lts_millis\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}},\n"
                         + "   {\"name\": \"date\", \"type\": {\"type\": \"int\", \"logicalType\": \"date\"}},\n"
                         + "   {\"name\": \"decimal\", \"type\": {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2}},\n"
                         + "   {\"name\": \"uuid\", \"type\": {\"type\": \"string\", \"logicalType\": \"uuid\"}},\n"
@@ -1117,12 +1095,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_logical_type");
@@ -1138,7 +1113,7 @@ public class AvroToProtoSerializerTest {
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
                                 .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("tsmicros")
+                                .setName("ts_micros")
                                 .setNumber(1)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
@@ -1147,7 +1122,7 @@ public class AvroToProtoSerializerTest {
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
                                 .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("tsmillis")
+                                .setName("ts_millis")
                                 .setNumber(2)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
@@ -1155,8 +1130,8 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(3).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("timemicros")
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("time_micros")
                                 .setNumber(3)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
@@ -1164,8 +1139,8 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(4).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("timemillis")
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("time_millis")
                                 .setNumber(4)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
@@ -1173,8 +1148,8 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(5).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("ltsmicros")
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("lts_micros")
                                 .setNumber(5)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
@@ -1182,8 +1157,8 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(6).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("ltsmillis")
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("lts_millis")
                                 .setNumber(6)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
@@ -1263,19 +1238,16 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testDefaultValueSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testDefaultValueSchemaConversion() throws DescriptorValidationException {
         String fieldString =
                 " \"fields\": [\n"
                         + "{\"name\": \"long_with_default\", \"type\": [\"long\", \"null\"], \"default\": 100}"
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("long_with_default");
@@ -1288,8 +1260,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testArrayWithUnionValueSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testArrayWithUnionValueSchemaConversion() throws DescriptorValidationException {
         String fieldString =
                 " \"fields\": [\n"
                         + "{\"name\": \"array_with_union\", \"type\": "
