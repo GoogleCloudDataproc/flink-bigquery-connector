@@ -231,8 +231,9 @@ public class SchemaTransform {
             case "TIME":
                 return LogicalTypes.timeMicros().addToSchema(Schema.create(Schema.Type.LONG));
             case "DATETIME":
-                return LogicalTypes.localTimestampMicros()
-                        .addToSchema(Schema.create(Schema.Type.LONG));
+                Schema datetimeSchema = Schema.create(Schema.Type.STRING);
+                datetimeSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "local-timestamp-micros");
+                return datetimeSchema;
             case "DATE":
                 return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
             default:

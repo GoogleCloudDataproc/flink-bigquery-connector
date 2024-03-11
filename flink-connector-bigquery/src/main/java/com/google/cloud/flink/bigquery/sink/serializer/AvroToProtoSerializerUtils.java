@@ -46,9 +46,10 @@ public class AvroToProtoSerializerUtils {
         try {
             ts = new Timestamp(timestampMillis);
 
-            if (ts.before(minTs) || ts.after(maxTs))
+            if (ts.before(minTs) || ts.after(maxTs)) {
                 throw new IllegalArgumentException(
                         String.format("Invalid Timestamp '%s' Provided", ts));
+            }
             return timestamp;
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
@@ -79,13 +80,14 @@ public class AvroToProtoSerializerUtils {
     }
 
     static Integer validateDate(Integer date) {
-        if (date > 2932896 || date < -719162)
+        if (date > 2932896 || date < -719162) {
             throw new IllegalArgumentException(
                     String.format(
                             "Invalid Date '%s' Provided."
                                     + "\nShould be a Integer value indicating days since Epoch (1970-01-01 00:00:00) "
                                     + "between %s and %s",
                             LocalDate.ofEpochDay(date), "0001-01-01", "9999-12-31"));
+        }
         return date;
     }
 
@@ -103,63 +105,31 @@ public class AvroToProtoSerializerUtils {
         return validateDate(date);
     }
 
-    private static long validateDateTimeAndTime(long timestamp) {
-        // Since bigquery requires the timestamp to be in Microseconds since epoch.
-        // But UNIX considers it in Milliseconds since the epoch.
-        Timestamp minTs = Timestamp.valueOf("0001-01-01 00:00:00");
-        Timestamp maxTs = Timestamp.valueOf("9999-12-31 23:59:59.999999");
-        Timestamp ts = null;
-        try {
-            ts = new Timestamp(timestamp);
-            if (ts.before(minTs) || ts.after(maxTs))
-                throw new IllegalArgumentException(
-                        String.format("Invalid Timestamp '%s' Provided", ts));
-            return timestamp;
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Invalid Timestamp '%s' Provided."
-                                    + "\nShould be a long value indicating microseconds since Epoch (1970-01-01 00:00:00) "
-                                    + "between %s and %s",
-                            ts, minTs, maxTs));
-        }
+    private static LocalDateTime convertDatetimeAndTime(Object value, boolean micros, String type) {
+        // Get number of microseconds since epoch.
+        long timestamp = convertTimestamp(value, micros, type);
+        // joda-time offers millisecond precision.
+        // So, extracting time (millisecond precision) and then forming the microsecond precision
+        // time (java.time).
+        DateTime time = Instant.EPOCH.plus(TimeUnit.MICROSECONDS.toMillis(timestamp)).toDateTime();
+        return LocalDateTime.of(
+                time.getYear(),
+                time.getMonthOfYear(),
+                time.getDayOfMonth(),
+                time.hourOfDay().get(),
+                time.minuteOfHour().get(),
+                time.getSecondOfMinute(),
+                (int) (timestamp % 1000000) * 1000);
     }
 
     static String convertDateTime(Object value, boolean micros, String type) {
-        // Get number of microseconds since epoch.
-        long timestamp = convertTimestamp(value, micros, type);
-        // joda - time offers Millisecond precision.
-        // So, extracting time (millisecond precision) and then forming the microsecond precision
-        // time (java.time).
-        DateTime time = Instant.EPOCH.plus(TimeUnit.MICROSECONDS.toMillis(timestamp)).toDateTime();
-        return LocalDateTime.of(
-                        time.getYear(),
-                        time.getMonthOfYear(),
-                        time.getDayOfMonth(),
-                        time.hourOfDay().get(),
-                        time.minuteOfHour().get(),
-                        time.getSecondOfMinute(),
-                        (int) (timestamp % 1000000) * 1000)
-                .toString();
+        LocalDateTime datetime = convertDatetimeAndTime(value, micros, type);
+        return datetime.toString();
     }
 
     static String convertTime(Object value, boolean micros, String type) {
-        // Get number of microseconds since epoch.
-        long timestamp = convertTimestamp(value, micros, type);
-        // joda - time offers Millisecond precision.
-        // So, extracting time (millisecond precision) and then forming the microsecond precision
-        // time (java.time).
-        DateTime time = Instant.EPOCH.plus(TimeUnit.MICROSECONDS.toMillis(timestamp)).toDateTime();
-        return LocalDateTime.of(
-                        time.getYear(),
-                        time.getMonthOfYear(),
-                        time.getDayOfMonth(),
-                        time.hourOfDay().get(),
-                        time.minuteOfHour().get(),
-                        time.getSecondOfMinute(),
-                        (int) (timestamp % 1000000) * 1000)
-                .toLocalTime()
-                .toString();
+        LocalDateTime datetime = convertDatetimeAndTime(value, micros, type);
+        return datetime.toLocalTime().toString();
     }
 
     static ByteString convertDecimal(LogicalType logicalType, Object value) {

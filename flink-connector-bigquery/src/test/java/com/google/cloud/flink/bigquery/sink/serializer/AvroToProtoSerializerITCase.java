@@ -569,4 +569,28 @@ public class AvroToProtoSerializerITCase {
         streamWriter.close();
         assertThat(response).isNotNull();
     }
+
+    @Test
+    public void readRows() throws Exception {
+
+        BigQueryReadOptions writeOptions =
+                BigQueryReadOptions.builder()
+                        .setBigQueryConnectOptions(
+                                BigQueryConnectOptions.builder()
+                                        .setProjectId("bqrampupprashasti")
+                                        .setDataset("testing_dataset")
+                                        .setTable("time")
+                                        .build())
+                        .build();
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        System.out.println("env formed");
+        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(writeOptions);
+        System.out.println("source formed");
+        List<GenericRecord> list =
+                env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
+                        .executeAndCollect(100);
+        for (GenericRecord element : list) {
+            System.out.println(element);
+        }
+    }
 }
