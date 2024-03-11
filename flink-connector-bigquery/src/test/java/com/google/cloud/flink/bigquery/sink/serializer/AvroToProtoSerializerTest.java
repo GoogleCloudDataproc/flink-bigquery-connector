@@ -18,7 +18,6 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
-import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
@@ -28,6 +27,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -37,7 +37,7 @@ import static org.junit.Assert.assertThrows;
 public class AvroToProtoSerializerTest {
 
     private final List<TableFieldSchema> subFieldsNullable =
-            Arrays.asList(
+            Collections.singletonList(
                     new TableFieldSchema()
                             .setName("species")
                             .setType("STRING")
@@ -74,7 +74,6 @@ public class AvroToProtoSerializerTest {
 
         BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
                 new AvroToProtoSerializer(tableSchema);
-        DescriptorProto descriptorProto = avroToProtoSerializer.getDescriptorProto();
         Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
