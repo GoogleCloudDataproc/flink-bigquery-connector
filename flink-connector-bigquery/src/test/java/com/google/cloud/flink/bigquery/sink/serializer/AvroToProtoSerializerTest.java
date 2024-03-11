@@ -18,14 +18,16 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
-import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.DescriptorValidationException;
+import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -35,7 +37,7 @@ import static org.junit.Assert.assertThrows;
 public class AvroToProtoSerializerTest {
 
     private final List<TableFieldSchema> subFieldsNullable =
-            Arrays.asList(
+            Collections.singletonList(
                     new TableFieldSchema()
                             .setName("species")
                             .setType("STRING")
@@ -68,13 +70,11 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testPrimitiveTypesConversion() throws Descriptors.DescriptorValidationException {
+    public void testPrimitiveTypesConversion() throws DescriptorValidationException {
 
         BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
                 new AvroToProtoSerializer(tableSchema);
-        DescriptorProto descriptorProto = avroToProtoSerializer.getDescriptorProto();
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -162,8 +162,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testAllPrimitiveSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testAllPrimitiveSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -179,12 +178,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -270,7 +266,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testAllLogicalSchemaConversion() throws Descriptors.DescriptorValidationException {
+    public void testAllLogicalSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -287,12 +283,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -386,8 +379,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testAllUnionLogicalSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testAllUnionLogicalSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -404,12 +396,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -503,8 +492,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testAllUnionPrimitiveSchemaConversion()
-            throws Descriptors.DescriptorValidationException {
+    public void testAllUnionPrimitiveSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -520,12 +508,9 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        DescriptorProto descriptorProto =
-                AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
-
-        Descriptors.Descriptor descriptor =
-                BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -608,5 +593,37 @@ public class AvroToProtoSerializerTest {
                                 .setNumber(9)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)
                                 .build());
+    }
+
+    @Test
+    public void testUnionInRecordSchemaConversation() throws DescriptorValidationException {
+
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"record_with_union\", \"type\": {\"name\": \"record_with_union_field\", \"type\": \"record\", \"fields\": [{\"name\": \"union_in_record\", \"type\": [\"boolean\", \"null\"], \"default\": true}]}}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+
+        FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_with_union");
+        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertThat(fieldDescriptorProto.getType())
+                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+
+        Descriptor nestedDescriptor =
+                descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
+        FieldDescriptor fieldDescriptor = nestedDescriptor.findFieldByNumber(1);
+        assertThat(fieldDescriptor.isOptional()).isTrue();
+        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptor.Type.BOOL);
+        assertThat(fieldDescriptor.getName()).isEqualTo("union_in_record");
+        assertThat(fieldDescriptor.hasDefaultValue()).isTrue();
+        assertThat(fieldDescriptor.getDefaultValue()).isEqualTo(true);
     }
 }
