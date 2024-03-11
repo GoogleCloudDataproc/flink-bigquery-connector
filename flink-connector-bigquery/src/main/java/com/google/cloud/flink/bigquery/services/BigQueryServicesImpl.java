@@ -46,8 +46,8 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryGetTableSchema;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
@@ -302,7 +302,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
         @Override
         public TableSchema getTableSchema(String project, String dataset, String table) {
-            return BigQueryGetTableSchema.get(bigQuery, project, dataset, table);
+            return BigQueryTableInfo.getSchema(bigQuery, project, dataset, table);
         }
 
         @Override
