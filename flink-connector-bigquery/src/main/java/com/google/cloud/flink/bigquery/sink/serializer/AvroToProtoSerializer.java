@@ -31,7 +31,6 @@ import org.apache.avro.generic.GenericRecord;
 
 import javax.annotation.Nullable;
 
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -61,7 +60,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             initializeAvroFieldToFieldDescriptorTypes() {
         EnumMap<Schema.Type, FieldDescriptorProto.Type> mapping = new EnumMap<>(Schema.Type.class);
         mapping.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_FIXED64);
+        mapping.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
         mapping.put(Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
         mapping.put(Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
@@ -87,15 +86,16 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         mapping.put(LogicalTypes.timestampMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(LogicalTypes.uuid().getName(), FieldDescriptorProto.Type.TYPE_STRING);
         // These are newly added.
-        mapping.put(LogicalTypes.timeMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(LogicalTypes.timeMicros().getName(), FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(LogicalTypes.timeMillis().getName(), FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(LogicalTypes.timeMicros().getName(), FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(
+                LogicalTypes.localTimestampMillis().getName(),
+                FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(
-                LogicalTypes.localTimestampMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
+                FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put("geography_wkt", FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put("Json", FieldDescriptorProto.Type.TYPE_STRING);
         return mapping;
     }
 
@@ -175,84 +175,9 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                                 .setTypeName(nested.getName());
                 break;
             case ARRAY:
-                elementType = schema.getElementType();
-                if (elementType == null) {
-                    throw new IllegalArgumentException("Unexpected null element type!");
-                }
-                Preconditions.checkState(
-                        elementType.getType() != Schema.Type.ARRAY,
-                        "Nested arrays not supported by BigQuery.");
-                if (elementType.getType() == Schema.Type.MAP) {
-                    // Note this case would be covered in the check which is performed later,
-                    // but just in case the support for this is provided in the future,
-                    // it is explicitly mentioned.
-                    throw new UnsupportedOperationException("Array of Type MAP not supported yet.");
-                }
-                DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
-                fieldDescriptorFromSchemaField(
-                        new Schema.Field(
-                                field.name(), elementType, field.doc(), field.defaultVal()),
-                        fieldNumber,
-                        arrayFieldBuilder);
-
-                FieldDescriptorProto.Builder arrayFieldElementBuilder =
-                        arrayFieldBuilder.getFieldBuilder(0);
-                // Check if the inner field is optional without any default value.
-                if (arrayFieldElementBuilder.getLabel()
-                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
-                    throw new IllegalArgumentException("Array cannot have a NULLABLE element");
-                }
-                // Default value derived from inner layers should not be the default value of array
-                // field.
-                fieldDescriptorBuilder =
-                        arrayFieldElementBuilder
-                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                                .clearDefaultValue();
-                // Add any nested types.
-                descriptorProtoBuilder.addAllNestedType(arrayFieldBuilder.getNestedTypeList());
-                break;
+                throw new UnsupportedOperationException("ARRAY type not supported yet.");
             case MAP:
-                // A MAP is converted to an array of structs.
-                Schema keyType = Schema.create(Schema.Type.STRING);
-                Schema valueType = elementType.getValueType();
-                if (valueType == null) {
-                    throw new IllegalArgumentException("Unexpected null element type!");
-                }
-                // Create a new field of type RECORD.
-                Schema.Field keyField = new Schema.Field("key", keyType, "key of the map entry");
-                Schema.Field valueField =
-                        new Schema.Field("value", valueType, "value of the map entry");
-                Schema mapFieldSchema =
-                        Schema.createRecord(
-                                schema.getName(),
-                                schema.getDoc(),
-                                "com.google.flink.bigquery",
-                                true,
-                                Arrays.asList(keyField, valueField));
-
-                DescriptorProto.Builder mapFieldBuilder = DescriptorProto.newBuilder();
-                fieldDescriptorFromSchemaField(
-                        new Schema.Field(
-                                field.name(), mapFieldSchema, field.doc(), field.defaultVal()),
-                        fieldNumber,
-                        mapFieldBuilder);
-
-                FieldDescriptorProto.Builder mapFieldElementBuilder =
-                        mapFieldBuilder.getFieldBuilder(0);
-                // Check if the inner field is optional without any default value.
-                // This should not be the case since we explicitly create the STRUCT.
-                if (mapFieldElementBuilder.getLabel()
-                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
-                    throw new IllegalArgumentException("MAP cannot have a null element");
-                }
-                fieldDescriptorBuilder =
-                        mapFieldElementBuilder
-                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                                .clearDefaultValue();
-
-                // Add the nested types.
-                descriptorProtoBuilder.addAllNestedType(mapFieldBuilder.getNestedTypeList());
-                break;
+                throw new UnsupportedOperationException("MAP type not supported yet.");
             case UNION:
                 // Types can be ["null"] - Not supported in BigQuery.
                 // ["null", something] -
@@ -345,6 +270,17 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema)
             throws Descriptors.DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
+        this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
+        this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+    }
+
+    /**
+     * Constructor for the Serializer.
+     *
+     * @param avroSchema Table Schema for the Sink Table ({@link Schema} object )
+     */
+    public AvroToProtoSerializer(Schema avroSchema)
+            throws Descriptors.DescriptorValidationException {
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
         this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
     }
