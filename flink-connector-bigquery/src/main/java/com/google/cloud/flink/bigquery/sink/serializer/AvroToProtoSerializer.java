@@ -61,7 +61,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             initializeAvroFieldToFieldDescriptorTypes() {
         EnumMap<Schema.Type, FieldDescriptorProto.Type> mapping = new EnumMap<>(Schema.Type.class);
         mapping.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_FIXED64);
+        mapping.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
         mapping.put(Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
         mapping.put(Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
@@ -87,15 +87,16 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         mapping.put(LogicalTypes.timestampMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(LogicalTypes.uuid().getName(), FieldDescriptorProto.Type.TYPE_STRING);
         // These are newly added.
-        mapping.put(LogicalTypes.timeMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(LogicalTypes.timeMicros().getName(), FieldDescriptorProto.Type.TYPE_INT64);
+        mapping.put(LogicalTypes.timeMillis().getName(), FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(LogicalTypes.timeMicros().getName(), FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put(
+                LogicalTypes.localTimestampMillis().getName(),
+                FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
-        mapping.put(
-                LogicalTypes.localTimestampMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
+                FieldDescriptorProto.Type.TYPE_STRING);
         mapping.put("geography_wkt", FieldDescriptorProto.Type.TYPE_STRING);
+        mapping.put("Json", FieldDescriptorProto.Type.TYPE_STRING);
         return mapping;
     }
 
@@ -345,6 +346,17 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema)
             throws Descriptors.DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
+        this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
+        this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
+    }
+
+    /**
+     * Constructor for the Serializer.
+     *
+     * @param avroSchema Table Schema for the Sink Table ({@link Schema} object )
+     */
+    public AvroToProtoSerializer(Schema avroSchema)
+            throws Descriptors.DescriptorValidationException {
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
         this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
     }

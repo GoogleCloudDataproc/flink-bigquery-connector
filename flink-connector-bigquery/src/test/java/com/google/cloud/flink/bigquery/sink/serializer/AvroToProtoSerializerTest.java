@@ -217,7 +217,7 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(4).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_FIXED64)
+                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
                                 .setName("fixed_field")
                                 .setNumber(4)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
@@ -555,11 +555,10 @@ public class AvroToProtoSerializerTest {
                                 .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)
                                 .build());
 
-        // TODO: This is different than beam
         assertThat(descriptor.findFieldByNumber(4).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_FIXED64)
+                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
                                 .setName("fixed_field")
                                 .setNumber(4)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)
