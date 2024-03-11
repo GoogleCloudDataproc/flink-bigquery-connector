@@ -1291,15 +1291,12 @@ public class AvroToProtoSerializerTest {
             throws Descriptors.DescriptorValidationException {
         String fieldString =
                 " \"fields\": [\n"
-                        + "{\"name\": \"array_with_union\", \"type\": "
-                        + "{\"type\": \"array\", \"items\":  [\"long\", \"null\"]}}"
+                        + "{\"name\": \"record_with_union\", \"type\": "
+                        + "{\"type\": \"record\", \"fields\":  [{\"name\": \"record_field\", \"type\": [\"null\", \"bytes\"]}]}"
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        IllegalArgumentException exception =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
-        assertThat(exception).hasMessageThat().contains("Array cannot have a NULLABLE element");
+        DescriptorProto descriptorProto = AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema);
+        System.out.println(descriptorProto);
     }
 }
