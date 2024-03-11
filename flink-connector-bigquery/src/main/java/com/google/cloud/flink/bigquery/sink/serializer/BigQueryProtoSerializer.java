@@ -18,8 +18,11 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
+import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.DescriptorValidationException;
+import com.google.protobuf.Descriptors.FileDescriptor;
 
 import java.util.List;
 
@@ -32,28 +35,25 @@ public interface BigQueryProtoSerializer<IN> {
 
     public ByteString serialize(IN record) throws BigQuerySerializationException;
 
-    public DescriptorProtos.DescriptorProto getDescriptorProto();
+    public DescriptorProto getDescriptorProto();
+
+    public Descriptor getDescriptor();
 
     /**
-     * Function to convert the {@link DescriptorProtos.DescriptorProto} Type to {@link
-     * Descriptors.Descriptor}. This is necessary as a Descriptor is needed for DynamicMessage (used
-     * to write to Storage API).
+     * Function to convert the {@link DescriptorProto} Type to {@link Descriptor}.This is necessary
+     * as a Descriptor is needed for DynamicMessage (used to write to Storage API).
      *
      * @param descriptorProto input which needs to be converted to a Descriptor.
      * @return Descriptor obtained form the input DescriptorProto
-     * @throws Descriptors.DescriptorValidationException in case the conversion is not possible.
+     * @throws DescriptorValidationException in case the conversion is not possible.
      */
-    static Descriptors.Descriptor getDescriptorFromDescriptorProto(
-            DescriptorProtos.DescriptorProto descriptorProto)
-            throws Descriptors.DescriptorValidationException {
-        DescriptorProtos.FileDescriptorProto fileDescriptorProto =
-                DescriptorProtos.FileDescriptorProto.newBuilder()
-                        .addMessageType(descriptorProto)
-                        .build();
-        Descriptors.FileDescriptor fileDescriptor =
-                Descriptors.FileDescriptor.buildFrom(
-                        fileDescriptorProto, new Descriptors.FileDescriptor[0]);
-        List<Descriptors.Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
+    static Descriptor getDescriptorFromDescriptorProto(DescriptorProto descriptorProto)
+            throws DescriptorValidationException {
+        FileDescriptorProto fileDescriptorProto =
+                FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build();
+        FileDescriptor fileDescriptor =
+                FileDescriptor.buildFrom(fileDescriptorProto, new FileDescriptor[0]);
+        List<Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
         if (descriptorTypeList.size() == 1) {
             return descriptorTypeList.get(0);
         } else {
