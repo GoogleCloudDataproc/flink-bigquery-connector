@@ -23,7 +23,8 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.DescriptorValidationException;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -31,7 +32,6 @@ import org.apache.avro.generic.GenericRecord;
 
 import javax.annotation.Nullable;
 
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
 
     private final DescriptorProto descriptorProto;
-    private final Descriptors.Descriptor descriptor;
+    private final Descriptor descriptor;
 
     private static final Map<Schema.Type, FieldDescriptorProto.Type> AVRO_TYPES_TO_PROTO =
             initializeAvroFieldToFieldDescriptorTypes();
@@ -103,11 +103,10 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     /**
      * Function to convert TableSchema to Avro Schema.
      *
-     * @param tableSchema A {@link com.google.api.services.bigquery.model.TableSchema} object to
-     *     cast to {@link Schema}
+     * @param tableSchema A {@link TableSchema} object to cast to {@link Schema}
      * @return Converted Avro Schema
      */
-    private Schema getAvroSchema(com.google.api.services.bigquery.model.TableSchema tableSchema) {
+    private Schema getAvroSchema(TableSchema tableSchema) {
         return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
     }
 
@@ -340,11 +339,9 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     /**
      * Constructor for the Serializer.
      *
-     * @param tableSchema Table Schema for the Sink Table ({@link
-     *     com.google.api.services.bigquery.model.TableSchema} object )
+     * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object )
      */
-    public AvroToProtoSerializer(com.google.api.services.bigquery.model.TableSchema tableSchema)
-            throws Descriptors.DescriptorValidationException {
+    public AvroToProtoSerializer(TableSchema tableSchema) throws DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
         this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
@@ -355,8 +352,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      *
      * @param avroSchema Table Schema for the Sink Table ({@link Schema} object )
      */
-    public AvroToProtoSerializer(Schema avroSchema)
-            throws Descriptors.DescriptorValidationException {
+    public AvroToProtoSerializer(Schema avroSchema) throws DescriptorValidationException {
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
         this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
     }
@@ -369,5 +365,10 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     @Override
     public DescriptorProto getDescriptorProto() {
         return this.descriptorProto;
+    }
+
+    @Override
+    public Descriptor getDescriptor() {
+        return this.descriptor;
     }
 }
