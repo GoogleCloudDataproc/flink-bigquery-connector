@@ -213,7 +213,6 @@ public class AvroToProtoSerializerTest {
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
 
-        // TODO: This is different than beam
         assertThat(descriptor.findFieldByNumber(4).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
@@ -316,7 +315,7 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(3).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
                                 .setName("timemicros")
                                 .setNumber(3)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
@@ -325,7 +324,7 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(4).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
                                 .setName("timemillis")
                                 .setNumber(4)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
@@ -334,7 +333,7 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(5).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
                                 .setName("ltsmicros")
                                 .setNumber(5)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
@@ -343,7 +342,7 @@ public class AvroToProtoSerializerTest {
         assertThat(descriptor.findFieldByNumber(6).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
                                 .setName("ltsmillis")
                                 .setNumber(6)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
@@ -1272,6 +1271,23 @@ public class AvroToProtoSerializerTest {
 
     @Test
     public void testArrayWithUnionValueSchemaConversion()
+            throws Descriptors.DescriptorValidationException {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"array_with_union\", \"type\": "
+                        + "{\"type\": \"array\", \"items\":  [\"long\", \"null\"]}}"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+        assertThat(exception).hasMessageThat().contains("Array cannot have a NULLABLE element");
+    }
+
+    @Test
+    public void testRecordWithUnionValueSchemaConversion()
             throws Descriptors.DescriptorValidationException {
         String fieldString =
                 " \"fields\": [\n"
