@@ -252,11 +252,6 @@ public class AvroToProtoSerializerITCase {
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
-        //        record.put("geography", "{\"type\": \"Point\", \"coordinates\": [-121,41] }");
-
-        long microseconds = TimeUnit.MILLISECONDS.toMillis(System.currentTimeMillis());
-        //        microseconds = TimeUnit.MILLISECONDS.toMicros(microseconds);
-        System.out.println(" System.currentTimeMillis() " + microseconds);
 
         record.put("geography", "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))");
         System.out.println("@prashastia record write [" + record + "]");
