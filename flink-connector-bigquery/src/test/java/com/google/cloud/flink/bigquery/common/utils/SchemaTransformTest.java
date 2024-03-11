@@ -160,7 +160,8 @@ public class SchemaTransformTest {
                                 Schema.create(Schema.Type.NULL),
                                 LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT))));
         Schema datetimeSchema = Schema.create(Schema.Type.STRING);
-        datetimeSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "logical-timestamp-micros");
+        datetimeSchema.addProp(
+                LogicalType.LOGICAL_TYPE_PROP, LogicalTypes.localTimestampMicros().getName());
         assertThat(avroSchema.getField("anniversaryDatetime").schema())
                 .isEqualTo(Schema.createUnion(Schema.create(Schema.Type.NULL), datetimeSchema));
         assertThat(avroSchema.getField("anniversaryTime").schema())
