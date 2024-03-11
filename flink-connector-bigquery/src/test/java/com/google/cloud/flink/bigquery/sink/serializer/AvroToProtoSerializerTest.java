@@ -23,7 +23,9 @@ import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+import com.google.api.services.bigquery.model.TableSchema;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.List;
