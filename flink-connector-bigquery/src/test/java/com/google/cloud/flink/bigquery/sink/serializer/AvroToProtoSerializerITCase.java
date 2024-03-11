@@ -16,22 +16,18 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.api.core.ApiFuture;
-import com.google.api.core.ApiFutureCallback;
-import com.google.api.core.ApiFutures;
-
-import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-
-import com.google.common.util.concurrent.MoreExecutors;
-
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
@@ -44,6 +40,7 @@ import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.joda.time.DateTime;
@@ -51,15 +48,9 @@ import org.joda.time.Instant;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.sql.Timestamp;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -132,8 +123,7 @@ public class AvroToProtoSerializerITCase {
                                         .build())
                         .build();
 
-        final StreamExecutionEnvironment env =
-                StreamExecutionEnvironment.getExecutionEnvironment();
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(writeOptions);
         return env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
                 .executeAndCollect(10);
@@ -215,21 +205,20 @@ public class AvroToProtoSerializerITCase {
 
         ProtoRows rowsToAppend = protoRowsBuilder.build();
         System.out.println("@prashastia append()  Started...");
-        try{
+        try {
             AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
-            System.out.println("@prashastia response "+ response);
-            System.out.println("@prashastia errorList "+ response.getRowErrorsList());
-        }
-        catch (Exception e){
+            System.out.println("@prashastia response " + response);
+            System.out.println("@prashastia errorList " + response.getRowErrorsList());
+        } catch (Exception e) {
             System.out.println("!!! FAILED!!!");
             System.out.println();
             e.printStackTrace();
             streamWriter.close();
         }
 
-//        System.out.println(response.getRowErrors(0));
+        //        System.out.println(response.getRowErrors(0));
         System.out.println("@prashastia: [READ ROWS:]");
-        for(GenericRecord element: readRows("primitive_types")){
+        for (GenericRecord element : readRows("primitive_types")) {
             System.out.println(element);
         }
     }
@@ -239,25 +228,35 @@ public class AvroToProtoSerializerITCase {
 
         String fieldString =
                 " \"fields\": [\n"
-//                        + "   {\"name\": \"ts\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}}\n"
-//                        + "   {\"name\": \"ts\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}}\n"
-//                        + "   {\"name\": \"timeMicros\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-micros\"}},\n"
-//                        + "   {\"name\": \"timeMillis\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-millis\"}},\n"
-//                        + "   {\"name\": \"ltsMicros\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}},\n"
-//                        + "   {\"name\": \"ltsMillis\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}},\n"
-//                        + "   {\"name\": \"date\", \"type\": {\"type\": \"int\", \"logicalType\": \"date\"}},\n"
-//                        + "   {\"name\": \"decimal\", \"type\": {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2}},\n"
-//                        + "   {\"name\": \"uuid\", \"type\": {\"type\": \"string\", \"logicalType\": \"uuid\"}}\n"
+                        //                        + "   {\"name\": \"ts\", \"type\": {\"type\":
+                        // \"long\", \"logicalType\": \"timestamp-micros\"}}\n"
+                        //                        + "   {\"name\": \"ts\", \"type\": {\"type\":
+                        // \"long\", \"logicalType\": \"timestamp-millis\"}}\n"
+                        //                        + "   {\"name\": \"timeMicros\", \"type\":
+                        // {\"type\": \"long\", \"logicalType\": \"time-micros\"}},\n"
+                        //                        + "   {\"name\": \"timeMillis\", \"type\":
+                        // {\"type\": \"long\", \"logicalType\": \"time-millis\"}},\n"
+                        //                        + "   {\"name\": \"ltsMicros\", \"type\":
+                        // {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}},\n"
+                        //                        + "   {\"name\": \"ltsMillis\", \"type\":
+                        // {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}},\n"
+                        //                        + "   {\"name\": \"date\", \"type\": {\"type\":
+                        // \"int\", \"logicalType\": \"date\"}},\n"
+                        //                        + "   {\"name\": \"decimal\", \"type\": {\"type\":
+                        // \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\":
+                        // 2}},\n"
+                        //                        + "   {\"name\": \"uuid\", \"type\": {\"type\":
+                        // \"string\", \"logicalType\": \"uuid\"}}\n"
                         + "   {\"name\": \"geography\", \"type\": {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}}\n"
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
-//        record.put("geography", "{\"type\": \"Point\", \"coordinates\": [-121,41] }");
+        //        record.put("geography", "{\"type\": \"Point\", \"coordinates\": [-121,41] }");
 
         long microseconds = TimeUnit.MILLISECONDS.toMillis(System.currentTimeMillis());
-//        microseconds = TimeUnit.MILLISECONDS.toMicros(microseconds);
-        System.out.println(" System.currentTimeMillis() "+ microseconds);
+        //        microseconds = TimeUnit.MILLISECONDS.toMicros(microseconds);
+        System.out.println(" System.currentTimeMillis() " + microseconds);
 
         record.put("geography", "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))");
         System.out.println("@prashastia record write [" + record + "]");
@@ -278,18 +277,25 @@ public class AvroToProtoSerializerITCase {
         System.out.println("@prashastia append()  Started...");
 
         ApiFuture<AppendRowsResponse> messageIdFuture = streamWriter.append(rowsToAppend);
-        ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<AppendRowsResponse>() {
-            public void onSuccess(AppendRowsResponse response) {
-                if (response.getAppendResult().hasOffset()) {
-                    System.out.println("Written with offset: " + response.getAppendResult().getOffset());
-                } else {
-                    System.out.println("received an in stream error: " + response.getRowErrorsList());
-                }
-            }
-            public void onFailure(Throwable t) {
-                System.out.println("failed to write: " + t);
-            }
-        }, MoreExecutors.directExecutor());
+        ApiFutures.addCallback(
+                messageIdFuture,
+                new ApiFutureCallback<AppendRowsResponse>() {
+                    public void onSuccess(AppendRowsResponse response) {
+                        if (response.getAppendResult().hasOffset()) {
+                            System.out.println(
+                                    "Written with offset: "
+                                            + response.getAppendResult().getOffset());
+                        } else {
+                            System.out.println(
+                                    "received an in stream error: " + response.getRowErrorsList());
+                        }
+                    }
+
+                    public void onFailure(Throwable t) {
+                        System.out.println("failed to write: " + t);
+                    }
+                },
+                MoreExecutors.directExecutor());
 
         System.out.println("@prashastia: [READ ROWS:]");
         for (GenericRecord element : readRows("geography")) {
@@ -308,7 +314,7 @@ public class AvroToProtoSerializerITCase {
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
 
-        record.put("json","{\"name\":\"John\", \"age\":30, \"car\":null}");
+        record.put("json", "{\"name\":\"John\", \"age\":30, \"car\":null}");
         System.out.println("Record write: [" + record + "]");
 
         BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer(avroSchema);
@@ -324,10 +330,10 @@ public class AvroToProtoSerializerITCase {
     @Test
     public void testArraySchemaInsertion() throws Exception {
 
-                String fieldString =
-                        " \"fields\": [\n"
-                                + "   {\"name\": \"name\", \"type\": {\"type\": \"array\", \"items\": \"string\", \"default\": \"hello\"}}\n"
-                                + " ]\n";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"name\", \"type\": {\"type\": \"array\", \"items\": \"string\", \"default\": \"hello\"}}\n"
+                        + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
@@ -347,7 +353,8 @@ public class AvroToProtoSerializerITCase {
     @Test
     public void testRecordschemaInsertion() throws Exception {
 
-        String fieldString = "\"fields\":[{\"name\":\"level_0\",\"type\":{\"type\":\"record\",\"namespace\":\"root\",\"name\":\"Level_0\",\"fields\":[{\"name\":\"level_1\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0\",\"name\":\"Level_1\",\"fields\":[{\"name\":\"level_2\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1\",\"name\":\"Level_2\",\"fields\":[{\"name\":\"level_3\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2\",\"name\":\"Level_3\",\"fields\":[{\"name\":\"level_4\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3\",\"name\":\"Level_4\",\"fields\":[{\"name\":\"level_5\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4\",\"name\":\"Level_5\",\"fields\":[{\"name\":\"level_6\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5\",\"name\":\"Level_6\",\"fields\":[{\"name\":\"level_7\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6\",\"name\":\"Level_7\",\"fields\":[{\"name\":\"level_8\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7\",\"name\":\"Level_8\",\"fields\":[{\"name\":\"level_9\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8\",\"name\":\"Level_9\",\"fields\":[{\"name\":\"level_10\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9\",\"name\":\"Level_10\",\"fields\":[{\"name\":\"level_11\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9.level_10\",\"name\":\"Level_11\",\"fields\":[{\"name\":\"level_12\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9.level_10.level_11\",\"name\":\"Level_12\",\"fields\":[{\"name\":\"level_13\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9.level_10.level_11.level_12\",\"name\":\"Level_13\",\"fields\":[{\"name\":\"value\",\"type\":\"long\"}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]";
+        String fieldString =
+                "\"fields\":[{\"name\":\"level_0\",\"type\":{\"type\":\"record\",\"namespace\":\"root\",\"name\":\"Level_0\",\"fields\":[{\"name\":\"level_1\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0\",\"name\":\"Level_1\",\"fields\":[{\"name\":\"level_2\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1\",\"name\":\"Level_2\",\"fields\":[{\"name\":\"level_3\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2\",\"name\":\"Level_3\",\"fields\":[{\"name\":\"level_4\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3\",\"name\":\"Level_4\",\"fields\":[{\"name\":\"level_5\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4\",\"name\":\"Level_5\",\"fields\":[{\"name\":\"level_6\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5\",\"name\":\"Level_6\",\"fields\":[{\"name\":\"level_7\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6\",\"name\":\"Level_7\",\"fields\":[{\"name\":\"level_8\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7\",\"name\":\"Level_8\",\"fields\":[{\"name\":\"level_9\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8\",\"name\":\"Level_9\",\"fields\":[{\"name\":\"level_10\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9\",\"name\":\"Level_10\",\"fields\":[{\"name\":\"level_11\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9.level_10\",\"name\":\"Level_11\",\"fields\":[{\"name\":\"level_12\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9.level_10.level_11\",\"name\":\"Level_12\",\"fields\":[{\"name\":\"level_13\",\"type\":{\"type\":\"record\",\"namespace\":\"root.level_0.level_1.level_2.level_3.level_4.level_5.level_6.level_7.level_8.level_9.level_10.level_11.level_12\",\"name\":\"Level_13\",\"fields\":[{\"name\":\"value\",\"type\":\"long\"}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]}}]";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
@@ -367,7 +374,8 @@ public class AvroToProtoSerializerITCase {
     @Test
     public void testDateSchemaInsertion() throws Exception {
 
-        String fieldString = " \"fields\": [\n"
+        String fieldString =
+                " \"fields\": [\n"
                         + "   {\"name\": \"date\", \"type\": {\"type\": \"int\", \"logicalType\": \"date\"}}\n"
                         + " ]\n";
 
@@ -390,9 +398,10 @@ public class AvroToProtoSerializerITCase {
     @Test
     public void testTimeSchemaMicroSecondsInsertion() throws Exception {
 
-        String fieldString = " \"fields\": [\n"
-                + "   {\"name\": \"time\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-micros\"}}\n"
-                + " ]\n";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"time\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-micros\"}}\n"
+                        + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
@@ -400,8 +409,10 @@ public class AvroToProtoSerializerITCase {
         LocalDateTime time = LocalDateTime.now();
         // convert to timestamp and add the microseconds
         // NOTE: FLAKY TEST.
-        long timestamp = TimeUnit.MILLISECONDS.toMicros(time.toInstant(ZoneOffset.ofHoursMinutes(5, 30)).toEpochMilli());
-        timestamp+= (time.getNano()%1000000)/1000;
+        long timestamp =
+                TimeUnit.MILLISECONDS.toMicros(
+                        time.toInstant(ZoneOffset.ofHoursMinutes(5, 30)).toEpochMilli());
+        timestamp += (time.getNano() % 1000000) / 1000;
         record.put("time", timestamp);
 
         System.out.println("Record write: [" + record + "]");
@@ -418,9 +429,10 @@ public class AvroToProtoSerializerITCase {
     @Test
     public void testTimeSchemaMilliSecondsInsertion() throws Exception {
 
-        String fieldString = " \"fields\": [\n"
-                + "   {\"name\": \"time\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-millis\"}}\n"
-                + " ]\n";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"time\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-millis\"}}\n"
+                        + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
@@ -442,9 +454,10 @@ public class AvroToProtoSerializerITCase {
     @Test
     public void testDateTimeSchemaMicroSecondsInsertion() throws Exception {
 
-        String fieldString = " \"fields\": [\n"
-                + "   {\"name\": \"datetime\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}}\n"
-                + " ]\n";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"datetime\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}}\n"
+                        + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
@@ -452,8 +465,10 @@ public class AvroToProtoSerializerITCase {
         LocalDateTime time = LocalDateTime.now();
         // convert to timestamp and add the microseconds
         // NOTE: FLAKY TEST.
-        long timestamp = TimeUnit.MILLISECONDS.toMicros(time.toInstant(ZoneOffset.ofHoursMinutes(5, 30)).toEpochMilli());
-        timestamp+= (time.getNano()%1000000)/1000;
+        long timestamp =
+                TimeUnit.MILLISECONDS.toMicros(
+                        time.toInstant(ZoneOffset.ofHoursMinutes(5, 30)).toEpochMilli());
+        timestamp += (time.getNano() % 1000000) / 1000;
         record.put("datetime", timestamp);
 
         System.out.println("Record write: [" + record + "]");
@@ -470,9 +485,10 @@ public class AvroToProtoSerializerITCase {
     @Test
     public void testDateTimeSchemaMilliSecondsInsertion() throws Exception {
 
-        String fieldString = " \"fields\": [\n"
-                + "   {\"name\": \"datetime\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}}\n"
-                + " ]\n";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"datetime\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}}\n"
+                        + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record = StorageClientFaker.createRecord(avroSchema);
@@ -490,6 +506,7 @@ public class AvroToProtoSerializerITCase {
         streamWriter.close();
         assertThat(response).isNotNull();
     }
+
     private String getRecord(String name) {
         String record =
                 "{\"name\": "
@@ -530,6 +547,7 @@ public class AvroToProtoSerializerITCase {
         streamWriter.close();
         assertThat(response).isNotNull();
     }
+
     @Test
     public void testArrayInRecordSchemaInsertion() throws Exception {
 

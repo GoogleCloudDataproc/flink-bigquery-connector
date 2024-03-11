@@ -516,23 +516,34 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 value -> AvroToProtoSerializerUtils.convertDecimal(LogicalTypes.decimal(1), value));
         mapping.put(
                 LogicalTypes.timestampMicros().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, true, "Timestamp(micros/millis)"));
+                value ->
+                        AvroToProtoSerializerUtils.convertTimestamp(
+                                value, true, "Timestamp(micros/millis)"));
         mapping.put(
                 LogicalTypes.timestampMillis().getName(),
-                value -> AvroToProtoSerializerUtils.convertTimestamp(value, false, "Timestamp(micros/millis)"));
+                value ->
+                        AvroToProtoSerializerUtils.convertTimestamp(
+                                value, false, "Timestamp(micros/millis)"));
         mapping.put(LogicalTypes.uuid().getName(), AvroToProtoSerializerUtils::convertUUID);
         mapping.put(
                 LogicalTypes.timeMillis().getName(),
-                value -> AvroToProtoSerializerUtils.convertTime(value, false, "Time(micros/millis)"));
+                value ->
+                        AvroToProtoSerializerUtils.convertTime(
+                                value, false, "Time(micros/millis)"));
         mapping.put(
                 LogicalTypes.timeMicros().getName(),
-                value -> AvroToProtoSerializerUtils.convertTime(value, true, "Time(micros/millis)"));
+                value ->
+                        AvroToProtoSerializerUtils.convertTime(value, true, "Time(micros/millis)"));
         mapping.put(
                 LogicalTypes.localTimestampMillis().getName(),
-                value -> AvroToProtoSerializerUtils.convertDateTime(value, false, "Local Timestamp(micros/millis)"));
+                value ->
+                        AvroToProtoSerializerUtils.convertDateTime(
+                                value, false, "Local Timestamp(micros/millis)"));
         mapping.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                value -> AvroToProtoSerializerUtils.convertDateTime(value, true, "Local Timestamp(micros/millis)"));
+                value ->
+                        AvroToProtoSerializerUtils.convertDateTime(
+                                value, true, "Local Timestamp(micros/millis)"));
         mapping.put("geography_wkt", AvroToProtoSerializerUtils::convertGeography);
         mapping.put("Json", AvroToProtoSerializerUtils::convertJson);
         return mapping.get(logicalTypeString);
