@@ -100,7 +100,8 @@ public class SchemaTransformTest {
                     new TableFieldSchema()
                             .setName("geoPositions")
                             .setType("GEOGRAPHY")
-                            .setMode("NULLABLE"));
+                            .setMode("NULLABLE"),
+                    new TableFieldSchema().setName("Document").setType("JSON").setMode("NULLABLE"));
 
     @Test
     public void testConvertBigQuerySchemaToAvroSchema() {
@@ -158,12 +159,10 @@ public class SchemaTransformTest {
                         Schema.createUnion(
                                 Schema.create(Schema.Type.NULL),
                                 LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT))));
+        Schema datetimeSchema = Schema.create(Schema.Type.STRING);
+        datetimeSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "logical-timestamp-micros");
         assertThat(avroSchema.getField("anniversaryDatetime").schema())
-                .isEqualTo(
-                        Schema.createUnion(
-                                Schema.create(Schema.Type.NULL),
-                                LogicalTypes.localTimestampMicros()
-                                        .addToSchema(Schema.create(Schema.Type.LONG))));
+                .isEqualTo(Schema.createUnion(Schema.create(Schema.Type.NULL), datetimeSchema));
         assertThat(avroSchema.getField("anniversaryTime").schema())
                 .isEqualTo(
                         Schema.createUnion(
@@ -207,6 +206,10 @@ public class SchemaTransformTest {
                                                                 Schema.create(Schema.Type.STRING)),
                                                         null,
                                                         (Object) null)))));
+        Schema jsonSchema = Schema.create(Schema.Type.STRING);
+        jsonSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "Json");
+        assertThat(avroSchema.getField("Document").schema())
+                .isEqualTo(Schema.createUnion(Schema.create(Schema.Type.NULL), jsonSchema));
     }
 
     @Test
