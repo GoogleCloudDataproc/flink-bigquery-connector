@@ -26,7 +26,7 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
+import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
@@ -37,7 +37,6 @@ import org.apache.avro.generic.GenericRecord;
 import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -377,8 +376,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      *
      * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object )
      */
-    public AvroToProtoSerializer(TableSchema tableSchema)
-            throws Descriptors.DescriptorValidationException {
+    public AvroToProtoSerializer(TableSchema tableSchema) throws DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
         this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
@@ -414,18 +412,18 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      * API.
      *
      * @param element {@link GenericRecord} Object to convert to {@link DynamicMessage}
-     * @param descriptor {@link Descriptors.Descriptor} describing the schema of the sink table.
+     * @param descriptor {@link Descriptor} describing the schema of the sink table.
      * @return {@link DynamicMessage} Object converted from the Generic Avro Record.
      */
     public static DynamicMessage getDynamicMessageFromGenericRecord(
-            GenericRecord element, Descriptors.Descriptor descriptor) {
+            GenericRecord element, Descriptor descriptor) {
         Schema schema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         // Get the record's schema and find the field descriptor for each field one by one.
         for (Schema.Field field : schema.getFields()) {
             // In case no field descriptor exists for the field, throw an error as we have
             // incompatible schemas.
-            Descriptors.FieldDescriptor fieldDescriptor =
+            FieldDescriptor fieldDescriptor =
                     Preconditions.checkNotNull(
                             descriptor.findFieldByName(field.name().toLowerCase()));
             // Get the value for a field.
@@ -457,7 +455,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      * @return Converted Object.
      */
     private static Object toProtoValue(
-            Descriptors.FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
+            FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
         switch (avroSchema.getType()) {
             case RECORD:
                 // Recursion
@@ -538,30 +536,18 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         mapping.put(LogicalTypes.uuid().getName(), AvroToProtoSerializerUtils::convertUUID);
         mapping.put(
                 LogicalTypes.timeMillis().getName(),
-                value ->
-                        AvroToProtoSerializerUtils.convertTime(
-                                value, false, "Time(micros/millis)"));
+                value -> AvroToProtoSerializerUtils.convertTime(value, false));
         mapping.put(
                 LogicalTypes.timeMicros().getName(),
-                value ->
-                        AvroToProtoSerializerUtils.convertTime(value, true, "Time(micros/millis)"));
+                value -> AvroToProtoSerializerUtils.convertTime(value, true));
         mapping.put(
                 LogicalTypes.localTimestampMillis().getName(),
-                value ->
-                        AvroToProtoSerializerUtils.convertDateTime(
-                                value, false, "Local Timestamp(micros/millis)"));
+                value -> AvroToProtoSerializerUtils.convertDateTime(value, false));
         mapping.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                value ->
-                        AvroToProtoSerializerUtils.convertDateTime(
-                                value, true, "Local Timestamp(micros/millis)"));
+                value -> AvroToProtoSerializerUtils.convertDateTime(value, true));
         mapping.put("geography_wkt", AvroToProtoSerializerUtils::convertGeography);
         mapping.put("Json", AvroToProtoSerializerUtils::convertJson);
         return mapping.get(logicalTypeString);
-    }
-
-    @Override
-    public Descriptor getDescriptor() {
-        return this.descriptor;
     }
 }

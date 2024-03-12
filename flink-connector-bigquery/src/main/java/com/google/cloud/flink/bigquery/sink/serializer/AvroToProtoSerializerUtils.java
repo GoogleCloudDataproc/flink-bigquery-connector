@@ -4,8 +4,8 @@ import org.apache.flink.shaded.guava30.com.google.common.primitives.Bytes;
 
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
+import com.google.cloud.bigquery.storage.v1.CivilTimeEncoder;
 import com.google.protobuf.ByteString;
-import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.Instant;
 import org.joda.time.ReadableInstant;
@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -59,8 +58,8 @@ public class AvroToProtoSerializerUtils {
         }
     }
 
-    // BigQuery inputs timestamps as microseconds since EPOCH,
-    // So if we have TIMESTAMP as micros - we convert as it is.
+    // BigQuery inputs timestamp as microseconds since EPOCH,
+    // So if we have TIMESTAMP in micros - we convert as it is.
     // If the TIMESTAMP is in millis - we convert to Micros and then add.
     static Long convertTimestamp(Object value, boolean micros, String type) {
         long timestamp;
@@ -103,31 +102,34 @@ public class AvroToProtoSerializerUtils {
         return validateDate(date);
     }
 
-    private static LocalDateTime convertDatetimeAndTime(Object value, boolean micros, String type) {
-        // Get number of microseconds since epoch.
-        long timestamp = convertTimestamp(value, micros, type);
-        // joda-time offers millisecond precision.
-        // So, extracting time (millisecond precision) and then forming the microsecond precision
-        // time (java.time).
-        DateTime time = Instant.EPOCH.plus(TimeUnit.MICROSECONDS.toMillis(timestamp)).toDateTime();
-        return LocalDateTime.of(
-                time.getYear(),
-                time.getMonthOfYear(),
-                time.getDayOfMonth(),
-                time.hourOfDay().get(),
-                time.minuteOfHour().get(),
-                time.getSecondOfMinute(),
-                (int) (timestamp % 1000000) * 1000);
+    static String convertDateTime(Object value, boolean micros) {
+        if (value instanceof String) {
+            return (String) value;
+        }
+        if (value instanceof Long) {
+            /**
+             * Assume that it is provided in {@link CivilTimeEncoder} Encoding Microsecond Precision
+             * format
+             */
+            return CivilTimeEncoder.decodePacked64DatetimeMicros((long) value).toString();
+        }
+        throw new UnsupportedOperationException(
+                "Local Timestamp(micros/millis) value not provided in String format");
     }
 
-    static String convertDateTime(Object value, boolean micros, String type) {
-        LocalDateTime datetime = convertDatetimeAndTime(value, micros, type);
-        return datetime.toString();
-    }
-
-    static String convertTime(Object value, boolean micros, String type) {
-        LocalDateTime datetime = convertDatetimeAndTime(value, micros, type);
-        return datetime.toLocalTime().toString();
+    static String convertTime(Object value, boolean micros) {
+        if (value instanceof String) {
+            return (String) value;
+        }
+        if (value instanceof Long) {
+            /**
+             * Assume that it is provided in {@link CivilTimeEncoder} Encoding Microsecond Precision
+             * format
+             */
+            return CivilTimeEncoder.decodePacked64TimeMicros((long) value).toString();
+        }
+        throw new UnsupportedOperationException(
+                "Time(micros/millis) value not provided in String/Long format");
     }
 
     // 1. There is no way to check the precision and scale of NUMERIC/BIGNUMERIC fields,
@@ -140,37 +142,20 @@ public class AvroToProtoSerializerUtils {
         // Assuming decimal (value) comes in big-endian encoding.
         ByteBuffer byteBuffer = (ByteBuffer) value;
         // Reverse before sending to big endian convertor.
+        // decodeBigNumericByteString() assumes string to be provided in little-endian.
         byte[] byteArray = byteBuffer.array();
-        Bytes.reverse(byteArray);
-        // decodeBigNumericByteString() assumes string to be provided in little endian.
+        Bytes.reverse(byteArray); // Converted to little-endian.
         BigDecimal bigDecimal =
                 BigDecimalByteStringEncoder.decodeBigNumericByteString(
                         ByteString.copyFrom(byteArray));
         return BigDecimalByteStringEncoder.encodeToBigNumericByteString(bigDecimal);
     }
 
-    static ByteString convertDecimal(Object value) {
-        ByteBuffer byteBuffer = (ByteBuffer) value;
-        System.out.println("byteBuffer Created: " + byteBuffer);
-        byte[] byteArray = byteBuffer.array();
-        Bytes.reverse(byteArray);
-        // assumes Byte string is stored in LittleEndian encoding
-        BigDecimal bigDecimal =
-                BigDecimalByteStringEncoder.decodeNumericByteString(
-                        ByteString.copyFrom(byteBuffer.array()));
-        System.out.println("Decimal Created: " + bigDecimal);
-        return BigDecimalByteStringEncoder.encodeToNumericByteString(bigDecimal);
-    }
-
     static String convertGeography(Object value) {
         Preconditions.checkArgument(
                 value instanceof String,
                 "Expecting a value as String type (geography_wkt or geojson format).");
-        String geographyString = (String) value;
-        // TODO: add validations to check if a valid GEO-WKT or GEO-JSON Instance.
-        //        throw new IllegalArgumentException(String.format("The input string %s is not in
-        // GeoJSON or GEO-WKT Format.", geographyString));
-        return geographyString;
+        return (String) value;
     }
 
     static String convertJson(Object value) {

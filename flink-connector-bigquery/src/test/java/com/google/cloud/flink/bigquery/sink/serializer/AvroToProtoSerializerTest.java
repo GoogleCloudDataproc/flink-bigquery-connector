@@ -211,7 +211,6 @@ public class AvroToProtoSerializerTest {
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
 
-        // TODO: This is different than beam
         assertThat(descriptor.findFieldByNumber(5).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
@@ -485,7 +484,6 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testAllUnionPrimitiveSchemaConversion() throws DescriptorValidationException {
     public void testAllUnionOfPrimitiveSchemaConversion() throws DescriptorValidationException {
 
         String fieldString =
@@ -542,7 +540,6 @@ public class AvroToProtoSerializerTest {
                                 .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)
                                 .build());
 
-        // TODO: This is different than beam
         assertThat(descriptor.findFieldByNumber(5).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
@@ -622,7 +619,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testUnionofMapSchemaConversion() {
+    public void testUnionOfMapSchemaConversion() {
         String fieldString =
                 " \"fields\": [\n"
                         + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]}\n"
@@ -1393,5 +1390,22 @@ public class AvroToProtoSerializerTest {
         assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
         assertThat(fieldDescriptorProto.getLabel())
                 .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+    }
+
+    @Test
+    public void testArrayOfNullSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_of_type_null\", "
+                        + "\"type\": { \"type\": \"array\", \"items\": \"null\"}}\n"
+                        + " ]\n";
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> new AvroToProtoSerializer(avroSchema));
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("Converting AVRO type NULL to Storage API Proto type is unsupported");
     }
 }
