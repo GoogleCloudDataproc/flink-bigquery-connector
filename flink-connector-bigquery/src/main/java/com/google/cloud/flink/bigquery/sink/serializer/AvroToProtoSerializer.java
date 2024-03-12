@@ -35,15 +35,6 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
     }
 
-    /**
-     * Constructor for the Serializer.
-     *
-     * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object )
-     */
-    public AvroToProtoSerializer(TableSchema tableSchema) {
-        Schema avroSchema = getAvroSchema(tableSchema);
-    }
-
     @Override
     public ByteString serialize(GenericRecord record) throws BigQuerySerializationException {
         throw new UnsupportedOperationException("serialize method is not supported");
