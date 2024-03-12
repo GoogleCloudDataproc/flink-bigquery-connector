@@ -759,20 +759,17 @@ public class AvroToProtoSerializerTest {
     }
 
     private String getRecord(String name) {
-        String record =
-                "{\"name\": "
-                        + "\""
-                        + name
-                        + "\", "
-                        + "\"type\": \"record\", "
-                        + "\"fields\": "
-                        + "["
-                        + "{\"name\": \"value\", \"type\": \"long\"},"
-                        + "{\"name\": \"another_value\",\"type\": \"string\"}"
-                        + "]"
-                        + "}";
-
-        return record;
+        return "{\"name\": "
+                + "\""
+                + name
+                + "\", "
+                + "\"type\": \"record\", "
+                + "\"fields\": "
+                + "["
+                + "{\"name\": \"value\", \"type\": \"long\"},"
+                + "{\"name\": \"another_value\",\"type\": \"string\"}"
+                + "]"
+                + "}";
     }
 
     @Test
@@ -1298,6 +1295,7 @@ public class AvroToProtoSerializerTest {
         assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_FLOAT);
         assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
+
     @Test
     public void testMapOfArraySchemaConversion() throws DescriptorValidationException {
 
@@ -1357,8 +1355,10 @@ public class AvroToProtoSerializerTest {
         FieldDescriptorProto fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("map_in_record");
         assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(fieldDescriptorProto.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+        assertThat(fieldDescriptorProto.getType())
+                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
         assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
 
         nestedDescriptor =
@@ -1367,11 +1367,13 @@ public class AvroToProtoSerializerTest {
         assertThat(fieldDescriptorProto.getName()).isEqualTo("key");
         assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
         assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(fieldDescriptorProto.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
         fieldDescriptorProto = nestedDescriptor.findFieldByNumber(2).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("value");
         assertThat(fieldDescriptorProto.getNumber()).isEqualTo(2);
         assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
-        assertThat(fieldDescriptorProto.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
 }

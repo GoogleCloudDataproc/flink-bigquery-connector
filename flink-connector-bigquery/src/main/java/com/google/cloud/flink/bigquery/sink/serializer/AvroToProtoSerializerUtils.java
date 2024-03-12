@@ -3,10 +3,8 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 import org.apache.flink.shaded.guava30.com.google.common.primitives.Bytes;
 
 import com.google.api.client.util.Preconditions;
+import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
 import com.google.protobuf.ByteString;
-import org.apache.avro.Conversions;
-import org.apache.avro.LogicalType;
-import org.apache.avro.Schema;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.Instant;
@@ -132,15 +130,36 @@ public class AvroToProtoSerializerUtils {
         return datetime.toLocalTime().toString();
     }
 
-    static ByteString convertDecimal(LogicalType logicalType, Object value) {
+    // 1. There is no way to check the precision and scale of NUMERIC/BIGNUMERIC fields,
+    // so we can just check by the maximum value.
+    // 2. decimal() logical type is mapped to BIGNUMERIC bigquery field.
+    // So in case we attempt to add decimal with precision >9 to a NUMERIC BQ field.
+    // The .append() method would be responsible for the error.
+    // .serialise() would successfully serialise it without any error indications.
+    static ByteString convertBigDecimal(Object value) {
+        // Assuming decimal (value) comes in big-endian encoding.
         ByteBuffer byteBuffer = (ByteBuffer) value;
+        // Reverse before sending to big endian convertor.
+        byte[] byteArray = byteBuffer.array();
+        Bytes.reverse(byteArray);
+        // decodeBigNumericByteString() assumes string to be provided in little endian.
         BigDecimal bigDecimal =
-                new Conversions.DecimalConversion()
-                        .fromBytes(
-                                byteBuffer.duplicate(),
-                                Schema.create(Schema.Type.NULL), // dummy schema, not used
-                                logicalType);
-        return serializeBigDecimalToNumeric(bigDecimal);
+                BigDecimalByteStringEncoder.decodeBigNumericByteString(
+                        ByteString.copyFrom(byteArray));
+        return BigDecimalByteStringEncoder.encodeToBigNumericByteString(bigDecimal);
+    }
+
+    static ByteString convertDecimal(Object value) {
+        ByteBuffer byteBuffer = (ByteBuffer) value;
+        System.out.println("byteBuffer Created: " + byteBuffer);
+        byte[] byteArray = byteBuffer.array();
+        Bytes.reverse(byteArray);
+        // assumes Byte string is stored in LittleEndian encoding
+        BigDecimal bigDecimal =
+                BigDecimalByteStringEncoder.decodeNumericByteString(
+                        ByteString.copyFrom(byteBuffer.array()));
+        System.out.println("Decimal Created: " + bigDecimal);
+        return BigDecimalByteStringEncoder.encodeToNumericByteString(bigDecimal);
     }
 
     static String convertGeography(Object value) {
@@ -165,35 +184,5 @@ public class AvroToProtoSerializerUtils {
                     String.format("The input string %s is not in valid JSON Format.", jsonString));
         }
         return jsonString;
-    }
-
-    static ByteString serializeBigDecimalToNumeric(BigDecimal o) {
-        final int numericScale = 9;
-        // Maximum and minimum allowed values for the NUMERIC data type.
-        final BigDecimal maxNumericValue =
-                new BigDecimal("99999999999999999999999999999.999999999");
-        final BigDecimal minNumericValue =
-                new BigDecimal("-99999999999999999999999999999.999999999");
-        return serializeBigDecimal(o, numericScale, maxNumericValue, minNumericValue, "Numeric");
-    }
-
-    private static ByteString serializeBigDecimal(
-            BigDecimal v, int scale, BigDecimal maxValue, BigDecimal minValue, String typeName) {
-        if (v.scale() > scale) {
-            throw new IllegalArgumentException(
-                    typeName + " scale cannot exceed " + scale + ": " + v.toPlainString());
-        }
-        if (v.compareTo(maxValue) > 0 || v.compareTo(minValue) < 0) {
-            throw new IllegalArgumentException(typeName + " overflow: " + v.toPlainString());
-        }
-
-        byte[] bytes = v.setScale(scale).unscaledValue().toByteArray();
-        // NUMERIC/BIGNUMERIC values are serialized as scaled integers in two's complement form in
-        // little endian
-        // order. BigInteger requires the same encoding but in big endian order, therefore we must
-        // reverse the bytes that come from the proto.
-        // TODO: Remove guava dependency.
-        Bytes.reverse(bytes);
-        return ByteString.copyFrom(bytes);
     }
 }

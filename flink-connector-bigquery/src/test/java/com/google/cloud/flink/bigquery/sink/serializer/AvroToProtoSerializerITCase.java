@@ -565,8 +565,32 @@ public class AvroToProtoSerializerITCase {
         assertThat(response).isNotNull();
     }
 
-    @Test
-    public void readRows() throws Exception {
+    //    @Test
+    //    public void readRows() throws Exception {
+    //
+    //        BigQueryReadOptions writeOptions =
+    //                BigQueryReadOptions.builder()
+    //                        .setBigQueryConnectOptions(
+    //                                BigQueryConnectOptions.builder()
+    //                                        .setProjectId("bqrampupprashasti")
+    //                                        .setDataset("testing_dataset")
+    //                                        .setTable("bignumeric")
+    //                                        .build())
+    //                        .build();
+    //        final StreamExecutionEnvironment env =
+    // StreamExecutionEnvironment.getExecutionEnvironment();
+    //        System.out.println("env formed");
+    //        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(writeOptions);
+    //        System.out.println("source formed");
+    //        List<GenericRecord> list =
+    //                env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
+    //                        .executeAndCollect(100);
+    //        for (GenericRecord element : list) {
+    //            System.out.println(element);
+    //        }
+    //    }
+
+    private static List<GenericRecord> getRows(String tableId) throws Exception {
 
         BigQueryReadOptions writeOptions =
                 BigQueryReadOptions.builder()
@@ -574,18 +598,40 @@ public class AvroToProtoSerializerITCase {
                                 BigQueryConnectOptions.builder()
                                         .setProjectId("bqrampupprashasti")
                                         .setDataset("testing_dataset")
-                                        .setTable("time")
+                                        .setTable(tableId)
                                         .build())
                         .build();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        System.out.println("env formed");
         BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(writeOptions);
-        System.out.println("source formed");
-        List<GenericRecord> list =
-                env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                        .executeAndCollect(100);
-        for (GenericRecord element : list) {
-            System.out.println(element);
+        return env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
+                .executeAndCollect(100);
+    }
+
+    @Test
+    public void testDecimalSchemaConversion() throws Exception {
+        String tableId = "numeric";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"bignumeric\", \"type\": {\"type\":"
+                        + "\"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\":"
+                        + " 2}}\n"
+                        + " ]\n";
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer(avroSchema);
+        ProtoRows.Builder protoRowsBuilder = ProtoRows.newBuilder();
+
+        List<GenericRecord> list = getRows(tableId);
+        for (GenericRecord record : list) {
+            System.out.println("Record read: [" + record + "]");
+            GenericRecord ele = StorageClientFaker.createRecord(avroSchema);
+            ele.put("bignumeric", record.get("numeric"));
+            System.out.println("Record to write: [" + ele + "]");
+            protoRowsBuilder.addSerializedRows(serializer.serialize(ele));
         }
+        ProtoRows rowsToAppend = protoRowsBuilder.build();
+        StreamWriter streamWriter = getStreamWriter("bignumeric", serializer);
+        AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
+        streamWriter.close();
+        assertThat(response).isNotNull();
     }
 }

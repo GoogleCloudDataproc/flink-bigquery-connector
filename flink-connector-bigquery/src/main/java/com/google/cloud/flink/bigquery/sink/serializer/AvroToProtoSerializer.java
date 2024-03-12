@@ -24,9 +24,9 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
@@ -93,6 +93,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             initializeLogicalAvroFieldToFieldDescriptorTypes() {
         Map<String, FieldDescriptorProto.Type> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), FieldDescriptorProto.Type.TYPE_INT32);
+        // assumes big-endian encoding for this.
         mapping.put(LogicalTypes.decimal(1).getName(), FieldDescriptorProto.Type.TYPE_BYTES);
         mapping.put(LogicalTypes.timestampMicros().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         mapping.put(LogicalTypes.timestampMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
@@ -521,8 +522,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), AvroToProtoSerializerUtils::convertDate);
         mapping.put(
-                LogicalTypes.decimal(1).getName(),
-                value -> AvroToProtoSerializerUtils.convertDecimal(LogicalTypes.decimal(1), value));
+                LogicalTypes.decimal(1).getName(), AvroToProtoSerializerUtils::convertBigDecimal);
         mapping.put(
                 LogicalTypes.timestampMicros().getName(),
                 value ->
