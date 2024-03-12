@@ -24,8 +24,8 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.LogicalType;
@@ -37,6 +37,7 @@ import org.apache.avro.generic.GenericRecord;
 import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -376,7 +377,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      *
      * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object )
      */
-    public AvroToProtoSerializer(TableSchema tableSchema) throws DescriptorValidationException {
+    public AvroToProtoSerializer(TableSchema tableSchema)
+            throws Descriptors.DescriptorValidationException {
         Schema avroSchema = getAvroSchema(tableSchema);
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
         this.descriptor = BigQueryProtoSerializer.getDescriptorFromDescriptorProto(descriptorProto);
@@ -556,5 +558,10 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         mapping.put("geography_wkt", AvroToProtoSerializerUtils::convertGeography);
         mapping.put("Json", AvroToProtoSerializerUtils::convertJson);
         return mapping.get(logicalTypeString);
+    }
+
+    @Override
+    public Descriptor getDescriptor() {
+        return this.descriptor;
     }
 }
