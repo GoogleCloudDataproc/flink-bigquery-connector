@@ -3,6 +3,8 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 import org.joda.time.Instant;
 import org.junit.Test;
 
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,6 +78,17 @@ public class AvroToProtoSerializerUtilsTest {
         assertThrows(
                 ClassCastException.class,
                 () -> AvroToProtoSerializerUtils.convertBigDecimal(value));
+
+        BigDecimal bigDecimal =
+                new BigDecimal(
+                        "5789604461865805559771174925043439539266.349923328202820554419728792395656481996700");
+        // Form byte array in big-endian order.
+        Object byteBuffer = ByteBuffer.wrap(bigDecimal.unscaledValue().toByteArray());
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializerUtils.convertBigDecimal(byteBuffer));
+        assertThat(exception).hasMessageContaining("BigDecimal overflow:");
     }
 
     @Test

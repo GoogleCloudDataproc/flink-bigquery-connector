@@ -1,11 +1,10 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import org.apache.flink.shaded.guava30.com.google.common.primitives.Bytes;
-
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
 import com.google.cloud.bigquery.storage.v1.CivilTimeEncoder;
 import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.ArrayUtils;
 import org.joda.time.Days;
 import org.joda.time.Instant;
 import org.joda.time.ReadableInstant;
@@ -144,7 +143,7 @@ public class AvroToProtoSerializerUtils {
         // Reverse before sending to big endian convertor.
         // decodeBigNumericByteString() assumes string to be provided in little-endian.
         byte[] byteArray = byteBuffer.array();
-        Bytes.reverse(byteArray); // Converted to little-endian.
+        ArrayUtils.reverse(byteArray); // Converted to little-endian.
         BigDecimal bigDecimal =
                 BigDecimalByteStringEncoder.decodeBigNumericByteString(
                         ByteString.copyFrom(byteArray));
