@@ -19,13 +19,7 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.api.connector.sink2.Committer;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
-import com.google.api.gax.retrying.RetrySettings;
-import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
-import com.google.cloud.bigquery.storage.v1.StreamWriter;
-import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.services.BigQueryServices;
-import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittable;
 import com.google.cloud.flink.bigquery.sink.committable.BigQueryCommittableSerializer;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
@@ -52,46 +46,22 @@ class ExactlyOnceSink<IN> extends AbstractSink<IN> implements TwoPhaseCommitting
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
             createWriter(InitContext context) throws IOException {
         writerCount++;
-        LOG.info(Thread.currentThread().getId() + ": Calling createWriter " + writerCount);
+        LOG.info("Calling createWriter " + context.getSubtaskId());
         super.validateParallelism(context);
-        try (BigQueryServices.StorageWriteClient writeClient =
-                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
-            String writeStreamName =
-                    writeClient
-                            .createWriteStream(
-                                    CreateWriteStreamRequest.newBuilder()
-                                            .setParent(tablePath)
-                                            .setWriteStream(
-                                                    WriteStream.newBuilder()
-                                                            .setType(WriteStream.Type.BUFFERED)
-                                                            .build())
-                                            .build())
-                            .getName();
-            StreamWriter streamWriter =
-                    writeClient.createStreamWriter(
-                            protoSchema, RetrySettings.newBuilder().build(), writeStreamName);
-            LOG.info(
-                    Thread.currentThread().getId()
-                            + ": Created writer for stream "
-                            + writeStreamName);
-            return new BigQueryBufferedWriter(streamWriter);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    Thread.currentThread().getId() + ": Failed to create writer", e);
-        }
+        return new BigQueryBufferedWriter(
+                context.getSubtaskId(), connectOptions, tablePath, protoSchema);
     }
 
     @Override
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
             restoreWriter(InitContext context, Collection<BigQueryWriterState> recoveredStates)
                     throws IOException {
-        LOG.info(Thread.currentThread().getId() + ": Calling restoreWriter");
+        LOG.info("Calling restoreWriter " + context.getSubtaskId());
         return createWriter(context);
     }
 
     @Override
     public Committer<BigQueryCommittable> createCommitter() throws IOException {
-        LOG.info(Thread.currentThread().getId() + ": Calling createCommitter");
         return new BigQueryCommitter(connectOptions);
     }
 

@@ -21,11 +21,11 @@ public class BigQuerySink {
                         sinkConfig.maxParallelism);
         // validate restart strategy
         env.setRestartStrategy(sinkConfig.restartStrategy);
-        if (sinkConfig.maxParallelism > 10000
+        if (sinkConfig.maxParallelism > 1000
                 || sinkConfig.parallelism > sinkConfig.maxParallelism) {
             throw new IllegalArgumentException("Invalid sink parallelism configured");
         }
-        dataStream.rebalance().sinkTo(bqSink).setParallelism(sinkConfig.parallelism);
+        dataStream.sinkTo(bqSink).setParallelism(sinkConfig.parallelism);
     }
 
     private static Sink createSink(

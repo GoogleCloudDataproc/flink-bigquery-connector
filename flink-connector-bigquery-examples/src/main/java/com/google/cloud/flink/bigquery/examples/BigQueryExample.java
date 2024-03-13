@@ -139,7 +139,7 @@ public class BigQueryExample {
         String projectName = parameterTool.getRequired("gcp-project");
         String query = parameterTool.get("query", "");
         Integer recordLimit = parameterTool.getInt("limit", -1);
-        Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 60000L);
+        Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 30000L);
         if (!query.isEmpty()) {
             runQueryFlinkJob(projectName, query, recordLimit, checkpointInterval);
             return;
@@ -172,7 +172,7 @@ public class BigQueryExample {
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
                 boolean exactlyOnceSink = parameterTool.getBoolean("exactly-once", false);
                 String destTable = parameterTool.getRequired("destination-table");
-                Integer parallelism = Integer.valueOf(parameterTool.getRequired("parallelism"));
+                Integer parallelism = parameterTool.getInt("sink-parallelism", 100);
                 runStreamingFlinkJob(
                         projectName,
                         datasetName,
@@ -316,7 +316,7 @@ public class BigQueryExample {
             Integer windowSize,
             boolean exactlyOnceSink,
             String destTable,
-            int parallelism)
+            int sinkParallelism)
             throws Exception {
 
         BigQueryConnectOptions bqConnectOptions =
@@ -338,16 +338,14 @@ public class BigQueryExample {
 
         BigQuerySinkConfigurations sinkConfig =
                 new BigQuerySinkConfigurations(
-                        parallelism,
-                        100,
+                        sinkParallelism,
+                        200,
                         BigQueryConnectOptions.builder()
                                 .setProjectId(projectName)
                                 .setDataset("sink_test_data")
                                 .setTable(destTable)
                                 .build(),
-                        exactlyOnceSink
-                                ? DeliveryGuarantee.EXACTLY_ONCE
-                                : DeliveryGuarantee.AT_LEAST_ONCE,
+                        DeliveryGuarantee.EXACTLY_ONCE,
                         RestartStrategies.fixedDelayRestart(3, Time.of(10, TimeUnit.SECONDS)));
 
         runJob(
