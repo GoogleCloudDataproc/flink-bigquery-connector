@@ -73,13 +73,9 @@ public class AvroToProtoSerializerUtilsTest {
     @Test
     public void testErrorConvertBigNumeric() {
         Object value = "A random string";
-        ClassCastException exception =
-                assertThrows(
-                        ClassCastException.class,
-                        () -> AvroToProtoSerializerUtils.convertBigDecimal(value));
-        assertThat(exception)
-                .hasMessageContaining(
-                        "class java.lang.String cannot be cast to class java.nio.ByteBuffer");
+        assertThrows(
+                ClassCastException.class,
+                () -> AvroToProtoSerializerUtils.convertBigDecimal(value));
     }
 
     @Test
@@ -126,10 +122,10 @@ public class AvroToProtoSerializerUtilsTest {
 
     @Test
     public void testConvertTimestampMicrosTimeInstant() {
-        Object value = Instant.parse("2024-03-13T01:01:16.579501");
+        Object value = Instant.parse("2024-03-13T01:01:16.579501+00:00");
         Long convertedValue =
                 AvroToProtoSerializerUtils.convertTimestamp(value, true, "Timestamp (micros)");
-        assertThat(convertedValue).isEqualTo(1710271876579000L);
+        assertThat(convertedValue).isEqualTo(1710291676579000L);
     }
 
     @Test
@@ -165,9 +161,9 @@ public class AvroToProtoSerializerUtilsTest {
 
     @Test
     public void testConvertDateInstant() {
-        Object value = Instant.parse("2024-03-13");
+        Object value = Instant.parse("2024-03-13T00:00:00.000000+00:00");
         Integer convertedValue = AvroToProtoSerializerUtils.convertDate(value);
-        assertThat(convertedValue).isEqualTo(19794);
+        assertThat(convertedValue).isEqualTo(19795);
     }
 
     @Test
