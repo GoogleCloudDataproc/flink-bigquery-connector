@@ -36,7 +36,6 @@ import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
@@ -48,7 +47,7 @@ import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
-import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
@@ -303,15 +302,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
         @Override
         public TableSchema getTableSchema(String project, String dataset, String table) {
-            return Optional.ofNullable(bigQuery.getTable(TableId.of(project, dataset, table)))
-                    .map(t -> t.getDefinition().getSchema())
-                    .map(schema -> SchemaTransform.bigQuerySchemaToTableSchema(schema))
-                    .orElseThrow(
-                            () ->
-                                    new IllegalArgumentException(
-                                            String.format(
-                                                    "The provided table %s.%s.%s does not exists.",
-                                                    project, dataset, table)));
+            return BigQueryTableInfo.getSchema(bigQuery, project, dataset, table);
         }
 
         @Override
