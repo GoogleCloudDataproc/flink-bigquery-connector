@@ -74,7 +74,6 @@ public class SchemaTransform {
         mapping.put("DATETIME", Arrays.asList(Schema.Type.STRING));
         mapping.put("TIME", Arrays.asList(Schema.Type.STRING, Schema.Type.LONG));
         mapping.put("JSON", Arrays.asList(Schema.Type.STRING));
-
         return mapping;
     }
 
@@ -225,6 +224,20 @@ public class SchemaTransform {
                 Schema geoSchema = Schema.create(Schema.Type.STRING);
                 geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
                 return geoSchema;
+            case "JSON":
+                Schema jsonSchema = Schema.create(Schema.Type.STRING);
+                jsonSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "Json");
+                return jsonSchema;
+            case "TIME":
+                return LogicalTypes.timeMicros().addToSchema(Schema.create(Schema.Type.LONG));
+            case "DATETIME":
+                Schema datetimeSchema = Schema.create(Schema.Type.STRING);
+                datetimeSchema.addProp(
+                        LogicalType.LOGICAL_TYPE_PROP,
+                        LogicalTypes.localTimestampMicros().getName());
+                return datetimeSchema;
+            case "DATE":
+                return LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT));
             default:
                 return Schema.create(avroType);
         }
