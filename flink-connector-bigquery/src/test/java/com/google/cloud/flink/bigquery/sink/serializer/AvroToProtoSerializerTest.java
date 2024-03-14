@@ -154,27 +154,7 @@ public class AvroToProtoSerializerTest {
         return new Schema.Parser().parse(avroSchemaString);
     }
 
-    @Test
-    public void testAllPrimitiveSchemaConversion() throws DescriptorValidationException {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"name\", \"type\": \"string\"},\n"
-                        + "   {\"name\": \"number\", \"type\": \"long\"},\n"
-                        + "   {\"name\": \"quantity\", \"type\": \"int\"},\n"
-                        + "   {\"name\": \"fixed_field\", \"type\": {\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }},\n"
-                        + "   {\"name\": \"price\", \"type\": \"float\"},\n"
-                        + "   {\"name\": \"double_field\", \"type\": \"double\"},\n"
-                        + "   {\"name\": \"boolean_field\", \"type\": \"boolean\"},\n"
-                        + "   {\"name\": \"enum_field\", \"type\": {\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}},\n"
-                        + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
-
+    private void assertPrimitive(Descriptor descriptor) {
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
@@ -255,6 +235,52 @@ public class AvroToProtoSerializerTest {
                                 .setNumber(9)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
+    }
+
+    @Test
+    public void testAllPrimitiveSchemaConversion() throws DescriptorValidationException {
+
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"name\", \"type\": \"string\"},\n"
+                        + "   {\"name\": \"number\", \"type\": \"long\"},\n"
+                        + "   {\"name\": \"quantity\", \"type\": \"int\"},\n"
+                        + "   {\"name\": \"fixed_field\", \"type\": {\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }},\n"
+                        + "   {\"name\": \"price\", \"type\": \"float\"},\n"
+                        + "   {\"name\": \"double_field\", \"type\": \"double\"},\n"
+                        + "   {\"name\": \"boolean_field\", \"type\": \"boolean\"},\n"
+                        + "   {\"name\": \"enum_field\", \"type\": {\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}},\n"
+                        + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        assertPrimitive(descriptor);
+    }
+
+    @Test
+    public void testAllPrimitiveSingleUnionSchemaConversion() throws DescriptorValidationException {
+
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"name\", \"type\": [\"string\"]},\n"
+                        + "   {\"name\": \"number\", \"type\": [\"long\"]},\n"
+                        + "   {\"name\": \"quantity\", \"type\": [\"int\"]},\n"
+                        + "   {\"name\": \"fixed_field\", \"type\": [{\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }]},\n"
+                        + "   {\"name\": \"price\", \"type\": [\"float\"]},\n"
+                        + "   {\"name\": \"double_field\", \"type\": [\"double\"]},\n"
+                        + "   {\"name\": \"boolean_field\", \"type\": [\"boolean\"]},\n"
+                        + "   {\"name\": \"enum_field\", \"type\": [{\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}]},\n"
+                        + "   {\"name\": \"byte_field\", \"type\": [\"bytes\"]}\n"
+                        + " ]\n";
+
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
+                new AvroToProtoSerializer(avroSchema);
+        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        assertPrimitive(descriptor);
     }
 
     @Test
