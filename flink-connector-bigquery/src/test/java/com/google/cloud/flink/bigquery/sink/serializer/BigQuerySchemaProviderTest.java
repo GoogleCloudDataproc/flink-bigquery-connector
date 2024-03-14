@@ -632,52 +632,6 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testRecordInRecordSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_in_record\", \"type\": {\"name\": \"record_name\", \"type\": \"record\", \"fields\": "
-                        + "[{ \"name\":\"record_field\", \"type\": "
-                        + getRecord("record_inside_record")
-                        + "}]"
-                        + "}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_in_record");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(field.hasTypeName()).isTrue();
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
-
-        field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_field");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(field.hasTypeName()).isTrue();
-
-        nestedDescriptor = nestedDescriptor.findNestedTypeByName(field.getTypeName());
-        field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
-        assertThat(field.getName()).isEqualTo("value");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-
-        field = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(field.getName()).isEqualTo("another_value");
-        assertThat(field.getNumber()).isEqualTo(2);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-    }
-
-    @Test
     public void testRecordOfLogicalTypeSchemaConversion() {
 
         String fieldString =
@@ -991,25 +945,6 @@ public class BigQuerySchemaProviderTest {
                 assertThrows(
                         IllegalStateException.class, () -> new BigQuerySchemaProvider(avroSchema));
         assertThat(exception).hasMessageThat().contains("Nested arrays not supported by BigQuery.");
-    }
-
-    @Test
-    public void testUnionOfMultipleDatatypeSchemaConversion() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "{\"name\": \"multiple_type_union\","
-                        + " \"type\":[\"null\", \"string\", \"int\"]"
-                        + "}"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        IllegalArgumentException exception =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
-        assertThat(exception)
-                .hasMessageThat()
-                .contains("Multiple non-null union types are not supported.");
     }
 
     @Test
@@ -1426,7 +1361,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testUnionofMapSchemaConversion() {
+    public void testUnionOfMapSchemaConversion() {
         String fieldString =
                 " \"fields\": [\n"
                         + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]}\n"

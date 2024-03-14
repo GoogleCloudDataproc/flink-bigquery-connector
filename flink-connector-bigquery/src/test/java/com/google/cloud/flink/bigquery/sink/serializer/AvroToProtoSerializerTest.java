@@ -32,5 +32,4 @@ public class AvroToProtoSerializerTest {
                         () -> new AvroToProtoSerializer().serialize(null));
         assertThat(exception).hasMessageThat().contains("serialize method is not supported");
     }
-
 }
