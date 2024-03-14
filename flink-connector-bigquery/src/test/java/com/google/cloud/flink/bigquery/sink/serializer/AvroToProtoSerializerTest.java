@@ -175,7 +175,6 @@ public class AvroToProtoSerializerTest {
                 AvroToProtoSerializerTestUtils.testRecordOfRecordSchemaConversion().getSchema();
     }
 
-    // TODO: Till here. -------
     @Test
     public void testMapOfUnionTypeSchemaConversion() {
         Descriptor descriptor =

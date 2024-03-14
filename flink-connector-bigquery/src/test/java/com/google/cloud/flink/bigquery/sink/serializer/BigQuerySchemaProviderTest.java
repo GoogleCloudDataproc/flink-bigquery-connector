@@ -734,7 +734,6 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
 
-    // TODO: Till here. -------
     @Test
     public void testMapOfUnionTypeSchemaConversion() {
         Descriptor descriptor =
