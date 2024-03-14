@@ -403,7 +403,12 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
 
     @Override
     public ByteString serialize(GenericRecord record) throws BigQuerySerializationException {
-        return getDynamicMessageFromGenericRecord(record, this.descriptor).toByteString();
+        try {
+            return getDynamicMessageFromGenericRecord(record, this.descriptor).toByteString();
+        }
+        catch (Exception e){
+            throw new BigQuerySerializationException(e.getMessage(), e);
+        }
     }
 
     @Override
@@ -483,7 +488,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                         .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
                         .collect(Collectors.toList());
             case UNION:
-                Schema type = handleUnionSchema(avroSchema);
+                Schema type = handleUnionSchema(avroSchema).getLeft();
                 // Get the schema of the field.
                 return toProtoValue(fieldDescriptor, type, value);
             case MAP:
