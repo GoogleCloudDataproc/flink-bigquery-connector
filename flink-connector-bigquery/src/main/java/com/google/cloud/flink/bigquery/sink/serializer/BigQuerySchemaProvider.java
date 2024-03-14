@@ -17,6 +17,7 @@ import com.google.protobuf.Descriptors.FileDescriptor;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import javax.annotation.Nullable;
 
@@ -36,6 +37,8 @@ import java.util.stream.Collectors;
  * formation of the Descriptors which is essential for Proto Rows formation.
  */
 public class BigQuerySchemaProvider {
+
+    private Schema avroSchema;
     private DescriptorProto descriptorProto;
     private Descriptor descriptor;
 
@@ -48,6 +51,10 @@ public class BigQuerySchemaProvider {
 
     public Descriptor getDescriptor() {
         return descriptor;
+    }
+
+    public Schema getSchema() {
+        return this.avroSchema;
     }
 
     public BigQuerySchemaProvider(BigQueryConnectOptions connectOptions) {
@@ -72,8 +79,9 @@ public class BigQuerySchemaProvider {
      * @param schema of type UNION to check and derive.
      * @return Schema of the OPTIONAL field.
      */
-    public static Schema handleUnionSchema(Schema schema) {
+    public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema) {
         Schema elementType = schema;
+        boolean isNullable = true;
         List<Schema> types = elementType.getTypes();
         // don't need recursion because nested unions aren't supported in AVRO
         // Extract all the nonNull Datatypes.
@@ -86,7 +94,12 @@ public class BigQuerySchemaProvider {
 
         if (nonNullSchemaTypesSize == 1) {
             elementType = nonNullSchemaTypes.get(0);
-            return elementType;
+            if (nonNullSchemaTypesSize == types.size()) {
+                // Case, when there is only a single type in UNION.
+                // Then it is essentially the same as not having a UNION.
+                isNullable = false;
+            }
+            return new ImmutablePair<>(elementType, isNullable);
         } else {
             throw new IllegalArgumentException("Multiple non-null union types are not supported.");
         }
@@ -167,7 +180,7 @@ public class BigQuerySchemaProvider {
      * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object)
      */
     private BigQuerySchemaProvider getBigQuerySchemaProvider(TableSchema tableSchema) {
-        Schema avroSchema = getAvroSchema(tableSchema);
+        this.avroSchema = getAvroSchema(tableSchema);
         return this.getBigQuerySchemaProvider(avroSchema);
     }
 
@@ -267,16 +280,18 @@ public class BigQuerySchemaProvider {
                 // ["null", something1, something2], [something1, something2] -
                 // Are invalid types
                 // not supported in BQ
-                elementType = handleUnionSchema(schema);
+                ImmutablePair<Schema, Boolean> handleUnionSchemaResult = handleUnionSchema(schema);
+                elementType = handleUnionSchemaResult.getLeft();
                 // either the field is nullable or error would be thrown.
-                isNullable = true;
+                isNullable = handleUnionSchemaResult.getRight();
                 if (elementType == null) {
                     throw new IllegalArgumentException("Unexpected null element type!");
                 }
-                if (elementType.getType() == Schema.Type.MAP
-                        || elementType.getType() == Schema.Type.ARRAY) {
+                if (isNullable
+                        && (elementType.getType() == Schema.Type.MAP
+                                || elementType.getType() == Schema.Type.ARRAY)) {
                     throw new UnsupportedOperationException(
-                            "MAP/ARRAYS in UNION types are not supported");
+                            "NULLABLE MAP/ARRAYS in UNION types are not supported");
                 }
                 DescriptorProto.Builder unionFieldBuilder = DescriptorProto.newBuilder();
                 fieldDescriptorFromSchemaField(
