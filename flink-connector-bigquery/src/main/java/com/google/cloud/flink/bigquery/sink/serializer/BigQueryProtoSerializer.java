@@ -18,13 +18,6 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.DescriptorProtos.DescriptorProto;
-import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
-import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
-import com.google.protobuf.Descriptors.FileDescriptor;
-
-import java.util.List;
 
 /**
  * Interface for defining a Flink record to BigQuery proto serializer.
@@ -34,31 +27,4 @@ import java.util.List;
 public interface BigQueryProtoSerializer<IN> {
 
     ByteString serialize(IN record) throws BigQuerySerializationException;
-
-    DescriptorProto getDescriptorProto();
-
-    Descriptor getDescriptor();
-
-    /**
-     * Function to convert the {@link DescriptorProto} Type to {@link Descriptor}.This is necessary
-     * as a Descriptor is needed for DynamicMessage (used to write to Storage API).
-     *
-     * @param descriptorProto input which needs to be converted to a Descriptor.
-     * @return Descriptor obtained form the input DescriptorProto
-     * @throws DescriptorValidationException in case the conversion is not possible.
-     */
-    static Descriptor getDescriptorFromDescriptorProto(DescriptorProto descriptorProto)
-            throws DescriptorValidationException {
-        FileDescriptorProto fileDescriptorProto =
-                FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build();
-        FileDescriptor fileDescriptor =
-                FileDescriptor.buildFrom(fileDescriptorProto, new FileDescriptor[0]);
-        List<Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
-        if (descriptorTypeList.size() == 1) {
-            return descriptorTypeList.get(0);
-        } else {
-            throw new IllegalArgumentException(
-                    String.format("Expected one element but was %s", descriptorTypeList));
-        }
-    }
 }
