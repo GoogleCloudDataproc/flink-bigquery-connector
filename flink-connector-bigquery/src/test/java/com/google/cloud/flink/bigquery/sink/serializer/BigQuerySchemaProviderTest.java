@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.assertExpectedUnsupportedException;
 import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getAvroSchemaFromFieldString;
 import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getRecord;
 import static com.google.common.truth.Truth.assertThat;
@@ -148,6 +147,79 @@ public class BigQuerySchemaProviderTest {
                                 .setType(FieldDescriptorProto.Type.TYPE_STRING)
                                 .setName("species")
                                 .setNumber(1)
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
+                                .build());
+    }
+
+    @Test
+    public void testLogicalTypesConversion() {
+        List<TableFieldSchema> fields =
+                Arrays.asList(
+                        new TableFieldSchema()
+                                .setName("timestamp")
+                                .setType("TIMESTAMP")
+                                .setMode("NULLABLE"),
+                        new TableFieldSchema()
+                                .setName("numeric_field")
+                                .setType("NUMERIC")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("bignumeric_field")
+                                .setType("BIGNUMERIC")
+                                .setMode("NULLABLE"),
+                        new TableFieldSchema()
+                                .setName("geography")
+                                .setType("GEOGRAPHY")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema().setName("Json").setType("JSON").setMode("REQUIRED"));
+
+        TableSchema tableSchema = new TableSchema().setFields(fields);
+
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+
+        assertThat(descriptor.findFieldByNumber(1).toProto())
+                .isEqualTo(
+                        FieldDescriptorProto.newBuilder()
+                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("timestamp")
+                                .setNumber(1)
+                                .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .build());
+
+        assertThat(descriptor.findFieldByNumber(2).toProto())
+                .isEqualTo(
+                        FieldDescriptorProto.newBuilder()
+                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                                .setName("numeric_field")
+                                .setNumber(2)
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
+                                .build());
+
+        assertThat(descriptor.findFieldByNumber(3).toProto())
+                .isEqualTo(
+                        FieldDescriptorProto.newBuilder()
+                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                                .setName("bignumeric_field")
+                                .setNumber(3)
+                                .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .build());
+
+        assertThat(descriptor.findFieldByNumber(4).toProto())
+                .isEqualTo(
+                        FieldDescriptorProto.newBuilder()
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("geography")
+                                .setNumber(4)
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
+                                .build());
+
+        assertThat(descriptor.findFieldByNumber(5).toProto())
+                .isEqualTo(
+                        FieldDescriptorProto.newBuilder()
+                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("json")
+                                .setNumber(5)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
     }
@@ -1125,7 +1197,105 @@ public class BigQuerySchemaProviderTest {
         assertThat(fieldDescriptor.getDefaultValue()).isEqualTo(true);
     }
 
+    @Test
+    public void testArrayAndRequiredTypesConversion() {
+        // optional_record_field ->
+        // date -> ARRAY of type DATE
+        // timestamp -> OPTIONAL field of type TIMESTAMP
+        // datetime_record -> ARRAY of type RECORD "subFieldRecord"
+        // subFieldRecord ->
+        // datetime -> ARRAY of type DATETIME
+
+        List<TableFieldSchema> subFieldRecord =
+                Arrays.asList(
+                        new TableFieldSchema()
+                                .setName("datetime")
+                                .setType("DATETIME")
+                                .setMode("REPEATED"),
+                        new TableFieldSchema().setName("time").setType("TIME").setMode("NULLABLE"));
+
+        List<TableFieldSchema> subFields =
+                Arrays.asList(
+                        new TableFieldSchema().setName("date").setType("DATE").setMode("REPEATED"),
+                        new TableFieldSchema()
+                                .setName("timestamp")
+                                .setType("TIMESTAMP")
+                                .setMode("NULLABLE"),
+                        new TableFieldSchema()
+                                .setName("datetime_record")
+                                .setType("RECORD")
+                                .setMode("REPEATED")
+                                .setFields(subFieldRecord));
+
+        List<TableFieldSchema> fields =
+                Collections.singletonList(
+                        new TableFieldSchema()
+                                .setName("optional_record_field")
+                                .setType("RECORD")
+                                .setMode("NULLABLE")
+                                .setFields(subFields));
+
+        TableSchema tableSchema = new TableSchema().setFields(fields);
+
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+
+        FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptorProto.getType())
+                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("optional_record_field");
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+
+        Descriptor nestedDescriptor =
+                descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
+        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT32);
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("date");
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+
+        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(2).toProto();
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("timestamp");
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+
+        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(3).toProto();
+        assertThat(fieldDescriptorProto.getType())
+                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("datetime_record");
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+
+        nestedDescriptor =
+                nestedDescriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
+        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("datetime");
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+
+        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(2).toProto();
+        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
+        assertThat(fieldDescriptorProto.getName()).isEqualTo("time");
+        assertThat(fieldDescriptorProto.getLabel())
+                .isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+    }
+
     // -------- Tests to Check Unsupported Features ------------
+    public static void assertExpectedUnsupportedException(
+            String fieldString, String expectedError) {
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> new BigQuerySchemaProvider(avroSchema));
+        assertThat(exception).hasMessageThat().contains(expectedError);
+    }
+
     @Test
     public void testArrayOfMapSchemaConversion() {
         String fieldString =

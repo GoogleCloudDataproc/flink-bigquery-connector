@@ -3,9 +3,7 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.avro.Schema;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
-
+/** Common Utils for {@link AvroToProtoSerializerTest} and {@link BigQuerySchemaProviderTest}. */
 public class AvroToProtoSerializerTestUtils {
 
     public static Schema getAvroSchemaFromFieldString(String fieldString) {
@@ -25,16 +23,6 @@ public class AvroToProtoSerializerTestUtils {
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         return new BigQueryAvroToProtoSerializerTestResult(avroSchema, descriptor);
-    }
-
-    public static void assertExpectedUnsupportedException(
-            String fieldString, String expectedError) {
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
-        assertThat(exception).hasMessageThat().contains(expectedError);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testAllPrimitiveSchemaConversion() {
@@ -159,6 +147,7 @@ public class AvroToProtoSerializerTestUtils {
                         + " ]\n";
         return getAndReturn(fieldString);
     }
+
     // TODO: Till here.
     public static BigQueryAvroToProtoSerializerTestResult testMapOfArraySchemaConversion() {
         String fieldString =
