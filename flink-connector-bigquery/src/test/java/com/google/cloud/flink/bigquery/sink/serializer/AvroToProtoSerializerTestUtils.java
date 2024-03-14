@@ -246,7 +246,6 @@ public class AvroToProtoSerializerTestUtils {
         return getAndReturn(fieldString);
     }
 
-    // TODO: Till here.
     public static BigQueryAvroToProtoSerializerTestResult testMapOfArraySchemaConversion() {
         String fieldString =
                 " \"fields\": [\n"
