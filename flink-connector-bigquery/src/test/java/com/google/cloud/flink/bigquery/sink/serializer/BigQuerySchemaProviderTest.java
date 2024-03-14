@@ -61,15 +61,6 @@ public class BigQuerySchemaProviderTest {
     private final TableSchema tableSchema = new TableSchema().setFields(fields);
 
     @Test
-    public void testSerializeIsUnsupported() {
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new AvroToProtoSerializer().serialize(null));
-        assertThat(exception).hasMessageThat().contains("serialize method is not supported");
-    }
-
-    @Test
     public void testPrimitiveTypesConversion() throws DescriptorValidationException {
 
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);

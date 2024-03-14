@@ -65,50 +65,6 @@ public class BigQuerySchemaProvider {
     }
 
     /**
-     * Factory Method for the BigQuerySchemaProvider.
-     *
-     * @param connectOptions BigQueryConnectOptions for the Sink Table ({@link
-     *     BigQueryConnectOptions} object)
-     */
-    private BigQuerySchemaProvider getBigQuerySchemaProvider(
-            BigQueryConnectOptions connectOptions) {
-        QueryDataClient queryDataClient =
-                BigQueryServicesFactory.instance(connectOptions).queryClient();
-        TableSchema tableSchema =
-                queryDataClient.getTableSchema(
-                        connectOptions.getProjectId(),
-                        connectOptions.getDataset(),
-                        connectOptions.getTable());
-        return this.getBigQuerySchemaProvider(tableSchema);
-    }
-
-    /**
-     * Factory Method for the BigQuerySchemaProvider.
-     *
-     * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object)
-     */
-    private BigQuerySchemaProvider getBigQuerySchemaProvider(TableSchema tableSchema) {
-        Schema avroSchema = getAvroSchema(tableSchema);
-        return this.getBigQuerySchemaProvider(avroSchema);
-    }
-
-    /**
-     * Factory Method for the BigQuerySchemaProvider.
-     *
-     * @param avroSchema Table Schema for the Sink Table ({@link Schema} object)
-     */
-    private BigQuerySchemaProvider getBigQuerySchemaProvider(Schema avroSchema) {
-        this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
-        try {
-            this.descriptor = getDescriptorFromDescriptorProto(descriptorProto);
-        } catch (DescriptorValidationException e) {
-            throw new BigQueryConnectorException(
-                    "Could not obtain Descriptor from Descriptor Proto", e.getCause());
-        }
-        return null;
-    }
-
-    /**
      * Helper function to handle the UNION Schema Type. We only consider the union schema valid when
      * it is of the form ["null", datatype]. All other forms such as ["null"],["null", datatype1,
      * datatype2, ...], and [datatype1, datatype2, ...] Are considered as invalid (as there is no
@@ -138,7 +94,7 @@ public class BigQuerySchemaProvider {
         }
     }
 
-    // ----------- Initialise maps between different schemas -----------
+    // ----------- Initialise Maps between Avro Schema to Descriptor Proto schema -------------
     static {
         /*
          * Map Avro Schema Type to FieldDescriptorProto Type which converts AvroSchema
@@ -205,6 +161,53 @@ public class BigQuerySchemaProvider {
                 "Json", DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
     }
 
+    // ---------------  Factory Methods ---------------------
+
+    /**
+     * Factory Method for the BigQuerySchemaProvider.
+     *
+     * @param connectOptions BigQueryConnectOptions for the Sink Table ({@link
+     *     BigQueryConnectOptions} object)
+     */
+    private BigQuerySchemaProvider getBigQuerySchemaProvider(
+            BigQueryConnectOptions connectOptions) {
+        QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient();
+        TableSchema tableSchema =
+                queryDataClient.getTableSchema(
+                        connectOptions.getProjectId(),
+                        connectOptions.getDataset(),
+                        connectOptions.getTable());
+        return this.getBigQuerySchemaProvider(tableSchema);
+    }
+
+    /**
+     * Factory Method for the BigQuerySchemaProvider.
+     *
+     * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object)
+     */
+    private BigQuerySchemaProvider getBigQuerySchemaProvider(TableSchema tableSchema) {
+        Schema avroSchema = getAvroSchema(tableSchema);
+        return this.getBigQuerySchemaProvider(avroSchema);
+    }
+
+    /**
+     * Factory Method for the BigQuerySchemaProvider.
+     *
+     * @param avroSchema Table Schema for the Sink Table ({@link Schema} object)
+     */
+    private BigQuerySchemaProvider getBigQuerySchemaProvider(Schema avroSchema) {
+        this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
+        try {
+            this.descriptor = getDescriptorFromDescriptorProto(descriptorProto);
+        } catch (DescriptorValidationException e) {
+            throw new BigQueryConnectorException(
+                    "Could not obtain Descriptor from Descriptor Proto", e.getCause());
+        }
+        return null;
+    }
+
+    // --------------- Obtain AvroSchema from TableSchema -----------------
     /**
      * Function to convert TableSchema to Avro Schema.
      *
@@ -215,33 +218,7 @@ public class BigQuerySchemaProvider {
         return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
     }
 
-    // --------------- Obtain Descriptor from DescriptorProto  ---------------
-
-    /**
-     * Function to convert the {@link DescriptorProto} Type to {@link Descriptor}.This is necessary
-     * as a Descriptor is needed for DynamicMessage (used to write to Storage API).
-     *
-     * @param descriptorProto input which needs to be converted to a Descriptor.
-     * @return Descriptor obtained form the input DescriptorProto
-     * @throws DescriptorValidationException in case the conversion is not possible.
-     */
-    private static Descriptor getDescriptorFromDescriptorProto(DescriptorProto descriptorProto)
-            throws DescriptorValidationException {
-        FileDescriptorProto fileDescriptorProto =
-                FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build();
-        FileDescriptor fileDescriptor =
-                FileDescriptor.buildFrom(fileDescriptorProto, new FileDescriptor[0]);
-        List<Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
-        if (descriptorTypeList.size() == 1) {
-            return descriptorTypeList.get(0);
-        } else {
-            throw new IllegalArgumentException(
-                    String.format("Expected one element but was %s", descriptorTypeList));
-        }
-    }
-
     // --------------- Obtain Descriptor Proto from Avro Schema  ---------------
-
     /**
      * Obtains a Descriptor Proto by obtaining Descriptor Proto field by field.
      *
@@ -365,5 +342,29 @@ public class BigQuerySchemaProvider {
             }
         }
         descriptorProtoBuilder.addField(fieldDescriptorBuilder.build());
+    }
+
+    // --------------- Obtain Descriptor from DescriptorProto  ---------------
+    /**
+     * Function to convert the {@link DescriptorProto} Type to {@link Descriptor}.This is necessary
+     * as a Descriptor is needed for DynamicMessage (used to write to Storage API).
+     *
+     * @param descriptorProto input which needs to be converted to a Descriptor.
+     * @return Descriptor obtained form the input DescriptorProto
+     * @throws DescriptorValidationException in case the conversion is not possible.
+     */
+    private static Descriptor getDescriptorFromDescriptorProto(DescriptorProto descriptorProto)
+            throws DescriptorValidationException {
+        FileDescriptorProto fileDescriptorProto =
+                FileDescriptorProto.newBuilder().addMessageType(descriptorProto).build();
+        FileDescriptor fileDescriptor =
+                FileDescriptor.buildFrom(fileDescriptorProto, new FileDescriptor[0]);
+        List<Descriptor> descriptorTypeList = fileDescriptor.getMessageTypes();
+        if (descriptorTypeList.size() == 1) {
+            return descriptorTypeList.get(0);
+        } else {
+            throw new IllegalArgumentException(
+                    String.format("Expected one element but was %s", descriptorTypeList));
+        }
     }
 }
