@@ -16,19 +16,8 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.api.client.util.Preconditions;
-import com.google.api.services.bigquery.model.TableSchema;
-import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
-import com.google.cloud.flink.bigquery.services.BigQueryUtils;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.DescriptorProtos.DescriptorProto;
-import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
-import org.apache.avro.LogicalType;
-import org.apache.avro.LogicalTypes;
-import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -372,15 +361,5 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     @Override
     public ByteString serialize(GenericRecord record) throws BigQuerySerializationException {
         throw new UnsupportedOperationException("serialize method is not supported");
-    }
-
-    @Override
-    public DescriptorProto getDescriptorProto() {
-        return this.descriptorProto;
-    }
-
-    @Override
-    public Descriptor getDescriptor() {
-        return this.descriptor;
     }
 }
