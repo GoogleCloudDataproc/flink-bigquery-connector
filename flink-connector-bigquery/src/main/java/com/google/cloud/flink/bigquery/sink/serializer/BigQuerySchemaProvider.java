@@ -38,6 +38,8 @@ import java.util.stream.Collectors;
  * formation of the Descriptors which is essential for Proto Rows formation.
  */
 public class BigQuerySchemaProvider {
+
+    private Schema avroSchema;
     private DescriptorProto descriptorProto;
     private Descriptor descriptor;
 
@@ -50,6 +52,10 @@ public class BigQuerySchemaProvider {
 
     public Descriptor getDescriptor() {
         return descriptor;
+    }
+
+    public Schema getSchema() {
+        return this.avroSchema;
     }
 
     public BigQuerySchemaProvider(BigQueryConnectOptions connectOptions) {
@@ -175,7 +181,7 @@ public class BigQuerySchemaProvider {
      * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object)
      */
     private BigQuerySchemaProvider getBigQuerySchemaProvider(TableSchema tableSchema) {
-        Schema avroSchema = getAvroSchema(tableSchema);
+        this.avroSchema = getAvroSchema(tableSchema);
         return this.getBigQuerySchemaProvider(avroSchema);
     }
 

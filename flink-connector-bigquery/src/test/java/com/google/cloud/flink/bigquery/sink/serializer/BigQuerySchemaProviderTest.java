@@ -16,8 +16,6 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.api.services.bigquery.model.TableFieldSchema;
-import com.google.api.services.bigquery.model.TableSchema;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
@@ -25,10 +23,6 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.avro.Schema;
 import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getAvroSchemaFromFieldString;
 import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getRecord;
@@ -39,44 +33,8 @@ import static org.junit.Assert.assertThrows;
 public class BigQuerySchemaProviderTest {
     @Test
     public void testPrimitiveTypesConversion() {
-        List<TableFieldSchema> subFieldsNullable =
-                Collections.singletonList(
-                        new TableFieldSchema()
-                                .setName("species")
-                                .setType("STRING")
-                                .setMode("REQUIRED"));
-        List<TableFieldSchema> fields =
-                Arrays.asList(
-                        new TableFieldSchema()
-                                .setName("number")
-                                .setType("INTEGER")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("price")
-                                .setType("FLOAT")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("species")
-                                .setType("STRING")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("flighted")
-                                .setType("BOOLEAN")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("sound")
-                                .setType("BYTES")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("required_record_field")
-                                .setType("RECORD")
-                                .setMode("REQUIRED")
-                                .setFields(subFieldsNullable));
-
-        TableSchema tableSchema = new TableSchema().setFields(fields);
-
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testPrimitiveTypesConversion().getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -153,30 +111,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testLogicalTypesConversion() {
-        List<TableFieldSchema> fields =
-                Arrays.asList(
-                        new TableFieldSchema()
-                                .setName("timestamp")
-                                .setType("TIMESTAMP")
-                                .setMode("NULLABLE"),
-                        new TableFieldSchema()
-                                .setName("numeric_field")
-                                .setType("NUMERIC")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema()
-                                .setName("bignumeric_field")
-                                .setType("BIGNUMERIC")
-                                .setMode("NULLABLE"),
-                        new TableFieldSchema()
-                                .setName("geography")
-                                .setType("GEOGRAPHY")
-                                .setMode("REQUIRED"),
-                        new TableFieldSchema().setName("Json").setType("JSON").setMode("REQUIRED"));
-
-        TableSchema tableSchema = new TableSchema().setFields(fields);
-
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testLogicalTypesConversion().getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -1199,46 +1135,9 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testArrayAndRequiredTypesConversion() {
-        // optional_record_field ->
-        // date -> ARRAY of type DATE
-        // timestamp -> OPTIONAL field of type TIMESTAMP
-        // datetime_record -> ARRAY of type RECORD "subFieldRecord"
-        // subFieldRecord ->
-        // datetime -> ARRAY of type DATETIME
-
-        List<TableFieldSchema> subFieldRecord =
-                Arrays.asList(
-                        new TableFieldSchema()
-                                .setName("datetime")
-                                .setType("DATETIME")
-                                .setMode("REPEATED"),
-                        new TableFieldSchema().setName("time").setType("TIME").setMode("NULLABLE"));
-
-        List<TableFieldSchema> subFields =
-                Arrays.asList(
-                        new TableFieldSchema().setName("date").setType("DATE").setMode("REPEATED"),
-                        new TableFieldSchema()
-                                .setName("timestamp")
-                                .setType("TIMESTAMP")
-                                .setMode("NULLABLE"),
-                        new TableFieldSchema()
-                                .setName("datetime_record")
-                                .setType("RECORD")
-                                .setMode("REPEATED")
-                                .setFields(subFieldRecord));
-
-        List<TableFieldSchema> fields =
-                Collections.singletonList(
-                        new TableFieldSchema()
-                                .setName("optional_record_field")
-                                .setType("RECORD")
-                                .setMode("NULLABLE")
-                                .setFields(subFields));
-
-        TableSchema tableSchema = new TableSchema().setFields(fields);
-
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testArrayAndRequiredTypesConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getType())
