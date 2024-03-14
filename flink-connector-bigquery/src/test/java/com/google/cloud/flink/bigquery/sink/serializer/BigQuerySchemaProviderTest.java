@@ -22,7 +22,6 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.avro.Schema;
 import org.junit.Test;
@@ -31,38 +30,51 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.assertExpectedUnsupportedException;
+import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getAvroSchemaFromFieldString;
+import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getRecord;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 /** Tests for {@link BigQuerySchemaProvider}. */
 public class BigQuerySchemaProviderTest {
-
-    private final List<TableFieldSchema> subFieldsNullable =
-            Collections.singletonList(
-                    new TableFieldSchema()
-                            .setName("species")
-                            .setType("STRING")
-                            .setMode("REQUIRED"));
-
-    private final List<TableFieldSchema> fields =
-            Arrays.asList(
-                    new TableFieldSchema().setName("number").setType("INTEGER").setMode("REQUIRED"),
-                    new TableFieldSchema().setName("price").setType("FLOAT").setMode("REQUIRED"),
-                    new TableFieldSchema().setName("species").setType("STRING").setMode("REQUIRED"),
-                    new TableFieldSchema()
-                            .setName("flighted")
-                            .setType("BOOLEAN")
-                            .setMode("REQUIRED"),
-                    new TableFieldSchema().setName("sound").setType("BYTES").setMode("REQUIRED"),
-                    new TableFieldSchema()
-                            .setName("required_record_field")
-                            .setType("RECORD")
-                            .setMode("REQUIRED")
-                            .setFields(subFieldsNullable));
-    private final TableSchema tableSchema = new TableSchema().setFields(fields);
-
     @Test
     public void testPrimitiveTypesConversion() {
+        List<TableFieldSchema> subFieldsNullable =
+                Collections.singletonList(
+                        new TableFieldSchema()
+                                .setName("species")
+                                .setType("STRING")
+                                .setMode("REQUIRED"));
+        List<TableFieldSchema> fields =
+                Arrays.asList(
+                        new TableFieldSchema()
+                                .setName("number")
+                                .setType("INTEGER")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("price")
+                                .setType("FLOAT")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("species")
+                                .setType("STRING")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("flighted")
+                                .setType("BOOLEAN")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("sound")
+                                .setType("BYTES")
+                                .setMode("REQUIRED"),
+                        new TableFieldSchema()
+                                .setName("required_record_field")
+                                .setType("RECORD")
+                                .setMode("REQUIRED")
+                                .setFields(subFieldsNullable));
+
+        TableSchema tableSchema = new TableSchema().setFields(fields);
 
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
@@ -138,18 +150,6 @@ public class BigQuerySchemaProviderTest {
                                 .setNumber(1)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
                                 .build());
-    }
-
-    private Schema getAvroSchemaFromFieldString(String fieldString) {
-        String avroSchemaString =
-                "{\"namespace\": \"project.dataset\",\n"
-                        + " \"type\": \"record\",\n"
-                        + " \"name\": \"table\",\n"
-                        + " \"doc\": \"Translated Avro Schema for project.dataset.table\",\n"
-                        + fieldString
-                        + "}";
-
-        return new Schema.Parser().parse(avroSchemaString);
     }
 
     private void assertPrimitive(Descriptor descriptor) {
@@ -238,47 +238,15 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testAllPrimitiveSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"name\", \"type\": \"string\"},\n"
-                        + "   {\"name\": \"number\", \"type\": \"long\"},\n"
-                        + "   {\"name\": \"quantity\", \"type\": \"int\"},\n"
-                        + "   {\"name\": \"fixed_field\", \"type\": {\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }},\n"
-                        + "   {\"name\": \"price\", \"type\": \"float\"},\n"
-                        + "   {\"name\": \"double_field\", \"type\": \"double\"},\n"
-                        + "   {\"name\": \"boolean_field\", \"type\": \"boolean\"},\n"
-                        + "   {\"name\": \"enum_field\", \"type\": {\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}},\n"
-                        + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testAllPrimitiveSchemaConversion().getDescriptor();
         assertPrimitive(descriptor);
     }
 
     @Test
     public void testAllLogicalSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"ts_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}},\n"
-                        + "   {\"name\": \"ts_millis\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}},\n"
-                        + "   {\"name\": \"time_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-micros\"}},\n"
-                        + "   {\"name\": \"time_millis\", \"type\": {\"type\": \"int\", \"logicalType\": \"time-millis\"}},\n"
-                        + "   {\"name\": \"lts_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}},\n"
-                        + "   {\"name\": \"lts_millis\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}},\n"
-                        + "   {\"name\": \"date\", \"type\": {\"type\": \"int\", \"logicalType\": \"date\"}},\n"
-                        + "   {\"name\": \"decimal\", \"type\": {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2}},\n"
-                        + "   {\"name\": \"uuid\", \"type\": {\"type\": \"string\", \"logicalType\": \"uuid\"}},\n"
-                        + "   {\"name\": \"geography\", \"type\": {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testAllLogicalSchemaConversion().getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -373,24 +341,9 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testAllUnionLogicalSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"ts_micros\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}]},\n"
-                        + "   {\"name\": \"ts_millis\", \"type\": [\"null\",{\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}]},\n"
-                        + "   {\"name\": \"time_micros\", \"type\": [\"null\",{\"type\": \"long\", \"logicalType\": \"time-micros\"}]},\n"
-                        + "   {\"name\": \"time_millis\", \"type\": [\"null\",{\"type\": \"int\", \"logicalType\": \"time-millis\"}]},\n"
-                        + "   {\"name\": \"lts_micros\", \"type\": [\"null\",{\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}]},\n"
-                        + "   {\"name\": \"lts_millis\", \"type\": [\"null\",{\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}]},\n"
-                        + "   {\"name\": \"date\", \"type\": [\"null\",{\"type\": \"int\", \"logicalType\": \"date\"}]},\n"
-                        + "   {\"name\": \"decimal\", \"type\": [\"null\",{\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2}]},\n"
-                        + "   {\"name\": \"uuid\", \"type\": [\"null\",{\"type\": \"string\", \"logicalType\": \"uuid\"}]},\n"
-                        + "   {\"name\": \"geography\", \"type\": [\"null\",{\"type\": \"string\", \"logicalType\": \"geography_wkt\"}]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testAllUnionLogicalSchemaConversion()
+                        .getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -485,23 +438,9 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testAllUnionPrimitiveSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"name\", \"type\": [\"null\", \"string\"]},\n"
-                        + "   {\"name\": \"number\", \"type\": [\"null\",\"long\"]},\n"
-                        + "   {\"name\": \"quantity\", \"type\": [\"null\",\"int\"]},\n"
-                        + "   {\"name\": \"fixed_field\", \"type\": [\"null\",{\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\"}]},\n"
-                        + "   {\"name\": \"price\", \"type\": [\"null\",\"float\"]},\n"
-                        + "   {\"name\": \"double_field\", \"type\": [\"null\",\"double\"]},\n"
-                        + "   {\"name\": \"boolean_field\", \"type\": [\"null\",\"boolean\"]},\n"
-                        + "   {\"name\": \"enum_field\", \"type\": [\"null\",{\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}]},\n"
-                        + "   {\"name\": \"byte_field\", \"type\": [\"null\",\"bytes\"]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testAllUnionPrimitiveSchemaConversion()
+                        .getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -588,15 +527,9 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testUnionInRecordSchemaConversation() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_with_union\", \"type\": {\"name\": \"record_with_union_field\", \"type\": \"record\", \"fields\": [{\"name\": \"union_in_record\", \"type\": [\"boolean\", \"null\"], \"default\": true}]}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testUnionInRecordSchemaConversation()
+                        .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("record_with_union");
@@ -617,50 +550,11 @@ public class BigQuerySchemaProviderTest {
         assertThat(fieldDescriptor.getDefaultValue()).isEqualTo(true);
     }
 
-    private String getRecord(String name) {
-        return "{\"name\": "
-                + "\""
-                + name
-                + "\", "
-                + "\"type\": \"record\", "
-                + "\"fields\": "
-                + "["
-                + "{\"name\": \"value\", \"type\": \"long\"},"
-                + "{\"name\": \"another_value\",\"type\": \"string\"}"
-                + "]"
-                + "}";
-    }
-
     @Test
     public void testRecordOfLogicalTypeSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "{\"name\": \"record_of_logical_type\","
-                        + " \"type\": "
-                        + "{"
-                        + "\"name\": \"record_name\", "
-                        + "\"type\": \"record\","
-                        + " \"fields\": "
-                        + "["
-                        + "   {\"name\": \"ts_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}},\n"
-                        + "   {\"name\": \"ts_millis\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}},\n"
-                        + "   {\"name\": \"time_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"time-micros\"}},\n"
-                        + "   {\"name\": \"time_millis\", \"type\": {\"type\": \"int\", \"logicalType\": \"time-millis\"}},\n"
-                        + "   {\"name\": \"lts_micros\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}},\n"
-                        + "   {\"name\": \"lts_millis\", \"type\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}},\n"
-                        + "   {\"name\": \"date\", \"type\": {\"type\": \"int\", \"logicalType\": \"date\"}},\n"
-                        + "   {\"name\": \"decimal\", \"type\": {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 4, \"scale\": 2}},\n"
-                        + "   {\"name\": \"uuid\", \"type\": {\"type\": \"string\", \"logicalType\": \"uuid\"}},\n"
-                        + "   {\"name\": \"geography\", \"type\": {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}}\n"
-                        + "]"
-                        + "}"
-                        + "}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testRecordOfLogicalTypeSchemaConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_logical_type");
@@ -784,14 +678,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testDefaultValueSchemaConversion() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "{\"name\": \"long_with_default\", \"type\": [\"long\", \"null\"], \"default\": 100}"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testDefaultValueSchemaConversion().getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("long_with_default");
@@ -804,16 +692,45 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
+    public void testRecordOfRecordSchemaConversion() {
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testRecordOfRecordSchemaConversion().getDescriptor();
+
+        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
+        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(field.getName()).isEqualTo("record_in_record");
+        assertThat(field.getNumber()).isEqualTo(1);
+        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertThat(field.hasTypeName()).isTrue();
+        Descriptors.Descriptor nestedDescriptor =
+                descriptor.findNestedTypeByName(field.getTypeName());
+
+        field = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertThat(field.getName()).isEqualTo("record_field");
+        assertThat(field.getNumber()).isEqualTo(1);
+        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertThat(field.hasTypeName()).isTrue();
+
+        nestedDescriptor = nestedDescriptor.findNestedTypeByName(field.getTypeName());
+        field = nestedDescriptor.findFieldByNumber(1).toProto();
+        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
+        assertThat(field.getName()).isEqualTo("value");
+        assertThat(field.getNumber()).isEqualTo(1);
+        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+
+        field = nestedDescriptor.findFieldByNumber(2).toProto();
+        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
+        assertThat(field.getName()).isEqualTo("another_value");
+        assertThat(field.getNumber()).isEqualTo(2);
+        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+    }
+
+    // TODO: Till here. -------
+    @Test
     public void testMapOfUnionTypeSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_union\", \"type\": {\"type\": \"map\", \"values\": [\"float\", \"null\"]}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testMapOfUnionTypeSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -837,15 +754,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testMapOfArraySchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_array\", \"type\": {\"type\": \"map\", \"values\": {\"type\": \"array\", \"items\": \"long\", \"name\": \"array_in_map\"}}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testMapOfArraySchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -869,16 +779,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testMapInRecordSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_with_map\", "
-                        + "\"type\": {\"name\": \"actual_record\", \"type\": \"record\", \"fields\": [{\"name\": \"map_in_record\", \"type\": { \"type\": \"map\", \"values\": \"long\"}}]}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testMapInRecordSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -948,62 +850,9 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testRecordOfRecordSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_in_record\", \"type\": {\"name\": \"record_name\", \"type\": \"record\", \"fields\": "
-                        + "[{ \"name\":\"record_field\", \"type\": "
-                        + getRecord("record_inside_record")
-                        + "}]"
-                        + "}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_in_record");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(field.hasTypeName()).isTrue();
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
-
-        field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_field");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(field.hasTypeName()).isTrue();
-
-        nestedDescriptor = nestedDescriptor.findNestedTypeByName(field.getTypeName());
-        field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
-        assertThat(field.getName()).isEqualTo("value");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-
-        field = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(field.getName()).isEqualTo("another_value");
-        assertThat(field.getNumber()).isEqualTo(2);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-    }
-
-    @Test
     public void testMapOfMapSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_map\", \"type\": {\"type\": \"map\", \"values\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testMapOfMapSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1047,17 +896,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testMapOfRecordSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_records\", \"type\": {\"type\": \"map\", \"values\": "
-                        + getRecord("record_inside_map")
-                        + "}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testMapOfRecordSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1101,15 +941,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testRecordOfArraySchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_with_array\", \"type\": {\"name\": \"record_with_array_field\", \"type\": \"record\", \"fields\": [{\"name\": \"array_in_record\", \"type\": {\"type\": \"array\", \"items\": \"boolean\"}}]}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testRecordOfArraySchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1132,50 +965,9 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testArrayOfUnionOfMapSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"array_of_map_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
-        assertThat(exception)
-                .hasMessageThat()
-                .contains("MAP/ARRAYS in UNION types are not supported");
-    }
-
-    @Test
-    public void testArrayOfMapSchemaConversion() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"array_of_map\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
-                        + " ]\n";
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
-        assertThat(exception).hasMessageThat().contains("Array of Type MAP not supported yet.");
-    }
-
-    @Test
     public void testArrayOfRecordSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "{\"name\": \"array_of_records\", \"type\":{\"type\": \"array\", \"items\": "
-                        + getRecord("inside_record")
-                        + "}}"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testArrayOfRecordSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1205,40 +997,9 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testUnionOfArrayOfRecordSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"array_of_records_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": "
-                        + getRecord("inside_record_union")
-                        + "}]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
-        assertThat(exception)
-                .hasMessageThat()
-                .contains("MAP/ARRAYS in UNION types are not supported");
-    }
-
-    @Test
     public void testUnionOfRecordSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "{\"name\": \"record_field_union\","
-                        + " \"type\": [\"null\", "
-                        + getRecord("inside_record")
-                        + "]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testUnionOfRecordSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1269,19 +1030,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testSpecialSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_field\", \"type\": "
-                        + getRecord("inside_record")
-                        + "},\n"
-                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", \"values\": \"long\"}},\n"
-                        + "   {\"name\": \"array_field\", \"type\": {\"type\": \"array\", \"items\": \"float\"}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testSpecialSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1343,74 +1093,18 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testUnionOfArraySchemaConversion() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"array_field_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": \"float\"}]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
-        assertThat(exception)
-                .hasMessageThat()
-                .contains("MAP/ARRAYS in UNION types are not supported");
-    }
-
-    @Test
-    public void testUnionOfMapSchemaConversion() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-
-        UnsupportedOperationException exception =
-                assertThrows(
-                        UnsupportedOperationException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
-        assertThat(exception)
-                .hasMessageThat()
-                .contains("MAP/ARRAYS in UNION types are not supported");
-    }
-
-    @Test
     public void testAllPrimitiveSingleUnionSchemaConversion() {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"name\", \"type\": [\"string\"]},\n"
-                        + "   {\"name\": \"number\", \"type\": [\"long\"]},\n"
-                        + "   {\"name\": \"quantity\", \"type\": [\"int\"]},\n"
-                        + "   {\"name\": \"fixed_field\", \"type\": [{\"type\": \"fixed\", \"size\": 10,\"name\": \"hash\" }]},\n"
-                        + "   {\"name\": \"price\", \"type\": [\"float\"]},\n"
-                        + "   {\"name\": \"double_field\", \"type\": [\"double\"]},\n"
-                        + "   {\"name\": \"boolean_field\", \"type\": [\"boolean\"]},\n"
-                        + "   {\"name\": \"enum_field\", \"type\": [{\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}]},\n"
-                        + "   {\"name\": \"byte_field\", \"type\": [\"bytes\"]}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testAllPrimitiveSingleUnionSchemaConversion()
+                        .getDescriptor();
         assertPrimitive(descriptor);
     }
 
     @Test
-    public void testRecordOfUnionFieldSchemaConversion() throws DescriptorValidationException {
-
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_with_union\", \"type\": {\"name\": \"record_with_union_field\", \"type\": \"record\", \"fields\": [{\"name\": \"union_in_record\", \"type\": [\"boolean\", \"null\"], \"default\": true}]}}\n"
-                        + " ]\n";
-
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+    public void testRecordOfUnionFieldSchemaConversion() {
+        Descriptor descriptor =
+                AvroToProtoSerializerTestUtils.testRecordOfUnionFieldSchemaConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("record_with_union");
@@ -1429,5 +1123,60 @@ public class BigQuerySchemaProviderTest {
         assertThat(fieldDescriptor.getName()).isEqualTo("union_in_record");
         assertThat(fieldDescriptor.hasDefaultValue()).isTrue();
         assertThat(fieldDescriptor.getDefaultValue()).isEqualTo(true);
+    }
+
+    // -------- Tests to Check Unsupported Features ------------
+    @Test
+    public void testArrayOfMapSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_of_map\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
+                        + " ]\n";
+        assertExpectedUnsupportedException(fieldString, "Array of Type MAP not supported yet.");
+    }
+
+    @Test
+    public void testArrayOfUnionOfMapSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_of_map_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}]}\n"
+                        + " ]\n";
+        assertExpectedUnsupportedException(
+                fieldString, "MAP/ARRAYS in UNION types are not supported");
+    }
+
+    @Test
+    public void testUnionOfArrayOfRecordSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_of_records_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": "
+                        + getRecord("inside_record_union")
+                        + "}]}\n"
+                        + " ]\n";
+
+        assertExpectedUnsupportedException(
+                fieldString, "MAP/ARRAYS in UNION types are not supported");
+    }
+
+    @Test
+    public void testUnionOfArraySchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"array_field_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": \"float\"}]}\n"
+                        + " ]\n";
+
+        assertExpectedUnsupportedException(
+                fieldString, "MAP/ARRAYS in UNION types are not supported");
+    }
+
+    @Test
+    public void testUnionOfMapSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]}\n"
+                        + " ]\n";
+
+        assertExpectedUnsupportedException(
+                fieldString, "MAP/ARRAYS in UNION types are not supported");
     }
 }
