@@ -16,9 +16,8 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.avro.Schema;
@@ -710,8 +709,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.getNumber()).isEqualTo(1);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
         assertThat(field.hasTypeName()).isTrue();
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
+        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
 
         field = nestedDescriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -746,8 +744,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.getNumber()).isEqualTo(1);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
         assertThat(field.hasTypeName()).isTrue();
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
+        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
         FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptor.getName()).isEqualTo("key");
         assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
@@ -771,8 +768,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.getNumber()).isEqualTo(1);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
         assertThat(field.hasTypeName()).isTrue();
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
+        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
         FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptor.getName()).isEqualTo("key");
         assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
@@ -797,8 +793,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
         assertThat(field.hasTypeName()).isTrue();
 
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
+        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
         FieldDescriptorProto fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("map_in_record");
         assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
@@ -868,8 +863,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.getNumber()).isEqualTo(1);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
         assertThat(field.hasTypeName()).isTrue();
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
+        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
         FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptor.getName()).isEqualTo("key");
         assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
@@ -883,7 +877,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(fieldDescriptor.hasTypeName()).isTrue();
         assertThat(nestedDescriptor.findNestedTypeByName(fieldDescriptor.getTypeName()).toProto())
                 .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
+                        DescriptorProto.newBuilder()
                                 .setName(fieldDescriptor.getTypeName())
                                 .addField(
                                         FieldDescriptorProto.newBuilder()
@@ -913,8 +907,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.getNumber()).isEqualTo(1);
         assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
         assertThat(field.hasTypeName()).isTrue();
-        Descriptors.Descriptor nestedDescriptor =
-                descriptor.findNestedTypeByName(field.getTypeName());
+        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
         FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptor.getName()).isEqualTo("key");
         assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
@@ -928,7 +921,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(fieldDescriptor.hasTypeName()).isTrue();
         assertThat(nestedDescriptor.findNestedTypeByName(fieldDescriptor.getTypeName()).toProto())
                 .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
+                        DescriptorProto.newBuilder()
                                 .setName(fieldDescriptor.getTypeName())
                                 .addField(
                                         FieldDescriptorProto.newBuilder()
@@ -960,7 +953,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.hasTypeName()).isTrue();
         assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
                 .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
+                        DescriptorProto.newBuilder()
                                 .setName(field.getTypeName())
                                 .addField(
                                         FieldDescriptorProto.newBuilder()
@@ -985,7 +978,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.hasTypeName()).isTrue();
         assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
                 .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
+                        DescriptorProto.newBuilder()
                                 .setName(field.getTypeName())
                                 .addField(
                                         FieldDescriptorProto.newBuilder()
@@ -1017,7 +1010,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.hasTypeName()).isTrue();
         assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
                 .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
+                        DescriptorProto.newBuilder()
                                 .setName(field.getTypeName())
                                 .addField(
                                         FieldDescriptorProto.newBuilder()
@@ -1049,7 +1042,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.hasTypeName()).isTrue();
         assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
                 .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
+                        DescriptorProto.newBuilder()
                                 .setName(field.getTypeName())
                                 .addField(
                                         FieldDescriptorProto.newBuilder()
@@ -1075,7 +1068,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(field.hasTypeName()).isTrue();
         assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
                 .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
+                        DescriptorProto.newBuilder()
                                 .setName(field.getTypeName())
                                 .addField(
                                         FieldDescriptorProto.newBuilder()
