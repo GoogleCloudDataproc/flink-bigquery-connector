@@ -8,7 +8,7 @@ import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices.QueryDataClient;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.BigQueryUtils;
-import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -39,9 +39,9 @@ public class BigQuerySchemaProvider {
     private DescriptorProto descriptorProto;
     private Descriptor descriptor;
 
-    private static final Map<Schema.Type, DescriptorProtos.FieldDescriptorProto.Type>
+    private static final Map<Schema.Type, FieldDescriptorProto.Type>
             AVRO_TYPES_TO_PROTO;
-    private static final Map<String, DescriptorProtos.FieldDescriptorProto.Type>
+    private static final Map<String, FieldDescriptorProto.Type>
             LOGICAL_AVRO_TYPES_TO_PROTO;
 
     public DescriptorProto getDescriptorProto() {
@@ -103,62 +103,62 @@ public class BigQuerySchemaProvider {
          */
         AVRO_TYPES_TO_PROTO = new EnumMap<>(Schema.Type.class);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.INT, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.FIXED, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+                Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.LONG, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.FLOAT, DescriptorProtos.FieldDescriptorProto.Type.TYPE_FLOAT);
+                Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.DOUBLE, DescriptorProtos.FieldDescriptorProto.Type.TYPE_DOUBLE);
+                Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.STRING, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                Schema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.BOOLEAN, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BOOL);
+                Schema.Type.BOOLEAN, FieldDescriptorProto.Type.TYPE_BOOL);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.ENUM, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                Schema.Type.ENUM, FieldDescriptorProto.Type.TYPE_STRING);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.BYTES, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+                Schema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
 
         /*
-         * Map Logical Avro Schema Type to FieldDescriptorProto Type which converts
+         * Map Logical Avro Schema Type to FieldDescriptorProto Type, which converts
          * AvroSchema Primitive Type to Dynamic Message.
          * LOGICAL_AVRO_TYPES_TO_PROTO: Map containing mapping from Primitive Avro Schema Type to FieldDescriptorProto.
          */
         LOGICAL_AVRO_TYPES_TO_PROTO = new HashMap<>();
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.date().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32);
+                FieldDescriptorProto.Type.TYPE_INT32);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.decimal(1).getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+                FieldDescriptorProto.Type.TYPE_BYTES);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timestampMicros().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timestampMillis().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.uuid().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         // These are newly added.
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timeMillis().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timeMicros().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.localTimestampMillis().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                "geography_wkt", DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                "geography_wkt", FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                "Json", DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                "Json", FieldDescriptorProto.Type.TYPE_STRING);
     }
 
     // ---------------  Factory Methods ---------------------
@@ -258,8 +258,8 @@ public class BigQuerySchemaProvider {
         @Nullable Schema schema = field.schema();
         Preconditions.checkNotNull(schema, "Unexpected null schema!");
 
-        DescriptorProtos.FieldDescriptorProto.Builder fieldDescriptorBuilder =
-                DescriptorProtos.FieldDescriptorProto.newBuilder();
+        FieldDescriptorProto.Builder fieldDescriptorBuilder =
+                FieldDescriptorProto.newBuilder();
         fieldDescriptorBuilder = fieldDescriptorBuilder.setName(field.name().toLowerCase());
         fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(fieldNumber);
 
@@ -274,7 +274,7 @@ public class BigQuerySchemaProvider {
                 descriptorProtoBuilder.addNestedType(nested);
                 fieldDescriptorBuilder =
                         fieldDescriptorBuilder
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
                                 .setTypeName(nested.getName());
                 break;
             case ARRAY:
@@ -310,7 +310,7 @@ public class BigQuerySchemaProvider {
                 break;
             default:
                 @Nullable
-                DescriptorProtos.FieldDescriptorProto.Type type =
+                FieldDescriptorProto.Type type =
                         Optional.ofNullable(elementType.getProp(LogicalType.LOGICAL_TYPE_PROP))
                                 .map(LOGICAL_AVRO_TYPES_TO_PROTO::get)
                                 .orElse(AVRO_TYPES_TO_PROTO.get(elementType.getType()));
@@ -328,17 +328,17 @@ public class BigQuerySchemaProvider {
         }
         // Set the Labels for different Modes - REPEATED, REQUIRED, NULLABLE.
         if (fieldDescriptorBuilder.getLabel()
-                != DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED) {
+                != FieldDescriptorProto.Label.LABEL_REPEATED) {
             if (isNullable) {
                 fieldDescriptorBuilder =
                         fieldDescriptorBuilder.setLabel(
-                                DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                                FieldDescriptorProto.Label.LABEL_OPTIONAL);
             } else {
                 // The Default Value is specified only in the case of scalar non-repeated fields.
                 // If it was a scalar type, the default value would already have been set.
                 fieldDescriptorBuilder =
                         fieldDescriptorBuilder.setLabel(
-                                DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED);
+                                FieldDescriptorProto.Label.LABEL_REQUIRED);
             }
         }
         descriptorProtoBuilder.addField(fieldDescriptorBuilder.build());
