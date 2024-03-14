@@ -8,7 +8,7 @@ import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices.QueryDataClient;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.BigQueryUtils;
-import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -17,9 +17,11 @@ import com.google.protobuf.Descriptors.FileDescriptor;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -39,9 +41,9 @@ public class BigQuerySchemaProvider {
     private DescriptorProto descriptorProto;
     private Descriptor descriptor;
 
-    private static final Map<Schema.Type, DescriptorProtos.FieldDescriptorProto.Type>
+    private static final Map<Schema.Type, FieldDescriptorProto.Type>
             AVRO_TYPES_TO_PROTO;
-    private static final Map<String, DescriptorProtos.FieldDescriptorProto.Type>
+    private static final Map<String, FieldDescriptorProto.Type>
             LOGICAL_AVRO_TYPES_TO_PROTO;
 
     public DescriptorProto getDescriptorProto() {
@@ -74,8 +76,9 @@ public class BigQuerySchemaProvider {
      * @param schema of type UNION to check and derive.
      * @return Schema of the OPTIONAL field.
      */
-    public static Schema handleUnionSchema(Schema schema) {
+    public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema) {
         Schema elementType = schema;
+        boolean isNullable = true;
         List<Schema> types = elementType.getTypes();
         // don't need recursion because nested unions aren't supported in AVRO
         // Extract all the nonNull Datatypes.
@@ -88,7 +91,12 @@ public class BigQuerySchemaProvider {
 
         if (nonNullSchemaTypesSize == 1) {
             elementType = nonNullSchemaTypes.get(0);
-            return elementType;
+            if (nonNullSchemaTypesSize == types.size()) {
+                // Case, when there is only a single type in UNION.
+                // Then it is essentially the same as not having a UNION.
+                isNullable = false;
+            }
+            return new ImmutablePair<>(elementType, isNullable);
         } else {
             throw new IllegalArgumentException("Multiple non-null union types are not supported.");
         }
@@ -103,23 +111,23 @@ public class BigQuerySchemaProvider {
          */
         AVRO_TYPES_TO_PROTO = new EnumMap<>(Schema.Type.class);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.INT, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.FIXED, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+                Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.LONG, DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.FLOAT, DescriptorProtos.FieldDescriptorProto.Type.TYPE_FLOAT);
+                Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.DOUBLE, DescriptorProtos.FieldDescriptorProto.Type.TYPE_DOUBLE);
+                Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.STRING, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                Schema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.BOOLEAN, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BOOL);
+                Schema.Type.BOOLEAN, FieldDescriptorProto.Type.TYPE_BOOL);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.ENUM, DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                Schema.Type.ENUM, FieldDescriptorProto.Type.TYPE_STRING);
         AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.BYTES, DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+                Schema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
 
         /*
          * Map Logical Avro Schema Type to FieldDescriptorProto Type which converts
@@ -129,36 +137,36 @@ public class BigQuerySchemaProvider {
         LOGICAL_AVRO_TYPES_TO_PROTO = new HashMap<>();
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.date().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32);
+                FieldDescriptorProto.Type.TYPE_INT32);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.decimal(1).getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES);
+                FieldDescriptorProto.Type.TYPE_BYTES);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timestampMicros().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timestampMillis().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64);
+                FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.uuid().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         // These are newly added.
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timeMillis().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timeMicros().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.localTimestampMillis().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.localTimestampMicros().getName(),
-                DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                "geography_wkt", DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                "geography_wkt", FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                "Json", DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING);
+                "Json", FieldDescriptorProto.Type.TYPE_STRING);
     }
 
     // ---------------  Factory Methods ---------------------
@@ -258,8 +266,8 @@ public class BigQuerySchemaProvider {
         @Nullable Schema schema = field.schema();
         Preconditions.checkNotNull(schema, "Unexpected null schema!");
 
-        DescriptorProtos.FieldDescriptorProto.Builder fieldDescriptorBuilder =
-                DescriptorProtos.FieldDescriptorProto.newBuilder();
+        FieldDescriptorProto.Builder fieldDescriptorBuilder =
+                FieldDescriptorProto.newBuilder();
         fieldDescriptorBuilder = fieldDescriptorBuilder.setName(field.name().toLowerCase());
         fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(fieldNumber);
 
@@ -274,13 +282,88 @@ public class BigQuerySchemaProvider {
                 descriptorProtoBuilder.addNestedType(nested);
                 fieldDescriptorBuilder =
                         fieldDescriptorBuilder
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
                                 .setTypeName(nested.getName());
                 break;
             case ARRAY:
-                throw new UnsupportedOperationException("ARRAY type not supported yet.");
+                elementType = schema.getElementType();
+                if (elementType == null) {
+                    throw new IllegalArgumentException("Unexpected null element type!");
+                }
+                Preconditions.checkState(
+                        elementType.getType() != Schema.Type.ARRAY,
+                        "Nested arrays not supported by BigQuery.");
+                if (elementType.getType() == Schema.Type.MAP) {
+                    // Note this case would be covered in the check which is performed later,
+                    // but just in case the support for this is provided in the future,
+                    // it is explicitly mentioned.
+                    throw new UnsupportedOperationException("Array of Type MAP not supported yet.");
+                }
+                DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
+                fieldDescriptorFromSchemaField(
+                        new Schema.Field(
+                                field.name(), elementType, field.doc(), field.defaultVal()),
+                        fieldNumber,
+                        arrayFieldBuilder);
+
+                FieldDescriptorProto.Builder arrayFieldElementBuilder =
+                        arrayFieldBuilder.getFieldBuilder(0);
+                // Check if the inner field is optional without any default value.
+                if (arrayFieldElementBuilder.getLabel()
+                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
+                    throw new IllegalArgumentException("Array cannot have a NULLABLE element");
+                }
+                // Default value derived from inner layers should not be the default value of array
+                // field.
+                fieldDescriptorBuilder =
+                        arrayFieldElementBuilder
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                                .clearDefaultValue();
+                // Add any nested types.
+                descriptorProtoBuilder.addAllNestedType(arrayFieldBuilder.getNestedTypeList());
+                break;
             case MAP:
-                throw new UnsupportedOperationException("MAP type not supported yet.");
+                // A MAP is converted to an array of structs.
+                Schema keyType = Schema.create(Schema.Type.STRING);
+                Schema valueType = elementType.getValueType();
+                if (valueType == null) {
+                    throw new IllegalArgumentException("Unexpected null element type!");
+                }
+                // Create a new field of type RECORD.
+                Schema.Field keyField = new Schema.Field("key", keyType, "key of the map entry");
+                Schema.Field valueField =
+                        new Schema.Field("value", valueType, "value of the map entry");
+                Schema mapFieldSchema =
+                        Schema.createRecord(
+                                schema.getName(),
+                                schema.getDoc(),
+                                "com.google.flink.bigquery",
+                                true,
+                                Arrays.asList(keyField, valueField));
+
+                DescriptorProto.Builder mapFieldBuilder = DescriptorProto.newBuilder();
+                fieldDescriptorFromSchemaField(
+                        new Schema.Field(
+                                field.name(), mapFieldSchema, field.doc(), field.defaultVal()),
+                        fieldNumber,
+                        mapFieldBuilder);
+
+                FieldDescriptorProto.Builder mapFieldElementBuilder =
+                        mapFieldBuilder.getFieldBuilder(0);
+                // Check if the inner field is optional without any default value.
+                // This should not be the case since we explicitly create the STRUCT.
+                if (mapFieldElementBuilder.getLabel()
+                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
+                    throw new IllegalArgumentException("MAP cannot have a null element");
+                }
+                fieldDescriptorBuilder =
+                        mapFieldElementBuilder
+                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                                .clearDefaultValue();
+
+                // Add the nested types.
+                descriptorProtoBuilder.addAllNestedType(mapFieldBuilder.getNestedTypeList());
+                break;
             case UNION:
                 // Types can be ["null"] - Not supported in BigQuery.
                 // ["null", something] -
@@ -288,16 +371,18 @@ public class BigQuerySchemaProvider {
                 // ["null", something1, something2], [something1, something2] -
                 // Are invalid types
                 // not supported in BQ
-                elementType = handleUnionSchema(schema);
+                ImmutablePair<Schema, Boolean> handleUnionSchemaResult = handleUnionSchema(schema);
+                elementType = handleUnionSchemaResult.getLeft();
                 // either the field is nullable or error would be thrown.
-                isNullable = true;
+                isNullable = handleUnionSchemaResult.getRight();
                 if (elementType == null) {
                     throw new IllegalArgumentException("Unexpected null element type!");
                 }
-                if (elementType.getType() == Schema.Type.MAP
-                        || elementType.getType() == Schema.Type.ARRAY) {
+                if (isNullable
+                        && (elementType.getType() == Schema.Type.MAP
+                        || elementType.getType() == Schema.Type.ARRAY)) {
                     throw new UnsupportedOperationException(
-                            "MAP/ARRAYS in UNION types are not supported");
+                            "NULLABLE MAP/ARRAYS in UNION types are not supported");
                 }
                 DescriptorProto.Builder unionFieldBuilder = DescriptorProto.newBuilder();
                 fieldDescriptorFromSchemaField(
@@ -310,7 +395,7 @@ public class BigQuerySchemaProvider {
                 break;
             default:
                 @Nullable
-                DescriptorProtos.FieldDescriptorProto.Type type =
+                FieldDescriptorProto.Type type =
                         Optional.ofNullable(elementType.getProp(LogicalType.LOGICAL_TYPE_PROP))
                                 .map(LOGICAL_AVRO_TYPES_TO_PROTO::get)
                                 .orElse(AVRO_TYPES_TO_PROTO.get(elementType.getType()));
@@ -327,18 +412,15 @@ public class BigQuerySchemaProvider {
                 }
         }
         // Set the Labels for different Modes - REPEATED, REQUIRED, NULLABLE.
-        if (fieldDescriptorBuilder.getLabel()
-                != DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED) {
+        if (fieldDescriptorBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REPEATED) {
             if (isNullable) {
                 fieldDescriptorBuilder =
-                        fieldDescriptorBuilder.setLabel(
-                                DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                        fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL);
             } else {
                 // The Default Value is specified only in the case of scalar non-repeated fields.
                 // If it was a scalar type, the default value would already have been set.
                 fieldDescriptorBuilder =
-                        fieldDescriptorBuilder.setLabel(
-                                DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED);
+                        fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED);
             }
         }
         descriptorProtoBuilder.addField(fieldDescriptorBuilder.build());
