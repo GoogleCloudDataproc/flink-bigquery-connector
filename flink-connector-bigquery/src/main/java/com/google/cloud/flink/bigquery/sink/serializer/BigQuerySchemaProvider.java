@@ -8,8 +8,8 @@ import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices.QueryDataClient;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.BigQueryUtils;
-import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
@@ -41,10 +41,8 @@ public class BigQuerySchemaProvider {
     private DescriptorProto descriptorProto;
     private Descriptor descriptor;
 
-    private static final Map<Schema.Type, FieldDescriptorProto.Type>
-            AVRO_TYPES_TO_PROTO;
-    private static final Map<String, FieldDescriptorProto.Type>
-            LOGICAL_AVRO_TYPES_TO_PROTO;
+    private static final Map<Schema.Type, FieldDescriptorProto.Type> AVRO_TYPES_TO_PROTO;
+    private static final Map<String, FieldDescriptorProto.Type> LOGICAL_AVRO_TYPES_TO_PROTO;
 
     public DescriptorProto getDescriptorProto() {
         return descriptorProto;
@@ -110,63 +108,45 @@ public class BigQuerySchemaProvider {
          * AVRO_TYPES_TO_PROTO: containing mapping from Primitive Avro Schema Type to FieldDescriptorProto.
          */
         AVRO_TYPES_TO_PROTO = new EnumMap<>(Schema.Type.class);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.BOOLEAN, FieldDescriptorProto.Type.TYPE_BOOL);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.ENUM, FieldDescriptorProto.Type.TYPE_STRING);
-        AVRO_TYPES_TO_PROTO.put(
-                Schema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.BOOLEAN, FieldDescriptorProto.Type.TYPE_BOOL);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.ENUM, FieldDescriptorProto.Type.TYPE_STRING);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.BYTES, FieldDescriptorProto.Type.TYPE_BYTES);
 
         /*
-         * Map Logical Avro Schema Type to FieldDescriptorProto Type which converts
+         * Map Logical Avro Schema Type to FieldDescriptorProto Type, which converts
          * AvroSchema Primitive Type to Dynamic Message.
          * LOGICAL_AVRO_TYPES_TO_PROTO: Map containing mapping from Primitive Avro Schema Type to FieldDescriptorProto.
          */
         LOGICAL_AVRO_TYPES_TO_PROTO = new HashMap<>();
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.date().getName(),
-                FieldDescriptorProto.Type.TYPE_INT32);
+                LogicalTypes.date().getName(), FieldDescriptorProto.Type.TYPE_INT32);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.decimal(1).getName(),
-                FieldDescriptorProto.Type.TYPE_BYTES);
+                LogicalTypes.decimal(1).getName(), FieldDescriptorProto.Type.TYPE_BYTES);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.timestampMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
+                LogicalTypes.timestampMicros().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.timestampMillis().getName(),
-                FieldDescriptorProto.Type.TYPE_INT64);
+                LogicalTypes.timestampMillis().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.uuid().getName(),
-                FieldDescriptorProto.Type.TYPE_STRING);
+                LogicalTypes.uuid().getName(), FieldDescriptorProto.Type.TYPE_STRING);
         // These are newly added.
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.timeMillis().getName(),
-                FieldDescriptorProto.Type.TYPE_STRING);
+                LogicalTypes.timeMillis().getName(), FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.timeMicros().getName(),
-                FieldDescriptorProto.Type.TYPE_STRING);
+                LogicalTypes.timeMicros().getName(), FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.localTimestampMillis().getName(),
                 FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.localTimestampMicros().getName(),
                 FieldDescriptorProto.Type.TYPE_STRING);
-        LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                "geography_wkt", FieldDescriptorProto.Type.TYPE_STRING);
-        LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                "Json", FieldDescriptorProto.Type.TYPE_STRING);
+        LOGICAL_AVRO_TYPES_TO_PROTO.put("geography_wkt", FieldDescriptorProto.Type.TYPE_STRING);
+        LOGICAL_AVRO_TYPES_TO_PROTO.put("Json", FieldDescriptorProto.Type.TYPE_STRING);
     }
 
     // ---------------  Factory Methods ---------------------
@@ -266,8 +246,7 @@ public class BigQuerySchemaProvider {
         @Nullable Schema schema = field.schema();
         Preconditions.checkNotNull(schema, "Unexpected null schema!");
 
-        FieldDescriptorProto.Builder fieldDescriptorBuilder =
-                FieldDescriptorProto.newBuilder();
+        FieldDescriptorProto.Builder fieldDescriptorBuilder = FieldDescriptorProto.newBuilder();
         fieldDescriptorBuilder = fieldDescriptorBuilder.setName(field.name().toLowerCase());
         fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(fieldNumber);
 
@@ -380,7 +359,7 @@ public class BigQuerySchemaProvider {
                 }
                 if (isNullable
                         && (elementType.getType() == Schema.Type.MAP
-                        || elementType.getType() == Schema.Type.ARRAY)) {
+                                || elementType.getType() == Schema.Type.ARRAY)) {
                     throw new UnsupportedOperationException(
                             "NULLABLE MAP/ARRAYS in UNION types are not supported");
                 }

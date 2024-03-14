@@ -16,16 +16,6 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.api.services.bigquery.model.TableFieldSchema;
-import com.google.api.services.bigquery.model.TableSchema;
-import com.google.protobuf.DescriptorProtos.DescriptorProto;
-import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.DescriptorValidationException;
-import com.google.protobuf.Descriptors.FieldDescriptor;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;

@@ -25,7 +25,6 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -63,7 +62,7 @@ public class BigQuerySchemaProviderTest {
     private final TableSchema tableSchema = new TableSchema().setFields(fields);
 
     @Test
-    public void testPrimitiveTypesConversion()  {
+    public void testPrimitiveTypesConversion() {
 
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
@@ -238,7 +237,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testAllPrimitiveSchemaConversion()  {
+    public void testAllPrimitiveSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -261,7 +260,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testAllLogicalSchemaConversion(){
+    public void testAllLogicalSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -373,7 +372,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testAllUnionLogicalSchemaConversion()  {
+    public void testAllUnionLogicalSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -485,7 +484,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testAllUnionPrimitiveSchemaConversion()  {
+    public void testAllUnionPrimitiveSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -588,7 +587,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testUnionInRecordSchemaConversation()  {
+    public void testUnionInRecordSchemaConversation() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -633,7 +632,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testRecordInRecordSchemaConversion()  {
+    public void testRecordInRecordSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -679,7 +678,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testRecordOfLogicalTypeSchemaConversion()  {
+    public void testRecordOfLogicalTypeSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -830,7 +829,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testDefaultValueSchemaConversion()  {
+    public void testDefaultValueSchemaConversion() {
         String fieldString =
                 " \"fields\": [\n"
                         + "{\"name\": \"long_with_default\", \"type\": [\"long\", \"null\"], \"default\": 100}"
@@ -851,7 +850,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testMapOfUnionTypeSchemaConversion()  {
+    public void testMapOfUnionTypeSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -883,7 +882,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testMapOfArraySchemaConversion()  {
+    public void testMapOfArraySchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -915,7 +914,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testMapInRecordSchemaConversion()  {
+    public void testMapInRecordSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -960,8 +959,9 @@ public class BigQuerySchemaProviderTest {
         assertThat(fieldDescriptorProto.getLabel())
                 .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
+
     @Test
-    public void testArrayOfUnionValueSchemaConversion()  {
+    public void testArrayOfUnionValueSchemaConversion() {
         String fieldString =
                 " \"fields\": [\n"
                         + "{\"name\": \"array_with_union\", \"type\": "
@@ -989,8 +989,7 @@ public class BigQuerySchemaProviderTest {
 
         IllegalStateException exception =
                 assertThrows(
-                        IllegalStateException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
+                        IllegalStateException.class, () -> new BigQuerySchemaProvider(avroSchema));
         assertThat(exception).hasMessageThat().contains("Nested arrays not supported by BigQuery.");
     }
 
@@ -1014,7 +1013,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testRecordOfRecordSchemaConversion()  {
+    public void testRecordOfRecordSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1060,7 +1059,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testMapOfMapSchemaConversion()  {
+    public void testMapOfMapSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1112,7 +1111,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testMapOfRecordSchemaConversion()  {
+    public void testMapOfRecordSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1166,7 +1165,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testRecordOfArraySchemaConversion()  {
+    public void testRecordOfArraySchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1230,7 +1229,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testArrayOfRecordSchemaConversion()  {
+    public void testArrayOfRecordSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1292,7 +1291,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testUnionOfRecordSchemaConversion()  {
+    public void testUnionOfRecordSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1334,7 +1333,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testSpecialSchemaConversion()  {
+    public void testSpecialSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1445,7 +1444,7 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
-    public void testAllPrimitiveSingleUnionSchemaConversion()  {
+    public void testAllPrimitiveSingleUnionSchemaConversion() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -1465,6 +1464,7 @@ public class BigQuerySchemaProviderTest {
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         assertPrimitive(descriptor);
     }
+
     @Test
     public void testRecordOfUnionFieldSchemaConversion() throws DescriptorValidationException {
 
@@ -1495,5 +1495,4 @@ public class BigQuerySchemaProviderTest {
         assertThat(fieldDescriptor.hasDefaultValue()).isTrue();
         assertThat(fieldDescriptor.getDefaultValue()).isEqualTo(true);
     }
-
 }
