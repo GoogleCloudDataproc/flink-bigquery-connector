@@ -24,7 +24,6 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -34,8 +33,8 @@ import java.util.List;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-/** Tests for {@link AvroToProtoSerializer}. */
-public class AvroToProtoSerializerTest {
+/** Tests for {@link BigQuerySchemaProvider}. */
+public class BigQuerySchemaProviderTest {
 
     private final List<TableFieldSchema> subFieldsNullable =
             Collections.singletonList(
@@ -66,16 +65,15 @@ public class AvroToProtoSerializerTest {
         UnsupportedOperationException exception =
                 assertThrows(
                         UnsupportedOperationException.class,
-                        () -> new AvroToProtoSerializer(tableSchema).serialize(null));
+                        () -> new AvroToProtoSerializer().serialize(null));
         assertThat(exception).hasMessageThat().contains("serialize method is not supported");
     }
 
     @Test
     public void testPrimitiveTypesConversion() throws DescriptorValidationException {
 
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(tableSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -179,9 +177,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -284,9 +281,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -397,9 +393,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -509,9 +504,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -605,9 +599,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("record_with_union");
@@ -655,9 +648,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -717,9 +709,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_logical_type");
@@ -835,7 +826,7 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.getDescriptorSchemaFromAvroSchema(avroSchema));
+                        () -> new BigQuerySchemaProvider(avroSchema));
         assertThat(exception)
                 .hasMessageThat()
                 .contains("Multiple non-null union types are not supported.");
@@ -849,9 +840,8 @@ public class AvroToProtoSerializerTest {
                         + " ]\n";
 
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQueryProtoSerializer<GenericRecord> avroToProtoSerializer =
-                new AvroToProtoSerializer(avroSchema);
-        Descriptor descriptor = avroToProtoSerializer.getDescriptor();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("long_with_default");
