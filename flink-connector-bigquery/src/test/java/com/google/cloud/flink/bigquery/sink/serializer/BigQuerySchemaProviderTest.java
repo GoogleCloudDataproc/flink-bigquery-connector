@@ -24,8 +24,8 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.avro.Schema;
 import org.junit.Test;
 
-import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getAvroSchemaFromFieldString;
-import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestUtils.getRecord;
+import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestSchemas.getAvroSchemaFromFieldString;
+import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestSchemas.getRecord;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -34,7 +34,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testPrimitiveTypesConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testPrimitiveTypesConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testPrimitiveTypesConversion().getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -112,7 +112,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testLogicalTypesConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testLogicalTypesConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testLogicalTypesConversion().getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -247,14 +247,14 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testAllPrimitiveSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllPrimitiveSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testAllPrimitiveSchemaConversion().getDescriptor();
         assertPrimitive(descriptor);
     }
 
     @Test
     public void testAllLogicalSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllLogicalSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testAllLogicalSchemaConversion().getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
                 .isEqualTo(
@@ -350,7 +350,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testAllUnionLogicalSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllUnionLogicalSchemaConversion()
+                AvroToProtoSerializerTestSchemas.testAllUnionLogicalSchemaConversion()
                         .getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
@@ -447,7 +447,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testAllUnionPrimitiveSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllUnionPrimitiveSchemaConversion()
+                AvroToProtoSerializerTestSchemas.testAllUnionPrimitiveSchemaConversion()
                         .getDescriptor();
 
         assertThat(descriptor.findFieldByNumber(1).toProto())
@@ -536,7 +536,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testUnionInRecordSchemaConversation() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testUnionInRecordSchemaConversation()
+                AvroToProtoSerializerTestSchemas.testUnionInRecordSchemaConversation()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
@@ -561,7 +561,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfLogicalTypeSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfLogicalTypeSchemaConversion()
+                AvroToProtoSerializerTestSchemas.testRecordOfLogicalTypeSchemaConversion()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
@@ -687,7 +687,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testDefaultValueSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testDefaultValueSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testDefaultValueSchemaConversion().getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("long_with_default");
@@ -702,7 +702,8 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfRecordSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testRecordOfRecordSchemaConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -737,7 +738,8 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfUnionTypeSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfUnionTypeSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testMapOfUnionTypeSchemaConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -762,7 +764,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfArraySchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfArraySchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testMapOfArraySchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -787,7 +789,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapInRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapInRecordSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testMapInRecordSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -859,7 +861,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfMapSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfMapSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testMapOfMapSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -904,7 +906,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfRecordSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testMapOfRecordSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -949,7 +951,8 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfArraySchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfArraySchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testRecordOfArraySchemaConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -974,7 +977,8 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testArrayOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testArrayOfRecordSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testArrayOfRecordSchemaConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1006,7 +1010,8 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testUnionOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testUnionOfRecordSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testUnionOfRecordSchemaConversion()
+                        .getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1038,7 +1043,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testSpecialSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testSpecialSchemaConversion().getDescriptor();
+                AvroToProtoSerializerTestSchemas.testSpecialSchemaConversion().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -1102,7 +1107,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testAllPrimitiveSingleUnionSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllPrimitiveSingleUnionSchemaConversion()
+                AvroToProtoSerializerTestSchemas.testAllPrimitiveSingleUnionSchemaConversion()
                         .getDescriptor();
         assertPrimitive(descriptor);
     }
@@ -1110,7 +1115,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfUnionFieldSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfUnionFieldSchemaConversion()
+                AvroToProtoSerializerTestSchemas.testRecordOfUnionFieldSchemaConversion()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
@@ -1135,7 +1140,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testArrayAndRequiredTypesConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testArrayAndRequiredTypesConversion()
+                AvroToProtoSerializerTestSchemas.testArrayAndRequiredTypesConversion()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
