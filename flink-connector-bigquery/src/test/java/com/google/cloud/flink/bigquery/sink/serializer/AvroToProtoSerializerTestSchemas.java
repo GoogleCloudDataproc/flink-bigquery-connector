@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Common Utils for {@link AvroToProtoSerializerTest} and {@link BigQuerySchemaProviderTest}. */
-public class AvroToProtoSerializerTestUtils {
+public abstract class AvroToProtoSerializerTestSchemas {
 
     public static Schema getAvroSchemaFromFieldString(String fieldString) {
         String avroSchemaString =
@@ -38,7 +38,8 @@ public class AvroToProtoSerializerTestUtils {
                 + "}";
     }
 
-    private static BigQueryAvroToProtoSerializerTestResult getAndReturn(String fieldString) {
+    private static BigQueryAvroToProtoSerializerTestResult getSchemaAndDescriptor(
+            String fieldString) {
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
@@ -129,7 +130,7 @@ public class AvroToProtoSerializerTestUtils {
                         + " \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}},\n"
                         + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testAllLogicalSchemaConversion() {
@@ -147,7 +148,7 @@ public class AvroToProtoSerializerTestUtils {
                         + "   {\"name\": \"uuid\", \"type\": {\"type\": \"string\", \"logicalType\": \"uuid\"}},\n"
                         + "   {\"name\": \"geography\", \"type\": {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testAllUnionLogicalSchemaConversion() {
@@ -164,7 +165,7 @@ public class AvroToProtoSerializerTestUtils {
                         + "   {\"name\": \"uuid\", \"type\": [\"null\",{\"type\": \"string\", \"logicalType\": \"uuid\"}]},\n"
                         + "   {\"name\": \"geography\", \"type\": [\"null\",{\"type\": \"string\", \"logicalType\": \"geography_wkt\"}]}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testAllUnionPrimitiveSchemaConversion() {
@@ -181,7 +182,7 @@ public class AvroToProtoSerializerTestUtils {
                         + "   {\"name\": \"enum_field\", \"type\": [\"null\",{\"type\":\"enum\", \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}]},\n"
                         + "   {\"name\": \"byte_field\", \"type\": [\"null\",\"bytes\"]}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testUnionInRecordSchemaConversation() {
@@ -193,7 +194,7 @@ public class AvroToProtoSerializerTestUtils {
                         + " [{\"name\": \"union_in_record\", \"type\": "
                         + "[\"boolean\", \"null\"], \"default\": true}]}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult
@@ -221,7 +222,7 @@ public class AvroToProtoSerializerTestUtils {
                         + "}"
                         + "}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testDefaultValueSchemaConversion() {
@@ -230,7 +231,7 @@ public class AvroToProtoSerializerTestUtils {
                         + "{\"name\": \"long_with_default\", \"type\": [\"long\", \"null\"],"
                         + " \"default\": 100}"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testRecordOfRecordSchemaConversion() {
