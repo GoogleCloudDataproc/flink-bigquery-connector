@@ -244,7 +244,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + "}]"
                         + "}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testMapOfArraySchemaConversion() {
@@ -254,7 +254,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + " \"values\": {\"type\": \"array\", \"items\": \"long\","
                         + " \"name\": \"array_in_map\"}}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testMapInRecordSchemaConversion() {
@@ -265,7 +265,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + " \"fields\": [{\"name\": \"map_in_record\", \"type\": "
                         + "{ \"type\": \"map\", \"values\": \"long\"}}]}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testMapOfUnionTypeSchemaConversion() {
@@ -274,7 +274,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + "   {\"name\": \"map_of_union\", \"type\": {\"type\": \"map\","
                         + " \"values\": [\"float\", \"null\"]}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testMapOfMapSchemaConversion() {
@@ -283,7 +283,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + "   {\"name\": \"map_of_map\", \"type\": {\"type\": \"map\", "
                         + "\"values\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testMapOfRecordSchemaConversion() {
@@ -293,7 +293,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + getRecord("record_inside_map")
                         + "}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testRecordOfArraySchemaConversion() {
@@ -301,7 +301,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                 " \"fields\": [\n"
                         + "   {\"name\": \"record_with_array\", \"type\": {\"name\": \"record_with_array_field\", \"type\": \"record\", \"fields\": [{\"name\": \"array_in_record\", \"type\": {\"type\": \"array\", \"items\": \"boolean\"}}]}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testArrayOfRecordSchemaConversion() {
@@ -312,7 +312,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + "}}"
                         + " ]\n";
 
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testUnionOfRecordSchemaConversion() {
@@ -323,7 +323,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + getRecord("inside_record")
                         + "]}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testSpecialSchemaConversion() {
@@ -335,7 +335,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", \"values\": \"long\"}},\n"
                         + "   {\"name\": \"array_field\", \"type\": {\"type\": \"array\", \"items\": \"float\"}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult
@@ -354,7 +354,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                         + " \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}]},\n"
                         + "   {\"name\": \"byte_field\", \"type\": [\"bytes\"]}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testRecordOfUnionFieldSchemaConversion() {
@@ -362,7 +362,7 @@ public abstract class AvroToProtoSerializerTestSchemas {
                 " \"fields\": [\n"
                         + "   {\"name\": \"record_with_union\", \"type\": {\"name\": \"record_with_union_field\", \"type\": \"record\", \"fields\": [{\"name\": \"union_in_record\", \"type\": [\"boolean\", \"null\"], \"default\": true}]}}\n"
                         + " ]\n";
-        return getAndReturn(fieldString);
+        return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQueryAvroToProtoSerializerTestResult testArrayAndRequiredTypesConversion() {
