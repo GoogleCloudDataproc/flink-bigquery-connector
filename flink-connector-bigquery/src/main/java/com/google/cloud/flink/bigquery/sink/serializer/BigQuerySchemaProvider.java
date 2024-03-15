@@ -21,6 +21,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import javax.annotation.Nullable;
 
+import java.io.Serializable;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -36,11 +37,10 @@ import java.util.stream.Collectors;
  * DescriptorProto({@link DescriptorProto}). The obtained Descriptor Proto is required for the
  * formation of the Descriptors which is essential for Proto Rows formation.
  */
-public class BigQuerySchemaProvider {
+public class BigQuerySchemaProvider implements Serializable {
 
     private Schema avroSchema;
     private DescriptorProto descriptorProto;
-    private Descriptor descriptor;
 
     private static final Map<Schema.Type, FieldDescriptorProto.Type> AVRO_TYPES_TO_PROTO;
     private static final Map<String, FieldDescriptorProto.Type> LOGICAL_AVRO_TYPES_TO_PROTO;
@@ -50,7 +50,15 @@ public class BigQuerySchemaProvider {
     }
 
     public Descriptor getDescriptor() {
-        return descriptor;
+        Preconditions.checkNotNull(
+                getDescriptorProto(),
+                "DescriptorProto not initialized before obtaining Descriptor!");
+        try {
+            return getDescriptorFromDescriptorProto(descriptorProto);
+        } catch (DescriptorValidationException e) {
+            throw new BigQueryConnectorException(
+                    "Error obtaining Descriptor from Descriptor Proto", e.getCause());
+        }
     }
 
     public Schema getSchema() {
@@ -191,13 +199,7 @@ public class BigQuerySchemaProvider {
      */
     private BigQuerySchemaProvider getBigQuerySchemaProvider(Schema avroSchema) {
         this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
-        try {
-            this.descriptor = getDescriptorFromDescriptorProto(descriptorProto);
-        } catch (DescriptorValidationException e) {
-            throw new BigQueryConnectorException(
-                    "Could not obtain Descriptor from Descriptor Proto", e.getCause());
-        }
-        return null;
+        return this;
     }
 
     // --------------- Obtain AvroSchema from TableSchema -----------------
