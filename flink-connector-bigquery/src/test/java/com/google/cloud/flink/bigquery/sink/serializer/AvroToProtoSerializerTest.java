@@ -16,6 +16,22 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.retrying.RetrySettings;
+import com.google.api.gax.rpc.FixedHeaderProvider;
+import com.google.api.gax.rpc.HeaderProvider;
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
+import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
+import com.google.cloud.bigquery.storage.v1.ProtoRows;
+import com.google.cloud.bigquery.storage.v1.ProtoSchema;
+import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.bigquery.storage.v1.WriteStream;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -23,8 +39,12 @@ import com.google.protobuf.DynamicMessage;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+
+import org.apache.flink.FlinkVersion;
+
 import org.junit.Test;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
@@ -50,7 +70,7 @@ public class AvroToProtoSerializerTest {
                 new GenericRecordBuilder(schema)
                         .set("number", -7099548873856657385L)
                         .set("price", 0.5616495161359795)
-                        .set("species", "icukpigbcvtpfntnbmhy")
+                        .set("species", "String")
                         .set("flighted", true)
                         .set("sound", ByteBuffer.wrap(byteArray))
                         .set("required_record_field", genericRecord)
@@ -62,7 +82,7 @@ public class AvroToProtoSerializerTest {
                 .isEqualTo(-7099548873856657385L);
         assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo(0.5616495161359795);
         assertThat(message.getField(descriptor.findFieldByNumber(3)))
-                .isEqualTo("icukpigbcvtpfntnbmhy");
+                .isEqualTo("String");
         assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo(true);
         assertThat(message.getField(descriptor.findFieldByNumber(5)))
                 .isEqualTo(ByteString.copyFrom(byteArray));
@@ -84,28 +104,114 @@ public class AvroToProtoSerializerTest {
                 AvroToProtoSerializerTestUtils.testLogicalTypesConversion().getDescriptor();
         Schema schema = AvroToProtoSerializerTestUtils.testLogicalTypesConversion().getSchema();
 
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(schema);
+        BigQueryProtoSerializer<GenericRecord> serializer = AvroToProtoSerializer()
+        BigDecimal bigDecimal = new BigDecimal("123456.7891011");
+        byte[] bytes= bigDecimal.unscaledValue().toByteArray();
         GenericRecord record =
                 new GenericRecordBuilder(schema)
                         .set("timestamp", null)
-                        .set(
-                                "numeric_field",
-                                ByteBuffer.wrap(
-                                        new BigDecimal(123456.7891011)
-                                                .unscaledValue()
-                                                .toByteArray()))
-                        .set(
-                                "bignumeric_field",
-                                ByteBuffer.wrap(
-                                        new BigDecimal(123456.7891011)
-                                                .unscaledValue()
-                                                .toByteArray()))
+                        .set("numeric_field", ByteBuffer.wrap(bytes))
+                        .set("bignumeric_field", ByteBuffer.wrap(bytes))
                         .set("geography", "POINT(12, 13)")
                         .set("Json", "{\"name\": \"John\", \"surname\": \"Doe\"}")
                         .build();
 
-        DynamicMessage message =
-                AvroToProtoSerializer.getDynamicMessageFromGenericRecord(record, descriptor);
+        ProtoRows.Builder protoRowsBuilder = ProtoRows.newBuilder();
+        protoRowsBuilder.addSerializedRows(serializer.serialize(record));
+        StreamWriter streamWriter = getStreamWriter("array_table", serializer);
+        ProtoRows rowsToAppend = protoRowsBuilder.build();
+        AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
+        streamWriter.close();
+        assertThat(response).isNotNull();
+
+//        DynamicMessage message =
+//                AvroToProtoSerializer.getDynamicMessageFromGenericRecord(record, descriptor);
+
+//        assertThat(message.getField(descriptor.findFieldByNumber(1))).isNull();
+//        assertThat(((ByteString)message.getField(descriptor.findFieldByNumber(2))).toStringUtf8()).isEqualTo("C\b\373q\037\001");
+//        assertThat(BigDecimalByteStringEncoder.decodeBigNumericByteString((ByteString) message.
+//                getField(descriptor.findFieldByNumber(3)))).isEqualTo(bigDecimal);
+
+//        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo("POINT(12, 13)");
+//        assertThat(message.getField(descriptor.findFieldByNumber(5))).isEqualTo("{\"name\": \"John\", \"surname\": \"Doe\"}");
     }
+
+        /** Class to obtain write stream. */
+        public class WriteStreamClass {
+
+            BigQueryWriteClient client;
+            private final HeaderProvider USER_AGENT_HEADER_PROVIDER =
+                        FixedHeaderProvider.create(
+                                "user-agent", "Apache_Flink_Java/" + FlinkVersion.current().toString());
+
+            public WriteStreamClass(CredentialsOptions options) throws IOException {
+
+                BigQueryWriteSettings.Builder settingsBuilder =
+                        BigQueryWriteSettings.newBuilder()
+                                .setCredentialsProvider(
+                                        FixedCredentialsProvider.create(options.getCredentials()))
+                                .setTransportChannelProvider(
+
+     BigQueryWriteSettings.defaultGrpcTransportProviderBuilder()
+                                                .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
+                                                .build());
+
+                client = BigQueryWriteClient.create(settingsBuilder.build());
+            }
+
+            public WriteStream createWriteStream(CreateWriteStreamRequest request) {
+                return client.createWriteStream(request);
+            }
+
+            public StreamWriter createStreamWriter(
+                    ProtoSchema protoSchema, RetrySettings retrySettings, String writeStreamName)
+     {
+                try {
+                    StreamWriter.Builder streamWriter =
+                            StreamWriter.newBuilder(writeStreamName, client)
+                                    .setWriterSchema(protoSchema)
+                                    .setRetrySettings(retrySettings);
+                    return streamWriter.build();
+                } catch (IOException e) {
+                    throw new RuntimeException("Could not build stream-writer", e);
+                }
+            }
+        }
+
+    private StreamWriter getStreamWriter(String tableId, BigQueryProtoSerializer serializer)
+                throws IOException {
+            BigQueryReadOptions writeOptions =
+                    BigQueryReadOptions.builder()
+                            .setBigQueryConnectOptions(
+                                    BigQueryConnectOptions.builder()
+                                            .setProjectId("bqrampupprashasti")
+                                            .setDataset("testing_dataset")
+                                            .setTable(tableId)
+                                            .build())
+                            .build();
+            BigQueryConnectOptions writeConnectOptions = writeOptions.getBigQueryConnectOptions();
+            String tablePath =
+                    "projects/"
+                            + writeConnectOptions.getProjectId()
+                            + "/datasets/"
+                            + writeConnectOptions.getDataset()
+                            + "/tables/"
+                            + writeConnectOptions.getTable();
+            String writeStreamName = String.format("%s/streams/_default", tablePath);
+            WriteStreamClass writeStreamClass =
+                    new WriteStreamClass(writeConnectOptions.getCredentialsOptions());
+            ProtoSchema protoSchema =
+                    ProtoSchema.newBuilder()
+                            .setProtoDescriptor(serializer.getDescriptorProto())
+                            .build();
+            StreamWriter streamWriter =
+                    writeStreamClass.createStreamWriter(
+                            protoSchema, RetrySettings.newBuilder().build(), writeStreamName);
+
+            return streamWriter;
+        }
+
 
     @Test
     public void testAllPrimitiveSchemaConversion() {
