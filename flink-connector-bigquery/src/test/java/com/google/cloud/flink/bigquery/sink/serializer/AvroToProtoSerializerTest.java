@@ -16,48 +16,252 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.api.gax.core.FixedCredentialsProvider;
-import com.google.api.gax.retrying.RetrySettings;
-import com.google.api.gax.rpc.FixedHeaderProvider;
-import com.google.api.gax.rpc.HeaderProvider;
-import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
-import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
-import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
-import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
-import com.google.cloud.bigquery.storage.v1.ProtoRows;
-import com.google.cloud.bigquery.storage.v1.ProtoSchema;
-import com.google.cloud.bigquery.storage.v1.StreamWriter;
-import com.google.cloud.bigquery.storage.v1.WriteStream;
-import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
-
-import org.apache.flink.FlinkVersion;
-
+import org.assertj.core.api.Assertions;
+import org.joda.time.Instant;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.UUID;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 /** Tests for {@link AvroToProtoSerializer}. */
 public class AvroToProtoSerializerTest {
 
+    // ---------- Test the Helper Functions --------------
+    @Test
+    public void testConvertJson() {
+        Object value = "{\"name\": \"test_value\", \"value\": \"value\"}";
+        String convertedValue = AvroToProtoSerializer.convertJson(value);
+        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+    }
+
+    @Test
+    public void testErrorConvertJson() {
+        Object value = "invalid_json_string";
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertJson(value));
+        Assertions.assertThat(exception).hasMessageContaining(" is not in valid JSON Format.");
+    }
+
+    @Test
+    public void testConvertGeography() {
+        Object value = "POINT(-121 41)";
+        String convertedValue = AvroToProtoSerializer.convertGeography(value);
+        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+    }
+
+    @Test
+    public void testErrorConvertGeography() {
+        Object value = 5678;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertGeography(value));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Expecting a value as String type (geography_wkt or geojson format).");
+    }
+
+    @Test
+    public void testConvertUUID() {
+        Object value = UUID.randomUUID();
+        String convertedValue = AvroToProtoSerializer.convertUUID(value);
+        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+    }
+
+    @Test
+    public void testConvertUUIDString() {
+        Object value = UUID.randomUUID().toString();
+        String convertedValue = AvroToProtoSerializer.convertUUID(value);
+        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+    }
+
+    @Test
+    public void testErrorConvertUUID() {
+        Object value = 5678;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertUUID(value));
+        Assertions.assertThat(exception).hasMessageContaining("Expecting a value as String type.");
+    }
+
+    @Test
+    public void testErrorConvertBigNumeric() {
+        Object value = "A random string";
+        assertThrows(
+                ClassCastException.class, () -> AvroToProtoSerializer.convertBigDecimal(value));
+
+        BigDecimal bigDecimal =
+                new BigDecimal(
+                        "5789604461865805559771174925043439539266.349923328202820554419728792395656481996700");
+        // Form byte array in big-endian order.
+        Object byteBuffer = ByteBuffer.wrap(bigDecimal.unscaledValue().toByteArray());
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertBigDecimal(byteBuffer));
+        Assertions.assertThat(exception).hasMessageContaining("BigDecimal overflow:");
+    }
+
+    @Test
+    public void testConvertTimeStringType() {
+        Object value = "00:22:59.700440";
+        String convertedValue = AvroToProtoSerializer.convertTime(value, true);
+        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+    }
+
+    @Test
+    public void testConvertTimeLongType() {
+        Object value = 2494194728L;
+        String convertedValue = AvroToProtoSerializer.convertTime(value, true);
+        Assertions.assertThat(convertedValue).isEqualTo("00:37:10.681");
+    }
+
+    @Test
+    public void testConvertErrorTimeLongType() {
+        Object invalidValueLong = 142441321387821952L;
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroToProtoSerializer.convertTime(invalidValueLong, true));
+        Object floatValue = 1234.56;
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> AvroToProtoSerializer.convertTime(floatValue, true));
+    }
+
+    @Test
+    public void testConvertTimestampMillis() {
+        Object value = 1710270870L;
+        Long convertedValue =
+                AvroToProtoSerializer.convertTimestamp(value, false, "Timestamp (millis)");
+        Assertions.assertThat(convertedValue).isEqualTo(1710270870000L);
+    }
+
+    @Test
+    public void testConvertTimestampMillisTimeInstant() {
+        Object value = Instant.ofEpochMilli(1710270870123L);
+        Long convertedValue =
+                AvroToProtoSerializer.convertTimestamp(value, false, "Timestamp (millis)");
+        Assertions.assertThat(convertedValue).isEqualTo(1710270870123000L);
+    }
+
+    @Test
+    public void testConvertTimestampMicrosTimeInstant() {
+        Object value = Instant.parse("2024-03-13T01:01:16.579501+00:00");
+        Long convertedValue =
+                AvroToProtoSerializer.convertTimestamp(value, true, "Timestamp (micros)");
+        Assertions.assertThat(convertedValue).isEqualTo(1710291676579000L);
+    }
+
+    @Test
+    public void testConvertTimestampMicros() {
+        Object value = 1710270870123L;
+        Long convertedValue =
+                AvroToProtoSerializer.convertTimestamp(value, true, "Timestamp (micros)");
+        Assertions.assertThat(convertedValue).isEqualTo(1710270870123L);
+    }
+
+    @Test
+    public void testConvertErrorTimestamp() {
+        Object invalidValue = "not_a_timestamp";
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroToProtoSerializer.convertTimestamp(
+                                        invalidValue, true, "Timestamp (micros)"));
+        Assertions.assertThat(exception).hasMessageContaining("Expecting a value as Long type");
+
+        Object invalidLongValue = 1123456789101112131L;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroToProtoSerializer.convertTimestamp(
+                                        invalidLongValue, true, "Timestamp (micros)"));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Should be a long value indicating microseconds since Epoch (1970-01-01 00:00:00) between 0001-01-01 00:00:00.0 and 9999-12-31 23:59:59.999999");
+    }
+
+    @Test
+    public void testConvertDateInstant() {
+        Object value = Instant.parse("2024-03-13T00:00:00.000000+00:00");
+        Integer convertedValue = AvroToProtoSerializer.convertDate(value);
+        Assertions.assertThat(convertedValue).isEqualTo(19795);
+    }
+
+    @Test
+    public void testConvertDate() {
+        Object value = 19794;
+        Integer convertedValue = AvroToProtoSerializer.convertDate(value);
+        Assertions.assertThat(convertedValue).isEqualTo(19794);
+    }
+
+    @Test
+    public void testConvertErrorDate() {
+        Object invalidValue = 29328967;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertDate(invalidValue));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Should be a Integer value indicating days since Epoch (1970-01-01 00:00:00)");
+
+        Object floatValue = 1234.56;
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroToProtoSerializer.convertDate(floatValue));
+    }
+
+    @Test
+    public void testConvertDateTimeStringType() {
+        Object value = "2024-01-01 00:22:59.700440";
+        String convertedValue = AvroToProtoSerializer.convertDateTime(value, true);
+        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+    }
+
+    @Test
+    public void testConvertDateTimeLongType() {
+        Object value = 142441321937062776L;
+        String convertedValue = AvroToProtoSerializer.convertDateTime(value, true);
+        Assertions.assertThat(convertedValue).isEqualTo("2024-03-13T00:42:54.347");
+    }
+
+    @Test
+    public void testConvertErrorTimeDateLongType() {
+        Object value = 1424413213878251952L;
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroToProtoSerializer.convertDateTime(value, true));
+        Object floatValue = 1234.56;
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> AvroToProtoSerializer.convertDateTime(floatValue, true));
+    }
+    // --------------------------------------------------------------------------------------------------
+
     @Test
     public void testPrimitiveTypesConversion() {
-        Schema schema = AvroToProtoSerializerTestUtils.testPrimitiveTypesConversion().getSchema();
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testPrimitiveTypesConversion().getDescriptor();
+        BigQueryAvroToProtoSerializerTestResult bigQueryAvroToProtoSerializerTestResult =
+                AvroToProtoSerializerTestSchemas.testPrimitiveTypesConversion();
+        Schema schema = bigQueryAvroToProtoSerializerTestResult.getSchema();
+        Descriptor descriptor = bigQueryAvroToProtoSerializerTestResult.getDescriptor();
 
         byte[] byteArray = "Any String you want".getBytes();
         String recordSchemaString =
@@ -81,8 +285,7 @@ public class AvroToProtoSerializerTest {
         assertThat(message.getField(descriptor.findFieldByNumber(1)))
                 .isEqualTo(-7099548873856657385L);
         assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo(0.5616495161359795);
-        assertThat(message.getField(descriptor.findFieldByNumber(3)))
-                .isEqualTo("String");
+        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo("String");
         assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo(true);
         assertThat(message.getField(descriptor.findFieldByNumber(5)))
                 .isEqualTo(ByteString.copyFrom(byteArray));
@@ -100,281 +303,62 @@ public class AvroToProtoSerializerTest {
 
     @Test
     public void testLogicalTypesConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testLogicalTypesConversion().getDescriptor();
-        Schema schema = AvroToProtoSerializerTestUtils.testLogicalTypesConversion().getSchema();
+        BigQueryAvroToProtoSerializerTestResult bigQueryAvroToProtoSerializerTestResult =
+                AvroToProtoSerializerTestSchemas.testLogicalTypesConversion();
+        Schema schema = bigQueryAvroToProtoSerializerTestResult.getSchema();
+        Descriptor descriptor = bigQueryAvroToProtoSerializerTestResult.getDescriptor();
 
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(schema);
-        BigQueryProtoSerializer<GenericRecord> serializer = AvroToProtoSerializer()
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
-        byte[] bytes= bigDecimal.unscaledValue().toByteArray();
+        byte[] bytes = bigDecimal.unscaledValue().toByteArray();
         GenericRecord record =
                 new GenericRecordBuilder(schema)
                         .set("timestamp", null)
                         .set("numeric_field", ByteBuffer.wrap(bytes))
                         .set("bignumeric_field", ByteBuffer.wrap(bytes))
-                        .set("geography", "POINT(12, 13)")
-                        .set("Json", "{\"name\": \"John\", \"surname\": \"Doe\"}")
+                        .set("geography", "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))")
+                        .set("Json", "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}")
                         .build();
 
-        ProtoRows.Builder protoRowsBuilder = ProtoRows.newBuilder();
-        protoRowsBuilder.addSerializedRows(serializer.serialize(record));
-        StreamWriter streamWriter = getStreamWriter("array_table", serializer);
-        ProtoRows rowsToAppend = protoRowsBuilder.build();
-        AppendRowsResponse response = streamWriter.append(rowsToAppend).get();
-        streamWriter.close();
-        assertThat(response).isNotNull();
-
-//        DynamicMessage message =
-//                AvroToProtoSerializer.getDynamicMessageFromGenericRecord(record, descriptor);
-
-//        assertThat(message.getField(descriptor.findFieldByNumber(1))).isNull();
-//        assertThat(((ByteString)message.getField(descriptor.findFieldByNumber(2))).toStringUtf8()).isEqualTo("C\b\373q\037\001");
-//        assertThat(BigDecimalByteStringEncoder.decodeBigNumericByteString((ByteString) message.
-//                getField(descriptor.findFieldByNumber(3)))).isEqualTo(bigDecimal);
-
-//        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo("POINT(12, 13)");
-//        assertThat(message.getField(descriptor.findFieldByNumber(5))).isEqualTo("{\"name\": \"John\", \"surname\": \"Doe\"}");
+        DynamicMessage message =
+                AvroToProtoSerializer.getDynamicMessageFromGenericRecord(record, descriptor);
+        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo(0);
+        assertThat(message.getField(descriptor.findFieldByNumber(4)))
+                .isEqualTo("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))");
+        assertThat(message.getField(descriptor.findFieldByNumber(5)))
+                .isEqualTo("{\"FirstName\": \"John\", \"LastName\": \"Doe\"}");
     }
-
-        /** Class to obtain write stream. */
-        public class WriteStreamClass {
-
-            BigQueryWriteClient client;
-            private final HeaderProvider USER_AGENT_HEADER_PROVIDER =
-                        FixedHeaderProvider.create(
-                                "user-agent", "Apache_Flink_Java/" + FlinkVersion.current().toString());
-
-            public WriteStreamClass(CredentialsOptions options) throws IOException {
-
-                BigQueryWriteSettings.Builder settingsBuilder =
-                        BigQueryWriteSettings.newBuilder()
-                                .setCredentialsProvider(
-                                        FixedCredentialsProvider.create(options.getCredentials()))
-                                .setTransportChannelProvider(
-
-     BigQueryWriteSettings.defaultGrpcTransportProviderBuilder()
-                                                .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
-                                                .build());
-
-                client = BigQueryWriteClient.create(settingsBuilder.build());
-            }
-
-            public WriteStream createWriteStream(CreateWriteStreamRequest request) {
-                return client.createWriteStream(request);
-            }
-
-            public StreamWriter createStreamWriter(
-                    ProtoSchema protoSchema, RetrySettings retrySettings, String writeStreamName)
-     {
-                try {
-                    StreamWriter.Builder streamWriter =
-                            StreamWriter.newBuilder(writeStreamName, client)
-                                    .setWriterSchema(protoSchema)
-                                    .setRetrySettings(retrySettings);
-                    return streamWriter.build();
-                } catch (IOException e) {
-                    throw new RuntimeException("Could not build stream-writer", e);
-                }
-            }
-        }
-
-    private StreamWriter getStreamWriter(String tableId, BigQueryProtoSerializer serializer)
-                throws IOException {
-            BigQueryReadOptions writeOptions =
-                    BigQueryReadOptions.builder()
-                            .setBigQueryConnectOptions(
-                                    BigQueryConnectOptions.builder()
-                                            .setProjectId("bqrampupprashasti")
-                                            .setDataset("testing_dataset")
-                                            .setTable(tableId)
-                                            .build())
-                            .build();
-            BigQueryConnectOptions writeConnectOptions = writeOptions.getBigQueryConnectOptions();
-            String tablePath =
-                    "projects/"
-                            + writeConnectOptions.getProjectId()
-                            + "/datasets/"
-                            + writeConnectOptions.getDataset()
-                            + "/tables/"
-                            + writeConnectOptions.getTable();
-            String writeStreamName = String.format("%s/streams/_default", tablePath);
-            WriteStreamClass writeStreamClass =
-                    new WriteStreamClass(writeConnectOptions.getCredentialsOptions());
-            ProtoSchema protoSchema =
-                    ProtoSchema.newBuilder()
-                            .setProtoDescriptor(serializer.getDescriptorProto())
-                            .build();
-            StreamWriter streamWriter =
-                    writeStreamClass.createStreamWriter(
-                            protoSchema, RetrySettings.newBuilder().build(), writeStreamName);
-
-            return streamWriter;
-        }
-
 
     @Test
     public void testAllPrimitiveSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllPrimitiveSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testAllPrimitiveSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testAllLogicalSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllLogicalSchemaConversion().getDescriptor();
-        Schema schema = AvroToProtoSerializerTestUtils.testAllLogicalSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testAllUnionLogicalSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllUnionLogicalSchemaConversion()
-                        .getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testAllUnionLogicalSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testAllUnionPrimitiveSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllUnionPrimitiveSchemaConversion()
-                        .getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testAllUnionPrimitiveSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testUnionInRecordSchemaConversation() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testUnionInRecordSchemaConversation()
-                        .getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testUnionInRecordSchemaConversation().getSchema();
-    }
-
-    @Test
-    public void testRecordOfLogicalTypeSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfLogicalTypeSchemaConversion()
-                        .getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testRecordOfLogicalTypeSchemaConversion()
-                        .getSchema();
-    }
-
-    @Test
-    public void testDefaultValueSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testDefaultValueSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testDefaultValueSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testRecordOfRecordSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfRecordSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testRecordOfRecordSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testMapOfUnionTypeSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfUnionTypeSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testMapOfUnionTypeSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testMapOfArraySchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfArraySchemaConversion().getDescriptor();
-        Schema schema = AvroToProtoSerializerTestUtils.testMapOfArraySchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testMapInRecordSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapInRecordSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testMapInRecordSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testMapOfMapSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfMapSchemaConversion().getDescriptor();
-        Schema schema = AvroToProtoSerializerTestUtils.testMapOfMapSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testMapOfRecordSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testMapOfRecordSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testMapOfRecordSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testRecordOfArraySchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfArraySchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testRecordOfArraySchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testArrayOfRecordSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testArrayOfRecordSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testArrayOfRecordSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testUnionOfRecordSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testUnionOfRecordSchemaConversion().getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testUnionOfRecordSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testSpecialSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testSpecialSchemaConversion().getDescriptor();
-        Schema schema = AvroToProtoSerializerTestUtils.testSpecialSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testAllPrimitiveSingleUnionSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testAllPrimitiveSingleUnionSchemaConversion()
-                        .getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testAllPrimitiveSingleUnionSchemaConversion()
-                        .getSchema();
-    }
-
-    @Test
-    public void testRecordOfUnionFieldSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testRecordOfUnionFieldSchemaConversion()
-                        .getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testRecordOfUnionFieldSchemaConversion().getSchema();
-    }
-
-    @Test
-    public void testArrayAndRequiredTypesConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestUtils.testArrayAndRequiredTypesConversion()
-                        .getDescriptor();
-        Schema schema =
-                AvroToProtoSerializerTestUtils.testArrayAndRequiredTypesConversion().getSchema();
+        BigQueryAvroToProtoSerializerTestResult bigQueryAvroToProtoSerializerTestResult =
+                AvroToProtoSerializerTestSchemas.testAllPrimitiveSchemaConversion();
+        Schema schema = bigQueryAvroToProtoSerializerTestResult.getSchema();
+        Descriptor descriptor = bigQueryAvroToProtoSerializerTestResult.getDescriptor();
+        byte[] byteArray = "Any String you want".getBytes();
+        GenericRecord record =
+                new GenericRecordBuilder(schema)
+                        .set("name", "abcd")
+                        .set("number", 1234L)
+                        .set("quantity", 12345)
+                        .set("fixed_field", new GenericData.Fixed(schema, byteArray))
+                        .set("price", Float.parseFloat("12345.6789"))
+                        .set("double_field", Double.parseDouble("1234.4567"))
+                        .set("boolean_field", false)
+                        .set("enum_field", "C")
+                        .set("byte_field", ByteBuffer.wrap(byteArray))
+                        .build();
+        DynamicMessage message =
+                AvroToProtoSerializer.getDynamicMessageFromGenericRecord(record, descriptor);
+        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo("abcd");
+        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo(1234L);
+        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo(12345L);
+        assertThat(message.getField(descriptor.findFieldByNumber(4)))
+                .isEqualTo(ByteString.copyFrom(byteArray));
+        assertThat(message.getField(descriptor.findFieldByNumber(5))).isEqualTo(12345.6789f);
+        assertThat(message.getField(descriptor.findFieldByNumber(6))).isEqualTo(1234.4567d);
+        assertThat(message.getField(descriptor.findFieldByNumber(7))).isEqualTo(false);
+        assertThat(message.getField(descriptor.findFieldByNumber(8))).isEqualTo("C");
+        assertThat(message.getField(descriptor.findFieldByNumber(9)))
+                .isEqualTo(ByteString.copyFrom(byteArray));
     }
 }
