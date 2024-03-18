@@ -26,7 +26,10 @@ import java.util.Collections;
 import java.util.List;
 
 /** Common Utils for {@link AvroToProtoSerializerTest} and {@link BigQuerySchemaProviderTest}. */
-public abstract class AvroToProtoSerializerTestSchemas {
+public class AvroToProtoSerializerTestSchemas {
+
+    // Private Constructor to ensure no instantiation.
+    private AvroToProtoSerializerTestSchemas() {}
 
     public static Schema getAvroSchemaFromFieldString(String fieldString) {
         String avroSchemaString =
