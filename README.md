@@ -161,6 +161,7 @@ end.
 partition’s end.
 * This approach is susceptible to out-of-order data, and we plan to replace it with a lateness tolerance beyond the 
 partition’s end in future releases.
+* The table's partitioned column should be a `REQUIRED` field.
 
 ### Bounded Source
 
@@ -228,6 +229,7 @@ The connector supports a number of options to configure the source.
 | `snapshotTimeInMillis`                       | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. This config is used in bounded table or unbounded source. If unspecified, the latest snapshot is read.                                                                                                                                                                        |
 | `oldestPartitionId`                          | String             | Earliest table partition to consider for unbounded reads. This config is used in unbounded source. If unspecified, all partitions are read.                                                                                                                                                                                                               |
 | `partitionDiscoveryRefreshIntervalInMinutes` | Integer            | Periodicity (in minutes) of partition discovery in table. This config is used in unbounded source. If unspecified, the default value used is 10 minutes.                                                                                                                                                                                                  |
+| `ts-prop`                                    | String             | Property record for timestamp. This config is required for unbounded source, but not in query or bounded source.  <br/>**Note**: The provided BigQuery table should be partitioned on this property. The property name should be a `REQUIRED` BigQuery field.                                                                                             |
 
 ### Datatypes
 
