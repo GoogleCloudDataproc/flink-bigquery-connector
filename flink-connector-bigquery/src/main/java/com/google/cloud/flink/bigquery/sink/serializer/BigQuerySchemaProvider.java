@@ -46,29 +46,44 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Class to obtain Descriptor ({@link Descriptor}) required for serialization of Generic Records.
- * This class has essential methods to obtain bigQuery Table Schema ({@link TableSchema}) from the
- * provided Table Connection Options ({@link BigQueryConnectOptions}). It is also responsible for
- * converting this Table Schema to Avro Schema ({@link Schema}) which is used to further convert to
- * DescriptorProto({@link DescriptorProto}). The obtained Descriptor Proto is required for the
- * formation of the Descriptors which is essential for Proto Rows formation.
+ * A class to derive {@link Descriptor} for Generic Record serialization. Also provides {@link
+ * TableSchema}, {@link Schema} and {@link DescriptorProto}.
  */
 public class BigQuerySchemaProvider implements Serializable {
 
-    private Schema avroSchema;
-    private DescriptorProto descriptorProto;
+    private final Schema avroSchema;
+    private final DescriptorProto descriptorProto;
 
     private static final Map<Schema.Type, FieldDescriptorProto.Type> AVRO_TYPES_TO_PROTO;
     private static final Map<String, FieldDescriptorProto.Type> LOGICAL_AVRO_TYPES_TO_PROTO;
+
+    public BigQuerySchemaProvider(BigQueryConnectOptions connectOptions) {
+        QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient();
+        TableSchema tableSchema =
+                queryDataClient.getTableSchema(
+                        connectOptions.getProjectId(),
+                        connectOptions.getDataset(),
+                        connectOptions.getTable());
+        this.avroSchema = getAvroSchema(tableSchema);
+        this.descriptorProto = getDescriptorSchemaFromAvroSchema(this.avroSchema);
+    }
+
+    public BigQuerySchemaProvider(TableSchema tableSchema) {
+        this.avroSchema = getAvroSchema(tableSchema);
+        this.descriptorProto = getDescriptorSchemaFromAvroSchema(this.avroSchema);
+    }
+
+    public BigQuerySchemaProvider(Schema avroSchema) {
+        this.avroSchema = avroSchema;
+        this.descriptorProto = getDescriptorSchemaFromAvroSchema(this.avroSchema);
+    }
 
     public DescriptorProto getDescriptorProto() {
         return descriptorProto;
     }
 
     public Descriptor getDescriptor() {
-        Preconditions.checkNotNull(
-                getDescriptorProto(),
-                "DescriptorProto not initialized before obtaining Descriptor!");
         try {
             return getDescriptorFromDescriptorProto(descriptorProto);
         } catch (DescriptorValidationException e) {
@@ -79,18 +94,6 @@ public class BigQuerySchemaProvider implements Serializable {
 
     public Schema getSchema() {
         return this.avroSchema;
-    }
-
-    public BigQuerySchemaProvider(BigQueryConnectOptions connectOptions) {
-        this.getBigQuerySchemaProvider(connectOptions);
-    }
-
-    public BigQuerySchemaProvider(TableSchema avroSchema) {
-        this.getBigQuerySchemaProvider(avroSchema);
-    }
-
-    public BigQuerySchemaProvider(Schema avroSchema) {
-        this.getBigQuerySchemaProvider(avroSchema);
     }
 
     /**
@@ -137,7 +140,7 @@ public class BigQuerySchemaProvider implements Serializable {
          * AVRO_TYPES_TO_PROTO: containing mapping from Primitive Avro Schema Type to FieldDescriptorProto.
          */
         AVRO_TYPES_TO_PROTO = new EnumMap<>(Schema.Type.class);
-        AVRO_TYPES_TO_PROTO.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT32);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
@@ -178,51 +181,11 @@ public class BigQuerySchemaProvider implements Serializable {
         LOGICAL_AVRO_TYPES_TO_PROTO.put("Json", FieldDescriptorProto.Type.TYPE_STRING);
     }
 
-    // ---------------  Factory Methods ---------------------
-
-    /**
-     * Factory Method for the BigQuerySchemaProvider.
-     *
-     * @param connectOptions BigQueryConnectOptions for the Sink Table ({@link
-     *     BigQueryConnectOptions} object)
-     */
-    private BigQuerySchemaProvider getBigQuerySchemaProvider(
-            BigQueryConnectOptions connectOptions) {
-        QueryDataClient queryDataClient =
-                BigQueryServicesFactory.instance(connectOptions).queryClient();
-        TableSchema tableSchema =
-                queryDataClient.getTableSchema(
-                        connectOptions.getProjectId(),
-                        connectOptions.getDataset(),
-                        connectOptions.getTable());
-        return this.getBigQuerySchemaProvider(tableSchema);
-    }
-
-    /**
-     * Factory Method for the BigQuerySchemaProvider.
-     *
-     * @param tableSchema Table Schema for the Sink Table ({@link TableSchema} object)
-     */
-    private BigQuerySchemaProvider getBigQuerySchemaProvider(TableSchema tableSchema) {
-        this.avroSchema = getAvroSchema(tableSchema);
-        return this.getBigQuerySchemaProvider(avroSchema);
-    }
-
-    /**
-     * Factory Method for the BigQuerySchemaProvider.
-     *
-     * @param avroSchema Table Schema for the Sink Table ({@link Schema} object)
-     */
-    private BigQuerySchemaProvider getBigQuerySchemaProvider(Schema avroSchema) {
-        this.descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
-        return this;
-    }
-
     // --------------- Obtain AvroSchema from TableSchema -----------------
     /**
      * Function to convert TableSchema to Avro Schema.
      *
-     * @param tableSchema A {@link TableSchema} object to cast to {@link Schema}
+     * @param tableSchema A {@link TableSchema} object to cast to {@link Schema}.
      * @return Converted Avro Schema
      */
     private static Schema getAvroSchema(TableSchema tableSchema) {
@@ -257,11 +220,11 @@ public class BigQuerySchemaProvider implements Serializable {
      * Function to obtain the FieldDescriptorProto from a AvroSchemaField and then append it to
      * DescriptorProto builder.
      *
-     * @param field {@link Schema.Field} object to obtain the FieldDescriptorProto from.
-     * @param fieldNumber index at which the obtained FieldDescriptorProto is appended in the
-     *     Descriptor.
+     * @param field {@link Schema.Field} object to obtain the {@link FieldDescriptorProto} from.
+     * @param fieldNumber index at which the obtained {@link FieldDescriptorProto} is appended in
+     *     the Descriptor.
      * @param descriptorProtoBuilder {@link DescriptorProto.Builder} object to add the obtained
-     *     FieldDescriptorProto to.
+     *     {@link FieldDescriptorProto} to.
      */
     private static void fieldDescriptorFromSchemaField(
             Schema.Field field, int fieldNumber, DescriptorProto.Builder descriptorProtoBuilder) {
@@ -355,11 +318,11 @@ public class BigQuerySchemaProvider implements Serializable {
 
     // --------------- Obtain Descriptor from DescriptorProto  ---------------
     /**
-     * Function to convert the {@link DescriptorProto} Type to {@link Descriptor}.This is necessary
-     * as a Descriptor is needed for DynamicMessage (used to write to Storage API).
+     * Function to convert a DescriptorProto to a Descriptor. This is necessary as a Descriptor is
+     * needed for DynamicMessage (used to write to Storage API).
      *
-     * @param descriptorProto input which needs to be converted to a Descriptor.
-     * @return Descriptor obtained form the input DescriptorProto
+     * @param descriptorProto input which needs to be converted to a {@link Descriptor}.
+     * @return {@link Descriptor} obtained form the input {@link DescriptorProto}
      * @throws DescriptorValidationException in case the conversion is not possible.
      */
     private static Descriptor getDescriptorFromDescriptorProto(DescriptorProto descriptorProto)
