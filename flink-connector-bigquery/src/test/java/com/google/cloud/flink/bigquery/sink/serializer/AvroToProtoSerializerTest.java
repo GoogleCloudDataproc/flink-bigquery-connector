@@ -72,7 +72,7 @@ public class AvroToProtoSerializerTest {
                         () -> AvroToProtoSerializer.convertGeography(value));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
-                        "Expecting a value as String type (geography_wkt or geojson format).");
+                        "Expecting a value as String/Utf8 type (geography_wkt or geojson format).");
     }
 
     @Test
