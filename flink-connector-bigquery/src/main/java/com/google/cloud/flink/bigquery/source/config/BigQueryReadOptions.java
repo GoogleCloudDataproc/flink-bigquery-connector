@@ -42,7 +42,7 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract List<String> getColumnNames();
 
-    public abstract String getRowRestriction();
+    public abstract Optional<String> getRowRestriction();
 
     public abstract Optional<Long> getSnapshotTimestampInMillis();
 
@@ -210,7 +210,7 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @param rowRestriction A {@link String} containing the row restrictions.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setRowRestriction(String rowRestriction);
+        public abstract Builder setRowRestriction(@Nullable String rowRestriction);
 
         /**
          * Sets the column names that will be projected from the table's retrieved data.
