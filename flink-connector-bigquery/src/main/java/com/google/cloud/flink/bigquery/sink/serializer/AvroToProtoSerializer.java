@@ -69,7 +69,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      */
     static {
         PRIMITIVE_TYPE_ENCODERS = new EnumMap<>(Schema.Type.class);
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.INT, o -> (long) (int) o); // INT -> long
+        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.INT, UnaryOperator.identity()); // INT -> INT
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.LONG, UnaryOperator.identity());
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.DOUBLE, UnaryOperator.identity());
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.BOOLEAN, UnaryOperator.identity());

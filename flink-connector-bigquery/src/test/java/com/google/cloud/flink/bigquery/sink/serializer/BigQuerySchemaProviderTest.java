@@ -182,7 +182,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(descriptor.findFieldByNumber(3).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                .setType(FieldDescriptorProto.Type.TYPE_INT32)
                                 .setName("quantity")
                                 .setNumber(3)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
@@ -471,7 +471,7 @@ public class BigQuerySchemaProviderTest {
         assertThat(descriptor.findFieldByNumber(3).toProto())
                 .isEqualTo(
                         FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                .setType(FieldDescriptorProto.Type.TYPE_INT32)
                                 .setName("quantity")
                                 .setNumber(3)
                                 .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL)

@@ -43,7 +43,7 @@ public class AvroToProtoSerializerTest {
     public void testConvertJson() {
         Object value = "{\"name\": \"test_value\", \"value\": \"value\"}";
         String convertedValue = AvroToProtoSerializer.convertJson(value);
-        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+        assertThat(convertedValue).isEqualTo(value.toString());
     }
 
     @Test
@@ -60,7 +60,7 @@ public class AvroToProtoSerializerTest {
     public void testConvertGeography() {
         Object value = "POINT(-121 41)";
         String convertedValue = AvroToProtoSerializer.convertGeography(value);
-        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+        assertThat(convertedValue).isEqualTo(value.toString());
     }
 
     @Test
@@ -79,14 +79,14 @@ public class AvroToProtoSerializerTest {
     public void testConvertUUID() {
         Object value = UUID.randomUUID();
         String convertedValue = AvroToProtoSerializer.convertUUID(value);
-        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+        assertThat(convertedValue).isEqualTo(value.toString());
     }
 
     @Test
     public void testConvertUUIDString() {
         Object value = UUID.randomUUID().toString();
         String convertedValue = AvroToProtoSerializer.convertUUID(value);
-        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+        assertThat(convertedValue).isEqualTo(value.toString());
     }
 
     @Test
@@ -97,6 +97,13 @@ public class AvroToProtoSerializerTest {
                         IllegalArgumentException.class,
                         () -> AvroToProtoSerializer.convertUUID(value));
         Assertions.assertThat(exception).hasMessageContaining("Expecting a value as String type.");
+
+        Object invalidUuidValue = "This is not a valid UUID String";
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertUUID(invalidUuidValue));
+        Assertions.assertThat(exception).hasMessageContaining("Invalid UUID string: ");
     }
 
     @Test
@@ -121,14 +128,14 @@ public class AvroToProtoSerializerTest {
     public void testConvertTimeStringType() {
         Object value = "00:22:59.700440";
         String convertedValue = AvroToProtoSerializer.convertTime(value, true);
-        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+        assertThat(convertedValue).isEqualTo(value.toString());
     }
 
     @Test
     public void testConvertTimeLongType() {
         Object value = 2494194728L;
         String convertedValue = AvroToProtoSerializer.convertTime(value, true);
-        Assertions.assertThat(convertedValue).isEqualTo("00:37:10.681");
+        assertThat(convertedValue).isEqualTo("00:37:10.681");
     }
 
     @Test
@@ -148,7 +155,7 @@ public class AvroToProtoSerializerTest {
         Object value = 1710270870L;
         Long convertedValue =
                 AvroToProtoSerializer.convertTimestamp(value, false, "Timestamp (millis)");
-        Assertions.assertThat(convertedValue).isEqualTo(1710270870000L);
+        assertThat(convertedValue).isEqualTo(1710270870000L);
     }
 
     @Test
@@ -156,7 +163,7 @@ public class AvroToProtoSerializerTest {
         Object value = Instant.ofEpochMilli(1710270870123L);
         Long convertedValue =
                 AvroToProtoSerializer.convertTimestamp(value, false, "Timestamp (millis)");
-        Assertions.assertThat(convertedValue).isEqualTo(1710270870123000L);
+        assertThat(convertedValue).isEqualTo(1710270870123000L);
     }
 
     @Test
@@ -164,7 +171,7 @@ public class AvroToProtoSerializerTest {
         Object value = Instant.parse("2024-03-13T01:01:16.579501+00:00");
         Long convertedValue =
                 AvroToProtoSerializer.convertTimestamp(value, true, "Timestamp (micros)");
-        Assertions.assertThat(convertedValue).isEqualTo(1710291676579000L);
+        assertThat(convertedValue).isEqualTo(1710291676579000L);
     }
 
     @Test
@@ -172,7 +179,7 @@ public class AvroToProtoSerializerTest {
         Object value = 1710270870123L;
         Long convertedValue =
                 AvroToProtoSerializer.convertTimestamp(value, true, "Timestamp (micros)");
-        Assertions.assertThat(convertedValue).isEqualTo(1710270870123L);
+        assertThat(convertedValue).isEqualTo(1710270870123L);
     }
 
     @Test
@@ -202,14 +209,14 @@ public class AvroToProtoSerializerTest {
     public void testConvertDateInstant() {
         Object value = Instant.parse("2024-03-13T00:00:00.000000+00:00");
         Integer convertedValue = AvroToProtoSerializer.convertDate(value);
-        Assertions.assertThat(convertedValue).isEqualTo(19795);
+        assertThat(convertedValue).isEqualTo(19795);
     }
 
     @Test
     public void testConvertDate() {
         Object value = 19794;
         Integer convertedValue = AvroToProtoSerializer.convertDate(value);
-        Assertions.assertThat(convertedValue).isEqualTo(19794);
+        assertThat(convertedValue).isEqualTo(19794);
     }
 
     @Test
@@ -233,14 +240,14 @@ public class AvroToProtoSerializerTest {
     public void testConvertDateTimeStringType() {
         Object value = "2024-01-01 00:22:59.700440";
         String convertedValue = AvroToProtoSerializer.convertDateTime(value, true);
-        Assertions.assertThat(convertedValue).isEqualTo(value.toString());
+        assertThat(convertedValue).isEqualTo(value.toString());
     }
 
     @Test
     public void testConvertDateTimeLongType() {
         Object value = 142441321937062776L;
         String convertedValue = AvroToProtoSerializer.convertDateTime(value, true);
-        Assertions.assertThat(convertedValue).isEqualTo("2024-03-13T00:42:54.347");
+        assertThat(convertedValue).isEqualTo("2024-03-13T00:42:54.347");
     }
 
     @Test
