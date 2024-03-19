@@ -25,7 +25,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-/** Common Utils for {@link AvroToProtoSerializerTest} and {@link BigQuerySchemaProviderTest}. */
+/**
+ * {@link BigQuerySchemaProvider}s for {@link AvroToProtoSerializerTest} and {@link
+ * BigQuerySchemaProviderTest}.
+ */
 public class AvroToProtoSerializerTestSchemas {
 
     // Private Constructor to ensure no instantiation.
@@ -57,7 +60,7 @@ public class AvroToProtoSerializerTestSchemas {
                 + "}";
     }
 
-    public static TestSchemaProvider getSchemaWithPrimitiveTypes(Boolean isNullable) {
+    public static BigQuerySchemaProvider getSchemaWithPrimitiveTypes(Boolean isNullable) {
         String mode = isNullable ? "NULLABLE" : "REQUIRED";
         List<TableFieldSchema> subFieldsNullable =
                 Collections.singletonList(
@@ -75,20 +78,20 @@ public class AvroToProtoSerializerTestSchemas {
                                 .setMode(mode)
                                 .setFields(subFieldsNullable));
         TableSchema tableSchema = new TableSchema().setFields(fields);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(tableSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-        return new TestSchemaProvider(bigQuerySchemaProvider.getSchema(), descriptor);
+        return new TestSchemaProvider(bigQuerySchemaProvider.getAvroSchema(), descriptor);
     }
 
-    public static TestSchemaProvider getSchemaWithRequiredPrimitiveTypes() {
+    public static BigQuerySchemaProvider getSchemaWithRequiredPrimitiveTypes() {
         return getSchemaWithPrimitiveTypes(false);
     }
 
-    public static TestSchemaProvider getSchemaWithNullablePrimitiveTypes() {
+    public static BigQuerySchemaProvider getSchemaWithNullablePrimitiveTypes() {
         return getSchemaWithPrimitiveTypes(true);
     }
 
-    public static TestSchemaProvider getSchemaWithRemainingPrimitiveTypes() {
+    public static BigQuerySchemaProvider getSchemaWithRemainingPrimitiveTypes() {
         String fieldString =
                 " \"fields\": [\n"
                         + "   {\"name\": \"quantity\", \"type\": \"int\"},\n"
@@ -101,7 +104,7 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static TestSchemaProvider getSchemaWithUnionOfRemainingPrimitiveTypes() {
+    public static BigQuerySchemaProvider getSchemaWithUnionOfRemainingPrimitiveTypes() {
         String fieldString =
                 " \"fields\": [\n"
                         + "   {\"name\": \"quantity\", \"type\": [\"null\", \"int\"]},\n"
@@ -114,7 +117,7 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static TestSchemaProvider getSchemaWithLogicalTypes(Boolean isNullable) {
+    public static BigQuerySchemaProvider getSchemaWithLogicalTypes(Boolean isNullable) {
         String mode = isNullable ? "NULLABLE" : "REQUIRED";
         List<TableFieldSchema> fields =
                 Arrays.asList(
@@ -143,20 +146,20 @@ public class AvroToProtoSerializerTestSchemas {
                         new TableFieldSchema().setName("Json").setType("JSON").setMode(mode));
 
         TableSchema tableSchema = new TableSchema().setFields(fields);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(tableSchema);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(tableSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-        return new TestSchemaProvider(bigQuerySchemaProvider.getSchema(), descriptor);
+        return new TestSchemaProvider(bigQuerySchemaProvider.getAvroSchema(), descriptor);
     }
 
-    public static TestSchemaProvider getSchemaWithRequiredLogicalTypes() {
+    public static BigQuerySchemaProvider getSchemaWithRequiredLogicalTypes() {
         return getSchemaWithLogicalTypes(false);
     }
 
-    public static TestSchemaProvider getSchemaWithNullableLogicalTypes() {
+    public static BigQuerySchemaProvider getSchemaWithNullableLogicalTypes() {
         return getSchemaWithLogicalTypes(true);
     }
 
-    public static TestSchemaProvider getSchemaWithRemainingLogicalTypes() {
+    public static BigQuerySchemaProvider getSchemaWithRemainingLogicalTypes() {
 
         String fieldString =
                 " \"fields\": [\n"
@@ -168,7 +171,7 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static TestSchemaProvider getSchemaWithUnionOfLogicalTypes() {
+    public static BigQuerySchemaProvider getSchemaWithUnionOfLogicalTypes() {
         String fieldString =
                 " \"fields\": [\n"
                         + "   {\"name\": \"ts_millis\", \"type\": [\"null\",{\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}]},\n"
@@ -179,7 +182,7 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static TestSchemaProvider getSchemaWithRecordOfUnionTypes() {
+    public static BigQuerySchemaProvider getSchemaWithRecordOfUnionTypes() {
         String fieldString =
                 " \"fields\": [\n"
                         + "   {\"name\": \"record_with_union\", \"type\": "
@@ -191,7 +194,7 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static TestSchemaProvider getSchemaWithRecordOfLogicalTypes() {
+    public static BigQuerySchemaProvider getSchemaWithRecordOfLogicalTypes() {
         String fieldString =
                 " \"fields\": [\n"
                         + "{\"name\": \"record_of_logical_type\","
@@ -218,7 +221,7 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static TestSchemaProvider getSchemaWithDefaultValue() {
+    public static BigQuerySchemaProvider getSchemaWithDefaultValue() {
         String fieldString =
                 " \"fields\": [\n"
                         + "{\"name\": \"long_with_default\", \"type\": [\"long\", \"null\"],"
@@ -227,9 +230,9 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    private static TestSchemaProvider getSchemaAndDescriptor(String fieldString) {
+    private static BigQuerySchemaProvider getSchemaAndDescriptor(String fieldString) {
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProvider(avroSchema);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         return new TestSchemaProvider(avroSchema, descriptor);
     }

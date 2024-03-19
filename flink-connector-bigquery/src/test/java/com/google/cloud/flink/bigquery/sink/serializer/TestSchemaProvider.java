@@ -16,27 +16,34 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.avro.Schema;
 
 /**
- * Class to return the {@link AvroToProtoSerializerTest} and {@link BigQuerySchemaProviderTest}
- * Results. Responsible for abstracting Descriptor and Schema.
+ * Class inheriting {@link BigQuerySchemaProvider} for {@link AvroToProtoSerializerTest} and {@link
+ * BigQuerySchemaProviderTest}.
  */
-public class TestSchemaProvider {
+public class TestSchemaProvider implements BigQuerySchemaProvider {
     private final Schema schema;
-    private final Descriptors.Descriptor descriptor;
+    private final Descriptor descriptor;
 
-    TestSchemaProvider(Schema schema, Descriptors.Descriptor descriptor) {
+    TestSchemaProvider(Schema schema, Descriptor descriptor) {
         this.schema = schema;
         this.descriptor = descriptor;
     }
 
-    public Descriptors.Descriptor getDescriptor() {
+    @Override
+    public DescriptorProto getDescriptorProto() {
+        return this.getDescriptor().toProto();
+    }
+
+    @Override
+    public Descriptor getDescriptor() {
         return this.descriptor;
     }
 
-    public Schema getSchema() {
+    public Schema getAvroSchema() {
         return this.schema;
     }
 }

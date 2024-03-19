@@ -239,7 +239,7 @@ public class BigQuerySchemaProviderTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> new BigQuerySchemaProvider(avroSchema));
+                        () -> new BigQuerySchemaProviderImpl(avroSchema));
         assertThat(exception)
                 .hasMessageThat()
                 .contains("Multiple non-null union types are not supported.");
