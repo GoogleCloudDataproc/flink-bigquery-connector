@@ -20,7 +20,6 @@ import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.avro.Schema;
-import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,8 +32,7 @@ import java.util.List;
 public class AvroToProtoSerializerTestSchemas {
 
     // Private Constructor to ensure no instantiation.
-    private AvroToProtoSerializerTestSchemas() {
-    }
+    private AvroToProtoSerializerTestSchemas() {}
 
     public static Schema getAvroSchemaFromFieldString(String fieldString) {
         String avroSchemaString =
@@ -50,7 +48,9 @@ public class AvroToProtoSerializerTestSchemas {
 
     public static Schema getAvroSchemaFromFieldString(String fieldString, String namespace) {
         String avroSchemaString =
-                "{\"namespace\": \"" + namespace + "\", \n"
+                "{\"namespace\": \""
+                        + namespace
+                        + "\", \n"
                         + " \"type\": \"record\",\n"
                         + " \"name\": \"table\",\n"
                         + " \"doc\": \"Translated Avro Schema for project.dataset.table\",\n"
@@ -74,8 +74,7 @@ public class AvroToProtoSerializerTestSchemas {
                 + "}";
     }
 
-    public static BigQuerySchemaProvider getSchemaWithPrimitiveTypes(Boolean isNullable) {
-        String mode = isNullable ? "NULLABLE" : "REQUIRED";
+    public static BigQuerySchemaProvider getSchemaWithPrimitiveTypes(String mode) {
         List<TableFieldSchema> subFieldsNullable =
                 Collections.singletonList(
                         new TableFieldSchema().setName("species").setType("STRING").setMode(mode));
@@ -98,7 +97,7 @@ public class AvroToProtoSerializerTestSchemas {
     }
 
     public static BigQuerySchemaProvider getSchemaWithRequiredPrimitiveTypes() {
-        return getSchemaWithPrimitiveTypes(false);
+        return getSchemaWithPrimitiveTypes("REQUIRED");
     }
 
     public static BigQuerySchemaProvider getSchemaWithRemainingPrimitiveTypes() {
@@ -115,7 +114,7 @@ public class AvroToProtoSerializerTestSchemas {
     }
 
     public static BigQuerySchemaProvider getSchemaWithNullablePrimitiveTypes() {
-        return getSchemaWithPrimitiveTypes(true);
+        return getSchemaWithPrimitiveTypes("NULLABLE");
     }
 
     public static BigQuerySchemaProvider getSchemaWithUnionOfRemainingPrimitiveTypes() {
@@ -131,8 +130,7 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static BigQuerySchemaProvider getSchemaWithLogicalTypes(Boolean isNullable) {
-        String mode = isNullable ? "NULLABLE" : "REQUIRED";
+    public static BigQuerySchemaProvider getSchemaWithLogicalTypes(String mode) {
         List<TableFieldSchema> fields =
                 Arrays.asList(
                         new TableFieldSchema()
@@ -166,7 +164,7 @@ public class AvroToProtoSerializerTestSchemas {
     }
 
     public static BigQuerySchemaProvider getSchemaWithRequiredLogicalTypes() {
-        return getSchemaWithLogicalTypes(false);
+        return getSchemaWithLogicalTypes("REQUIRED");
     }
 
     public static BigQuerySchemaProvider getSchemaWithRemainingLogicalTypes() {
@@ -182,7 +180,7 @@ public class AvroToProtoSerializerTestSchemas {
     }
 
     public static BigQuerySchemaProvider getSchemaWithNullableLogicalTypes() {
-        return getSchemaWithLogicalTypes(true);
+        return getSchemaWithLogicalTypes("NULLABLE");
     }
 
     public static BigQuerySchemaProvider getSchemaWithUnionOfLogicalTypes() {
@@ -238,36 +236,36 @@ public class AvroToProtoSerializerTestSchemas {
     }
 
     public static BigQuerySchemaProvider getSchemaWithRecordOfPrimitiveTypes() {
-        String fieldString = " \"fields\": [\n"
-                + "{\"name\": \"record_of_primitive_types\","
-                + " \"type\": ";
+        String fieldString =
+                " \"fields\": [\n" + "{\"name\": \"record_of_primitive_types\"," + " \"type\": ";
         fieldString += getSchemaWithRequiredPrimitiveTypes().getAvroSchema().toString();
         fieldString += "}]\n";
         return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQuerySchemaProvider getSchemaWithRecordOfRemainingPrimitiveTypes() {
-        String fieldString = " \"fields\": [\n"
-                + "{\"name\": \"record_of_remaining_primitive_types\","
-                + " \"type\": ";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"record_of_remaining_primitive_types\","
+                        + " \"type\": ";
         fieldString += getSchemaWithRemainingPrimitiveTypes().getAvroSchema().toString();
         fieldString += "}]\n";
         return getSchemaAndDescriptor(fieldString, "inner");
     }
 
     public static BigQuerySchemaProvider getSchemaWithRecordOfLogicalTypes() {
-        String fieldString = " \"fields\": [\n"
-                + "{\"name\": \"record_of_logical_types\","
-                + " \"type\": ";
+        String fieldString =
+                " \"fields\": [\n" + "{\"name\": \"record_of_logical_types\"," + " \"type\": ";
         fieldString += getSchemaWithRequiredLogicalTypes().getAvroSchema().toString();
         fieldString += "}]\n";
         return getSchemaAndDescriptor(fieldString);
     }
 
     public static BigQuerySchemaProvider getSchemaWithRecordOfRemainingLogicalTypes() {
-        String fieldString = " \"fields\": [\n"
-                + "{\"name\": \"record_of_remaining_logical_types\","
-                + " \"type\": ";
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"record_of_remaining_logical_types\","
+                        + " \"type\": ";
         fieldString += getSchemaWithRemainingLogicalTypes().getAvroSchema().toString();
         fieldString += "}]\n";
         return getSchemaAndDescriptor(fieldString, "inner");
@@ -311,22 +309,41 @@ public class AvroToProtoSerializerTestSchemas {
                         + " ]\n";
         return getSchemaAndDescriptor(fieldString);
     }
-    // TODO: Primitive,
-    // TODO: Primitive Remaining.
-    // TODO: Logical
-    // TODO: Logical Remaining.
+
+    public static BigQuerySchemaProvider getSchemaWithMapType() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", \"values\": \"long\"}}\n"
+                        + " ]\n";
+        return getSchemaAndDescriptor(fieldString);
+    }
+
     // ------------Test Schemas with ARRAY of Different Types -------------
 
-    public String getSchemaWithArrayOfUnionValue() {
+    public static String getSchemaWithArrayOfArray() {
+        return " \"fields\": [\n"
+                + "{\"name\": \"nested_arrays\", \"type\":{\"type\": \"array\", \"items\": "
+                + "{\"name\": \"array_inside\", \"type\": \"array\", \"items\": \"long\"}"
+                + "}}"
+                + " ]\n";
+    }
+
+    public static String getSchemaWithArrayOfUnionValue() {
         return " \"fields\": [\n"
                 + "{\"name\": \"array_with_union\", \"type\": "
                 + "{\"type\": \"array\", \"items\":  [\"long\", \"null\"]}}"
                 + " ]\n";
     }
 
-    public String getSchemaWithArrayOfMap() {
+    public static String getSchemaWithArrayOfMap() {
         return " \"fields\": [\n"
                 + "   {\"name\": \"array_of_map\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
+                + " ]\n";
+    }
+
+    public static String getSchemaWithArrayOfUnionOfMap() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"array_of_map_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}]}\n"
                 + " ]\n";
     }
 
@@ -341,20 +358,46 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    // TODO: Primitive,
-    // TODO: Primitive Remaining.
-    // TODO: Logical
-    // TODO: Logical Remaining.
+    public static BigQuerySchemaProvider getSchemaWithArraysOfPrimitiveTypes() {
+        return getSchemaWithPrimitiveTypes("REPEATED");
+    }
+
+    public static BigQuerySchemaProvider getSchemaWithArraysOfLogicalTypes() {
+        return getSchemaWithLogicalTypes("REPEATED");
+    }
+
+    public static BigQuerySchemaProvider getSchemaWithArraysOfRemainingPrimitiveTypes() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"quantity\", \"type\": {\"type\": \"array\", \"items\": \"int\"}},\n"
+                        + "   {\"name\": \"fixed_field\", \"type\": {\"type\": \"array\", \"items\": {\"type\": "
+                        + "\"fixed\", \"size\": 10,\"name\": \"hash\"}}},\n"
+                        + "   {\"name\": \"float_field\", \"type\": {\"type\": \"array\", \"items\": \"float\"}},\n"
+                        + "   {\"name\": \"enum_field\", \"type\": {\"type\": \"array\", \"items\": {\"type\":\"enum\","
+                        + " \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}}}\n"
+                        + " ]\n";
+        return getSchemaAndDescriptor(fieldString);
+    }
+
+    public static BigQuerySchemaProvider getSchemaWithArraysOfRemainingLogicalTypes() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"ts_millis\",\"type\": {\"type\": \"array\", \"items\": {\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}}},\n"
+                        + "   {\"name\": \"time_millis\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"int\", \"logicalType\": \"time-millis\"}}},\n"
+                        + "   {\"name\": \"lts_millis\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"long\", \"logicalType\": \"local-timestamp-millis\"}}},\n"
+                        + "   {\"name\": \"uuid\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"string\", \"logicalType\": \"uuid\"}}}\n"
+                        + " ]\n";
+        return getSchemaAndDescriptor(fieldString);
+    }
 
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
-    // -------------
-    public String testUnionOfArraySchemaConversion() {
+    public static String getSchemaWithUnionOfArray() {
         return " \"fields\": [\n"
                 + "   {\"name\": \"array_field_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": \"float\"}]}\n"
                 + " ]\n";
     }
 
-    public String getSchemaWithUnionOfArrayOfRecord() {
+    public static String getSchemaWithUnionOfArrayOfRecord() {
         return " \"fields\": [\n"
                 + "   {\"name\": \"array_of_records_union\", \"type\": [\"null\", {\"type\": \"array\", \"items\": "
                 + getRecordSchema("inside_record_union")
@@ -362,7 +405,7 @@ public class AvroToProtoSerializerTestSchemas {
                 + " ]\n";
     }
 
-    public String getSchemaWithUnionOfMap() {
+    public static String getSchemaWithUnionOfMap() {
         return " \"fields\": [\n"
                 + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]}\n"
                 + " ]\n";
@@ -382,17 +425,13 @@ public class AvroToProtoSerializerTestSchemas {
     public static BigQuerySchemaProvider getSchemaWithAllPrimitiveSingleUnion() {
         String fieldString =
                 " \"fields\": [\n"
-                        + "   {\"name\": \"name\", \"type\": [\"string\"]},\n"
                         + "   {\"name\": \"number\", \"type\": [\"long\"]},\n"
-                        + "   {\"name\": \"quantity\", \"type\": [\"int\"]},\n"
-                        + "   {\"name\": \"fixed_field\", \"type\": [{\"type\":"
-                        + " \"fixed\", \"size\": 10,\"name\": \"hash\" }]},\n"
-                        + "   {\"name\": \"price\", \"type\": [\"float\"]},\n"
-                        + "   {\"name\": \"double_field\", \"type\": [\"double\"]},\n"
-                        + "   {\"name\": \"boolean_field\", \"type\": [\"boolean\"]},\n"
-                        + "   {\"name\": \"enum_field\", \"type\": [{\"type\":\"enum\","
-                        + " \"symbols\": [\"A\", \"B\", \"C\", \"D\"], \"name\": \"ALPHABET\"}]},\n"
-                        + "   {\"name\": \"byte_field\", \"type\": [\"bytes\"]}\n"
+                        + "   {\"name\": \"price\", \"type\": [\"double\"]},\n"
+                        + "   {\"name\": \"species\", \"type\": [\"string\"]},\n"
+                        + "   {\"name\": \"flighted\", \"type\": [\"boolean\"]},\n"
+                        + "   {\"name\": \"sound\", \"type\": [\"bytes\"]},\n"
+                        + "   {\"name\": \"required_record_field\", \"type\": [{\"name\": \"record_with_string\", \"type\":\"record\","
+                        + " \"fields\": [{\"name\": \"species\", \"type\": \"string\"}]}]}\n"
                         + " ]\n";
         return getSchemaAndDescriptor(fieldString);
     }
@@ -415,10 +454,10 @@ public class AvroToProtoSerializerTestSchemas {
     private static BigQuerySchemaProvider getSchemaAndDescriptor(String fieldString) {
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         return getSchemaAndDescriptorHelper(avroSchema);
-
     }
 
-    private static BigQuerySchemaProvider getSchemaAndDescriptor(String fieldString, String namespace) {
+    private static BigQuerySchemaProvider getSchemaAndDescriptor(
+            String fieldString, String namespace) {
         // When we need to reuse the schema but cannot let them have the same namespace.
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString, namespace);
         return getSchemaAndDescriptorHelper(avroSchema);
