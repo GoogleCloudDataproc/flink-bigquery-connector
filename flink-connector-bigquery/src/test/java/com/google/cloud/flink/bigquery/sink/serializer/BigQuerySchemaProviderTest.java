@@ -882,7 +882,4 @@ public class BigQuerySchemaProviderTest {
                                 .setLabel(label)
                                 .build());
     }
-
-    //    assertExpectedUnsupportedException(
-    //                fieldString, "MAP/ARRAYS in UNION types are not supported");
 }
