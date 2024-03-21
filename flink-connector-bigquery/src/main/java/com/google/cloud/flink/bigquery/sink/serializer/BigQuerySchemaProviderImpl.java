@@ -108,8 +108,10 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
      *
      * @param schema of type UNION to check and derive.
      * @return Schema of the OPTIONAL field.
+     * @throws IllegalArgumentException If multiple non-null datatypes or only null is observed.
      */
-    public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema) {
+    public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema)
+            throws IllegalArgumentException {
         Schema elementType = schema;
         boolean isNullable = true;
         List<Schema> types = elementType.getTypes();
@@ -130,12 +132,12 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                 isNullable = false;
             }
             return new ImmutablePair<>(elementType, isNullable);
-        } else {
-            throw new IllegalArgumentException("Multiple non-null union types are not supported.");
         }
+
+        throw new IllegalArgumentException("Multiple non-null union types are not supported.");
     }
 
-    // ----------- Initialise Maps between Avro Schema to Descriptor Proto schema -------------
+    // ----------- Initialize Maps between Avro Schema to Descriptor Proto schema -------------
     static {
         /*
          * Map Avro Schema Type to FieldDescriptorProto Type which converts AvroSchema
