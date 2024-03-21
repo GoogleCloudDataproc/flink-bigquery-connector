@@ -73,19 +73,19 @@ public class BigQueryServicesImpl implements BigQueryServices {
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryServicesImpl.class);
 
     @Override
-    public StorageReadClient getStorageReadClient(CredentialsOptions credentialsOptions)
+    public StorageReadClient createStorageReadClient(CredentialsOptions credentialsOptions)
             throws IOException {
         return new StorageReadClientImpl(credentialsOptions);
     }
 
     @Override
-    public StorageWriteClient getStorageWriteClient(CredentialsOptions credentialsOptions)
+    public StorageWriteClient createStorageWriteClient(CredentialsOptions credentialsOptions)
             throws IOException {
         return new StorageWriteClientImpl(credentialsOptions);
     }
 
     @Override
-    public QueryDataClient getQueryDataClient(CredentialsOptions creadentialsOptions) {
+    public QueryDataClient createQueryDataClient(CredentialsOptions creadentialsOptions) {
         return new QueryDataClientImpl(creadentialsOptions);
     }
 
@@ -198,7 +198,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
 
         @Override
-        public StreamWriter createStreamWriter(String streamName, ProtoSchema protoSchema)
+        public StreamWriter createStreamWriter(
+                String streamName, ProtoSchema protoSchema, boolean enableConnectionPool)
                 throws IOException {
             RetrySettings retrySettings =
                     RetrySettings.newBuilder()
@@ -212,7 +213,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .setMaxRetryDelay(Duration.ofSeconds(5))
                             .build();
             return StreamWriter.newBuilder(streamName, client)
-                    .setEnableConnectionPool(true)
+                    .setEnableConnectionPool(enableConnectionPool)
                     .setRetrySettings(retrySettings)
                     .setWriterSchema(protoSchema)
                     .build();

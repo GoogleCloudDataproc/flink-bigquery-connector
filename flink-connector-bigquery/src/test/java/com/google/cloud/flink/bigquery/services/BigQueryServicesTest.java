@@ -34,19 +34,19 @@ public class BigQueryServicesTest {
                 () ->
                         new BigQueryServices() {
                             @Override
-                            public BigQueryServices.QueryDataClient getQueryDataClient(
+                            public BigQueryServices.QueryDataClient createQueryDataClient(
                                     CredentialsOptions credentialsOptions) {
                                 return null;
                             }
 
                             @Override
-                            public BigQueryServices.StorageReadClient getStorageReadClient(
+                            public BigQueryServices.StorageReadClient createStorageReadClient(
                                     CredentialsOptions credentialsOptions) throws IOException {
                                 return null;
                             }
 
                             @Override
-                            public BigQueryServices.StorageWriteClient getStorageWriteClient(
+                            public BigQueryServices.StorageWriteClient createStorageWriteClient(
                                     CredentialsOptions credentialsOptions) throws IOException {
                                 return null;
                             }

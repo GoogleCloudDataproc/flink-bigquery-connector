@@ -46,7 +46,7 @@ public interface BigQueryServices extends Serializable {
      * @param credentialsOptions The options for the read operation.
      * @return a Query data client for BigQuery.
      */
-    QueryDataClient getQueryDataClient(CredentialsOptions credentialsOptions);
+    QueryDataClient createQueryDataClient(CredentialsOptions credentialsOptions);
 
     /**
      * Returns a real, mock, or fake {@link StorageReadClient}.
@@ -55,7 +55,7 @@ public interface BigQueryServices extends Serializable {
      * @return a storage read client object.
      * @throws IOException
      */
-    StorageReadClient getStorageReadClient(CredentialsOptions credentialsOptions)
+    StorageReadClient createStorageReadClient(CredentialsOptions credentialsOptions)
             throws IOException;
 
     /**
@@ -65,7 +65,7 @@ public interface BigQueryServices extends Serializable {
      * @return a storage write client object.
      * @throws IOException
      */
-    StorageWriteClient getStorageWriteClient(CredentialsOptions credentialsOptions)
+    StorageWriteClient createStorageWriteClient(CredentialsOptions credentialsOptions)
             throws IOException;
 
     /**
@@ -118,10 +118,12 @@ public interface BigQueryServices extends Serializable {
          *
          * @param streamName the write stream to be used by this writer.
          * @param protoSchema the schema of the serialized protocol buffer data rows.
+         * @param enableConnectionPool enable BigQuery client multiplexing for this writer.
          * @return A StreamWriter for a BigQuery storage write stream.
          * @throws IOException
          */
-        StreamWriter createStreamWriter(String streamName, ProtoSchema protoSchema)
+        StreamWriter createStreamWriter(
+                String streamName, ProtoSchema protoSchema, boolean enableConnectionPool)
                 throws IOException;
 
         /**
