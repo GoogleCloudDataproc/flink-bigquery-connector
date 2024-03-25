@@ -201,16 +201,27 @@ public class BigQueryServicesImpl implements BigQueryServices {
         public StreamWriter createStreamWriter(
                 String streamName, ProtoSchema protoSchema, boolean enableConnectionPool)
                 throws IOException {
+            /**
+             * Enable client lib automatic retries on request level errors.
+             *
+             * <p>Immediate Retry code: ABORTED, UNAVAILABLE, CANCELLED, INTERNAL,
+             * DEADLINE_EXCEEDED.
+             *
+             * <p>Back-off Retry code: RESOURCE_EXHAUSTED.
+             */
             RetrySettings retrySettings =
                     RetrySettings.newBuilder()
-                            .setMaxAttempts(5)
-                            .setTotalTimeout(Duration.ofMinutes(5))
-                            .setInitialRpcTimeout(Duration.ofSeconds(30))
-                            .setMaxRpcTimeout(Duration.ofMinutes(2))
-                            .setRpcTimeoutMultiplier(1.6)
-                            .setRetryDelayMultiplier(1.6)
-                            .setInitialRetryDelay(Duration.ofMillis(1250))
-                            .setMaxRetryDelay(Duration.ofSeconds(5))
+                            .setMaxAttempts(5) // maximum number of retries
+                            .setTotalTimeout(
+                                    Duration.ofMinutes(5)) // total duration of retry process
+                            .setInitialRpcTimeout(
+                                    Duration.ofSeconds(30)) // delay before first retry
+                            .setMaxRpcTimeout(Duration.ofMinutes(2)) // maximum RPC timeout
+                            .setRpcTimeoutMultiplier(1.6) // change in RPC timeout
+                            .setRetryDelayMultiplier(1.6) // change in delay before next retry
+                            .setInitialRetryDelay(
+                                    Duration.ofMillis(1250)) // delay before first retry
+                            .setMaxRetryDelay(Duration.ofSeconds(5)) // maximum delay before retry
                             .build();
             return StreamWriter.newBuilder(streamName, client)
                     .setEnableConnectionPool(enableConnectionPool)
