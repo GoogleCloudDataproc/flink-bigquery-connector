@@ -34,13 +34,19 @@ public class BigQueryServicesTest {
                 () ->
                         new BigQueryServices() {
                             @Override
-                            public BigQueryServices.QueryDataClient getQueryDataClient(
+                            public BigQueryServices.QueryDataClient createQueryDataClient(
                                     CredentialsOptions credentialsOptions) {
                                 return null;
                             }
 
                             @Override
-                            public BigQueryServices.StorageReadClient getStorageClient(
+                            public BigQueryServices.StorageReadClient createStorageReadClient(
+                                    CredentialsOptions credentialsOptions) throws IOException {
+                                return null;
+                            }
+
+                            @Override
+                            public BigQueryServices.StorageWriteClient createStorageWriteClient(
                                     CredentialsOptions credentialsOptions) throws IOException {
                                 return null;
                             }
@@ -55,6 +61,7 @@ public class BigQueryServicesTest {
         assertThat(original.getTestingServices()).isNotNull();
         assertThat(original.queryClient()).isNull();
         assertThat(original.storageRead()).isNull();
+        assertThat(original.storageWrite()).isNull();
 
         original.defaultImplementation();
 

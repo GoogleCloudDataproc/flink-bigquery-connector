@@ -63,9 +63,23 @@ public class BigQueryServicesFactory {
      */
     public BigQueryServices.StorageReadClient storageRead() throws IOException {
         if (isTestingEnabled) {
-            return testingServices.getStorageClient(bqConnectOptions.getCredentialsOptions());
+            return testingServices.createStorageReadClient(
+                    bqConnectOptions.getCredentialsOptions());
         }
-        return SERVICES.getStorageClient(bqConnectOptions.getCredentialsOptions());
+        return SERVICES.createStorageReadClient(bqConnectOptions.getCredentialsOptions());
+    }
+
+    /**
+     * Returns a BigQuery storage write client, given the factory's current internal state.
+     *
+     * @return A BigQuery storage write client.
+     */
+    public BigQueryServices.StorageWriteClient storageWrite() throws IOException {
+        if (isTestingEnabled) {
+            return testingServices.createStorageWriteClient(
+                    bqConnectOptions.getCredentialsOptions());
+        }
+        return SERVICES.createStorageWriteClient(bqConnectOptions.getCredentialsOptions());
     }
 
     /**
@@ -75,9 +89,9 @@ public class BigQueryServicesFactory {
      */
     public BigQueryServices.QueryDataClient queryClient() {
         if (isTestingEnabled) {
-            return testingServices.getQueryDataClient(bqConnectOptions.getCredentialsOptions());
+            return testingServices.createQueryDataClient(bqConnectOptions.getCredentialsOptions());
         }
-        return SERVICES.getQueryDataClient(bqConnectOptions.getCredentialsOptions());
+        return SERVICES.createQueryDataClient(bqConnectOptions.getCredentialsOptions());
     }
 
     @VisibleForTesting
