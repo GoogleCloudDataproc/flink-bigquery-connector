@@ -59,20 +59,11 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
     private static final Map<String, FieldDescriptorProto.Type> LOGICAL_AVRO_TYPES_TO_PROTO;
 
     public BigQuerySchemaProviderImpl(BigQueryConnectOptions connectOptions) {
-        QueryDataClient queryDataClient =
-                BigQueryServicesFactory.instance(connectOptions).queryClient();
-        TableSchema tableSchema =
-                queryDataClient.getTableSchema(
-                        connectOptions.getProjectId(),
-                        connectOptions.getDataset(),
-                        connectOptions.getTable());
-        this.avroSchema = getAvroSchema(tableSchema);
-        this.descriptorProto = getDescriptorSchemaFromAvroSchema(this.avroSchema);
+        this(getTableSchemaFromOptions(connectOptions));
     }
 
     public BigQuerySchemaProviderImpl(TableSchema tableSchema) {
-        this.avroSchema = getAvroSchema(tableSchema);
-        this.descriptorProto = getDescriptorSchemaFromAvroSchema(this.avroSchema);
+        this(getAvroSchema(tableSchema));
     }
 
     public BigQuerySchemaProviderImpl(Schema avroSchema) {
@@ -91,7 +82,10 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
             return getDescriptorFromDescriptorProto(descriptorProto);
         } catch (DescriptorValidationException e) {
             throw new BigQueryConnectorException(
-                    "Error obtaining Descriptor from Descriptor Proto", e.getCause());
+                    String.format(
+                            "Could not obtain Descriptor from Descriptor Proto.%nError: %s",
+                            e.getMessage()),
+                    e.getCause());
         }
     }
 
@@ -105,12 +99,14 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
      * it is of the form ["null", datatype]. All other forms such as ["null"],["null", datatype1,
      * datatype2, ...], and [datatype1, datatype2, ...] Are considered as invalid (as there is no
      * such support in BQ) So we throw an error in all such cases. For the valid case of ["null",
-     * datatype] we set the Schema as the schema of the <b>not null</b> datatype.
+     * datatype] or [datatype] we set the Schema as the schema of the <b>not null</b> datatype.
      *
      * @param schema of type UNION to check and derive.
      * @return Schema of the OPTIONAL field.
+     * @throws IllegalArgumentException If multiple non-null datatypes or only null is observed.
      */
-    public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema) {
+    public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema)
+            throws IllegalArgumentException {
         Schema elementType = schema;
         boolean isNullable = true;
         List<Schema> types = elementType.getTypes();
@@ -131,12 +127,12 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                 isNullable = false;
             }
             return new ImmutablePair<>(elementType, isNullable);
-        } else {
-            throw new IllegalArgumentException("Multiple non-null union types are not supported.");
         }
+
+        throw new IllegalArgumentException("Multiple non-null union types are not supported.");
     }
 
-    // ----------- Initialise Maps between Avro Schema to Descriptor Proto schema -------------
+    // ----------- Initialize Maps between Avro Schema to Descriptor Proto schema -------------
     static {
         /*
          * Map Avro Schema Type to FieldDescriptorProto Type which converts AvroSchema
@@ -185,6 +181,22 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
         LOGICAL_AVRO_TYPES_TO_PROTO.put("Json", FieldDescriptorProto.Type.TYPE_STRING);
     }
 
+    // --------------- Obtain TableSchema from BigQueryConnectOptions ---------
+    /**
+     * Function to derive TableSchema from Connection Options for a Bigquery Table.
+     *
+     * @param connectOptions {@link BigQueryConnectOptions}
+     * @return {@link TableSchema} obtained for the table.
+     */
+    private static TableSchema getTableSchemaFromOptions(BigQueryConnectOptions connectOptions) {
+        QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient();
+        return queryDataClient.getTableSchema(
+                connectOptions.getProjectId(),
+                connectOptions.getDataset(),
+                connectOptions.getTable());
+    }
+
     // --------------- Obtain AvroSchema from TableSchema -----------------
     /**
      * Function to convert TableSchema to Avro Schema.
@@ -200,20 +212,18 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
     /**
      * Obtains a Descriptor Proto by obtaining Descriptor Proto field by field.
      *
-     * <p>Iterates over Avro Schema to obtain FieldDescriptorProto for it.
+     * <p>Iterates over Avro Schema to obtain the FieldDescriptorProto for it.
      *
      * @param schema Avro Schema, for which descriptor is needed.
      * @return DescriptorProto describing the Schema.
      */
     private static DescriptorProto getDescriptorSchemaFromAvroSchema(Schema schema) {
-        // Iterate over each table field and add them to the schema.
         Preconditions.checkState(!schema.getFields().isEmpty());
-
         DescriptorProto.Builder descriptorBuilder = DescriptorProto.newBuilder();
-        // Create a unique name for the descriptor ('-' characters cannot be used).
-        // Replace with "_" and prepend "D".
+        // Obtain a unique name for the descriptor ('-' characters cannot be used).
         descriptorBuilder.setName(BigQueryUtils.bqSanitizedRandomUUIDForDescriptor());
         int i = 1;
+        // Iterate over each table field and add them to the schema.
         for (Schema.Field field : schema.getFields()) {
             fieldDescriptorFromSchemaField(field, i++, descriptorBuilder);
         }
@@ -236,23 +246,25 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
         @Nullable Schema schema = field.schema();
         Preconditions.checkNotNull(schema, "Unexpected null schema!");
 
-        FieldDescriptorProto.Builder fieldDescriptorBuilder = FieldDescriptorProto.newBuilder();
-        fieldDescriptorBuilder = fieldDescriptorBuilder.setName(field.name().toLowerCase());
-        fieldDescriptorBuilder = fieldDescriptorBuilder.setNumber(fieldNumber);
+        FieldDescriptorProto.Builder fieldDescriptorBuilder =
+                FieldDescriptorProto.newBuilder()
+                        .setName(field.name().toLowerCase())
+                        .setNumber(fieldNumber);
 
-        Schema elementType = schema;
         boolean isNullable = false;
-
         switch (schema.getType()) {
             case RECORD:
                 Preconditions.checkState(!schema.getFields().isEmpty());
-                // Check if this is right.
+                /*
+                Recursion to obtain the descriptor for each field inside the record.
+                Add the converted descriptor as a nested type.
+                Set the current fieldDescriptor type as "MESSAGE" with type name as descriptor name.
+                 */
                 DescriptorProto nested = getDescriptorSchemaFromAvroSchema(schema);
                 descriptorProtoBuilder.addNestedType(nested);
-                fieldDescriptorBuilder =
-                        fieldDescriptorBuilder
-                                .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setTypeName(nested.getName());
+                fieldDescriptorBuilder
+                        .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setTypeName(nested.getName());
                 break;
             case ARRAY:
                 elementType = schema.getElementType();
@@ -334,65 +346,131 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                 descriptorProtoBuilder.addAllNestedType(mapFieldBuilder.getNestedTypeList());
                 break;
             case UNION:
-                // Types can be ["null"] - Not supported in BigQuery.
-                // ["null", something] -
-                // Bigquery Field of type something with mode NULLABLE
-                // ["null", something1, something2], [something1, something2] -
-                // Are invalid types
-                // not supported in BQ
+                /* Union schemas can mainly be of the following types:
+                1. Only null value (["null"])
+                2. ONE non-null value ["datatype1"]
+                3. ONE non-null value with a null (["datatype1", "null"])
+                4. Multiple non-null and a null value (["datatype1", "datatype2", ...,  "null"])
+                5. Only Multiple non-null values ["datatype1", "datatype2", ... ]
+
+                Types 1, 4 and 5 - are not supported by Bigquery; An error is thrown here.
+                Type 2 - is the same as a REQUIRED or a standard primitive type.
+                Type 3 - indicates the use of null values along with a datatype.
+                This is mapped to OPTIONAL field in BigQuery.
+                */
                 ImmutablePair<Schema, Boolean> handleUnionSchemaResult = handleUnionSchema(schema);
-                elementType = handleUnionSchemaResult.getLeft();
-                // either the field is nullable or error would be thrown.
+                schema = handleUnionSchemaResult.getLeft();
                 isNullable = handleUnionSchemaResult.getRight();
-                if (elementType == null) {
-                    throw new IllegalArgumentException("Unexpected null element type!");
-                }
-                if (isNullable
-                        && (elementType.getType() == Schema.Type.MAP
-                                || elementType.getType() == Schema.Type.ARRAY)) {
-                    throw new UnsupportedOperationException(
-                            "NULLABLE MAP/ARRAYS in UNION types are not supported");
-                }
-                DescriptorProto.Builder unionFieldBuilder = DescriptorProto.newBuilder();
-                fieldDescriptorFromSchemaField(
-                        new Schema.Field(
-                                field.name(), elementType, field.doc(), field.defaultVal()),
-                        fieldNumber,
-                        unionFieldBuilder);
-                fieldDescriptorBuilder = unionFieldBuilder.getFieldBuilder(0);
-                descriptorProtoBuilder.addAllNestedType(unionFieldBuilder.getNestedTypeList());
+                fieldDescriptorBuilder =
+                        getDescriptorProtoForUnionSchema(
+                                schema, isNullable, field, fieldNumber, descriptorProtoBuilder);
                 break;
             default:
-                @Nullable
-                FieldDescriptorProto.Type type =
-                        Optional.ofNullable(elementType.getProp(LogicalType.LOGICAL_TYPE_PROP))
-                                .map(LOGICAL_AVRO_TYPES_TO_PROTO::get)
-                                .orElse(AVRO_TYPES_TO_PROTO.get(elementType.getType()));
-                if (type == null) {
-                    throw new UnsupportedOperationException(
-                            "Converting AVRO type "
-                                    + elementType.getType()
-                                    + " to Storage API Proto type is unsupported");
-                }
-                fieldDescriptorBuilder = fieldDescriptorBuilder.setType(type);
-                if (field.hasDefaultValue()) {
-                    fieldDescriptorBuilder =
-                            fieldDescriptorBuilder.setDefaultValue(field.defaultVal().toString());
-                }
+                getDescriptorProtoForPrimitiveAndLogicalSchema(
+                        schema, fieldDescriptorBuilder, field);
         }
         // Set the Labels for different Modes - REPEATED, REQUIRED, NULLABLE.
         if (fieldDescriptorBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REPEATED) {
             if (isNullable) {
-                fieldDescriptorBuilder =
-                        fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL);
             } else {
                 // The Default Value is specified only in the case of scalar non-repeated fields.
                 // If it was a scalar type, the default value would already have been set.
-                fieldDescriptorBuilder =
-                        fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED);
+                fieldDescriptorBuilder.setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED);
             }
         }
         descriptorProtoBuilder.addField(fieldDescriptorBuilder.build());
+    }
+    // --------------- Helper Functions to convert AvroSchema to DescriptorProto ---------------
+
+    /**
+     * Helper function to convert the UNION type schema field to a FieldDescriptorProto.
+     *
+     * @param elementType {@link Schema} object defining the data type within the UNION.
+     * @param isNullable Boolean value indicating if the descriptor field is NULLABLE.
+     * @param field {@link Schema.Field} object of the UNION type field.
+     * @param fieldNumber the field number to add the derived FieldDescriptorProto to.
+     * @param descriptorProtoBuilder The updated {@link DescriptorProto.Builder}
+     * @return {@link FieldDescriptorProto.Builder} obtained for the UNION schema field.
+     * @throws IllegalArgumentException If the elementType is not ["null","datatype"] or
+     *     ["datatype"].
+     * @throws UnsupportedOperationException In case schema of a type ["null", "MAP"] or ["null",
+     *     "ARRAY"] is obtained.
+     */
+    private static FieldDescriptorProto.Builder getDescriptorProtoForUnionSchema(
+            Schema elementType,
+            Boolean isNullable,
+            Schema.Field field,
+            int fieldNumber,
+            DescriptorProto.Builder descriptorProtoBuilder)
+            throws IllegalArgumentException, UnsupportedOperationException {
+        // This method is called only if we have the types elementType ->
+        // ["null","datatype"]/["datatype"].
+        if (elementType == null) {
+            throw new IllegalArgumentException("Unexpected null element type!");
+        }
+        /* UNION of type MAP and ARRAY is not supported.
+        ARRAY is mapped to REPEATED type in Bigquery, which cannot be OPTIONAL.
+        MAP datatype is mapped to "REPEATED field of type MESSAGE,"
+        which cannot be OPTIONAL.
+        If we have the datatype is ["null", "MAP"] or ["null", "ARRAY"],
+        UnsupportedOperationException is thrown. */
+        if (isNullable
+                && (elementType.getType() == Schema.Type.MAP
+                        || elementType.getType() == Schema.Type.ARRAY)) {
+            throw new UnsupportedOperationException(
+                    "NULLABLE MAP/ARRAYS in UNION types are not supported");
+        }
+        /* Obtain the descriptor for the non-null datatype in the UNION schema.
+        Set the field as NULLABLE in case UNION of a type ["null", datatype]
+        as REQUIRED in case UNION of a type [datatype]
+        Add any nested types obtained to the descriptorProto Builder. */
+        DescriptorProto.Builder unionFieldBuilder = DescriptorProto.newBuilder();
+        fieldDescriptorFromSchemaField(
+                new Schema.Field(field.name(), elementType, field.doc(), field.defaultVal()),
+                fieldNumber,
+                unionFieldBuilder);
+        descriptorProtoBuilder.addAllNestedType(unionFieldBuilder.getNestedTypeList());
+        return unionFieldBuilder.getFieldBuilder(0);
+    }
+
+    /**
+     * Helper function to update the FieldDescriptorBuilder for Primitive and Logical Datatypes.
+     *
+     * <p><i>LOGICAL</i>: Use elementType.getProp() to obtain the string for the property name and
+     * search for its corresponding mapping in the LOGICAL_AVRO_TYPES_TO_PROTO map.
+     *
+     * <p><i>PRIMITIVE</i>: If there is no match for the logical type (or there is no logical type
+     * present), the element data type is attempted to be mapped to a PRIMITIVE type map.
+     *
+     * @param elementType {@link Schema} object for Primitive or Logical data-type.
+     * @param fieldDescriptorBuilder {@link FieldDescriptorProto.Builder} object to update.
+     * @param field {@link Schema.Field} object of the primitive/logical data-type field.
+     * @throws UnsupportedOperationException If NO match is found for any of the primitive or
+     *     logical types.
+     */
+    private static void getDescriptorProtoForPrimitiveAndLogicalSchema(
+            Schema elementType,
+            FieldDescriptorProto.Builder fieldDescriptorBuilder,
+            Schema.Field field)
+            throws UnsupportedOperationException {
+        @Nullable
+        FieldDescriptorProto.Type type =
+                Optional.ofNullable(elementType.getProp(LogicalType.LOGICAL_TYPE_PROP))
+                        .map(LOGICAL_AVRO_TYPES_TO_PROTO::get)
+                        .orElse(AVRO_TYPES_TO_PROTO.get(elementType.getType()));
+        if (type == null) {
+            throw new UnsupportedOperationException(
+                    "Converting AVRO type "
+                            + elementType.getType()
+                            + " to Storage API Proto type is unsupported");
+        }
+        /* The corresponding type obtained(if obtained) is set in the fieldDescriptor.
+         * Any default value present in the schema is also set in descriptor.*/
+        fieldDescriptorBuilder.setType(type);
+        if (field.hasDefaultValue()) {
+            fieldDescriptorBuilder.setDefaultValue(field.defaultVal().toString());
+        }
     }
 
     // --------------- Obtain Descriptor from DescriptorProto  ---------------
