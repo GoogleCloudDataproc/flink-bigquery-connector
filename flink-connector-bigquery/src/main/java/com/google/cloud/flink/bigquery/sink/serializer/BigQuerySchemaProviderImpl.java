@@ -81,7 +81,10 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
             return getDescriptorFromDescriptorProto(descriptorProto);
         } catch (DescriptorValidationException e) {
             throw new BigQueryConnectorException(
-                    "Error obtaining Descriptor from Descriptor Proto", e.getCause());
+                    String.format(
+                            "Could not obtain Descriptor from Descriptor Proto.%nError: %s",
+                            e.getMessage()),
+                    e.getCause());
         }
     }
 
