@@ -463,8 +463,8 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
     /**
      * Function to derive the Field Descriptor for a Schema Field with MAP data-type.
      *
-     * <p>MAP type is mapped as a <b> REPEATED RECORD </b> in Bigquery. The record has two fields -
-     * KEY and VALUE.
+     * <p>MAP type is mapped as a <b> REPEATED RECORD </b> in Bigquery.
+     * The record has two fields - KEY and VALUE.
      *
      * <p>Field KEY has type STRING and Field VALUE is of the datatype provided in the map (value)
      *
@@ -515,7 +515,6 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                 .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
                 .clearDefaultValue();
     }
-
     // --------------- Obtain Descriptor from DescriptorProto  ---------------
     /**
      * Function to convert a DescriptorProto to a Descriptor. This is necessary as a Descriptor is
