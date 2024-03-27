@@ -17,15 +17,4 @@
 package com.google.cloud.flink.bigquery.sink;
 
 /** Tests for {@link BigQueryDefaultSink}. */
-public class BigQueryDefaultSinkTest {
-
-    //    @Test
-    //    public void testCreateWriterIsUnsupported() {
-    //        UnsupportedOperationException exception =
-    //                assertThrows(
-    //                        UnsupportedOperationException.class,
-    //                        () -> new BigQueryDefaultSink().createWriter(null));
-    //        assertThat(exception).hasMessageThat().contains("createWriter method is not
-    // supported");
-    //    }
-}
+public class BigQueryDefaultSinkTest {}

@@ -57,6 +57,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     // Number of bytes to be sent in the next append request.
     private long appendRequestSizeBytes;
+    private BigQueryServices.StorageWriteClient writeClient;
     protected final int subtaskId;
     private final BigQueryConnectOptions connectOptions;
     private final ProtoSchema protoSchema;
@@ -101,6 +102,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         if (streamWriter != null) {
             streamWriter.close();
         }
+        if (writeClient != null) {
+            writeClient.close();
+        }
     }
 
     /** Invoke BigQuery storage API for appending data to a table. */
@@ -125,9 +129,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Creates a StreamWriter for appending to BigQuery table. */
     StreamWriter createStreamWriter(boolean enableConnectionPool) {
         logger.debug("Creating BigQuery StreamWriter in subtask {}", subtaskId);
-        try (BigQueryServices.StorageWriteClient client =
-                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
-            return client.createStreamWriter(streamName, protoSchema, enableConnectionPool);
+        try {
+            writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
+            return writeClient.createStreamWriter(streamName, protoSchema, enableConnectionPool);
         } catch (IOException e) {
             logger.error("Unable to create StreamWriter for stream {}", streamName);
             throw new BigQueryConnectorException("Unable to create StreamWriter", e);

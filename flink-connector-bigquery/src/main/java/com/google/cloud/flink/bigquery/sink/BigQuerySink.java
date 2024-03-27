@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 /** Class wrapping BigQuery sinks with appropriate configurations. */
 public class BigQuerySink {
 
-    public static final int MAX_SINK_PARALLELISM = 200;
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
 
     public static Sink get(BigQuerySinkConfig sinkConfig, StreamExecutionEnvironment env) {
@@ -34,30 +33,6 @@ public class BigQuerySink {
             LOG.error("Exactly once write consistency is not supported in BigQuery sink");
             throw new UnsupportedOperationException("Exactly once guarantee not supported");
         }
-        validateSinkConfig(sinkConfig, env);
         return new BigQueryDefaultSink(sinkConfig);
-    }
-
-    private static void validateSinkConfig(
-            BigQuerySinkConfig sinkConfig, StreamExecutionEnvironment env) {
-        validateParallelism(sinkConfig, env);
-    }
-
-    private static void validateParallelism(
-            BigQuerySinkConfig sinkConfig, StreamExecutionEnvironment env) {
-        if (sinkConfig.getParallelism() < 1) {
-            LOG.warn(
-                    "Usable parallelism not found in BigQuery sink config. Inferring from "
-                            + "execution environment.");
-            sinkConfig.setParallelism(env.getParallelism());
-        }
-        if (sinkConfig.getParallelism() > MAX_SINK_PARALLELISM) {
-            LOG.error(
-                    "Sink's parallelism of {} exceeds the allowed maximum of {}",
-                    sinkConfig.getParallelism(),
-                    MAX_SINK_PARALLELISM);
-            throw new IllegalArgumentException(
-                    "Sink's parallelism is more than the allowed maximum");
-        }
     }
 }

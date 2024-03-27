@@ -19,12 +19,14 @@ package com.google.cloud.flink.bigquery.fakes;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.SerializableFunction;
 
+import com.google.api.core.ApiFutures;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobStatistics;
 import com.google.api.services.bigquery.model.JobStatistics2;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.AvroSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
@@ -81,16 +83,25 @@ public class StorageClientFaker {
         static final Object LOCK = new Object();
 
         private final FakeBigQueryStorageReadClient storageReadClient;
+        private final FakeBigQueryStorageWriteClient storageWriteClient;
 
-        private FakeBigQueryServices(FakeBigQueryStorageReadClient storageReadClient) {
+        private FakeBigQueryServices(
+                FakeBigQueryStorageReadClient storageReadClient,
+                FakeBigQueryStorageWriteClient storageWriteClient) {
             this.storageReadClient = storageReadClient;
+            this.storageWriteClient = storageWriteClient;
         }
 
-        static FakeBigQueryServices getInstance(FakeBigQueryStorageReadClient storageReadClient) {
+        static FakeBigQueryServices getInstance(
+                FakeBigQueryStorageReadClient storageReadClient,
+                FakeBigQueryStorageWriteClient storageWriteClient) {
             if (instance == null) {
                 synchronized (LOCK) {
                     if (instance == null) {
-                        instance = Mockito.spy(new FakeBigQueryServices(storageReadClient));
+                        instance =
+                                Mockito.spy(
+                                        new FakeBigQueryServices(
+                                                storageReadClient, storageWriteClient));
                     }
                 }
             }
@@ -106,8 +117,7 @@ public class StorageClientFaker {
         @Override
         public StorageWriteClient createStorageWriteClient(CredentialsOptions readOptions)
                 throws IOException {
-            throw new UnsupportedOperationException(
-                    "Method getStorageWriteClient is not supported");
+            return storageWriteClient;
         }
 
         @Override
@@ -310,10 +320,18 @@ public class StorageClientFaker {
         /** Implementation for the storage write client for testing purposes. */
         public static class FakeBigQueryStorageWriteClient implements StorageWriteClient {
 
+            private final StreamWriter mockedWriter;
+
+            public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
+                mockedWriter = Mockito.mock(StreamWriter.class);
+                Mockito.when(mockedWriter.append(Mockito.any()))
+                        .thenReturn(ApiFutures.immediateFuture(appendResponse));
+            }
+
             @Override
             public StreamWriter createStreamWriter(
                     String streamName, ProtoSchema protoSchema, boolean enableConnectionPool) {
-                return null;
+                return mockedWriter;
             }
 
             @Override
@@ -564,9 +582,27 @@ public class StorageClientFaker {
                                                                     expectedReadStreamCount,
                                                                     avroSchemaString),
                                                             dataGenerator,
-                                                            errorPercentage));
+                                                            errorPercentage),
+                                                    null);
                                         })
                                 .build())
+                .build();
+    }
+
+    public static BigQueryConnectOptions createWriteOptions(AppendRowsResponse appendResponse)
+            throws IOException {
+        return BigQueryConnectOptions.builder()
+                .setDataset("dataset")
+                .setProjectId("project")
+                .setTable("table")
+                .setCredentialsOptions(null)
+                .setTestingBigQueryServices(
+                        () -> {
+                            return FakeBigQueryServices.getInstance(
+                                    null,
+                                    new StorageClientFaker.FakeBigQueryServices
+                                            .FakeBigQueryStorageWriteClient(appendResponse));
+                        })
                 .build();
     }
 }

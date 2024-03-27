@@ -29,6 +29,8 @@ abstract class BigQueryBaseSink implements Sink {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
+    public static final int MAX_SINK_PARALLELISM = 200;
+
     final BigQueryConnectOptions connectOptions;
     final BigQuerySchemaProvider schemaProvider;
     final BigQueryProtoSerializer serializer;
@@ -39,6 +41,7 @@ abstract class BigQueryBaseSink implements Sink {
         this.connectOptions = sinkConfig.getConnectOptions();
         this.schemaProvider = sinkConfig.getSchemaProvider();
         this.serializer = sinkConfig.getSerializer();
+        this.serializer.init(schemaProvider);
         this.tablePath =
                 String.format(
                         "projects/%s/datasets/%s/tables/%s",
@@ -58,10 +61,10 @@ abstract class BigQueryBaseSink implements Sink {
 
     /** Ensures Sink's parallelism does not exceed the allowed maximum when scaling Flink job. */
     void checkParallelism(int numberOfParallelSubtasks) {
-        if (numberOfParallelSubtasks > BigQuerySink.MAX_SINK_PARALLELISM) {
+        if (numberOfParallelSubtasks > MAX_SINK_PARALLELISM) {
             logger.error(
                     "Maximum allowed parallelism for Sink is {}, but attempting to create Writer number {}",
-                    BigQuerySink.MAX_SINK_PARALLELISM,
+                    MAX_SINK_PARALLELISM,
                     numberOfParallelSubtasks);
             throw new IllegalStateException("Attempting to create more Sink Writers than allowed");
         }

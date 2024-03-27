@@ -29,7 +29,6 @@ import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
  */
 public class BigQuerySinkConfig {
 
-    private int parallelism;
     private final BigQueryConnectOptions connectOptions;
     private final DeliveryGuarantee deliveryGuarantee;
     private final BigQuerySchemaProvider schemaProvider;
@@ -40,20 +39,14 @@ public class BigQuerySinkConfig {
     }
 
     private BigQuerySinkConfig(
-            int parallelism,
             BigQueryConnectOptions connectOptions,
             DeliveryGuarantee deliveryGuarantee,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer) {
-        this.parallelism = parallelism;
         this.connectOptions = connectOptions;
         this.deliveryGuarantee = deliveryGuarantee;
         this.schemaProvider = schemaProvider;
         this.serializer = serializer;
-    }
-
-    public int getParallelism() {
-        return parallelism;
     }
 
     public BigQueryConnectOptions getConnectOptions() {
@@ -72,23 +65,13 @@ public class BigQuerySinkConfig {
         return schemaProvider;
     }
 
-    protected void setParallelism(int parallelism) {
-        this.parallelism = parallelism;
-    }
-
     /** Builder for BigQuerySinkConfig. */
     public static class Builder {
 
-        private int parallelism;
         private BigQueryConnectOptions connectOptions;
         private DeliveryGuarantee deliveryGuarantee;
         private BigQuerySchemaProvider schemaProvider;
         private BigQueryProtoSerializer serializer;
-
-        public Builder parallelism(int parallelism) {
-            this.parallelism = parallelism;
-            return this;
-        }
 
         public Builder connectOptions(BigQueryConnectOptions connectOptions) {
             this.connectOptions = connectOptions;
@@ -112,7 +95,7 @@ public class BigQuerySinkConfig {
 
         public BigQuerySinkConfig build() {
             return new BigQuerySinkConfig(
-                    parallelism, connectOptions, deliveryGuarantee, schemaProvider, serializer);
+                    connectOptions, deliveryGuarantee, schemaProvider, serializer);
         }
     }
 }
