@@ -267,83 +267,14 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                         .setTypeName(nested.getName());
                 break;
             case ARRAY:
-                elementType = schema.getElementType();
-                if (elementType == null) {
-                    throw new IllegalArgumentException("Unexpected null element type!");
-                }
-                Preconditions.checkState(
-                        elementType.getType() != Schema.Type.ARRAY,
-                        "Nested arrays not supported by BigQuery.");
-                if (elementType.getType() == Schema.Type.MAP) {
-                    // Note this case would be covered in the check which is performed later,
-                    // but just in case the support for this is provided in the future,
-                    // it is explicitly mentioned.
-                    throw new UnsupportedOperationException("Array of Type MAP not supported yet.");
-                }
-                DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
-                fieldDescriptorFromSchemaField(
-                        new Schema.Field(
-                                field.name(), elementType, field.doc(), field.defaultVal()),
-                        fieldNumber,
-                        arrayFieldBuilder);
-
-                FieldDescriptorProto.Builder arrayFieldElementBuilder =
-                        arrayFieldBuilder.getFieldBuilder(0);
-                // Check if the inner field is optional without any default value.
-                if (arrayFieldElementBuilder.getLabel()
-                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
-                    throw new IllegalArgumentException("Array cannot have a NULLABLE element");
-                }
-                // Default value derived from inner layers should not be the default value of array
-                // field.
                 fieldDescriptorBuilder =
-                        arrayFieldElementBuilder
-                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                                .clearDefaultValue();
-                // Add any nested types.
-                descriptorProtoBuilder.addAllNestedType(arrayFieldBuilder.getNestedTypeList());
+                        getDescriptorProtoForArraySchema(
+                                schema, field, fieldNumber, descriptorProtoBuilder);
                 break;
             case MAP:
-                // A MAP is converted to an array of structs.
-                Schema keyType = Schema.create(Schema.Type.STRING);
-                Schema valueType = elementType.getValueType();
-                if (valueType == null) {
-                    throw new IllegalArgumentException("Unexpected null element type!");
-                }
-                // Create a new field of type RECORD.
-                Schema.Field keyField = new Schema.Field("key", keyType, "key of the map entry");
-                Schema.Field valueField =
-                        new Schema.Field("value", valueType, "value of the map entry");
-                Schema mapFieldSchema =
-                        Schema.createRecord(
-                                schema.getName(),
-                                schema.getDoc(),
-                                "com.google.flink.bigquery",
-                                true,
-                                Arrays.asList(keyField, valueField));
-
-                DescriptorProto.Builder mapFieldBuilder = DescriptorProto.newBuilder();
-                fieldDescriptorFromSchemaField(
-                        new Schema.Field(
-                                field.name(), mapFieldSchema, field.doc(), field.defaultVal()),
-                        fieldNumber,
-                        mapFieldBuilder);
-
-                FieldDescriptorProto.Builder mapFieldElementBuilder =
-                        mapFieldBuilder.getFieldBuilder(0);
-                // Check if the inner field is optional without any default value.
-                // This should not be the case since we explicitly create the STRUCT.
-                if (mapFieldElementBuilder.getLabel()
-                        != FieldDescriptorProto.Label.LABEL_REQUIRED) {
-                    throw new IllegalArgumentException("MAP cannot have a null element");
-                }
                 fieldDescriptorBuilder =
-                        mapFieldElementBuilder
-                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                                .clearDefaultValue();
-
-                // Add the nested types.
-                descriptorProtoBuilder.addAllNestedType(mapFieldBuilder.getNestedTypeList());
+                        getDescriptorProtoForMapSchema(
+                                schema, field, fieldNumber, descriptorProtoBuilder);
                 break;
             case UNION:
                 /* Union schemas can mainly be of the following types:
@@ -471,6 +402,118 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
         if (field.hasDefaultValue()) {
             fieldDescriptorBuilder.setDefaultValue(field.defaultVal().toString());
         }
+    }
+
+    /**
+     * Function to derive the Field Descriptor for a Schema Field with ARRAY data-type.
+     *
+     * <p>A bigquery field is created by the provided data-type (mapped according to the rules
+     * described), and the field MODE is marked as <b>REPEATED</b>.
+     *
+     * @param avroSchema {@link Schema} object for ARRAY Schema field.
+     * @param field {@link Schema.Field} object of the ARRAY data-type field.
+     * @param fieldNumber the field number to add the derived FieldDescriptorProto to.
+     * @param descriptorProtoBuilder The {@link DescriptorProto.Builder} to be updated.
+     * @return {@link FieldDescriptorProto.Builder} obtained for the ARRAY schema field.
+     * @throws UnsupportedOperationException If ARRAY of type MAP is passed.
+     * @throws IllegalArgumentException If ARRAY of type UNION or NULL schema is passed.
+     */
+    private static FieldDescriptorProto.Builder getDescriptorProtoForArraySchema(
+            Schema avroSchema,
+            Schema.Field field,
+            Integer fieldNumber,
+            DescriptorProto.Builder descriptorProtoBuilder)
+            throws UnsupportedOperationException {
+        Schema elementType = avroSchema.getElementType();
+        if (elementType == null) {
+            throw new IllegalArgumentException("Unexpected null element type!");
+        }
+        Preconditions.checkState(
+                elementType.getType() != Schema.Type.ARRAY,
+                "Nested arrays not supported by BigQuery.");
+        if (elementType.getType() == Schema.Type.MAP) {
+            // Note this case would be covered in the check which is performed later,
+            // but just in case the support for this is provided in the future,
+            // it is explicitly mentioned.
+            throw new UnsupportedOperationException("Array of Type MAP not supported yet.");
+        }
+        // Create the descriptor for datatype present in ARRAY type.
+        DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
+        fieldDescriptorFromSchemaField(
+                new Schema.Field(field.name(), elementType, field.doc(), field.defaultVal()),
+                fieldNumber,
+                arrayFieldBuilder);
+
+        FieldDescriptorProto.Builder arrayFieldElementBuilder =
+                arrayFieldBuilder.getFieldBuilder(0);
+        // Check if the inner field is optional without any default value.
+        if (arrayFieldElementBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REQUIRED) {
+            throw new IllegalArgumentException("Array cannot have a NULLABLE element");
+        }
+
+        // Add any nested types.
+        descriptorProtoBuilder.addAllNestedType(arrayFieldBuilder.getNestedTypeList());
+        // Default value derived from inner layers should not be the default value of array
+        // field.
+        return arrayFieldElementBuilder
+                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                .clearDefaultValue();
+    }
+
+    /**
+     * Function to derive the Field Descriptor for a Schema Field with MAP data-type.
+     *
+     * <p>MAP type is mapped as a <b> REPEATED RECORD </b> in Bigquery. The record has two fields -
+     * KEY and VALUE.
+     *
+     * <p>Field KEY has type STRING and Field VALUE is of the datatype provided in the map (value)
+     *
+     * @param elementType {@link Schema} object for MAP Schema field.
+     * @param field {@link Schema.Field} object of the MAP data-type field.
+     * @param fieldNumber the field number to add the derived FieldDescriptorProto to.
+     * @param descriptorProtoBuilder The {@link DescriptorProto.Builder} to be updated.
+     * @return {@link FieldDescriptorProto.Builder} obtained for the MAP schema field.
+     */
+    public static FieldDescriptorProto.Builder getDescriptorProtoForMapSchema(
+            Schema elementType,
+            Schema.Field field,
+            Integer fieldNumber,
+            DescriptorProto.Builder descriptorProtoBuilder) {
+        // A MAP is converted to an array of structs. (REPEATED RECORD)
+        Schema keyType = Schema.create(Schema.Type.STRING);
+        Schema valueType = elementType.getValueType();
+        if (valueType == null) {
+            throw new IllegalArgumentException("Unexpected null element type!");
+        }
+        // Create a new field of type RECORD.
+        Schema.Field keyField = new Schema.Field("key", keyType, "key of the map entry");
+        // VALUE field corresponding to the value in the MAP
+        Schema.Field valueField = new Schema.Field("value", valueType, "value of the map entry");
+        Schema mapFieldSchema =
+                Schema.createRecord(
+                        elementType.getName(),
+                        elementType.getDoc(),
+                        "com.google.flink.bigquery",
+                        true,
+                        Arrays.asList(keyField, valueField));
+
+        DescriptorProto.Builder mapFieldBuilder = DescriptorProto.newBuilder();
+        fieldDescriptorFromSchemaField(
+                new Schema.Field(field.name(), mapFieldSchema, field.doc(), field.defaultVal()),
+                fieldNumber,
+                mapFieldBuilder);
+
+        FieldDescriptorProto.Builder mapFieldElementBuilder = mapFieldBuilder.getFieldBuilder(0);
+        // Check if the inner field is optional without any default value.
+        // This should not be the case since we explicitly create the STRUCT.
+        if (mapFieldElementBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REQUIRED) {
+            throw new IllegalArgumentException("MAP cannot have a null element");
+        }
+        // Add the nested types.
+        descriptorProtoBuilder.addAllNestedType(mapFieldBuilder.getNestedTypeList());
+        return mapFieldElementBuilder
+                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                .clearDefaultValue();
     }
 
     // --------------- Obtain Descriptor from DescriptorProto  ---------------
