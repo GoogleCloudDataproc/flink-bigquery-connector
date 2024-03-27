@@ -515,6 +515,7 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                 .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
                 .clearDefaultValue();
     }
+
     // --------------- Obtain Descriptor from DescriptorProto  ---------------
     /**
      * Function to convert a DescriptorProto to a Descriptor. This is necessary as a Descriptor is
