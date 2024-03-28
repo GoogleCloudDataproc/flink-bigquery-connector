@@ -303,7 +303,8 @@ public class TestBigQuerySchemas {
     public static BigQuerySchemaProvider getSchemaWithMapOfRecord() {
         String fieldString =
                 " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_records\", \"type\": {\"type\": \"map\", \"values\": "
+                        + "   {\"name\": \"map_of_records\", \"type\": "
+                        + "{\"type\": \"map\", \"values\": "
                         + getRecordSchema("record_inside_map")
                         + "}}\n"
                         + " ]\n";
@@ -313,7 +314,8 @@ public class TestBigQuerySchemas {
     public static BigQuerySchemaProvider getSchemaWithMapType() {
         String fieldString =
                 " \"fields\": [\n"
-                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", \"values\": \"long\"}}\n"
+                        + "   {\"name\": \"map_field\", \"type\": "
+                        + "{\"type\": \"map\", \"values\": \"long\"}}\n"
                         + " ]\n";
         return getSchemaAndDescriptor(fieldString);
     }

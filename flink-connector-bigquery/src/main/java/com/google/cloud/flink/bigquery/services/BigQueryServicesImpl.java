@@ -20,6 +20,7 @@ import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.api.gax.rpc.ServerStream;
@@ -39,12 +40,16 @@ import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
+import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
+import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
@@ -68,13 +73,19 @@ public class BigQueryServicesImpl implements BigQueryServices {
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryServicesImpl.class);
 
     @Override
-    public StorageReadClient getStorageClient(CredentialsOptions credentialsOptions)
+    public StorageReadClient createStorageReadClient(CredentialsOptions credentialsOptions)
             throws IOException {
         return new StorageReadClientImpl(credentialsOptions);
     }
 
     @Override
-    public QueryDataClient getQueryDataClient(CredentialsOptions creadentialsOptions) {
+    public StorageWriteClient createStorageWriteClient(CredentialsOptions credentialsOptions)
+            throws IOException {
+        return new StorageWriteClientImpl(credentialsOptions);
+    }
+
+    @Override
+    public QueryDataClient createQueryDataClient(CredentialsOptions creadentialsOptions) {
         return new QueryDataClientImpl(creadentialsOptions);
     }
 
@@ -102,7 +113,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
     }
 
-    /** A simple implementation of a mocked BigQuery read client wrapper. */
+    /** Implementation of a BigQuery read client wrapper. */
     public static class StorageReadClientImpl implements StorageReadClient {
         private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
                 FixedHeaderProvider.create(
@@ -157,6 +168,66 @@ public class BigQueryServicesImpl implements BigQueryServices {
         @Override
         public BigQueryServerStream<ReadRowsResponse> readRows(ReadRowsRequest request) {
             return new BigQueryServerStreamImpl<>(client.readRowsCallable().call(request));
+        }
+
+        @Override
+        public void close() {
+            client.close();
+        }
+    }
+
+    /** Implementation of a BigQuery write client wrapper. */
+    public static class StorageWriteClientImpl implements StorageWriteClient {
+        private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
+                FixedHeaderProvider.create(
+                        "user-agent", "Apache_Flink_Java/" + FlinkVersion.current().toString());
+
+        private final BigQueryWriteClient client;
+
+        private StorageWriteClientImpl(CredentialsOptions options) throws IOException {
+            BigQueryWriteSettings.Builder settingsBuilder =
+                    BigQueryWriteSettings.newBuilder()
+                            .setCredentialsProvider(
+                                    FixedCredentialsProvider.create(options.getCredentials()))
+                            .setTransportChannelProvider(
+                                    BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
+                                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
+                                            .build());
+
+            this.client = BigQueryWriteClient.create(settingsBuilder.build());
+        }
+
+        @Override
+        public StreamWriter createStreamWriter(
+                String streamName, ProtoSchema protoSchema, boolean enableConnectionPool)
+                throws IOException {
+            /**
+             * Enable client lib automatic retries on request level errors.
+             *
+             * <p>Immediate Retry code: ABORTED, UNAVAILABLE, CANCELLED, INTERNAL,
+             * DEADLINE_EXCEEDED.
+             *
+             * <p>Back-off Retry code: RESOURCE_EXHAUSTED.
+             */
+            RetrySettings retrySettings =
+                    RetrySettings.newBuilder()
+                            .setMaxAttempts(5) // maximum number of retries
+                            .setTotalTimeout(
+                                    Duration.ofMinutes(5)) // total duration of retry process
+                            .setInitialRpcTimeout(
+                                    Duration.ofSeconds(30)) // delay before first retry
+                            .setMaxRpcTimeout(Duration.ofMinutes(2)) // maximum RPC timeout
+                            .setRpcTimeoutMultiplier(1.6) // change in RPC timeout
+                            .setRetryDelayMultiplier(1.6) // change in delay before next retry
+                            .setInitialRetryDelay(
+                                    Duration.ofMillis(1250)) // delay before first retry
+                            .setMaxRetryDelay(Duration.ofSeconds(5)) // maximum delay before retry
+                            .build();
+            return StreamWriter.newBuilder(streamName, client)
+                    .setEnableConnectionPool(enableConnectionPool)
+                    .setRetrySettings(retrySettings)
+                    .setWriterSchema(protoSchema)
+                    .build();
         }
 
         @Override

@@ -105,7 +105,7 @@ public class BigQuerySourceSplitAssignerTest {
                         .getBigQueryConnectOptions()
                         .getTestingBigQueryServices()
                         .get()
-                        .getQueryDataClient(null);
+                        .createQueryDataClient(null);
 
         BigQuerySourceSplitAssigner assigner =
                 BigQuerySourceSplitAssigner.createBounded(
