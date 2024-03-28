@@ -24,7 +24,7 @@ import org.apache.avro.Schema;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
-import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializerTestSchemas.getAvroSchemaFromFieldString;
+import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -35,7 +35,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testPrimitiveTypesConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRequiredPrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithRequiredPrimitiveTypes()
                         .getDescriptor();
         assertPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -43,7 +43,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRemainingPrimitiveSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRemainingPrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithRemainingPrimitiveTypes()
                         .getDescriptor();
         assertRemainingPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -51,7 +51,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testNullablePrimitiveTypesConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithNullablePrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithNullablePrimitiveTypes()
                         .getDescriptor();
         assertPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
@@ -59,7 +59,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testUnionOfRemainingPrimitiveSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfRemainingPrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithUnionOfRemainingPrimitiveTypes()
                         .getDescriptor();
         assertRemainingPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
@@ -68,7 +68,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testLogicalTypesConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRequiredLogicalTypes()
+                TestBigQuerySchemas.getSchemaWithRequiredLogicalTypes()
                         .getDescriptor();
         assertLogical(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -76,7 +76,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRemainingLogicalSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRemainingLogicalTypes()
+                TestBigQuerySchemas.getSchemaWithRemainingLogicalTypes()
                         .getDescriptor();
         assertRemainingLogical(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -84,7 +84,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testNullableLogicalTypesConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithNullableLogicalTypes()
+                TestBigQuerySchemas.getSchemaWithNullableLogicalTypes()
                         .getDescriptor();
         assertLogical(descriptor, FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
@@ -92,7 +92,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testUnionOfRemainingLogicalSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfLogicalTypes().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithUnionOfLogicalTypes().getDescriptor();
         assertRemainingLogical(descriptor, FieldDescriptorProto.Label.LABEL_OPTIONAL);
     }
 
@@ -100,7 +100,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfArraySchemaConversation() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfArray().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithRecordOfArray().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("record_with_array");
@@ -124,7 +124,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfUnionSchemaConversation() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfUnionType().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithRecordOfUnionType().getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("record_with_union");
@@ -148,7 +148,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfMapSchemaConversation() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfMap().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithRecordOfMap().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("record_with_map");
@@ -185,7 +185,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfRecord().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithRecordOfRecord().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -219,7 +219,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfPrimitiveTypeSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfPrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithRecordOfPrimitiveTypes()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
@@ -238,7 +238,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfRemainingPrimitiveTypeSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfRemainingPrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithRecordOfRemainingPrimitiveTypes()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
@@ -257,7 +257,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfLogicalTypeSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfLogicalTypes()
+                TestBigQuerySchemas.getSchemaWithRecordOfLogicalTypes()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
@@ -276,7 +276,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testRecordOfRemainingLogicalTypeSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfRemainingLogicalTypes()
+                TestBigQuerySchemas.getSchemaWithRecordOfRemainingLogicalTypes()
                         .getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
@@ -296,7 +296,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfArraySchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithMapOfArray().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithMapOfArray().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("map_of_array");
@@ -319,7 +319,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfUnionSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithMapOfUnionType().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithMapOfUnionType().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("map_of_union");
@@ -342,7 +342,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfMapSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithMapOfMap().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithMapOfMap().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("map_of_map");
@@ -385,7 +385,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithMapOfRecord().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithMapOfRecord().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("map_of_records");
@@ -428,7 +428,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testMapSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithMapType().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithMapType().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
@@ -460,7 +460,7 @@ public class BigQuerySchemaProviderTest {
     // ------------Test Schemas with ARRAY of Different Types -------------
     @Test
     public void testArrayOfArraySchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfArray();
+        String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfArray();
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
 
         IllegalStateException exception =
@@ -472,7 +472,7 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testArrayOfUnionSchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfUnionValue();
+        String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfUnionValue();
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         IllegalArgumentException exception =
                 assertThrows(
@@ -484,21 +484,21 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testArrayOfUnionOfMapSchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfUnionOfMap();
+        String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfUnionOfMap();
         assertExpectedUnsupportedException(
                 fieldString, "MAP/ARRAYS in UNION types are not supported");
     }
 
     @Test
     public void testArrayOfMapSchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfMap();
+        String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfMap();
         assertExpectedUnsupportedException(fieldString, "Array of Type MAP not supported yet.");
     }
 
     @Test
     public void testArrayOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfRecord().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithArrayOfRecord().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("array_of_records");
@@ -529,7 +529,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testArraysOfPrimitiveTypesSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfPrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithArraysOfPrimitiveTypes()
                         .getDescriptor();
         assertPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REPEATED);
     }
@@ -537,7 +537,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testArraysOfRemainingPrimitiveTypesSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfRemainingPrimitiveTypes()
+                TestBigQuerySchemas.getSchemaWithArraysOfRemainingPrimitiveTypes()
                         .getDescriptor();
         assertRemainingPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REPEATED);
     }
@@ -545,7 +545,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testArraysOfLogicalTypesSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfLogicalTypes()
+                TestBigQuerySchemas.getSchemaWithArraysOfLogicalTypes()
                         .getDescriptor();
         assertLogical(descriptor, FieldDescriptorProto.Label.LABEL_REPEATED);
     }
@@ -553,7 +553,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testArraysOfRemainingLogicalTypesSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfRemainingLogicalTypes()
+                TestBigQuerySchemas.getSchemaWithArraysOfRemainingLogicalTypes()
                         .getDescriptor();
         assertRemainingLogical(descriptor, FieldDescriptorProto.Label.LABEL_REPEATED);
     }
@@ -561,21 +561,21 @@ public class BigQuerySchemaProviderTest {
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
     @Test
     public void testUnionOfArraySchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfArray();
+        String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArray();
         assertExpectedUnsupportedException(
                 fieldString, "MAP/ARRAYS in UNION types are not supported");
     }
 
     @Test
     public void testUnionOfArrayOfRecordSchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfArrayOfRecord();
+        String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArrayOfRecord();
         assertExpectedUnsupportedException(
                 fieldString, "MAP/ARRAYS in UNION types are not supported");
     }
 
     @Test
     public void testUnionOfMapSchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfMap();
+        String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfMap();
         assertExpectedUnsupportedException(
                 fieldString, "MAP/ARRAYS in UNION types are not supported");
     }
@@ -583,7 +583,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testUnionOfRecordSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfRecord().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithUnionOfRecord().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
         assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
         assertThat(field.getName()).isEqualTo("record_field_union");
@@ -614,7 +614,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testUnionOfSinglePrimitiveType() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithAllPrimitiveSingleUnion()
+                TestBigQuerySchemas.getSchemaWithAllPrimitiveSingleUnion()
                         .getDescriptor();
         assertPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -641,7 +641,7 @@ public class BigQuerySchemaProviderTest {
     @Test
     public void testDefaultValueSchemaConversion() {
         Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithDefaultValue().getDescriptor();
+                TestBigQuerySchemas.getSchemaWithDefaultValue().getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
         assertThat(fieldDescriptorProto.getName()).isEqualTo("long_with_default");
