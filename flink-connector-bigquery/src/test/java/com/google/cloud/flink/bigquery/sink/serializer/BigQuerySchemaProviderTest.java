@@ -139,38 +139,8 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testRecordOfMapSchemaConversation() {
-        Descriptor descriptor = TestBigQuerySchemas.getSchemaWithRecordOfMap().getDescriptor();
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_with_map");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(field.hasTypeName()).isTrue();
-
-        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
-        FieldDescriptorProto fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("map_in_record");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
-
-        nestedDescriptor =
-                nestedDescriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("key");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        fieldDescriptorProto = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("value");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(2);
-        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        String fieldString = TestBigQuerySchemas.getSchemaWithRecordOfMap();
+        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
     }
 
     @Test
@@ -281,161 +251,32 @@ public class BigQuerySchemaProviderTest {
     // ------------Test Schemas with MAP of Different Types --------------
     @Test
     public void testMapOfArraySchemaConversion() {
-        Descriptor descriptor = TestBigQuerySchemas.getSchemaWithMapOfArray().getDescriptor();
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("map_of_array");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
-        FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("key");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        fieldDescriptor = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("value");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(2);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+        String fieldString = TestBigQuerySchemas.getSchemaWithMapOfArray();
+        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
     }
 
     @Test
     public void testMapOfUnionSchemaConversion() {
-        Descriptor descriptor = TestBigQuerySchemas.getSchemaWithMapOfUnionType().getDescriptor();
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("map_of_union");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
-        FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("key");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        fieldDescriptor = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("value");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(2);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_FLOAT);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        String fieldString = TestBigQuerySchemas.getSchemaWithMapOfUnionType();
+        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
     }
 
     @Test
     public void testMapOfMapSchemaConversion() {
-        Descriptor descriptor = TestBigQuerySchemas.getSchemaWithMapOfMap().getDescriptor();
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("map_of_map");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
-        FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("key");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        fieldDescriptor = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("value");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(2);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(fieldDescriptor.hasTypeName()).isTrue();
-        assertThat(nestedDescriptor.findNestedTypeByName(fieldDescriptor.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
-                                .setName(fieldDescriptor.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("key")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
-                                                .setName("value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
+        String fieldString = TestBigQuerySchemas.getSchemaWithMapOfMap();
+        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
     }
 
     @Test
     public void testMapOfRecordSchemaConversion() {
-        Descriptor descriptor = TestBigQuerySchemas.getSchemaWithMapOfRecord().getDescriptor();
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("map_of_records");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
-        FieldDescriptorProto fieldDescriptor = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("key");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        fieldDescriptor = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(fieldDescriptor.getName()).isEqualTo("value");
-        assertThat(fieldDescriptor.getNumber()).isEqualTo(2);
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(fieldDescriptor.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptor.hasTypeName()).isTrue();
-        assertThat(nestedDescriptor.findNestedTypeByName(fieldDescriptor.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
-                                .setName(fieldDescriptor.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                                .setName("value")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("another_value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
+        String fieldString = TestBigQuerySchemas.getSchemaWithMapOfRecord();
+        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
     }
 
     @Test
     public void testMapSchemaConversion() {
-        Descriptor descriptor = TestBigQuerySchemas.getSchemaWithMapType().getDescriptor();
-
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("map_field");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
-        assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("key")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                                .setName("value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
+        String fieldString = TestBigQuerySchemas.getSchemaWithMapType();
+        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
     }
 
     // ------------Test Schemas with ARRAY of Different Types -------------

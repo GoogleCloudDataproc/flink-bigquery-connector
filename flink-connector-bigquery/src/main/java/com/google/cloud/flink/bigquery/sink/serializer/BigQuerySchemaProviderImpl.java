@@ -38,7 +38,6 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -272,10 +271,7 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                                 schema, field, fieldNumber, descriptorProtoBuilder);
                 break;
             case MAP:
-                fieldDescriptorBuilder =
-                        getDescriptorProtoForMapSchema(
-                                schema, field, fieldNumber, descriptorProtoBuilder);
-                break;
+                throw new UnsupportedOperationException("MAP type not supported yet.");
             case UNION:
                 /* Union schemas can mainly be of the following types:
                 1. Only null value (["null"])
@@ -456,62 +452,6 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
         // Default value derived from inner layers should not be the default value of array
         // field.
         return arrayFieldElementBuilder
-                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                .clearDefaultValue();
-    }
-
-    /**
-     * Function to derive the Field Descriptor for a Schema Field with MAP data-type.
-     *
-     * <p>MAP type is mapped as a <b> REPEATED RECORD </b> in Bigquery. The record has two fields -
-     * KEY and VALUE.
-     *
-     * <p>Field KEY has type STRING and Field VALUE is of the datatype provided in the map (value)
-     *
-     * @param elementType {@link Schema} object for MAP Schema field.
-     * @param field {@link Schema.Field} object of the MAP data-type field.
-     * @param fieldNumber the field number to add the derived FieldDescriptorProto to.
-     * @param descriptorProtoBuilder The {@link DescriptorProto.Builder} to be updated.
-     * @return {@link FieldDescriptorProto.Builder} obtained for the MAP schema field.
-     */
-    public static FieldDescriptorProto.Builder getDescriptorProtoForMapSchema(
-            Schema elementType,
-            Schema.Field field,
-            Integer fieldNumber,
-            DescriptorProto.Builder descriptorProtoBuilder) {
-        // A MAP is converted to an array of structs. (REPEATED RECORD)
-        Schema keyType = Schema.create(Schema.Type.STRING);
-        Schema valueType = elementType.getValueType();
-        if (valueType == null) {
-            throw new IllegalArgumentException("Unexpected null element type!");
-        }
-        // Create a new field of type RECORD.
-        Schema.Field keyField = new Schema.Field("key", keyType, "key of the map entry");
-        // VALUE field corresponding to the value in the MAP
-        Schema.Field valueField = new Schema.Field("value", valueType, "value of the map entry");
-        Schema mapFieldSchema =
-                Schema.createRecord(
-                        elementType.getName(),
-                        elementType.getDoc(),
-                        "com.google.flink.bigquery",
-                        true,
-                        Arrays.asList(keyField, valueField));
-
-        DescriptorProto.Builder mapFieldBuilder = DescriptorProto.newBuilder();
-        fieldDescriptorFromSchemaField(
-                new Schema.Field(field.name(), mapFieldSchema, field.doc(), field.defaultVal()),
-                fieldNumber,
-                mapFieldBuilder);
-
-        FieldDescriptorProto.Builder mapFieldElementBuilder = mapFieldBuilder.getFieldBuilder(0);
-        // Check if the inner field is optional without any default value.
-        // This should not be the case since we explicitly create the STRUCT.
-        if (mapFieldElementBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REQUIRED) {
-            throw new IllegalArgumentException("MAP cannot have a null element");
-        }
-        // Add the nested types.
-        descriptorProtoBuilder.addAllNestedType(mapFieldBuilder.getNestedTypeList());
-        return mapFieldElementBuilder
                 .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
                 .clearDefaultValue();
     }
