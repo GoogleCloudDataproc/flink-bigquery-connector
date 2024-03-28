@@ -29,10 +29,10 @@ import java.util.List;
  * {@link BigQuerySchemaProvider}s for {@link AvroToProtoSerializerTest} and {@link
  * BigQuerySchemaProviderTest}.
  */
-public class AvroToProtoSerializerTestSchemas {
+public class TestBigQuerySchemas {
 
     // Private Constructor to ensure no instantiation.
-    private AvroToProtoSerializerTestSchemas() {}
+    private TestBigQuerySchemas() {}
 
     public static Schema getAvroSchemaFromFieldString(String fieldString) {
         String avroSchemaString =
