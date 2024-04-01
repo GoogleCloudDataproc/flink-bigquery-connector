@@ -61,7 +61,7 @@ import java.util.stream.StreamSupport;
 public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
 
     private Descriptor descriptor;
-    private static BigQuerySchemaProvider bigQuerySchemaProvider;
+    private BigQuerySchemaProvider bigQuerySchemaProvider;
     private static final Map<Schema.Type, UnaryOperator<Object>> PRIMITIVE_TYPE_ENCODERS;
 
     /*
@@ -98,7 +98,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 bigQuerySchemaProvider,
                 "BigQuerySchemaProvider not initialized before initializing Serializer.");
         this.descriptor = bigQuerySchemaProvider.getDescriptor();
-        AvroToProtoSerializer.bigQuerySchemaProvider = bigQuerySchemaProvider;
+        this.bigQuerySchemaProvider = bigQuerySchemaProvider;
     }
 
     @Override
@@ -176,8 +176,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 Iterable<Object> iterable = (Iterable<Object>) value;
                 // Get the inner element type.
                 @Nullable Schema arrayElementType = avroSchema.getElementType();
-                if (arrayElementType == null) {
-                    throw new IllegalArgumentException("Unexpected null element type!");
+                if (arrayElementType.isNullable()) {
+                    throw new IllegalArgumentException("Array cannot have NULLABLE datatype");
                 }
                 if (arrayElementType.isUnion()) {
                     throw new IllegalArgumentException(
@@ -212,7 +212,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         String errorMessage;
         if (logicalTypeString != null) {
             // 1. In case, the Schema has a Logical Type.
-            encoder = getLogicalEncoder(logicalTypeString, fieldSchema.getName());
+            encoder = getLogicalEncoder(logicalTypeString);
             errorMessage = "Unsupported logical type " + logicalTypeString;
         } else {
             // 2. For all the other Primitive types.
@@ -232,12 +232,10 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      * @param logicalTypeString String containing the name for Logical Schema Type.
      * @return Encoder Function which converts AvroSchemaField to DynamicMessage
      */
-    private static UnaryOperator<Object> getLogicalEncoder(
-            String logicalTypeString, String fieldName) {
+    private static UnaryOperator<Object> getLogicalEncoder(String logicalTypeString) {
         Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), AvroToProtoSerializer::convertDate);
-        mapping.put(
-                LogicalTypes.decimal(1).getName(), value -> convertBigDecimal(value, fieldName));
+        mapping.put(LogicalTypes.decimal(1).getName(), AvroToProtoSerializer::convertBigDecimal);
         mapping.put(
                 LogicalTypes.timestampMicros().getName(),
                 value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
@@ -274,15 +272,9 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     private static long validateTimestamp(long timestamp) {
         Timestamp minTs = Timestamp.parseTimestamp("0001-01-01T00:00:00.000000+00:00");
         Timestamp maxTs = Timestamp.parseTimestamp("9999-12-31T23:59:59.999999+00:00");
-        Timestamp ts = null;
         try {
-            // Obtain timestamp from microseconds since EPOCH.
-            ts = Timestamp.ofTimeMicroseconds(timestamp);
-            // Validate the ts formed.
-            if (ts.compareTo(minTs) < 0 || ts.compareTo(maxTs) > 0) {
-                throw new IllegalArgumentException(
-                        String.format("Invalid Timestamp '%s' Provided", ts));
-            }
+            // Validate timestamp from microseconds since EPOCH.
+            Timestamp.ofTimeMicroseconds(timestamp);
             return timestamp;
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
@@ -290,7 +282,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                             "Invalid Timestamp '%s' Provided."
                                     + "\nShould be a long value indicating microseconds since Epoch (1970-01-01 00:00:00.000000+00:00) "
                                     + "between %s and %s",
-                            ts, minTs, maxTs));
+                            timestamp, minTs, maxTs));
         }
     }
 
@@ -420,7 +412,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     // The .append() method would be responsible for the error.
     // .serialise() would successfully serialize it without any error indications.
     @VisibleForTesting
-    static ByteString convertBigDecimal(Object value, String fieldName) {
+    static ByteString convertBigDecimal(Object value) {
         // Assuming decimal (value) comes in big-endian encoding.
         ByteBuffer byteBuffer = (ByteBuffer) value;
         // Reverse before sending to big endian convertor.

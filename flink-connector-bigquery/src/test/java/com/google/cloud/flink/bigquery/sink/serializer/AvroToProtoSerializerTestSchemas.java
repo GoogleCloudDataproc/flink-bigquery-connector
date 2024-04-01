@@ -335,6 +335,20 @@ public class AvroToProtoSerializerTestSchemas {
                 + " ]\n";
     }
 
+    public static String getSchemaWithArrayOfMultipleValues() {
+        return " \"fields\": [\n"
+                + "{\"name\": \"array_with_union\", \"type\": "
+                + "{\"type\": \"array\", \"items\":  [\"long\", \"int\"]}}"
+                + " ]\n";
+    }
+
+    public static String getSchemaWithArrayOfNullValue() {
+        return " \"fields\": [\n"
+                + "{\"name\": \"array_with_null\", \"type\": "
+                + "{\"type\": \"array\", \"items\":  \"null\"}}"
+                + " ]\n";
+    }
+
     public static String getSchemaWithArrayOfMap() {
         return " \"fields\": [\n"
                 + "   {\"name\": \"array_of_map\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"

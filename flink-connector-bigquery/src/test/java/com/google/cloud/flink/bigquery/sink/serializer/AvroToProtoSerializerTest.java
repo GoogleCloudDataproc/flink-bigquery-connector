@@ -27,6 +27,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.commons.lang3.ArrayUtils;
 import org.assertj.core.api.Assertions;
 import org.joda.time.DateTime;
 import org.joda.time.Instant;
@@ -61,6 +62,14 @@ public class AvroToProtoSerializerTest {
                         IllegalArgumentException.class,
                         () -> AvroToProtoSerializer.convertJson(value));
         Assertions.assertThat(exception).hasMessageContaining(" is not in valid JSON Format.");
+
+        Object invalidType = 123456;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertJson(invalidType));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Expecting a value as String/Utf8 type (json format)");
     }
 
     @Test
@@ -243,13 +252,28 @@ public class AvroToProtoSerializerTest {
                                         invalidValue, true, "Timestamp (micros)"));
         Assertions.assertThat(exception).hasMessageContaining("Expecting a value as Long type");
 
-        Object invalidLongValue = 1123456789101112131L;
+        // Maximum Timestamp + 1
+        Object invalidLongValue = 253402300800000000L;
         exception =
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
                                 AvroToProtoSerializer.convertTimestamp(
                                         invalidLongValue, true, "Timestamp (micros)"));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Should be a long value indicating microseconds since Epoch "
+                                + "(1970-01-01 00:00:00.000000+00:00) between 0001-01-01T00:00:00Z "
+                                + "and 9999-12-31T23:59:59.999999000Z");
+
+        // Minimum Timestamp - 1
+        Object anotherInvalidLongValue = -62135596800000001L;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroToProtoSerializer.convertTimestamp(
+                                        anotherInvalidLongValue, true, "Timestamp (micros)"));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
                         "Should be a long value indicating microseconds since Epoch "
@@ -363,7 +387,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRemainingPrimitiveSchemaConversion() {
+    public void testRemainingPrimitiveTypesConversion() {
         BigQuerySchemaProvider bigQuerySchemaprovider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRemainingPrimitiveTypes();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
@@ -410,8 +434,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testUnionOfRemainingPrimitiveSchemaConversion()
-            throws BigQuerySerializationException {
+    public void testUnionOfRemainingPrimitiveConversion() throws BigQuerySerializationException {
         BigQuerySchemaProvider bigQuerySchemaprovider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfRemainingPrimitiveTypes();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
@@ -467,7 +490,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRemainingLogicalSchemaConversion() {
+    public void testRemainingLogicalConversion() {
         BigQuerySchemaProvider bigQuerySchemaprovider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRemainingLogicalTypes();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
@@ -516,8 +539,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testUnionOfRemainingLogicalSchemaConversion()
-            throws BigQuerySerializationException {
+    public void testUnionOfRemainingLogicalConversion() throws BigQuerySerializationException {
         BigQuerySchemaProvider bigQuerySchemaprovider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfLogicalTypes();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
@@ -538,7 +560,7 @@ public class AvroToProtoSerializerTest {
 
     // ------------ Test Schemas with Record of Different Types -----------
     @Test
-    public void testRecordOfArraySchemaConversation() {
+    public void testRecordOfArrayConversation() {
         BigQuerySchemaProvider bigQuerySchemaprovider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfArray();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
@@ -606,7 +628,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordOfRecordSchemaConversion() {
+    public void testRecordOfRecordConversion() {
         BigQuerySchemaProvider bigQuerySchemaprovider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfRecord();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
@@ -645,7 +667,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordOfPrimitiveTypeSchemaConversion() {
+    public void testRecordOfPrimitiveTypeConversion() {
         BigQuerySchemaProvider bigQuerySchemaprovider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaprovider.getAvroSchema();
@@ -703,7 +725,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordOfRemainingPrimitiveTypeSchemaConversion() {
+    public void testRecordOfRemainingPrimitiveTypeConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfRemainingPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -739,7 +761,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordOfLogicalTypeSchemaConversion() {
+    public void testRecordOfLogicalTypeConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfLogicalTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -783,7 +805,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordOfRemainingLogicalTypeSchemaConversion() {
+    public void testRecordOfRemainingLogicalTypeConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithRecordOfRemainingLogicalTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -819,7 +841,7 @@ public class AvroToProtoSerializerTest {
 
     // ------------Test Schemas with MAP of Different Types --------------
     @Test
-    public void testMapOfArraySchemaConversion() {
+    public void testMapOfArrayConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithMapOfArray();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -827,7 +849,7 @@ public class AvroToProtoSerializerTest {
         serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = serializer.getDescriptor();
         Map<String, List<Long>> map = new HashMap<>();
-        map.put("Name", Arrays.asList(123456789L));
+        map.put("Name", Collections.singletonList(123456789L));
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema).set("map_of_array", map).build();
         assertThrows(
@@ -836,7 +858,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testMapOfUnionSchemaConversion() {
+    public void testMapOfUnionConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithMapOfUnionType();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -853,7 +875,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testMapOfMapSchemaConversion() {
+    public void testMapOfMapConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithMapOfMap();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -871,7 +893,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testMapOfRecordSchemaConversion() {
+    public void testMapOfRecordConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithMapOfRecord();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -900,7 +922,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testMapSchemaConversion() {
+    public void testMapConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 AvroToProtoSerializerTestSchemas.getSchemaWithMapType();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -917,8 +939,7 @@ public class AvroToProtoSerializerTest {
 
     // ------------Test Schemas with ARRAY of Different Types -------------
     @Test
-    public void testArrayOfUnionSchemaConversion() {
-        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfUnionValue();
+    public void testArrayOfUnionConversion() {
         String notNullString =
                 " \"fields\": [\n"
                         + "{\"name\": \"array_with_union\", \"type\": {\"type\": \"array\", \"items\":  \"long\"}} ]";
@@ -928,6 +949,8 @@ public class AvroToProtoSerializerTest {
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
 
+        // 1. check UNION with NULL
+        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfUnionValue();
         Schema nullSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record =
                 new GenericRecordBuilder(nullSchema)
@@ -937,91 +960,160 @@ public class AvroToProtoSerializerTest {
                 assertThrows(
                         BigQuerySerializationException.class, () -> serializer.serialize(record));
         Assertions.assertThat(exception)
+                .hasMessageContaining("Array cannot have NULLABLE datatype");
+
+        // 2. Check union of NOT NULL-multiple types.
+        fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfMultipleValues();
+        nullSchema = getAvroSchemaFromFieldString(fieldString);
+        GenericRecord anotherRecord =
+                new GenericRecordBuilder(nullSchema)
+                        .set("array_with_union", Arrays.asList(1234567L, 12345))
+                        .build();
+        exception =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> serializer.serialize(anotherRecord));
+        Assertions.assertThat(exception)
                 .hasMessageContaining("ARRAY cannot have multiple datatypes in BigQuery.");
     }
 
     @Test
-    public void testArrayOfRecordSchemaConversion() {
-        BigQuerySchemaProvider bigQuerySchemaProvider = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfRecord();
+    public void testArrayOfNullConversion() {
+        String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfNullValue();
+        String notNullString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"array_with_null\", \"type\": {\"type\": \"array\", \"items\":  \"long\"}} ]";
+        Schema notNullSchema = getAvroSchemaFromFieldString(notNullString);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(notNullSchema);
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+
+        Schema nullSchema = getAvroSchemaFromFieldString(fieldString);
+        GenericRecord record =
+                new GenericRecordBuilder(nullSchema)
+                        .set("array_with_null", Arrays.asList(1234567L, null))
+                        .build();
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class, () -> serializer.serialize(record));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Array cannot have NULLABLE datatype");
+    }
+
+    @Test
+    public void testArrayOfRecordConversion() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                AvroToProtoSerializerTestSchemas.getSchemaWithArrayOfRecord();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = serializer.getDescriptor();
         Schema innerRecordSchema = new Schema.Parser().parse(getRecordSchema("inside_record"));
-        GenericRecord innerRecord = new GenericRecordBuilder(innerRecordSchema)
-                .set("value", 8034881802526489441L)
-                .set("another_value", "fefmmuyoosmglqtnwfxahgoxqpyhc")
-                .build();
-        GenericRecord record = new GenericRecordBuilder(avroSchema)
-                .set("array_of_records", Arrays.asList(innerRecord, innerRecord))
-                .build();
+        GenericRecord innerRecord =
+                new GenericRecordBuilder(innerRecordSchema)
+                        .set("value", 8034881802526489441L)
+                        .set("another_value", "fefmmuyoosmglqtnwfxahgoxqpyhc")
+                        .build();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("array_of_records", Arrays.asList(innerRecord, innerRecord))
+                        .build();
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
-        List<DynamicMessage> arrayResult = (List<DynamicMessage>)message.getField(descriptor.findFieldByNumber(1));
+        List<DynamicMessage> arrayResult =
+                (List<DynamicMessage>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(2);
         // the descriptor for elements inside the array.
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
-        message = (DynamicMessage) arrayResult.get(0);
-        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo(8034881802526489441L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo("fefmmuyoosmglqtnwfxahgoxqpyhc");
+        message = arrayResult.get(0);
+        assertThat(message.getField(descriptor.findFieldByNumber(1)))
+                .isEqualTo(8034881802526489441L);
+        assertThat(message.getField(descriptor.findFieldByNumber(2)))
+                .isEqualTo("fefmmuyoosmglqtnwfxahgoxqpyhc");
 
-        message = (DynamicMessage) arrayResult.get(1);
-        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo(8034881802526489441L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo("fefmmuyoosmglqtnwfxahgoxqpyhc");
+        message = arrayResult.get(1);
+        assertThat(message.getField(descriptor.findFieldByNumber(1)))
+                .isEqualTo(8034881802526489441L);
+        assertThat(message.getField(descriptor.findFieldByNumber(2)))
+                .isEqualTo("fefmmuyoosmglqtnwfxahgoxqpyhc");
     }
 
     @Test
-    public void testArraysOfPrimitiveTypesSchemaConversion() {
-        BigQuerySchemaProvider bigQuerySchemaProvider = AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfPrimitiveTypes();
+    public void testArraysOfPrimitiveTypesConversion() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = serializer.getDescriptor();
         ByteBuffer byteArray = ByteBuffer.wrap("Hello".getBytes());
-        GenericRecord record = new GenericRecordBuilder(avroSchema)
-                .set("number", Collections.singletonList(-250555967807021764L))
-                .set("price", Arrays.asList(0.34593866360929726,0.35197578762609993))
-                .set("species", Arrays.asList("nsguocxfjqaufhsunahvxmcpivutfqv", "q", "pldvejbqmfyosgxmbmqjsafjbcfqwhiagbckmti"))
-                .set("flighted", Arrays.asList(false, false, false, true))
-                .set("sound", Arrays.asList(byteArray,byteArray,byteArray,byteArray,byteArray))
-                .set("required_record_field", Collections.singletonList(new GenericRecordBuilder(avroSchema.getField("required_record_field").schema().getElementType()).set("species", Arrays.asList("a", "b", "c", "d", "e", "f")).build()))
-                .build();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("number", Collections.singletonList(-250555967807021764L))
+                        .set("price", Arrays.asList(0.34593866360929726, 0.35197578762609993))
+                        .set(
+                                "species",
+                                Arrays.asList(
+                                        "nsguocxfjqaufhsunahvxmcpivutfqv",
+                                        "q",
+                                        "pldvejbqmfyosgxmbmqjsafjbcfqwhiagbckmti"))
+                        .set("flighted", Arrays.asList(false, false, false, true))
+                        .set(
+                                "sound",
+                                Arrays.asList(
+                                        byteArray, byteArray, byteArray, byteArray, byteArray))
+                        .set(
+                                "required_record_field",
+                                Collections.singletonList(
+                                        new GenericRecordBuilder(
+                                                        avroSchema
+                                                                .getField("required_record_field")
+                                                                .schema()
+                                                                .getElementType())
+                                                .set(
+                                                        "species",
+                                                        Arrays.asList("a", "b", "c", "d", "e", "f"))
+                                                .build()))
+                        .build();
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
-        List<Object> arrayResult  = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
+        List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(1);
         assertThat(arrayResult.get(0)).isEqualTo(-250555967807021764L);
 
-        arrayResult  = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
         assertThat(arrayResult).hasSize(2);
         assertThat(arrayResult.get(0)).isEqualTo(0.34593866360929726);
         assertThat(arrayResult.get(1)).isEqualTo(0.35197578762609993);
 
-        arrayResult  = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(3);
         assertThat(arrayResult.get(0)).isEqualTo("nsguocxfjqaufhsunahvxmcpivutfqv");
         assertThat(arrayResult.get(1)).isEqualTo("q");
         assertThat(arrayResult.get(2)).isEqualTo("pldvejbqmfyosgxmbmqjsafjbcfqwhiagbckmti");
 
-        arrayResult  = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(4);
         assertThat(arrayResult.get(0)).isEqualTo(false);
         assertThat(arrayResult.get(1)).isEqualTo(false);
         assertThat(arrayResult.get(2)).isEqualTo(false);
         assertThat(arrayResult.get(3)).isEqualTo(true);
 
-        arrayResult  = (List<Object>) message.getField(descriptor.findFieldByNumber(5));
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(5));
         assertThat(arrayResult).hasSize(5);
         // Not checking the rest since they are the same.
         assertThat(arrayResult.get(0)).isEqualTo(ByteString.copyFrom("Hello".getBytes()));
         // obtaining the record field inside the array.
-        arrayResult  = (List<Object>) message.getField(descriptor.findFieldByNumber(6));
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(6));
         assertThat(arrayResult).hasSize(1);
         // Since this is a record field, getting the descriptor for inside the record
-        descriptor = descriptor.findNestedTypeByName(descriptor.findFieldByNumber(6).toProto().getTypeName());
+        descriptor =
+                descriptor.findNestedTypeByName(
+                        descriptor.findFieldByNumber(6).toProto().getTypeName());
         message = (DynamicMessage) arrayResult.get(0);
         // The given is a record containing an array, so obtaining the array inside the record.
-        arrayResult  = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(6);
 
         assertThat(arrayResult.get(0)).isEqualTo("a");
@@ -1033,32 +1125,37 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testArraysOfRemainingPrimitiveTypesSchemaConversion() {
-        BigQuerySchemaProvider bigQuerySchemaProvider = AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfRemainingPrimitiveTypes();
+    public void testArraysOfRemainingPrimitiveTypesConversion() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfRemainingPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = serializer.getDescriptor();
-        byte[] byteArray = ByteBuffer
-                .allocate(40)
-                .putInt(-77)
-                .putInt(-55)
-                .putInt(60)
-                .putInt(-113)
-                .putInt(120)
-                .putInt(-13)
-                .putInt(-69)
-                .putInt(61)
-                .putInt(108)
-                .putInt(41)
-                .array();
-        GenericFixed fixed = new GenericData.Fixed(avroSchema.getField("fixed_field").schema(), byteArray);
-        GenericRecord record = new GenericRecordBuilder(avroSchema)
-                .set("quantity", Collections.singletonList(89767285))
-                .set("fixed_field", Collections.singletonList(fixed))
-                .set("float_field", Arrays.asList(0.26904225f, 0.558431f, 0.2269839f, 0.70421267f))
-                .set("enum_field", Arrays.asList("A", "C", "A"))
-                .build();
+        byte[] byteArray =
+                ByteBuffer.allocate(40)
+                        .putInt(-77)
+                        .putInt(-55)
+                        .putInt(60)
+                        .putInt(-113)
+                        .putInt(120)
+                        .putInt(-13)
+                        .putInt(-69)
+                        .putInt(61)
+                        .putInt(108)
+                        .putInt(41)
+                        .array();
+        GenericFixed fixed =
+                new GenericData.Fixed(avroSchema.getField("fixed_field").schema(), byteArray);
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("quantity", Collections.singletonList(89767285))
+                        .set("fixed_field", Collections.singletonList(fixed))
+                        .set(
+                                "float_field",
+                                Arrays.asList(0.26904225f, 0.558431f, 0.2269839f, 0.70421267f))
+                        .set("enum_field", Arrays.asList("A", "C", "A"))
+                        .build();
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
         List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(1);
@@ -1082,66 +1179,291 @@ public class AvroToProtoSerializerTest {
         assertThat(arrayResult.get(2)).isEqualTo("A");
     }
 
-
     @Test
-    public void testArraysOfLogicalTypesSchemaConversion() {
-        BigQuerySchemaProvider bigQuerySchemaProvider = AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfLogicalTypes();
+    public void testArraysOfLogicalTypesConversion() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfLogicalTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = serializer.getDescriptor();
-        System.out.println(StorageClientFaker.createRecord(avroSchema));
-        GenericRecord record = new GenericRecordBuilder(avroSchema).
-                set("timestamp", Arrays.asList())
-                .set("time", Arrays.asList())
-                .set("datetime", Arrays.asList())
-                .set("date", Arrays.asList())
-                .set("numeric_field", Arrays.asList())
-                .set("bignumeric_field", Arrays.asList())
-                .set("geography", Arrays.asList())
-                .set("Json", Arrays.asList())
-                .build();
+        BigDecimal bigDecimal = new BigDecimal("123456.7891011");
+        byte[] bytes = bigDecimal.unscaledValue().toByteArray();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set(
+                                "timestamp",
+                                Collections.singletonList(
+                                        DateTime.parse("2024-03-20T12:50:50.269+05:30")))
+                        .set("time", Arrays.asList(50546554456L, 50546554456L))
+                        .set(
+                                "datetime",
+                                Arrays.asList(
+                                        1710943144787424L, 1710943144787424L, 1710943144787424L))
+                        .set("date", Arrays.asList(19802, 19802, 19802, 19802))
+                        .set("numeric_field", Collections.singletonList(ByteBuffer.wrap(bytes)))
+                        .set("bignumeric_field", Collections.singletonList(ByteBuffer.wrap(bytes)))
+                        .set(
+                                "geography",
+                                Collections.singletonList(
+                                        "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))"))
+                        .set(
+                                "Json",
+                                Arrays.asList(
+                                        "{\"FirstName\" : \"John\", \"LastName\": \"Doe\"}",
+                                        "{\"FirstName\" : \"Jane\", \"LastName\": \"Doe\"}"))
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
+        assertThat(arrayResult).hasSize(1);
+        assertThat(arrayResult.get(0)).isEqualTo(1710919250269000L);
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
+        assertThat(arrayResult).hasSize(2);
+        assertThat(arrayResult.get(0)).isEqualTo("14:02:26.554456");
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
+        assertThat(arrayResult).hasSize(3);
+        assertThat(arrayResult.get(0)).isEqualTo("2024-03-20T13:59:04.787424");
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
+        assertThat(arrayResult).hasSize(4);
+        assertThat(arrayResult.get(0)).isEqualTo(19802);
+
+        ArrayUtils.reverse(bytes);
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(5));
+        assertThat(arrayResult).hasSize(1);
+        assertThat(arrayResult.get(0)).isEqualTo(ByteString.copyFrom(bytes));
+
+        ArrayUtils.reverse(bytes);
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(6));
+        assertThat(arrayResult).hasSize(1);
+        assertThat(arrayResult.get(0)).isEqualTo(ByteString.copyFrom(bytes));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(7));
+        assertThat(arrayResult).hasSize(1);
+        assertThat(arrayResult.get(0))
+                .isEqualTo("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))");
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(8));
+        assertThat(arrayResult).hasSize(2);
+        assertThat(arrayResult.get(0))
+                .isEqualTo("{\"FirstName\" : \"John\", \"LastName\": \"Doe\"}");
+        assertThat(arrayResult.get(1))
+                .isEqualTo("{\"FirstName\" : \"Jane\", \"LastName\": \"Doe\"}");
     }
 
     @Test
-    public void testArraysOfRemainingLogicalTypesSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfRemainingLogicalTypes()
-                        .getDescriptor();
+    public void testArraysOfRemainingLogicalTypesConversion() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                AvroToProtoSerializerTestSchemas.getSchemaWithArraysOfRemainingLogicalTypes();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = serializer.getDescriptor();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("time_millis", Arrays.asList(45745727, 45745727, 45745727))
+                        .set("lts_millis", Arrays.asList(1710938587462L, 1710938587462L))
+                        .set(
+                                "ts_millis",
+                                Collections.singletonList(
+                                        DateTime.parse("2024-03-20T12:50:50.269+05:30")))
+                        .set(
+                                "uuid",
+                                Collections.singletonList(
+                                        UUID.fromString("8e25e7e5-0dc5-4292-b59b-3665b0ab8280")))
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
+        assertThat(arrayResult).hasSize(3);
+        assertThat(arrayResult.get(0)).isEqualTo("12:42:25.727");
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
+        assertThat(arrayResult).hasSize(1);
+        assertThat(arrayResult.get(0)).isEqualTo(1710919250269000L);
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
+        assertThat(arrayResult).hasSize(2);
+        assertThat(arrayResult.get(0)).isEqualTo("2024-03-20T12:43:07.462");
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
+        assertThat(arrayResult).hasSize(1);
+        assertThat(arrayResult.get(0)).isEqualTo("8e25e7e5-0dc5-4292-b59b-3665b0ab8280");
     }
 
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
     @Test
-    public void testUnionOfArraySchemaConversion() {
+    public void testUnionOfArrayConversion() throws BigQuerySerializationException {
         String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfArray();
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema).set("array_field_union", null).build();
+
+        String nonNullFieldString =
+                "\"fields\": [\n"
+                        + "   {\"name\": \"array_field_union\", \"type\": {\"type\": \"array\", \"items\": \"float\"}}\n"
+                        + " ]";
+        Schema nonNullSchema = getAvroSchemaFromFieldString(nonNullFieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(nonNullSchema);
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        ByteString byteString = serializer.serialize(record);
+        assertThat(byteString.toStringUtf8()).isEqualTo("");
     }
 
     @Test
-    public void testUnionOfArrayOfRecordSchemaConversion() {
+    public void testUnionOfArrayOfRecordConversion() throws BigQuerySerializationException {
         String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfArrayOfRecord();
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema).set("array_of_records_union", null).build();
+
+        String nonNullFieldString =
+                "\"fields\": [\n"
+                        + "   {\"name\": \"array_of_records_union\", \"type\": {\"type\": \"array\", \"items\": {\"name\": \"inside_record_union\", \"type\": \"record\", \"fields\": [{\"name\": \"value\", \"type\": \"long\"},{\"name\": \"another_value\",\"type\": \"string\"}]}}}\n"
+                        + " ]";
+        Schema nonNullSchema = getAvroSchemaFromFieldString(nonNullFieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(nonNullSchema);
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        ByteString byteString = serializer.serialize(record);
+        assertThat(byteString.toStringUtf8()).isEqualTo("");
     }
 
     @Test
-    public void testUnionOfMapSchemaConversion() {
+    public void testUnionOfMapConversion() throws BigQuerySerializationException {
         String fieldString = AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfMap();
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema).set("map_field_union", null).build();
+
+        String nonNullFieldString =
+                "\"fields\": [\n"
+                        + "   {\"name\": \"map_field_union\", \"type\": {\"type\": \"map\", \"values\": \"long\"}}\n"
+                        + " ]";
+        Schema nonNullSchema = getAvroSchemaFromFieldString(nonNullFieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(nonNullSchema);
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        ByteString byteString = serializer.serialize(record);
+        assertThat(byteString.toStringUtf8()).isEqualTo("");
     }
 
     @Test
-    public void testUnionOfRecordSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfRecord().getDescriptor();
+    public void testNullInsertionInRequiredField() {
+        String recordSchemaString =
+                "\"fields\":[{\"name\": \"record_field_union\", \"type\":"
+                        + getRecordSchema("inner_record")
+                        + " }]";
+        Schema recordSchema = getAvroSchemaFromFieldString(recordSchemaString);
+        // For descriptor with RECORD of MODE Required.
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(recordSchema);
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+
+        Schema nullableRecordSchema =
+                AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfRecord().getAvroSchema();
+        // Form a Null record.
+        GenericRecord record =
+                new GenericRecordBuilder(nullableRecordSchema)
+                        .set("record_field_union", null)
+                        .build();
+        // Try to serialize.
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class, () -> serializer.serialize(record));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Received null value for non-nullable field record_field_union");
+    }
+
+    @Test
+    public void testUnionOfRecordConversion() throws BigQuerySerializationException {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                AvroToProtoSerializerTestSchemas.getSchemaWithUnionOfRecord();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = serializer.getDescriptor();
+        // Record Is Null
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema).set("record_field_union", null).build();
+        ByteString byteString = serializer.serialize(record);
+        assertThat(byteString.toStringUtf8()).isEqualTo("");
+
+        // Record is not null
+        record =
+                new GenericRecordBuilder(avroSchema)
+                        .set(
+                                "record_field_union",
+                                new GenericRecordBuilder(
+                                                getAvroSchemaFromFieldString(
+                                                        "\"fields\":[{\"name\":\"value\",\"type\":\"long\"},{\"name\":\"another_value\",\"type\":\"string\"}]"))
+                                        .set("value", 12345678910L)
+                                        .set("another_value", "hello")
+                                        .build())
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        // obtain "inner_record"
+        message = (DynamicMessage) message.getField(descriptor.findFieldByNumber(1));
+        // update the descriptor to point to the "inner_record" now.
+        descriptor =
+                descriptor.findNestedTypeByName(
+                        descriptor.findFieldByNumber(1).toProto().getTypeName());
+        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo(12345678910L);
+        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo("hello");
     }
 
     @Test
     public void testUnionOfSinglePrimitiveType() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithAllPrimitiveSingleUnion()
-                        .getDescriptor();
-    }
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                AvroToProtoSerializerTestSchemas.getSchemaWithAllPrimitiveSingleUnion();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = serializer.getDescriptor();
 
-    @Test
-    public void testDefaultValueSchemaConversion() {
-        Descriptor descriptor =
-                AvroToProtoSerializerTestSchemas.getSchemaWithDefaultValue().getDescriptor();
+        byte[] byteArray = "Any String you want".getBytes();
+        String recordSchemaString =
+                "{\"type\":\"record\",\"name\":\"required_record_field\",\"doc\":\"Translated Avro Schema for required_record_field\",\"fields\":[{\"name\":\"species\",\"type\":\"string\"}]}}";
+        Schema recordSchema = new Schema.Parser().parse(recordSchemaString);
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("number", -7099548873856657385L)
+                        .set("price", 0.5616495161359795)
+                        .set("species", "String")
+                        .set("flighted", true)
+                        .set("sound", ByteBuffer.wrap(byteArray))
+                        .set(
+                                "required_record_field",
+                                new GenericRecordBuilder(recordSchema)
+                                        .set("species", "hello")
+                                        .build())
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        assertThat(message.getField(descriptor.findFieldByNumber(1)))
+                .isEqualTo(-7099548873856657385L);
+        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo(0.5616495161359795);
+        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo("String");
+        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo(true);
+        assertThat(message.getField(descriptor.findFieldByNumber(5)))
+                .isEqualTo(ByteString.copyFrom(byteArray));
+
+        FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(6);
+        message = (DynamicMessage) message.getField(fieldDescriptor);
+        assertThat(
+                        message.getField(
+                                descriptor
+                                        .findNestedTypeByName(
+                                                fieldDescriptor.toProto().getTypeName())
+                                        .findFieldByNumber(1)))
+                .isEqualTo("hello");
     }
 }
