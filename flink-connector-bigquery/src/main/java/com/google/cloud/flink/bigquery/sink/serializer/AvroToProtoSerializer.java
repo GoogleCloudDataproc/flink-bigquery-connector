@@ -61,7 +61,6 @@ import java.util.stream.StreamSupport;
 public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
 
     private Descriptor descriptor;
-    private BigQuerySchemaProvider bigQuerySchemaProvider;
     private static final Map<Schema.Type, UnaryOperator<Object>> PRIMITIVE_TYPE_ENCODERS;
 
     /*
@@ -98,7 +97,6 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 bigQuerySchemaProvider,
                 "BigQuerySchemaProvider not initialized before initializing Serializer.");
         this.descriptor = bigQuerySchemaProvider.getDescriptor();
-        this.bigQuerySchemaProvider = bigQuerySchemaProvider;
     }
 
     @Override
