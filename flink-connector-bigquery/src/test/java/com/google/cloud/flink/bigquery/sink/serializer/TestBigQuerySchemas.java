@@ -29,10 +29,10 @@ import java.util.List;
  * {@link BigQuerySchemaProvider}s for {@link AvroToProtoSerializerTest} and {@link
  * BigQuerySchemaProviderTest}.
  */
-public class AvroToProtoSerializerTestSchemas {
+public class TestBigQuerySchemas {
 
     // Private Constructor to ensure no instantiation.
-    private AvroToProtoSerializerTestSchemas() {}
+    private TestBigQuerySchemas() {}
 
     public static Schema getAvroSchemaFromFieldString(String fieldString) {
         String avroSchemaString =
@@ -211,15 +211,13 @@ public class AvroToProtoSerializerTestSchemas {
         return getSchemaAndDescriptor(fieldString);
     }
 
-    public static BigQuerySchemaProvider getSchemaWithRecordOfMap() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"record_with_map\", "
-                        + "\"type\": {\"name\": \"actual_record\", \"type\": \"record\","
-                        + " \"fields\": [{\"name\": \"map_in_record\", \"type\": "
-                        + "{ \"type\": \"map\", \"values\": \"long\"}}]}}\n"
-                        + " ]\n";
-        return getSchemaAndDescriptor(fieldString);
+    public static String getSchemaWithRecordOfMap() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"record_with_map\", "
+                + "\"type\": {\"name\": \"actual_record\", \"type\": \"record\","
+                + " \"fields\": [{\"name\": \"map_in_record\", \"type\": "
+                + "{ \"type\": \"map\", \"values\": \"long\"}}]}}\n"
+                + " ]\n";
     }
 
     public static BigQuerySchemaProvider getSchemaWithRecordOfRecord() {
@@ -272,50 +270,42 @@ public class AvroToProtoSerializerTestSchemas {
     }
 
     // ------------Test Schemas with MAP of Different Types --------------
-    public static BigQuerySchemaProvider getSchemaWithMapOfArray() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_array\", \"type\": {\"type\": \"map\","
-                        + " \"values\": {\"type\": \"array\", \"items\": \"long\","
-                        + " \"name\": \"array_in_map\"}}}\n"
-                        + " ]\n";
-        return getSchemaAndDescriptor(fieldString);
+    public static String getSchemaWithMapOfArray() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"map_of_array\", \"type\": {\"type\": \"map\","
+                + " \"values\": {\"type\": \"array\", \"items\": \"long\","
+                + " \"name\": \"array_in_map\"}}}\n"
+                + " ]\n";
     }
 
-    public static BigQuerySchemaProvider getSchemaWithMapOfUnionType() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_union\", \"type\": {\"type\": \"map\","
-                        + " \"values\": [\"float\", \"null\"]}}\n"
-                        + " ]\n";
-        return getSchemaAndDescriptor(fieldString);
+    public static String getSchemaWithMapOfUnionType() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"map_of_union\", \"type\": {\"type\": \"map\","
+                + " \"values\": [\"float\", \"null\"]}}\n"
+                + " ]\n";
     }
 
-    public static BigQuerySchemaProvider getSchemaWithMapOfMap() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_map\", \"type\": {\"type\": \"map\", "
-                        + "\"values\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
-                        + " ]\n";
-        return getSchemaAndDescriptor(fieldString);
+    public static String getSchemaWithMapOfMap() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"map_of_map\", \"type\": {\"type\": \"map\", "
+                + "\"values\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
+                + " ]\n";
     }
 
-    public static BigQuerySchemaProvider getSchemaWithMapOfRecord() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_of_records\", \"type\": {\"type\": \"map\", \"values\": "
-                        + getRecordSchema("record_inside_map")
-                        + "}}\n"
-                        + " ]\n";
-        return getSchemaAndDescriptor(fieldString);
+    public static String getSchemaWithMapOfRecord() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"map_of_records\", \"type\": "
+                + "{\"type\": \"map\", \"values\": "
+                + getRecordSchema("record_inside_map")
+                + "}}\n"
+                + " ]\n";
     }
 
-    public static BigQuerySchemaProvider getSchemaWithMapType() {
-        String fieldString =
-                " \"fields\": [\n"
-                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", \"values\": \"long\"}}\n"
-                        + " ]\n";
-        return getSchemaAndDescriptor(fieldString);
+    public static String getSchemaWithMapType() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"map_field\", \"type\": "
+                + "{\"type\": \"map\", \"values\": \"long\"}}\n"
+                + " ]\n";
     }
 
     // ------------Test Schemas with ARRAY of Different Types -------------

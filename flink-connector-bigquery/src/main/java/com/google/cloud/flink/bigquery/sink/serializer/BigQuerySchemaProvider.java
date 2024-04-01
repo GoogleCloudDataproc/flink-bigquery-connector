@@ -26,9 +26,26 @@ import org.apache.avro.Schema;
  */
 public interface BigQuerySchemaProvider {
 
+    /**
+     * Returns a {@link DescriptorProto} object essential for obtaining Proto Rows Builder and
+     * Descriptor instances.
+     *
+     * @return DescriptorProto
+     */
     DescriptorProto getDescriptorProto();
 
+    /**
+     * Returns a {@link Descriptor} object essential for obtaining Dynamic Message instances.
+     *
+     * @return Descriptor
+     */
     Descriptor getDescriptor();
 
+    /**
+     * Returns a {@link Schema} object required for obtaining Descriptor and DescriptorProto
+     * instances.
+     *
+     * @return AvroSchema
+     */
     Schema getAvroSchema();
 }

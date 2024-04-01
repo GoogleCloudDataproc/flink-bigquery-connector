@@ -96,13 +96,20 @@ public class StorageClientFaker {
         }
 
         @Override
-        public StorageReadClient getStorageClient(CredentialsOptions readOptions)
+        public StorageReadClient createStorageReadClient(CredentialsOptions readOptions)
                 throws IOException {
             return storageReadClient;
         }
 
         @Override
-        public QueryDataClient getQueryDataClient(CredentialsOptions readOptions) {
+        public StorageWriteClient createStorageWriteClient(CredentialsOptions readOptions)
+                throws IOException {
+            throw new UnsupportedOperationException(
+                    "Method getStorageWriteClient is not supported");
+        }
+
+        @Override
+        public QueryDataClient createQueryDataClient(CredentialsOptions readOptions) {
             return FakeQueryDataClient.getInstance();
         }
 
