@@ -273,8 +273,8 @@ public class BigQuerySchemaProviderTest {
                 assertThrows(
                         IllegalStateException.class,
                         () -> new BigQuerySchemaProviderImpl(avroSchema));
-        Assertions.assertThat(exception).
-                hasMessageContaining("Nested arrays not supported by BigQuery.");
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Nested arrays not supported by BigQuery.");
     }
 
     @Test
