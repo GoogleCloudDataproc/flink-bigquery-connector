@@ -26,6 +26,7 @@ import org.junit.Test;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 /** Tests for {@link BigQuerySchemaProvider}. */
@@ -94,23 +95,23 @@ public class BigQuerySchemaProviderTest {
     public void testRecordOfArraySchemaConversation() {
         Descriptor descriptor = TestBigQuerySchemas.getSchemaWithRecordOfArray().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_with_array");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, field.getType());
+        assertEquals("record_with_array", field.getName());
+        assertEquals(1, field.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
         assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_BOOL)
-                                                .setName("array_in_record")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
-                                                .build())
-                                .build());
+        assertEquals(
+                descriptor.findNestedTypeByName(field.getTypeName()).toProto(),
+                DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName(field.getTypeName())
+                        .addField(
+                                FieldDescriptorProto.newBuilder()
+                                        .setType(FieldDescriptorProto.Type.TYPE_BOOL)
+                                        .setName("array_in_record")
+                                        .setNumber(1)
+                                        .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                                        .build())
+                        .build());
     }
 
     @Test
@@ -119,22 +120,20 @@ public class BigQuerySchemaProviderTest {
                 TestBigQuerySchemas.getSchemaWithRecordOfUnionType().getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_with_union");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertEquals("record_with_union", fieldDescriptorProto.getName());
+        assertEquals(1, fieldDescriptorProto.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
         assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
 
         Descriptor nestedDescriptor =
                 descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
         FieldDescriptor fieldDescriptor = nestedDescriptor.findFieldByNumber(1);
         assertThat(fieldDescriptor.isOptional()).isTrue();
-        assertThat(fieldDescriptor.getType()).isEqualTo(FieldDescriptor.Type.BOOL);
-        assertThat(fieldDescriptor.getName()).isEqualTo("union_in_record");
+        assertEquals(FieldDescriptor.Type.BOOL, fieldDescriptor.getType());
+        assertEquals("union_in_record", fieldDescriptor.getName());
         assertThat(fieldDescriptor.hasDefaultValue()).isTrue();
-        assertThat(fieldDescriptor.getDefaultValue()).isEqualTo(true);
+        assertEquals(true, fieldDescriptor.getDefaultValue());
     }
 
     @Test
@@ -148,49 +147,45 @@ public class BigQuerySchemaProviderTest {
         Descriptor descriptor = TestBigQuerySchemas.getSchemaWithRecordOfRecord().getDescriptor();
 
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_in_record");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, field.getType());
+        assertEquals("record_in_record", field.getName());
+        assertEquals(1, field.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
         assertThat(field.hasTypeName()).isTrue();
         Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
 
         field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_field");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, field.getType());
+        assertEquals("record_field", field.getName());
+        assertEquals(1, field.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
         assertThat(field.hasTypeName()).isTrue();
 
         nestedDescriptor = nestedDescriptor.findNestedTypeByName(field.getTypeName());
         field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
-        assertThat(field.getName()).isEqualTo("value");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertEquals(FieldDescriptorProto.Type.TYPE_INT64, field.getType());
+        assertEquals("value", field.getName());
+        assertEquals(1, field.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
 
         field = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(field.getName()).isEqualTo("another_value");
-        assertThat(field.getNumber()).isEqualTo(2);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
+        assertEquals(FieldDescriptorProto.Type.TYPE_STRING, field.getType());
+        assertEquals("another_value", field.getName());
+        assertEquals(2, field.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
     }
 
     @Test
     public void testRecordOfPrimitiveTypeSchemaConversion() {
         Descriptor descriptor =
                 TestBigQuerySchemas.getSchemaWithRecordOfPrimitiveTypes().getDescriptor();
-
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_primitive_types");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertEquals("record_of_primitive_types", fieldDescriptorProto.getName());
+        assertEquals(1, fieldDescriptorProto.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
         assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-
         assertPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
 
@@ -198,17 +193,13 @@ public class BigQuerySchemaProviderTest {
     public void testRecordOfRemainingPrimitiveTypeSchemaConversion() {
         Descriptor descriptor =
                 TestBigQuerySchemas.getSchemaWithRecordOfRemainingPrimitiveTypes().getDescriptor();
-
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_remaining_primitive_types");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertEquals("record_of_remaining_primitive_types", fieldDescriptorProto.getName());
+        assertEquals(1, fieldDescriptorProto.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
         assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-
         assertRemainingPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
 
@@ -216,17 +207,13 @@ public class BigQuerySchemaProviderTest {
     public void testRecordOfLogicalTypeSchemaConversion() {
         Descriptor descriptor =
                 TestBigQuerySchemas.getSchemaWithRecordOfLogicalTypes().getDescriptor();
-
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_logical_types");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertEquals("record_of_logical_types", fieldDescriptorProto.getName());
+        assertEquals(1, fieldDescriptorProto.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
         assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-
         assertLogical(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
 
@@ -234,17 +221,13 @@ public class BigQuerySchemaProviderTest {
     public void testRecordOfRemainingLogicalTypeSchemaConversion() {
         Descriptor descriptor =
                 TestBigQuerySchemas.getSchemaWithRecordOfRemainingLogicalTypes().getDescriptor();
-
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_remaining_logical_types");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
+        assertEquals("record_of_remaining_logical_types", fieldDescriptorProto.getName());
+        assertEquals(1, fieldDescriptorProto.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
         assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-
         assertRemainingLogical(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
 
@@ -321,30 +304,30 @@ public class BigQuerySchemaProviderTest {
     public void testArrayOfRecordSchemaConversion() {
         Descriptor descriptor = TestBigQuerySchemas.getSchemaWithArrayOfRecord().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("array_of_records");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REPEATED);
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, field.getType());
+        assertEquals("array_of_records", field.getName());
+        assertEquals(1, field.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_REPEATED, field.getLabel());
         assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                                .setName("value")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("another_value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
+        assertEquals(
+                descriptor.findNestedTypeByName(field.getTypeName()).toProto(),
+                DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName(field.getTypeName())
+                        .addField(
+                                FieldDescriptorProto.newBuilder()
+                                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                        .setName("value")
+                                        .setNumber(1)
+                                        .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
+                                        .build())
+                        .addField(
+                                FieldDescriptorProto.newBuilder()
+                                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                        .setName("another_value")
+                                        .setNumber(2)
+                                        .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
+                                        .build())
+                        .build());
     }
 
     @Test
@@ -401,30 +384,30 @@ public class BigQuerySchemaProviderTest {
     public void testUnionOfRecordSchemaConversion() {
         Descriptor descriptor = TestBigQuerySchemas.getSchemaWithUnionOfRecord().getDescriptor();
         FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_field_union");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, field.getType());
+        assertEquals("record_field_union", field.getName());
+        assertEquals(1, field.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_OPTIONAL, field.getLabel());
         assertThat(field.hasTypeName()).isTrue();
-        assertThat(descriptor.findNestedTypeByName(field.getTypeName()).toProto())
-                .isEqualTo(
-                        DescriptorProtos.DescriptorProto.newBuilder()
-                                .setName(field.getTypeName())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                                .setName("value")
-                                                .setNumber(1)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .addField(
-                                        FieldDescriptorProto.newBuilder()
-                                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                                .setName("another_value")
-                                                .setNumber(2)
-                                                .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
-                                                .build())
-                                .build());
+        assertEquals(
+                descriptor.findNestedTypeByName(field.getTypeName()).toProto(),
+                DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName(field.getTypeName())
+                        .addField(
+                                FieldDescriptorProto.newBuilder()
+                                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                                        .setName("value")
+                                        .setNumber(1)
+                                        .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
+                                        .build())
+                        .addField(
+                                FieldDescriptorProto.newBuilder()
+                                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                                        .setName("another_value")
+                                        .setNumber(2)
+                                        .setLabel(FieldDescriptorProto.Label.LABEL_REQUIRED)
+                                        .build())
+                        .build());
     }
 
     @Test
@@ -458,13 +441,12 @@ public class BigQuerySchemaProviderTest {
         Descriptor descriptor = TestBigQuerySchemas.getSchemaWithDefaultValue().getDescriptor();
 
         FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("long_with_default");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_OPTIONAL);
-        assertThat(fieldDescriptorProto.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
+        assertEquals("long_with_default", fieldDescriptorProto.getName());
+        assertEquals(1, fieldDescriptorProto.getNumber());
+        assertEquals(FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldDescriptorProto.getLabel());
+        assertEquals(FieldDescriptorProto.Type.TYPE_INT64, fieldDescriptorProto.getType());
         assertThat(fieldDescriptorProto.hasDefaultValue()).isTrue();
-        assertThat(fieldDescriptorProto.getDefaultValue()).isEqualTo("100");
+        assertEquals("100", fieldDescriptorProto.getDefaultValue());
     }
 
     private static void assertExpectedUnsupportedException(
@@ -478,222 +460,220 @@ public class BigQuerySchemaProviderTest {
     }
 
     private void assertPrimitive(Descriptor descriptor, FieldDescriptorProto.Label label) {
-        assertThat(descriptor.findFieldByNumber(1).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("number")
-                                .setNumber(1)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(1).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                        .setName("number")
+                        .setNumber(1)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(2).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_DOUBLE)
-                                .setName("price")
-                                .setNumber(2)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(2).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_DOUBLE)
+                        .setName("price")
+                        .setNumber(2)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(3).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("species")
-                                .setNumber(3)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(3).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("species")
+                        .setNumber(3)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(4).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_BOOL)
-                                .setName("flighted")
-                                .setNumber(4)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(4).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_BOOL)
+                        .setName("flighted")
+                        .setNumber(4)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(5).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
-                                .setName("sound")
-                                .setNumber(5)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(5).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                        .setName("sound")
+                        .setNumber(5)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(6).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setName("required_record_field")
-                                .setNumber(6)
-                                .setTypeName(
-                                        descriptor.findFieldByNumber(6).toProto().getTypeName())
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(6).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_MESSAGE)
+                        .setName("required_record_field")
+                        .setNumber(6)
+                        .setTypeName(descriptor.findFieldByNumber(6).toProto().getTypeName())
+                        .setLabel(label)
+                        .build());
 
         assertThat(descriptor.getNestedTypes()).hasSize(1);
-        assertThat(
-                        descriptor
-                                .findNestedTypeByName(
-                                        descriptor.findFieldByNumber(6).toProto().getTypeName())
-                                .findFieldByNumber(1)
-                                .toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("species")
-                                .setNumber(1)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor
+                        .findNestedTypeByName(
+                                descriptor.findFieldByNumber(6).toProto().getTypeName())
+                        .findFieldByNumber(1)
+                        .toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("species")
+                        .setNumber(1)
+                        .setLabel(label)
+                        .build());
     }
 
     private void assertRemainingPrimitive(Descriptor descriptor, FieldDescriptorProto.Label label) {
 
-        assertThat(descriptor.findFieldByNumber(1).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT32)
-                                .setName("quantity")
-                                .setNumber(1)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(1).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_INT32)
+                        .setName("quantity")
+                        .setNumber(1)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(2).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
-                                .setName("fixed_field")
-                                .setNumber(2)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(2).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                        .setName("fixed_field")
+                        .setNumber(2)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(3).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_FLOAT)
-                                .setName("float_field")
-                                .setNumber(3)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(3).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_FLOAT)
+                        .setName("float_field")
+                        .setNumber(3)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(4).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("enum_field")
-                                .setNumber(4)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(4).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("enum_field")
+                        .setNumber(4)
+                        .setLabel(label)
+                        .build());
     }
 
     private void assertLogical(Descriptor descriptor, FieldDescriptorProto.Label label) {
-        assertThat(descriptor.findFieldByNumber(1).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("timestamp")
-                                .setNumber(1)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(1).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                        .setName("timestamp")
+                        .setNumber(1)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(2).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("time")
-                                .setNumber(2)
-                                .setLabel(label)
-                                .build());
-        assertThat(descriptor.findFieldByNumber(3).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("datetime")
-                                .setNumber(3)
-                                .setLabel(label)
-                                .build());
-        assertThat(descriptor.findFieldByNumber(4).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT32)
-                                .setName("date")
-                                .setNumber(4)
-                                .setLabel(label)
-                                .build());
-        assertThat(descriptor.findFieldByNumber(5).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
-                                .setName("numeric_field")
-                                .setNumber(5)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(2).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("time")
+                        .setNumber(2)
+                        .setLabel(label)
+                        .build());
+        assertEquals(
+                descriptor.findFieldByNumber(3).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("datetime")
+                        .setNumber(3)
+                        .setLabel(label)
+                        .build());
+        assertEquals(
+                descriptor.findFieldByNumber(4).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_INT32)
+                        .setName("date")
+                        .setNumber(4)
+                        .setLabel(label)
+                        .build());
+        assertEquals(
+                descriptor.findFieldByNumber(5).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                        .setName("numeric_field")
+                        .setNumber(5)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(6).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_BYTES)
-                                .setName("bignumeric_field")
-                                .setNumber(6)
-                                .setLabel(label)
-                                .build());
-        assertThat(descriptor.findFieldByNumber(7).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("geography")
-                                .setNumber(7)
-                                .setLabel(label)
-                                .build());
-        assertThat(descriptor.findFieldByNumber(8).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("json")
-                                .setNumber(8)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(6).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                        .setName("bignumeric_field")
+                        .setNumber(6)
+                        .setLabel(label)
+                        .build());
+        assertEquals(
+                descriptor.findFieldByNumber(7).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("geography")
+                        .setNumber(7)
+                        .setLabel(label)
+                        .build());
+        assertEquals(
+                descriptor.findFieldByNumber(8).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("json")
+                        .setNumber(8)
+                        .setLabel(label)
+                        .build());
     }
 
     private void assertRemainingLogical(Descriptor descriptor, FieldDescriptorProto.Label label) {
 
-        assertThat(descriptor.findFieldByNumber(1).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_INT64)
-                                .setName("ts_millis")
-                                .setNumber(1)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(1).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                        .setName("ts_millis")
+                        .setNumber(1)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(2).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("time_millis")
-                                .setNumber(2)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(2).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("time_millis")
+                        .setNumber(2)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(3).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("lts_millis")
-                                .setNumber(3)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(3).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("lts_millis")
+                        .setNumber(3)
+                        .setLabel(label)
+                        .build());
 
-        assertThat(descriptor.findFieldByNumber(4).toProto())
-                .isEqualTo(
-                        FieldDescriptorProto.newBuilder()
-                                .setType(FieldDescriptorProto.Type.TYPE_STRING)
-                                .setName("uuid")
-                                .setNumber(4)
-                                .setLabel(label)
-                                .build());
+        assertEquals(
+                descriptor.findFieldByNumber(4).toProto(),
+                FieldDescriptorProto.newBuilder()
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
+                        .setName("uuid")
+                        .setNumber(4)
+                        .setLabel(label)
+                        .build());
     }
 }
