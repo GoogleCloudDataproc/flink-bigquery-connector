@@ -28,6 +28,7 @@ import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchema
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQuerySchemaProvider}. */
 public class BigQuerySchemaProviderTest {
@@ -99,7 +100,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals("record_with_array", field.getName());
         assertEquals(1, field.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
-        assertThat(field.hasTypeName()).isTrue();
+        assertTrue(field.hasTypeName());
         assertEquals(
                 descriptor.findNestedTypeByName(field.getTypeName()).toProto(),
                 DescriptorProtos.DescriptorProto.newBuilder()
@@ -124,15 +125,15 @@ public class BigQuerySchemaProviderTest {
         assertEquals(1, fieldDescriptorProto.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
         assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+        assertTrue(fieldDescriptorProto.hasTypeName());
 
         Descriptor nestedDescriptor =
                 descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
         FieldDescriptor fieldDescriptor = nestedDescriptor.findFieldByNumber(1);
-        assertThat(fieldDescriptor.isOptional()).isTrue();
+        assertTrue(fieldDescriptor.isOptional());
         assertEquals(FieldDescriptor.Type.BOOL, fieldDescriptor.getType());
         assertEquals("union_in_record", fieldDescriptor.getName());
-        assertThat(fieldDescriptor.hasDefaultValue()).isTrue();
+        assertTrue(fieldDescriptor.hasDefaultValue());
         assertEquals(true, fieldDescriptor.getDefaultValue());
     }
 
@@ -151,7 +152,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals("record_in_record", field.getName());
         assertEquals(1, field.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
-        assertThat(field.hasTypeName()).isTrue();
+        assertTrue(field.hasTypeName());
         Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
 
         field = nestedDescriptor.findFieldByNumber(1).toProto();
@@ -159,7 +160,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals("record_field", field.getName());
         assertEquals(1, field.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, field.getLabel());
-        assertThat(field.hasTypeName()).isTrue();
+        assertTrue(field.hasTypeName());
 
         nestedDescriptor = nestedDescriptor.findNestedTypeByName(field.getTypeName());
         field = nestedDescriptor.findFieldByNumber(1).toProto();
@@ -184,7 +185,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(1, fieldDescriptorProto.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
         assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+        assertTrue(fieldDescriptorProto.hasTypeName());
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
         assertPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -198,7 +199,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(1, fieldDescriptorProto.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
         assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+        assertTrue(fieldDescriptorProto.hasTypeName());
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
         assertRemainingPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -212,7 +213,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(1, fieldDescriptorProto.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
         assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+        assertTrue(fieldDescriptorProto.hasTypeName());
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
         assertLogical(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -226,7 +227,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(1, fieldDescriptorProto.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REQUIRED, fieldDescriptorProto.getLabel());
         assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
+        assertTrue(fieldDescriptorProto.hasTypeName());
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
         assertRemainingLogical(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
@@ -272,7 +273,8 @@ public class BigQuerySchemaProviderTest {
                 assertThrows(
                         IllegalStateException.class,
                         () -> new BigQuerySchemaProviderImpl(avroSchema));
-        assertThat(exception).hasMessageThat().contains("Nested arrays not supported by BigQuery.");
+        Assertions.assertThat(exception).
+                hasMessageContaining("Nested arrays not supported by BigQuery.");
     }
 
     @Test
@@ -308,7 +310,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals("array_of_records", field.getName());
         assertEquals(1, field.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_REPEATED, field.getLabel());
-        assertThat(field.hasTypeName()).isTrue();
+        assertTrue(field.hasTypeName());
         assertEquals(
                 descriptor.findNestedTypeByName(field.getTypeName()).toProto(),
                 DescriptorProtos.DescriptorProto.newBuilder()
@@ -388,7 +390,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals("record_field_union", field.getName());
         assertEquals(1, field.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_OPTIONAL, field.getLabel());
-        assertThat(field.hasTypeName()).isTrue();
+        assertTrue(field.hasTypeName());
         assertEquals(
                 descriptor.findNestedTypeByName(field.getTypeName()).toProto(),
                 DescriptorProtos.DescriptorProto.newBuilder()
@@ -431,9 +433,8 @@ public class BigQuerySchemaProviderTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () -> new BigQuerySchemaProviderImpl(avroSchema));
-        assertThat(exception)
-                .hasMessageThat()
-                .contains("Multiple non-null union types are not supported.");
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Multiple non-null union types are not supported.");
     }
 
     @Test
@@ -445,7 +446,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(1, fieldDescriptorProto.getNumber());
         assertEquals(FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldDescriptorProto.getLabel());
         assertEquals(FieldDescriptorProto.Type.TYPE_INT64, fieldDescriptorProto.getType());
-        assertThat(fieldDescriptorProto.hasDefaultValue()).isTrue();
+        assertTrue(fieldDescriptorProto.hasDefaultValue());
         assertEquals("100", fieldDescriptorProto.getDefaultValue());
     }
 
