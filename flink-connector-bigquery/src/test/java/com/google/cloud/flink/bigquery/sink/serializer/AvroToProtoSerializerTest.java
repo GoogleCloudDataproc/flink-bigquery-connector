@@ -38,6 +38,7 @@ import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSeriali
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getRecordSchema;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 /** Tests for {@link AvroToProtoSerializer}. */
@@ -71,23 +72,21 @@ public class AvroToProtoSerializerTest {
                         .build();
 
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
-        assertThat(message.getField(descriptor.findFieldByNumber(1)))
-                .isEqualTo(-7099548873856657385L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo(0.5616495161359795);
-        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo("String");
-        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo(true);
-        assertThat(message.getField(descriptor.findFieldByNumber(5)))
-                .isEqualTo(ByteString.copyFrom(byteArray));
+        assertEquals(-7099548873856657385L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(0.5616495161359795, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals("String", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(true, message.getField(descriptor.findFieldByNumber(4)));
+        assertEquals(
+                ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(5)));
 
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(6);
         message = (DynamicMessage) message.getField(fieldDescriptor);
-        assertThat(
-                        message.getField(
-                                descriptor
-                                        .findNestedTypeByName(
-                                                fieldDescriptor.toProto().getTypeName())
-                                        .findFieldByNumber(1)))
-                .isEqualTo("hello");
+        assertEquals(
+                "hello",
+                message.getField(
+                        descriptor
+                                .findNestedTypeByName(fieldDescriptor.toProto().getTypeName())
+                                .findFieldByNumber(1)));
     }
 
     @Test
@@ -108,11 +107,11 @@ public class AvroToProtoSerializerTest {
                         .set("enum_field", "C")
                         .build();
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
-        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo(1234);
-        assertThat(message.getField(descriptor.findFieldByNumber(2)))
-                .isEqualTo(ByteString.copyFrom(byteArray));
-        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo(12345.6789f);
-        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo("C");
+        assertEquals(1234, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(
+                ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
     }
 
     @Test
@@ -134,7 +133,7 @@ public class AvroToProtoSerializerTest {
                         .build();
 
         ByteString byteString = serializer.serialize(record);
-        assertThat(byteString.toStringUtf8()).isEqualTo("");
+        assertEquals("", byteString.toStringUtf8());
     }
 
     @Test
@@ -153,7 +152,7 @@ public class AvroToProtoSerializerTest {
                         .set("enum_field", null)
                         .build();
         ByteString byteString = serializer.serialize(record);
-        assertThat(byteString.toStringUtf8()).isEqualTo("");
+        assertEquals("", byteString.toStringUtf8());
     }
 
     // ------------ Test Schemas with Record of Different Types -----------
@@ -179,13 +178,12 @@ public class AvroToProtoSerializerTest {
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
         message = (DynamicMessage) message.getField(fieldDescriptor);
-        assertThat(
-                        message.getField(
-                                descriptor
-                                        .findNestedTypeByName(
-                                                fieldDescriptor.toProto().getTypeName())
-                                        .findFieldByNumber(1)))
-                .isEqualTo(arrayList);
+        assertEquals(
+                arrayList,
+                message.getField(
+                        descriptor
+                                .findNestedTypeByName(fieldDescriptor.toProto().getTypeName())
+                                .findFieldByNumber(1)));
     }
 
     @Test
@@ -210,7 +208,7 @@ public class AvroToProtoSerializerTest {
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
         ByteString byteString = ((DynamicMessage) message.getField(fieldDescriptor)).toByteString();
-        assertThat(byteString.toStringUtf8()).isEqualTo("");
+        assertEquals("", byteString.toStringUtf8());
     }
 
     @Test
@@ -246,10 +244,10 @@ public class AvroToProtoSerializerTest {
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
-        assertThat(message.getField(descriptor.findFieldByNumber(1)))
-                .isEqualTo(7267611125055979836L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2)))
-                .isEqualTo("yllgqpemxjnpsoaqlwlgbqjkywxnavntf");
+        assertEquals(7267611125055979836L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(
+                "yllgqpemxjnpsoaqlwlgbqjkywxnavntf",
+                message.getField(descriptor.findFieldByNumber(2)));
     }
 
     @Test
@@ -291,23 +289,21 @@ public class AvroToProtoSerializerTest {
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
 
-        assertThat(message.getField(descriptor.findFieldByNumber(1)))
-                .isEqualTo(-7099548873856657385L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo(0.5616495161359795);
-        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo("String");
-        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo(true);
-        assertThat(message.getField(descriptor.findFieldByNumber(5)))
-                .isEqualTo(ByteString.copyFrom(byteArray));
+        assertEquals(-7099548873856657385L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(0.5616495161359795, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals("String", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(true, message.getField(descriptor.findFieldByNumber(4)));
+        assertEquals(
+                ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(5)));
 
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(6);
         message = (DynamicMessage) message.getField(fieldDescriptor);
-        assertThat(
-                        message.getField(
-                                descriptor
-                                        .findNestedTypeByName(
-                                                fieldDescriptor.toProto().getTypeName())
-                                        .findFieldByNumber(1)))
-                .isEqualTo("hello");
+        assertEquals(
+                "hello",
+                message.getField(
+                        descriptor
+                                .findNestedTypeByName(fieldDescriptor.toProto().getTypeName())
+                                .findFieldByNumber(1)));
     }
 
     @Test
@@ -339,11 +335,11 @@ public class AvroToProtoSerializerTest {
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
-        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo(1234);
-        assertThat(message.getField(descriptor.findFieldByNumber(2)))
-                .isEqualTo(ByteString.copyFrom(byteArray));
-        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo(12345.6789f);
-        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo("C");
+        assertEquals(1234, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(
+                ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
     }
 
     // ------------Test Schemas with ARRAY of Different Types -------------
@@ -437,16 +433,14 @@ public class AvroToProtoSerializerTest {
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
         message = arrayResult.get(0);
-        assertThat(message.getField(descriptor.findFieldByNumber(1)))
-                .isEqualTo(8034881802526489441L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2)))
-                .isEqualTo("fefmmuyoosmglqtnwfxahgoxqpyhc");
+        assertEquals(8034881802526489441L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(
+                "fefmmuyoosmglqtnwfxahgoxqpyhc", message.getField(descriptor.findFieldByNumber(2)));
 
         message = arrayResult.get(1);
-        assertThat(message.getField(descriptor.findFieldByNumber(1)))
-                .isEqualTo(8034881802526489441L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2)))
-                .isEqualTo("fefmmuyoosmglqtnwfxahgoxqpyhc");
+        assertEquals(8034881802526489441L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(
+                "fefmmuyoosmglqtnwfxahgoxqpyhc", message.getField(descriptor.findFieldByNumber(2)));
     }
 
     @Test
@@ -489,30 +483,30 @@ public class AvroToProtoSerializerTest {
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
         List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(1);
-        assertThat(arrayResult.get(0)).isEqualTo(-250555967807021764L);
+        assertEquals(-250555967807021764L, arrayResult.get(0));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
         assertThat(arrayResult).hasSize(2);
-        assertThat(arrayResult.get(0)).isEqualTo(0.34593866360929726);
-        assertThat(arrayResult.get(1)).isEqualTo(0.35197578762609993);
+        assertEquals(0.34593866360929726, arrayResult.get(0));
+        assertEquals(0.35197578762609993, arrayResult.get(1));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(3);
-        assertThat(arrayResult.get(0)).isEqualTo("nsguocxfjqaufhsunahvxmcpivutfqv");
-        assertThat(arrayResult.get(1)).isEqualTo("q");
-        assertThat(arrayResult.get(2)).isEqualTo("pldvejbqmfyosgxmbmqjsafjbcfqwhiagbckmti");
+        assertEquals("nsguocxfjqaufhsunahvxmcpivutfqv", arrayResult.get(0));
+        assertEquals("q", arrayResult.get(1));
+        assertEquals("pldvejbqmfyosgxmbmqjsafjbcfqwhiagbckmti", arrayResult.get(2));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(4);
-        assertThat(arrayResult.get(0)).isEqualTo(false);
-        assertThat(arrayResult.get(1)).isEqualTo(false);
-        assertThat(arrayResult.get(2)).isEqualTo(false);
-        assertThat(arrayResult.get(3)).isEqualTo(true);
+        assertEquals(false, arrayResult.get(0));
+        assertEquals(false, arrayResult.get(1));
+        assertEquals(false, arrayResult.get(2));
+        assertEquals(true, arrayResult.get(3));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(5));
         assertThat(arrayResult).hasSize(5);
         // Not checking the rest since they are the same.
-        assertThat(arrayResult.get(0)).isEqualTo(ByteString.copyFrom("Hello".getBytes()));
+        assertEquals(ByteString.copyFrom("Hello".getBytes()), arrayResult.get(0));
         // obtaining the record field inside the array.
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(6));
         assertThat(arrayResult).hasSize(1);
@@ -525,12 +519,12 @@ public class AvroToProtoSerializerTest {
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(6);
 
-        assertThat(arrayResult.get(0)).isEqualTo("a");
-        assertThat(arrayResult.get(1)).isEqualTo("b");
-        assertThat(arrayResult.get(2)).isEqualTo("c");
-        assertThat(arrayResult.get(3)).isEqualTo("d");
-        assertThat(arrayResult.get(4)).isEqualTo("e");
-        assertThat(arrayResult.get(5)).isEqualTo("f");
+        assertEquals("a", arrayResult.get(0));
+        assertEquals("b", arrayResult.get(1));
+        assertEquals("c", arrayResult.get(2));
+        assertEquals("d", arrayResult.get(3));
+        assertEquals("e", arrayResult.get(4));
+        assertEquals("f", arrayResult.get(5));
     }
 
     @Test
@@ -568,24 +562,24 @@ public class AvroToProtoSerializerTest {
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
         List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(1);
-        assertThat(arrayResult.get(0)).isEqualTo(89767285);
+        assertEquals(89767285, arrayResult.get(0));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
         assertThat(arrayResult).hasSize(1);
-        assertThat(arrayResult.get(0)).isEqualTo(ByteString.copyFrom(byteArray));
+        assertEquals(ByteString.copyFrom(byteArray), arrayResult.get(0));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(4);
-        assertThat(arrayResult.get(0)).isEqualTo(0.26904225f);
-        assertThat(arrayResult.get(1)).isEqualTo(0.558431f);
-        assertThat(arrayResult.get(2)).isEqualTo(0.2269839f);
-        assertThat(arrayResult.get(3)).isEqualTo(0.70421267f);
+        assertEquals(0.26904225f, arrayResult.get(0));
+        assertEquals(0.558431f, arrayResult.get(1));
+        assertEquals(0.2269839f, arrayResult.get(2));
+        assertEquals(0.70421267f, arrayResult.get(3));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(3);
-        assertThat(arrayResult.get(0)).isEqualTo("A");
-        assertThat(arrayResult.get(1)).isEqualTo("C");
-        assertThat(arrayResult.get(2)).isEqualTo("A");
+        assertEquals("A", arrayResult.get(0));
+        assertEquals("C", arrayResult.get(1));
+        assertEquals("A", arrayResult.get(2));
     }
 
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
@@ -606,7 +600,7 @@ public class AvroToProtoSerializerTest {
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         ByteString byteString = serializer.serialize(record);
-        assertThat(byteString.toStringUtf8()).isEqualTo("");
+        assertEquals("", byteString.toStringUtf8());
     }
 
     @Test
@@ -626,7 +620,7 @@ public class AvroToProtoSerializerTest {
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         ByteString byteString = serializer.serialize(record);
-        assertThat(byteString.toStringUtf8()).isEqualTo("");
+        assertEquals("", byteString.toStringUtf8());
     }
 
     @Test
@@ -670,7 +664,7 @@ public class AvroToProtoSerializerTest {
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema).set("record_field_union", null).build();
         ByteString byteString = serializer.serialize(record);
-        assertThat(byteString.toStringUtf8()).isEqualTo("");
+        assertEquals("", byteString.toStringUtf8());
 
         // Record is not null
         record =
@@ -691,8 +685,8 @@ public class AvroToProtoSerializerTest {
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
-        assertThat(message.getField(descriptor.findFieldByNumber(1))).isEqualTo(12345678910L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo("hello");
+        assertEquals(12345678910L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals("hello", message.getField(descriptor.findFieldByNumber(2)));
     }
 
     @Test
@@ -722,22 +716,20 @@ public class AvroToProtoSerializerTest {
                                         .build())
                         .build();
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
-        assertThat(message.getField(descriptor.findFieldByNumber(1)))
-                .isEqualTo(-7099548873856657385L);
-        assertThat(message.getField(descriptor.findFieldByNumber(2))).isEqualTo(0.5616495161359795);
-        assertThat(message.getField(descriptor.findFieldByNumber(3))).isEqualTo("String");
-        assertThat(message.getField(descriptor.findFieldByNumber(4))).isEqualTo(true);
-        assertThat(message.getField(descriptor.findFieldByNumber(5)))
-                .isEqualTo(ByteString.copyFrom(byteArray));
+        assertEquals(-7099548873856657385L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(0.5616495161359795, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals("String", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(true, message.getField(descriptor.findFieldByNumber(4)));
+        assertEquals(
+                ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(5)));
 
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(6);
         message = (DynamicMessage) message.getField(fieldDescriptor);
-        assertThat(
-                        message.getField(
-                                descriptor
-                                        .findNestedTypeByName(
-                                                fieldDescriptor.toProto().getTypeName())
-                                        .findFieldByNumber(1)))
-                .isEqualTo("hello");
+        assertEquals(
+                "hello",
+                message.getField(
+                        descriptor
+                                .findNestedTypeByName(fieldDescriptor.toProto().getTypeName())
+                                .findFieldByNumber(1)));
     }
 }

@@ -26,7 +26,9 @@ import org.junit.Test;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQuerySchemaProvider}. */
 public class BigQuerySchemaProviderTest {
@@ -199,81 +201,6 @@ public class BigQuerySchemaProviderTest {
         assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
         assertTrue(fieldDescriptorProto.hasTypeName());
         descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-        assertRemainingPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
-    }
-
-    @Test
-    public void testRecordOfMapSchemaConversation() {
-        String fieldString = TestBigQuerySchemas.getSchemaWithRecordOfMap();
-        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
-    }
-
-    @Test
-    public void testRecordOfRecordSchemaConversion() {
-        Descriptor descriptor = TestBigQuerySchemas.getSchemaWithRecordOfRecord().getDescriptor();
-
-        FieldDescriptorProto field = descriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_in_record");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(field.hasTypeName()).isTrue();
-        Descriptor nestedDescriptor = descriptor.findNestedTypeByName(field.getTypeName());
-
-        field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(field.getName()).isEqualTo("record_field");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(field.hasTypeName()).isTrue();
-
-        nestedDescriptor = nestedDescriptor.findNestedTypeByName(field.getTypeName());
-        field = nestedDescriptor.findFieldByNumber(1).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_INT64);
-        assertThat(field.getName()).isEqualTo("value");
-        assertThat(field.getNumber()).isEqualTo(1);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-
-        field = nestedDescriptor.findFieldByNumber(2).toProto();
-        assertThat(field.getType()).isEqualTo(FieldDescriptorProto.Type.TYPE_STRING);
-        assertThat(field.getName()).isEqualTo("another_value");
-        assertThat(field.getNumber()).isEqualTo(2);
-        assertThat(field.getLabel()).isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-    }
-
-    @Test
-    public void testRecordOfPrimitiveTypeSchemaConversion() {
-        Descriptor descriptor =
-                TestBigQuerySchemas.getSchemaWithRecordOfPrimitiveTypes().getDescriptor();
-
-        FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_primitive_types");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
-        descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-
-        assertPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
-    }
-
-    @Test
-    public void testRecordOfRemainingPrimitiveTypeSchemaConversion() {
-        Descriptor descriptor =
-                TestBigQuerySchemas.getSchemaWithRecordOfRemainingPrimitiveTypes().getDescriptor();
-
-        FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
-        assertThat(fieldDescriptorProto.getName()).isEqualTo("record_of_remaining_primitive_types");
-        assertThat(fieldDescriptorProto.getNumber()).isEqualTo(1);
-        assertThat(fieldDescriptorProto.getLabel())
-                .isEqualTo(FieldDescriptorProto.Label.LABEL_REQUIRED);
-        assertThat(fieldDescriptorProto.getType())
-                .isEqualTo(FieldDescriptorProto.Type.TYPE_MESSAGE);
-        assertThat(fieldDescriptorProto.hasTypeName()).isTrue();
-        descriptor = descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
-
         assertRemainingPrimitive(descriptor, FieldDescriptorProto.Label.LABEL_REQUIRED);
     }
 
