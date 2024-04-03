@@ -266,7 +266,10 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                         .setTypeName(nested.getName());
                 break;
             case ARRAY:
-                throw new UnsupportedOperationException("ARRAY type not supported yet.");
+                fieldDescriptorBuilder =
+                        getDescriptorProtoForArraySchema(
+                                schema, field, fieldNumber, descriptorProtoBuilder);
+                break;
             case MAP:
                 throw new UnsupportedOperationException("MAP type not supported yet.");
             case UNION:
@@ -395,6 +398,62 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
         if (field.hasDefaultValue()) {
             fieldDescriptorBuilder.setDefaultValue(field.defaultVal().toString());
         }
+    }
+
+    /**
+     * Function to derive the Field Descriptor for a Schema Field with ARRAY data-type.
+     *
+     * <p>A bigquery field is created by the provided data-type (mapped according to the rules
+     * described), and the field MODE is marked as <b>REPEATED</b>.
+     *
+     * @param avroSchema {@link Schema} object for ARRAY Schema field.
+     * @param field {@link Schema.Field} object of the ARRAY data-type field.
+     * @param fieldNumber the field number to add the derived FieldDescriptorProto to.
+     * @param descriptorProtoBuilder The {@link DescriptorProto.Builder} to be updated.
+     * @return {@link FieldDescriptorProto.Builder} obtained for the ARRAY schema field.
+     * @throws UnsupportedOperationException If ARRAY of type MAP is passed.
+     * @throws IllegalArgumentException If ARRAY of type UNION or NULL schema is passed.
+     */
+    private static FieldDescriptorProto.Builder getDescriptorProtoForArraySchema(
+            Schema avroSchema,
+            Schema.Field field,
+            Integer fieldNumber,
+            DescriptorProto.Builder descriptorProtoBuilder)
+            throws UnsupportedOperationException {
+        Schema elementType = avroSchema.getElementType();
+        if (elementType == null) {
+            throw new IllegalArgumentException("Unexpected null element type!");
+        }
+        Preconditions.checkState(
+                elementType.getType() != Schema.Type.ARRAY,
+                "Nested arrays not supported by BigQuery.");
+        if (elementType.getType() == Schema.Type.MAP) {
+            // Note this case would be covered in the check which is performed later,
+            // but just in case the support for this is provided in the future,
+            // it is explicitly mentioned.
+            throw new UnsupportedOperationException("Array of Type MAP not supported yet.");
+        }
+        // Create the descriptor for datatype present in ARRAY type.
+        DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
+        fieldDescriptorFromSchemaField(
+                new Schema.Field(field.name(), elementType, field.doc(), field.defaultVal()),
+                fieldNumber,
+                arrayFieldBuilder);
+
+        FieldDescriptorProto.Builder arrayFieldElementBuilder =
+                arrayFieldBuilder.getFieldBuilder(0);
+        // Check if the inner field is optional without any default value.
+        if (arrayFieldElementBuilder.getLabel() != FieldDescriptorProto.Label.LABEL_REQUIRED) {
+            throw new IllegalArgumentException("Array cannot have a NULLABLE element");
+        }
+
+        // Add any nested types.
+        descriptorProtoBuilder.addAllNestedType(arrayFieldBuilder.getNestedTypeList());
+        // Default value derived from inner layers should not be the default value of array
+        // field.
+        return arrayFieldElementBuilder
+                .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                .clearDefaultValue();
     }
 
     // --------------- Obtain Descriptor from DescriptorProto  ---------------
