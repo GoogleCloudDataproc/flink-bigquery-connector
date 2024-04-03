@@ -75,8 +75,11 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     public void init(BigQuerySchemaProvider bigQuerySchemaProvider) {
         Preconditions.checkNotNull(
                 bigQuerySchemaProvider,
-                "BigQuerySchemaProvider not initialized before initializing Serializer.");
-        this.descriptor = bigQuerySchemaProvider.getDescriptor();
+                "BigQuerySchemaProvider not found while initializing AvroToProtoSerializer");
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Preconditions.checkNotNull(
+                descriptor, "Destination BigQuery table's Proto Schema could not be found.");
+        this.descriptor = descriptor;
     }
 
     @Override
@@ -86,11 +89,6 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         } catch (Exception e) {
             throw new BigQuerySerializationException(e.getMessage(), e);
         }
-    }
-
-    public Descriptor getDescriptor() {
-        Preconditions.checkNotNull(this.descriptor, "Descriptor not initialized!");
-        return this.descriptor;
     }
 
     /**
