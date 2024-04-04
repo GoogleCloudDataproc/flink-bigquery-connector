@@ -435,18 +435,17 @@ public class AvroToProtoSerializerTest {
                         .build();
         ByteString byteString = serializer.serialize(record);
         assertEquals("", byteString.toStringUtf8());
-        assertEquals("", byteString.toStringUtf8());
     }
 
     // --------------- Test Logical Data Types (Nullable and Required) ---------------
     @Test
     public void testLogicalTypesConversion() {
-        BigQuerySchemaProvider bigQuerySchemaprovider =
+        BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRequiredLogicalTypes();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaprovider);
-        Descriptor descriptor = serializer.getDescriptor();
-        Schema avroSchema = bigQuerySchemaprovider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
 
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
         byte[] bytes = bigDecimal.unscaledValue().toByteArray();
@@ -479,12 +478,12 @@ public class AvroToProtoSerializerTest {
 
     @Test
     public void testRemainingLogicalConversion() {
-        BigQuerySchemaProvider bigQuerySchemaprovider =
+        BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRemainingLogicalTypes();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaprovider);
-        Descriptor descriptor = serializer.getDescriptor();
-        Schema avroSchema = bigQuerySchemaprovider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
 
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
@@ -505,11 +504,11 @@ public class AvroToProtoSerializerTest {
 
     @Test
     public void testNullableLogicalTypesConversion() throws BigQuerySerializationException {
-        BigQuerySchemaProvider bigQuerySchemaprovider =
+        BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithNullableLogicalTypes();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaprovider);
-        Schema avroSchema = bigQuerySchemaprovider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
 
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
@@ -528,11 +527,11 @@ public class AvroToProtoSerializerTest {
 
     @Test
     public void testUnionOfRemainingLogicalConversion() throws BigQuerySerializationException {
-        BigQuerySchemaProvider bigQuerySchemaprovider =
+        BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithUnionOfLogicalTypes();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaprovider);
-        Schema avroSchema = bigQuerySchemaprovider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
 
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
@@ -741,9 +740,9 @@ public class AvroToProtoSerializerTest {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfLogicalTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
-        Descriptor descriptor = serializer.getDescriptor();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema innerRecordSchema = avroSchema.getField("record_of_logical_types").schema();
 
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
@@ -787,9 +786,9 @@ public class AvroToProtoSerializerTest {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfRemainingLogicalTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
-        Descriptor descriptor = serializer.getDescriptor();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema innerRecordSchema =
                 avroSchema.getField("record_of_remaining_logical_types").schema();
         GenericRecord innerRecord =
@@ -1061,9 +1060,9 @@ public class AvroToProtoSerializerTest {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArraysOfLogicalTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
-        Descriptor descriptor = serializer.getDescriptor();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
         byte[] bytes = bigDecimal.unscaledValue().toByteArray();
         GenericRecord record =
@@ -1133,9 +1132,9 @@ public class AvroToProtoSerializerTest {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArraysOfRemainingLogicalTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
-        Descriptor descriptor = serializer.getDescriptor();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set("time_millis", Arrays.asList(45745727, 45745727, 45745727))
