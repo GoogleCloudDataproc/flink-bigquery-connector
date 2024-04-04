@@ -54,9 +54,7 @@ public class AvroToProtoSerializerTest {
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
 
         byte[] byteArray = "Any String you want".getBytes();
-        String recordSchemaString =
-                "{\"type\":\"record\",\"name\":\"required_record_field\",\"doc\":\"Translated Avro Schema for required_record_field\",\"fields\":[{\"name\":\"species\",\"type\":\"string\"}]}}";
-        Schema recordSchema = new Schema.Parser().parse(recordSchemaString);
+        Schema recordSchema = avroSchema.getField("required_record_field").schema();
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set("number", -7099548873856657385L)
@@ -262,9 +260,12 @@ public class AvroToProtoSerializerTest {
         Schema innerRecordSchema = avroSchema.getField("record_of_primitive_types").schema();
 
         byte[] byteArray = "Any String you want".getBytes();
-        String recordSchemaString =
-                "{\"type\":\"record\",\"name\":\"required_record_field\",\"doc\":\"Translated Avro Schema for required_record_field\",\"fields\":[{\"name\":\"species\",\"type\":\"string\"}]}}";
-        Schema recordSchema = new Schema.Parser().parse(recordSchemaString);
+        Schema recordSchema =
+                avroSchema
+                        .getField("record_of_primitive_types")
+                        .schema()
+                        .getField("required_record_field")
+                        .schema();
         GenericRecord innerRecord =
                 new GenericRecordBuilder(innerRecordSchema)
                         .set("number", -7099548873856657385L)
@@ -592,7 +593,8 @@ public class AvroToProtoSerializerTest {
 
         String nonNullFieldString =
                 "\"fields\": [\n"
-                        + "   {\"name\": \"array_field_union\", \"type\": {\"type\": \"array\", \"items\": \"float\"}}\n"
+                        + "   {\"name\": \"array_field_union\", \"type\": {\"type\": \"array\","
+                        + " \"items\": \"float\"}}\n"
                         + " ]";
         Schema nonNullSchema = getAvroSchemaFromFieldString(nonNullFieldString);
         BigQuerySchemaProvider bigQuerySchemaProvider =
@@ -612,7 +614,11 @@ public class AvroToProtoSerializerTest {
 
         String nonNullFieldString =
                 "\"fields\": [\n"
-                        + "   {\"name\": \"array_of_records_union\", \"type\": {\"type\": \"array\", \"items\": {\"name\": \"inside_record_union\", \"type\": \"record\", \"fields\": [{\"name\": \"value\", \"type\": \"long\"},{\"name\": \"another_value\",\"type\": \"string\"}]}}}\n"
+                        + "   {\"name\": \"array_of_records_union\", \"type\": "
+                        + "{\"type\": \"array\", \"items\": {\"name\": \"inside_record_union\", "
+                        + "\"type\": \"record\", \"fields\": "
+                        + "[{\"name\": \"value\", \"type\": \"long\"},"
+                        + "{\"name\": \"another_value\",\"type\": \"string\"}]}}}\n"
                         + " ]";
         Schema nonNullSchema = getAvroSchemaFromFieldString(nonNullFieldString);
         BigQuerySchemaProvider bigQuerySchemaProvider =
@@ -673,7 +679,10 @@ public class AvroToProtoSerializerTest {
                                 "record_field_union",
                                 new GenericRecordBuilder(
                                                 getAvroSchemaFromFieldString(
-                                                        "\"fields\":[{\"name\":\"value\",\"type\":\"long\"},{\"name\":\"another_value\",\"type\":\"string\"}]"))
+                                                        "\"fields\":[{\"name\":\"value\","
+                                                                + "\"type\":\"long\"},"
+                                                                + "{\"name\":\"another_value\","
+                                                                + "\"type\":\"string\"}]"))
                                         .set("value", 12345678910L)
                                         .set("another_value", "hello")
                                         .build())
@@ -700,7 +709,9 @@ public class AvroToProtoSerializerTest {
 
         byte[] byteArray = "Any String you want".getBytes();
         String recordSchemaString =
-                "{\"type\":\"record\",\"name\":\"required_record_field\",\"doc\":\"Translated Avro Schema for required_record_field\",\"fields\":[{\"name\":\"species\",\"type\":\"string\"}]}}";
+                "{\"type\":\"record\",\"name\":\"required_record_field\","
+                        + "\"doc\":\"Translated Avro Schema for required_record_field\","
+                        + "\"fields\":[{\"name\":\"species\",\"type\":\"string\"}]}}";
         Schema recordSchema = new Schema.Parser().parse(recordSchemaString);
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)

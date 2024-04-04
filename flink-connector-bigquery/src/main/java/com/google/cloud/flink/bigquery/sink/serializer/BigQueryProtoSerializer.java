@@ -26,5 +26,7 @@ import com.google.protobuf.ByteString;
  */
 public interface BigQueryProtoSerializer<IN> {
 
+    void init(BigQuerySchemaProvider bigQuerySchemaProvider);
+
     ByteString serialize(IN record) throws BigQuerySerializationException;
 }

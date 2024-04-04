@@ -51,13 +51,12 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      */
     static {
         PRIMITIVE_TYPE_ENCODERS = new EnumMap<>(Schema.Type.class);
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.INT, UnaryOperator.identity()); // INT -> INT
+        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.INT, UnaryOperator.identity());
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.LONG, UnaryOperator.identity());
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.DOUBLE, UnaryOperator.identity());
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.BOOLEAN, UnaryOperator.identity());
         PRIMITIVE_TYPE_ENCODERS.put(
-                Schema.Type.FLOAT,
-                o -> Float.parseFloat(String.valueOf((float) o))); // FLOAT -> FLOAT
+                Schema.Type.FLOAT, o -> Float.parseFloat(String.valueOf((float) o)));
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.STRING, Object::toString);
         PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.ENUM, Object::toString);
         PRIMITIVE_TYPE_ENCODERS.put(
@@ -67,19 +66,21 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     }
 
     /**
-     * Initializer for the Serializer.
+     * Prepares the serializer before its serialize method can be called. It allows contextual
+     * preprocessing after constructor and before serialize. The Sink will internally call this
+     * method when initializing itself.
      *
-     * @param bigQuerySchemaProvider BigQuerySchemaProvider for the Sink Table ({@link
-     *     BigQuerySchemaProvider} object)
+     * @param bigQuerySchemaProvider {@link BigQuerySchemaProvider} for the destination table.
      */
+    @Override
     public void init(BigQuerySchemaProvider bigQuerySchemaProvider) {
         Preconditions.checkNotNull(
                 bigQuerySchemaProvider,
                 "BigQuerySchemaProvider not found while initializing AvroToProtoSerializer");
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Descriptor derivedDescriptor = bigQuerySchemaProvider.getDescriptor();
         Preconditions.checkNotNull(
                 descriptor, "Destination BigQuery table's Proto Schema could not be found.");
-        this.descriptor = descriptor;
+        this.descriptor = derivedDescriptor;
     }
 
     @Override
@@ -101,10 +102,10 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      */
     public static DynamicMessage getDynamicMessageFromGenericRecord(
             GenericRecord element, Descriptor descriptor) {
-        Schema schema = element.getSchema();
+        Schema recordSchema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         // Get the record's schema and find the field descriptor for each field one by one.
-        for (Schema.Field field : schema.getFields()) {
+        for (Schema.Field field : recordSchema.getFields()) {
             // In case no field descriptor exists for the field, throw an error as we have
             // incompatible schemas.
             FieldDescriptor fieldDescriptor =
@@ -130,25 +131,21 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     }
 
     /**
-     * Function to convert a value of an AvroSchemaField value to required DynamicMessage value.
+     * Function to convert a value of an AvroSchemaField value to required Dynamic Message value.
      *
      * @param fieldDescriptor {@link com.google.protobuf.Descriptors.FieldDescriptor} Object
      *     describing the sink table field to which given value needs to be converted to.
      * @param avroSchema {@link Schema} Object describing the value of Avro Schema Field.
      * @param value Value of the Avro Schema Field.
      * @return Converted Object.
-     * @throws UnsupportedOperationException In case schema is of type MAP.
      */
     private static Object toProtoValue(
-            FieldDescriptor fieldDescriptor, Schema avroSchema, Object value)
-            throws UnsupportedOperationException {
+            FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
         switch (avroSchema.getType()) {
             case RECORD:
-                // Recursion
                 return getDynamicMessageFromGenericRecord(
                         (GenericRecord) value, fieldDescriptor.getMessageType());
             case ARRAY:
-                // Get an Iterable of all the values in the array.
                 Iterable<Object> iterable = (Iterable<Object>) value;
                 // Get the inner element type.
                 @Nullable Schema arrayElementType = avroSchema.getElementType();
@@ -169,44 +166,77 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 return toProtoValue(fieldDescriptor, type, value);
             case MAP:
                 throw new UnsupportedOperationException("Not supported yet");
+            case STRING:
+                /*
+                Logical Types currently supported are of the following underlying types:
+                    DATE - INT
+                    DECIMAL - BYTES
+                    TIMESTAMP-MICROS - LONG
+                    TIMESTAMP-MILLIS - LONG
+                    UUID - STRING
+                    TIME-MILLIS - INT/STRING
+                    TIME-MICROS - LONG/STRING
+                    LOCAL-TIMESTAMP-MICROS - LONG/STRING
+                    LOCAL-TIMESTAMP-MILLIS - LONG/STRING
+                    GEOGRAPHY - STRING
+                    JSON - STRING
+                */
+            case LONG:
+            case INT:
+                // Return the converted value.
+                return handleLogicalTypeSchema(avroSchema, value);
+            case BYTES:
+                // Find if it is of decimal Type.
+                Object convertedValue = handleLogicalTypeSchema(avroSchema, value);
+                if (convertedValue != value) {
+                    return convertedValue;
+                }
+                return ByteString.copyFrom(((ByteBuffer) value).array());
+            case ENUM:
+                return value.toString();
+            case FIXED:
+                return ByteString.copyFrom(((GenericData.Fixed) value).bytes());
+            case BOOLEAN:
+                return (boolean) value;
+            case FLOAT:
+                return Float.parseFloat(String.valueOf((float) value));
+            case DOUBLE:
+                return (double) value;
+            case NULL:
+                throw new IllegalArgumentException("Null Type Field not supported in BigQuery!");
             default:
-                return scalarToProtoValue(avroSchema, value);
+                throw new IllegalArgumentException("Unexpected Avro type" + avroSchema);
         }
     }
 
     /**
-     * Function to convert Avro Schema Field value to Dynamic Message value (for Primitive and
-     * Logical Types).
+     * Function to convert Avro Schema Field value to Dynamic Message value (for Logical Types).
      *
      * @param fieldSchema Avro Schema describing the schema for the value.
-     * @param value Avro Schema Field value to convert to Dynamic Message value.
-     * @return Converted Dynamic Message value.
+     * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
+     * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
+     *     value otherwise.
      */
-    private static Object scalarToProtoValue(Schema fieldSchema, Object value) {
+    private static Object handleLogicalTypeSchema(Schema fieldSchema, Object value) {
         String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
-        @Nullable UnaryOperator<Object> encoder;
-        String errorMessage;
         if (logicalTypeString != null) {
             // 1. In case, the Schema has a Logical Type.
-            encoder = getLogicalEncoder(logicalTypeString);
-            errorMessage = "Unsupported logical type " + logicalTypeString;
-        } else {
-            // 2. For all the other Primitive types.
-            encoder = PRIMITIVE_TYPE_ENCODERS.get(fieldSchema.getType());
-            errorMessage = "Unexpected Avro type " + fieldSchema;
+            @Nullable UnaryOperator<Object> encoder = getLogicalEncoder(logicalTypeString);
+            // 2. Check if this is supported, Return the value
+            if (encoder != null) {
+                return encoder.apply(value);
+            }
         }
-        if (encoder == null) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-        return encoder.apply(value);
+        // Otherwise, return the value as it is.
+        return value;
     }
 
     /**
-     * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to
-     * DynamicMessage.
+     * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to Dynamic
+     * Message.
      *
      * @param logicalTypeString String containing the name for Logical Schema Type.
-     * @return Encoder Function which converts AvroSchemaField to DynamicMessage
+     * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
      */
     private static UnaryOperator<Object> getLogicalEncoder(String logicalTypeString) {
         Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
