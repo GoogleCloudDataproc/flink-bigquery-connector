@@ -24,6 +24,7 @@ import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices.QueryDataClient;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.BigQueryUtils;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer.AvroSchemaHandler;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
@@ -43,7 +44,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * A class that inherits {@link BigQuerySchemaProvider} deriving {@link Schema} from {@link
@@ -91,44 +91,6 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
     @Override
     public Schema getAvroSchema() {
         return this.avroSchema;
-    }
-
-    /**
-     * Helper function to handle the UNION Schema Type. We only consider the union schema valid when
-     * it is of the form ["null", datatype]. All other forms such as ["null"],["null", datatype1,
-     * datatype2, ...], and [datatype1, datatype2, ...] Are considered as invalid (as there is no
-     * such support in BQ) So we throw an error in all such cases. For the valid case of ["null",
-     * datatype] or [datatype] we set the Schema as the schema of the <b>not null</b> datatype.
-     *
-     * @param schema of type UNION to check and derive.
-     * @return Schema of the OPTIONAL field.
-     * @throws IllegalArgumentException If multiple non-null datatypes or only null is observed.
-     */
-    public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema)
-            throws IllegalArgumentException {
-        Schema elementType = schema;
-        boolean isNullable = true;
-        List<Schema> types = elementType.getTypes();
-        // don't need recursion because nested unions aren't supported in AVRO
-        // Extract all the nonNull Datatypes.
-        List<Schema> nonNullSchemaTypes =
-                types.stream()
-                        .filter(schemaType -> schemaType.getType() != Schema.Type.NULL)
-                        .collect(Collectors.toList());
-
-        int nonNullSchemaTypesSize = nonNullSchemaTypes.size();
-
-        if (nonNullSchemaTypesSize == 1) {
-            elementType = nonNullSchemaTypes.get(0);
-            if (nonNullSchemaTypesSize == types.size()) {
-                // Case, when there is only a single type in UNION.
-                // Then it is essentially the same as not having a UNION.
-                isNullable = false;
-            }
-            return new ImmutablePair<>(elementType, isNullable);
-        }
-
-        throw new IllegalArgumentException("Multiple non-null union types are not supported.");
     }
 
     // ----------- Initialize Maps between Avro Schema to Descriptor Proto schema -------------
@@ -285,7 +247,8 @@ public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaP
                 Type 3 - indicates the use of null values along with a datatype.
                 This is mapped to OPTIONAL field in BigQuery.
                 */
-                ImmutablePair<Schema, Boolean> handleUnionSchemaResult = handleUnionSchema(schema);
+                ImmutablePair<Schema, Boolean> handleUnionSchemaResult =
+                        AvroSchemaHandler.handleUnionSchema(schema);
                 schema = handleUnionSchemaResult.getLeft();
                 isNullable = handleUnionSchemaResult.getRight();
                 fieldDescriptorBuilder =

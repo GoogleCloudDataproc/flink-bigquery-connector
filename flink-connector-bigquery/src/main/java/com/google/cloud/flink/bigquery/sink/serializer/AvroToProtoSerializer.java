@@ -26,11 +26,13 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -137,7 +139,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                         .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
                         .collect(Collectors.toList());
             case UNION:
-                Schema type = BigQuerySchemaProviderImpl.handleUnionSchema(avroSchema).getLeft();
+                Schema type = AvroSchemaHandler.handleUnionSchema(avroSchema).getLeft();
                 // Get the schema of the field.
                 return toProtoValue(fieldDescriptor, type, value);
             case MAP:
@@ -160,10 +162,11 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             case LONG:
             case INT:
                 // Return the converted value.
-                return handleLogicalTypeSchema(avroSchema, value);
+                return AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
             case BYTES:
                 // Find if it is of decimal Type.
-                Object convertedValue = handleLogicalTypeSchema(avroSchema, value);
+                Object convertedValue =
+                        AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
                 if (convertedValue != value) {
                     return convertedValue;
                 }
@@ -185,37 +188,81 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         }
     }
 
-    /**
-     * Function to convert Avro Schema Field value to Dynamic Message value (for Logical Types).
-     *
-     * @param fieldSchema Avro Schema describing the schema for the value.
-     * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
-     * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
-     *     value otherwise.
-     */
-    private static Object handleLogicalTypeSchema(Schema fieldSchema, Object value) {
-        String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
-        if (logicalTypeString != null) {
-            // 1. In case, the Schema has a Logical Type.
-            @Nullable UnaryOperator<Object> encoder = getLogicalEncoder(logicalTypeString);
-            // 2. Check if this is supported, Return the value
-            if (encoder != null) {
-                return encoder.apply(value);
-            }
-        }
-        // Otherwise, return the value as it is.
-        return value;
-    }
+    /** Class to handle Specific Avro Proto Schema Types (Logical and Union). */
+    static class AvroSchemaHandler {
+        private AvroSchemaHandler() {}
 
-    /**
-     * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to Dynamic
-     * Message.
-     *
-     * @param logicalTypeString String containing the name for Logical Schema Type.
-     * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
-     */
-    private static UnaryOperator<Object> getLogicalEncoder(String logicalTypeString) {
-        Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
-        return mapping.get(logicalTypeString);
+        /**
+         * Helper function to handle the UNION Schema Type. We only consider the union schema valid
+         * when it is of the form ["null", datatype]. All other forms such as ["null"],["null",
+         * datatype1, datatype2, ...], and [datatype1, datatype2, ...] Are considered as invalid (as
+         * there is no such support in BQ) So we throw an error in all such cases. For the valid
+         * case of ["null", datatype] or [datatype] we set the Schema as the schema of the <b>not
+         * null</b> datatype.
+         *
+         * @param schema of type UNION to check and derive.
+         * @return Schema of the OPTIONAL field.
+         * @throws IllegalArgumentException If multiple non-null datatypes or only null is observed.
+         */
+        public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema)
+                throws IllegalArgumentException {
+            Schema elementType = schema;
+            boolean isNullable = true;
+            List<Schema> types = elementType.getTypes();
+            // don't need recursion because nested unions aren't supported in AVRO
+            // Extract all the nonNull Datatypes.
+            List<Schema> nonNullSchemaTypes =
+                    types.stream()
+                            .filter(schemaType -> schemaType.getType() != Schema.Type.NULL)
+                            .collect(Collectors.toList());
+
+            int nonNullSchemaTypesSize = nonNullSchemaTypes.size();
+
+            if (nonNullSchemaTypesSize == 1) {
+                elementType = nonNullSchemaTypes.get(0);
+                if (nonNullSchemaTypesSize == types.size()) {
+                    // Case, when there is only a single type in UNION.
+                    // Then it is essentially the same as not having a UNION.
+                    isNullable = false;
+                }
+                return new ImmutablePair<>(elementType, isNullable);
+            }
+
+            throw new IllegalArgumentException("Multiple non-null union types are not supported.");
+        }
+
+        /**
+         * Function to convert Avro Schema Field value to Dynamic Message value (for Logical Types).
+         *
+         * @param fieldSchema Avro Schema describing the schema for the value.
+         * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
+         * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
+         *     value otherwise.
+         */
+        private static Object handleLogicalTypeSchema(Schema fieldSchema, Object value) {
+            String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
+            if (logicalTypeString != null) {
+                // 1. In case, the Schema has a Logical Type.
+                @Nullable UnaryOperator<Object> encoder = getLogicalEncoder(logicalTypeString);
+                // 2. Check if this is supported, Return the value
+                if (encoder != null) {
+                    return encoder.apply(value);
+                }
+            }
+            // Otherwise, return the value as it is.
+            return value;
+        }
+
+        /**
+         * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to
+         * Dynamic Message.
+         *
+         * @param logicalTypeString String containing the name for Logical Schema Type.
+         * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
+         */
+        private static UnaryOperator<Object> getLogicalEncoder(String logicalTypeString) {
+            Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
+            return mapping.get(logicalTypeString);
+        }
     }
 }
