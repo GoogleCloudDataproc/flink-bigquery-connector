@@ -33,12 +33,6 @@ under the License.
     <packaging>jar</packaging>
 
     <dependencies>
-		<!-- joda dependency -->
-		<dependency>
-			<groupId>joda-time</groupId>
-			<artifactId>joda-time</artifactId>
-			<version>2.10.10</version>
-		</dependency>
         <!-- Core -->
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -80,6 +74,10 @@ under the License.
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
+		<dependency>
+			<groupId>joda-time</groupId>
+			<artifactId>joda-time</artifactId>
+		</dependency>
                 
         <!-- Table ecosystem -->
 
