@@ -123,9 +123,29 @@ public class AvroToProtoSerializerTest {
 
     @Test
     public void testErrorConvertBigNumeric() {
+        String bigNumericSchemaString =
+                "{\"type\":\"record\","
+                        + "\"name\":\"root\","
+                        + "\"namespace\":\"com.google.cloud.flink.bigquery\","
+                        + "\"doc\":\"Translated Avro Schema for root\","
+                        + "\"fields\":"
+                        + "[{"
+                        + "\"name\":\"bignumeric_field\",\"type\":"
+                        + "{\"type\":\"bytes\","
+                        + "\"logicalType\":\"decimal\","
+                        + "\"precision\":77,"
+                        + "\"scale\":38}"
+                        + "}]"
+                        + "}\n";
+        Schema bigNumericSchema =
+                new Schema.Parser()
+                        .parse(bigNumericSchemaString)
+                        .getField("bignumeric_field")
+                        .schema();
         Object value = "A random string";
         assertThrows(
-                ClassCastException.class, () -> AvroToProtoSerializer.convertBigDecimal(value));
+                IllegalArgumentException.class,
+                () -> AvroToProtoSerializer.convertBigDecimal(value, bigNumericSchema));
 
         BigDecimal bigDecimal =
                 new BigDecimal(
@@ -135,8 +155,44 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertBigDecimal(byteBuffer));
-        Assertions.assertThat(exception).hasMessageContaining("BigDecimal overflow:");
+                        () ->
+                                AvroToProtoSerializer.convertBigDecimal(
+                                        byteBuffer, bigNumericSchema));
+        Assertions.assertThat(exception).hasMessageContaining("ByteString overflow:");
+    }
+
+    @Test
+    public void testErrorConvertNumeric() {
+        String numericSchemaString =
+                "{\"type\":\"record\","
+                        + "\"name\":\"root\","
+                        + "\"namespace\":\"com.google.cloud.flink.bigquery\","
+                        + "\"doc\":\"Translated Avro Schema for root\","
+                        + "\"fields\":"
+                        + "[{"
+                        + "\"name\":\"numeric_field\",\"type\":"
+                        + "{\"type\":\"bytes\","
+                        + "\"logicalType\":\"decimal\","
+                        + "\"precision\":38,"
+                        + "\"scale\":9,"
+                        + "\"isNumeric\": true}"
+                        + "}]"
+                        + "}\n";
+        Schema numericSchema =
+                new Schema.Parser().parse(numericSchemaString).getField("numeric_field").schema();
+        Object value = "A random string";
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroToProtoSerializer.convertBigDecimal(value, numericSchema));
+
+        BigDecimal bigDecimal = new BigDecimal("57896349923328446186583439539266.349923328");
+        // Form byte array in big-endian order.
+        Object byteBuffer = ByteBuffer.wrap(bigDecimal.unscaledValue().toByteArray());
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToProtoSerializer.convertBigDecimal(byteBuffer, numericSchema));
+        Assertions.assertThat(exception).hasMessageContaining("ByteString overflow:");
     }
 
     @Test
@@ -1112,7 +1168,6 @@ public class AvroToProtoSerializerTest {
         assertThat(arrayResult).hasSize(1);
         assertEquals(ByteString.copyFrom(bytes), arrayResult.get(0));
 
-        ArrayUtils.reverse(bytes);
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(6));
         assertThat(arrayResult).hasSize(1);
         assertEquals(ByteString.copyFrom(bytes), arrayResult.get(0));

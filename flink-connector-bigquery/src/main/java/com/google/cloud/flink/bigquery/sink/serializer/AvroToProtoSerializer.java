@@ -32,7 +32,6 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
-import org.apache.commons.lang3.ArrayUtils;
 import org.joda.time.Days;
 import org.joda.time.Instant;
 import org.joda.time.ReadableInstant;
@@ -42,6 +41,7 @@ import org.json.JSONObject;
 import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -217,7 +217,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
         if (logicalTypeString != null) {
             // 1. In case, the Schema has a Logical Type.
-            @Nullable UnaryOperator<Object> encoder = getLogicalEncoder(logicalTypeString);
+            @Nullable
+            UnaryOperator<Object> encoder = getLogicalEncoder(fieldSchema, logicalTypeString);
             // 2. Check if this is supported, Return the value
             if (encoder != null) {
                 return encoder.apply(value);
@@ -234,10 +235,13 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
      * @param logicalTypeString String containing the name for Logical Schema Type.
      * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
      */
-    private static UnaryOperator<Object> getLogicalEncoder(String logicalTypeString) {
+    private static UnaryOperator<Object> getLogicalEncoder(
+            Schema fieldSchema, String logicalTypeString) {
         Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
         mapping.put(LogicalTypes.date().getName(), AvroToProtoSerializer::convertDate);
-        mapping.put(LogicalTypes.decimal(1).getName(), AvroToProtoSerializer::convertBigDecimal);
+        mapping.put(
+                LogicalTypes.decimal(1).getName(),
+                value -> AvroToProtoSerializer.convertBigDecimal(value, fieldSchema));
         mapping.put(
                 LogicalTypes.timestampMicros().getName(),
                 value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
@@ -407,24 +411,63 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         return time.toString();
     }
 
-    // 1. There is no way to check the precision and scale of NUMERIC/BIGNUMERIC fields,
-    // so we can just check by the maximum value.
-    // 2. decimal() logical type is mapped to BIGNUMERIC bigquery field.
-    // So in case we attempt to add decimal with precision >9 to a NUMERIC BQ field.
-    // The .append() method would be responsible for the error.
-    // .serialise() would successfully serialize it without any error indications.
+    /**
+     * Function to convert ByteBuffer value to ByteString for Bignumeric Field.
+     *
+     * <ol>
+     *   <li>If scale and precision is set in the BQ Table
+     *       <ul>
+     *         <li>Precision > BQ table and Scale > BQ Table - ERROR while inserting to Storage
+     *             Write API
+     *         <li>Precision > BQ table and Scale <= BQ Table - ERROR while inserting to Storage
+     *             Write API
+     *         <li>Precision <= BQ table and Scale > BQ Table - ROUND OFF
+     *             <ul>
+     *               <li>Example: 1.234567(Precision 7, Scale = 6) value is converted to 1.23457 for
+     *                   a table of type BIGNUMERIC(9, 5)
+     *             </ul>
+     *         <li>Precision <= BQ table and Scale <= BQ Table - AS IT IS
+     *       </ul>
+     *   <li>If No scale is set in the BQ Table
+     *       <ul>
+     *         <li>The value is inserted as it is (should be within the limits of BIG NUMERIC Field
+     *             of a BigQuery Table)
+     *       </ul>
+     * </ol>
+     *
+     * @param value {@link ByteBuffer} object containing the 2's-complement binary representation of
+     *     a BigInteger (in big-endian byte order).
+     * @param fieldSchema {@link Schema} object of the value to be converted.
+     * @return {@link ByteString} object of the converted BigDecimal
+     */
     @VisibleForTesting
-    static ByteString convertBigDecimal(Object value) {
-        // Assuming decimal (value) comes in big-endian encoding.
-        ByteBuffer byteBuffer = (ByteBuffer) value;
-        // Reverse before sending to big endian convertor.
-        // decodeBigNumericByteString() assumes string to be provided in little-endian.
-        byte[] byteArray = byteBuffer.array();
-        ArrayUtils.reverse(byteArray); // Converted to little-endian.
-        BigDecimal bigDecimal =
-                BigDecimalByteStringEncoder.decodeBigNumericByteString(
-                        ByteString.copyFrom(byteArray));
-        return BigDecimalByteStringEncoder.encodeToBigNumericByteString(bigDecimal);
+    static ByteString convertBigDecimal(Object value, Schema fieldSchema) {
+        // Check if a ByteBuffer instance is passed.
+        Preconditions.checkArgument(
+                value instanceof ByteBuffer,
+                String.format("Expecting a ByteBuffer, found %s instead.", value.getClass()));
+        byte[] byteArray = ((ByteBuffer) value).array(); // This is in big-endian format.
+
+        // Extract the scale from the Record Schema.
+        Preconditions.checkNotNull(fieldSchema.getLogicalType(), "Invalid decimal type passed");
+        LogicalTypes.Decimal decimalFieldSchema =
+                (LogicalTypes.Decimal) fieldSchema.getLogicalType();
+        int scale = decimalFieldSchema.getScale();
+
+        BigInteger scaledValue = new BigInteger(byteArray); // requires big-endian.
+        BigDecimal decimalValue = new BigDecimal(scaledValue, scale);
+
+        try {
+            if (fieldSchema.getObjectProp("isNumeric") != null
+                    && (boolean) fieldSchema.getObjectProp("isNumeric")) {
+                // Pass the BigDecimal Object to be converted to ByteString (with Numeric Scale).
+                return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
+            }
+            // Pass the BigDecimal Object to be converted to ByteString (with Bignumeric scale).
+            return BigDecimalByteStringEncoder.encodeToBigNumericByteString(decimalValue);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     @VisibleForTesting
