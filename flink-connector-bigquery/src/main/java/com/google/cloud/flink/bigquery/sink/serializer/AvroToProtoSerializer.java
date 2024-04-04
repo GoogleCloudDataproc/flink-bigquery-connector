@@ -30,7 +30,6 @@ import org.apache.avro.generic.GenericRecord;
 import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.UnaryOperator;
@@ -41,29 +40,6 @@ import java.util.stream.StreamSupport;
 public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
 
     private Descriptor descriptor;
-    private static final Map<Schema.Type, UnaryOperator<Object>> PRIMITIVE_TYPE_ENCODERS;
-
-    /*
-     * Map Avro Schema Type to an Encoding function which converts AvroSchema Primitive
-     * Type to Dynamic Message.
-     *
-     * PRIMITIVE_TYPE_ENCODERS: A Map containing mapping from Primitive Avro Schema Type with encoder function.
-     */
-    static {
-        PRIMITIVE_TYPE_ENCODERS = new EnumMap<>(Schema.Type.class);
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.INT, UnaryOperator.identity());
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.LONG, UnaryOperator.identity());
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.DOUBLE, UnaryOperator.identity());
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.BOOLEAN, UnaryOperator.identity());
-        PRIMITIVE_TYPE_ENCODERS.put(
-                Schema.Type.FLOAT, o -> Float.parseFloat(String.valueOf((float) o)));
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.STRING, Object::toString);
-        PRIMITIVE_TYPE_ENCODERS.put(Schema.Type.ENUM, Object::toString);
-        PRIMITIVE_TYPE_ENCODERS.put(
-                Schema.Type.FIXED, o -> ByteString.copyFrom(((GenericData.Fixed) o).bytes()));
-        PRIMITIVE_TYPE_ENCODERS.put(
-                Schema.Type.BYTES, o -> ByteString.copyFrom(((ByteBuffer) o).array()));
-    }
 
     /**
      * Prepares the serializer before its serialize method can be called. It allows contextual
@@ -79,7 +55,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 "BigQuerySchemaProvider not found while initializing AvroToProtoSerializer");
         Descriptor derivedDescriptor = bigQuerySchemaProvider.getDescriptor();
         Preconditions.checkNotNull(
-                descriptor, "Destination BigQuery table's Proto Schema could not be found.");
+                derivedDescriptor, "Destination BigQuery table's Proto Schema could not be found.");
         this.descriptor = derivedDescriptor;
     }
 
