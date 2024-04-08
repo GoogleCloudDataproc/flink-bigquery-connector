@@ -45,7 +45,7 @@ under the License.
     </licenses>
 
     <properties>
-		<revision>0.1.0-preview</revision>
+        <revision>0.1.0-preview</revision>
         <google-lib-bom.version>26.16.0</google-lib-bom.version>
 
         <junit5.version>5.9.3</junit5.version>
@@ -65,8 +65,7 @@ under the License.
 
     <modules>
         <module>flink-connector-bigquery-common</module>
-		<module>flink-sql-connector-bigquery</module>
-	</modules>
+    </modules>
 
     <dependencies>
         <!-- Root dependencies for all projects -->
@@ -241,35 +240,27 @@ under the License.
                 <version>2.1</version>
             </dependency>
 
-			<!-- org.apache.commons - used by BigQueryPartitionUtils - StringUtils; -->
-			<dependency>
-				<groupId>org.apache.commons</groupId>
-				<artifactId>commons-lang3</artifactId>
-				<version>3.14.0</version>
-				<scope>compile</scope>
-			</dependency>
+            <!-- org.apache.avro - used by SchemaTransform -->
+            <!-- Was earlier provided by org.apache.flink:flink-avro -->
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro</artifactId>
+                <version>1.12.0-SNAPSHOT</version>
+                <scope>compile</scope>
+            </dependency>
 
-			<!-- org.apache.avro - used by SchemaTransform -->
-			<!-- Was earlier provided by org.apache.flink:flink-avro -->
-			<dependency>
-				<groupId>org.apache.avro</groupId>
-				<artifactId>avro</artifactId>
-				<version>1.12.0-SNAPSHOT</version>
-				<scope>compile</scope>
-			</dependency>
-
-			<dependency>
-				<groupId>org.assertj</groupId>
-				<artifactId>assertj-core</artifactId>
-				<version>3.24.2</version>
-				<scope>test</scope>
-			</dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>3.24.2</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
     <build>
         <plugins>
-			<!-- Moved "exec-maven-plugin" to flink specific module -->
+            <!-- Moved "exec-maven-plugin" to flink specific module -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -279,16 +270,16 @@ under the License.
                 <!-- activate API compatibility checks -->
                 <groupId>io.github.zentol.japicmp</groupId>
                 <artifactId>japicmp-maven-plugin</artifactId>
-				<!--TODO: Remove this -->
-				<configuration>
-					<dependencies>
+				<!--  TODO: REMOVE -->
+                <configuration>
+                    <dependencies>
 						<dependency>
-							<groupId>org.apache.flink</groupId>
-							<artifactId>flink-annotations</artifactId>
-							<version>1.17.1</version>
+							<groupId>org.apache.commons</groupId>
+							<artifactId>commons-lang3</artifactId>
+							<version>3.14.0</version>
 						</dependency>
-					</dependencies>
-				</configuration>
+                    </dependencies>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -312,13 +303,14 @@ under the License.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-				<dependencies>
-					<dependency>
-						<groupId>org.junit.vintage</groupId>
-						<artifactId>junit-vintage-engine</artifactId>
-						<version>${junit5.version}</version>
-					</dependency>
-				</dependencies>
+                <!-- TODO: REMOVE -->
+                <dependencies>
+                    <dependency>
+                        <groupId>org.junit.vintage</groupId>
+                        <artifactId>junit-vintage-engine</artifactId>
+                        <version>${junit5.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
 
             <plugin>
@@ -353,14 +345,12 @@ under the License.
         </plugins>
     </build>
     <profiles>
-		<profile>
-			<id>flink_1.17</id>
-			<modules>
-				<module>flink-connector-bigquery-flink-1.17</module>
-				<module>flink-connector-bigquery-examples/flink-connector-bigquery-example-flink-1.17</module>
-				<module>flink-connector-bigquery-integration-test/flink-connector-bigquery-integration-test-flink-1.17</module>
-			</modules>
-		</profile>
+        <profile>
+            <id>flink_1.17</id>
+            <modules>
+                <module>flink-connector-bigquery-flink-1.17</module>
+            </modules>
+        </profile>
         <profile>
             <id>clover</id>
             <build>
@@ -375,7 +365,7 @@ under the License.
                             <targetPercentage>80%</targetPercentage>
                             <excludes>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/config/*</exclude>
-								<exclude>**/com/google/cloud/flink/bigquery/common/utils/flink/**</exclude>
+                                <exclude>**/com/google/cloud/flink/bigquery/common/utils/flink/**</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/utils/GoogleCredentialsSupplier.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/services/**Impl.*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/source/config/*</exclude>

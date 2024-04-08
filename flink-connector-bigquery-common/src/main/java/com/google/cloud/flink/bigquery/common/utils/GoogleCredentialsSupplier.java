@@ -68,6 +68,8 @@ public class GoogleCredentialsSupplier {
     private static Credentials createCredentialsFromKey(String key) {
         try {
             return GoogleCredentials.fromStream(
+                    //                    new
+                    // ByteArrayInputStream(BaseEncoding.base64().decode(key)));
                     new ByteArrayInputStream(Base64.getDecoder().decode(key)));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create Credentials from key", e);
