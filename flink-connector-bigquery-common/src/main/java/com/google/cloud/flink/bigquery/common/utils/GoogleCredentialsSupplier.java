@@ -28,9 +28,6 @@ import java.io.UncheckedIOException;
 import java.util.Base64;
 import java.util.Optional;
 
-// TODO: Get this verified java.util.Base64 instead of
-// org.apache.flink.shaded.curator5.com.google.common.io.BaseEncoding;
-
 /** A utility class to supply credentials given the multiple possible configuration sources. */
 @Internal
 public class GoogleCredentialsSupplier {
@@ -67,6 +64,16 @@ public class GoogleCredentialsSupplier {
 
     private static Credentials createCredentialsFromKey(String key) {
         try {
+            // Replaced BaseEncoding.base64() [of com.google.common.io.BaseEncoding]
+            // with Base64.getDecoder() since flink does not allow common.io methods
+            // to coexist and prefers usage of flink-shaded-guava methods instead.
+            // But that would cause dependency on flink, so replaced with java.utils.Base64
+            // Both support RFC-4648 (https://www.ietf.org/rfc/rfc4648.txt)
+            // Links:
+            // 1. BaseEncoding:
+            // https://guava.dev/releases/17.0/api/docs/com/google/common/io/BaseEncoding.html#base64()
+            // 2. Base64:
+            // https://docs.oracle.com/javase/8/docs/api/java/util/Base64.html
             return GoogleCredentials.fromStream(
                     new ByteArrayInputStream(Base64.getDecoder().decode(key)));
         } catch (IOException e) {

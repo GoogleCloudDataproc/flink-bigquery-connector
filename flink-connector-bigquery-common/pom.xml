@@ -47,12 +47,6 @@ under the License.
             <artifactId>google-cloud-bigquery</artifactId>
         </dependency>
 
-		<!-- org.apache.commons - used by BigQueryPartitionUtils - StringUtils; -->
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-lang3</artifactId>
-		</dependency>
-
 		<!-- org.apache.avro - used by SchemaTransform -->
 		<dependency>
 			<groupId>org.apache.avro</groupId>
@@ -63,6 +57,12 @@ under the License.
 		<dependency>
 			<groupId>org.assertj</groupId>
 			<artifactId>assertj-core</artifactId>
+		</dependency>
+		<!-- Dependency required for running surefire plugin and unit tests -->
+		<dependency>
+			<groupId>org.junit.vintage</groupId>
+			<artifactId>junit-vintage-engine</artifactId>
+			<version>${junit5.version}</version>
 		</dependency>
     </dependencies>
 

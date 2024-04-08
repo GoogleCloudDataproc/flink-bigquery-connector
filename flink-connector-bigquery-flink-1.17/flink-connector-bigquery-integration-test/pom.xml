@@ -21,44 +21,27 @@ under the License.
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-	<!-- Adding example root as parent to make sure the common dependencies are added -->
     <parent>
         <groupId>com.google.cloud.flink</groupId>
-        <artifactId>flink-connector-bigquery-examples</artifactId>
+        <artifactId>flink-connector-bigquery-flink-1.17</artifactId>
         <version>${revision}</version>
     </parent>
 
-
-    <artifactId>flink-connector-bigquery-example-flink-1.17</artifactId>
-    <name>Flink : Connectors : Google BigQuery Example Flink v1.17</name>
+    <artifactId>flink-connector-bigquery-integration-test</artifactId>
+    <name>Flink : Connectors : Google BigQuery Integration Test (Flink v1.17)</name>
     <packaging>jar</packaging>
 
-    <properties>
-        <japicmp.skip>true</japicmp.skip>
-		<flink.version>1.17.1</flink.version>
-		<flink.shaded.version>17.0</flink.shaded.version>
-    </properties>
 
     <dependencies>
-		<dependency>
-			<groupId>com.google.cloud.flink</groupId>
-			<artifactId>flink-connector-bigquery-flink-1.17</artifactId>
-			<version>${project.version}</version>
-		</dependency>
         <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-base</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-streaming-java</artifactId>
-            <version>${flink.version}</version>
+            <groupId>com.google.cloud.flink</groupId>
+            <artifactId>flink-connector-bigquery</artifactId>
+            <version>${revision}</version>
         </dependency>
     </dependencies>
 
     <build>
-        <finalName>BigQueryExampleFlink1.17</finalName>
+        <finalName>BigQueryIntegrationTest</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -87,7 +70,7 @@ under the License.
                             </resources>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.google.cloud.flink.bigquery.examples.BigQueryExample</mainClass>
+                                    <mainClass>com.google.cloud.flink.bigquery.integration.BigQueryIntegrationTest</mainClass>
                                 </transformer>
                             </transformers>
                             <artifactSet>
@@ -114,7 +97,7 @@ under the License.
                             <relocations>
                                 <relocation>
                                     <pattern>com.google</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.examples.shaded.com.google</shadedPattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.integration.shaded.com.google</shadedPattern>
                                     <excludes>
                                         <exclude>com.google.cloud.flink.bigquery.**</exclude>
                                     </excludes>
@@ -123,9 +106,9 @@ under the License.
 
                             <filters>
                                 <filter>
-                                    <artifact>org.apache.flink:flink-connector-bigquery-example*</artifact>
+                                    <artifact>org.apache.flink:flink-connector-bigquery-integration*</artifact>
                                     <includes>
-                                        <include>com/google/cloud/flink/bigquery/examples/**</include>
+                                        <include>com/google/cloud/flink/bigquery/integration/**</include>
                                     </includes>
                                 </filter>
                             </filters>

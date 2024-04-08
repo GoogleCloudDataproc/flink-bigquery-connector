@@ -29,13 +29,13 @@ cd /workspace
 case $STEP in
   # Download maven and all the dependencies
   init)
-    $MVN clean install -DskipTests
+    $MVN clean install -DskipTests -Pflink_1.17
     exit
     ;;
 
   # Run unit & integration tests
   tests)
-    $MVN clean clover:setup verify clover:aggregate clover:check clover:clover -Pclover
+    $MVN clean clover:setup verify clover:aggregate clover:check clover:clover -Pflink_1.17,clover
     ;;
 
   *)
