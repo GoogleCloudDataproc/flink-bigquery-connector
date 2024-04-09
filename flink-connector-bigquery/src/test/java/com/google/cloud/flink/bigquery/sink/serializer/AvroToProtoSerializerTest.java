@@ -155,7 +155,7 @@ public class AvroToProtoSerializerTest {
 
     // ------------ Test Schemas with Record of Different Types -----------
     @Test
-    public void testRecordOfArrayConversation() {
+    public void testRecordOfArrayConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfArray();
         BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
@@ -185,7 +185,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testRecordOfUnionSchemaConversation() {
+    public void testRecordOfUnionSchemaConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfUnionType();
         BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
@@ -699,7 +699,7 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
-    public void testUnionOfSinglePrimitiveType() {
+    public void testUnionOfSinglePrimitiveTypeConversion() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithAllPrimitiveSingleUnion();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -742,5 +742,29 @@ public class AvroToProtoSerializerTest {
                         descriptor
                                 .findNestedTypeByName(fieldDescriptor.toProto().getTypeName())
                                 .findFieldByNumber(1)));
+    }
+
+    @Test
+    public void testNullTypeConversion() {
+        String notNullSchemaFieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"null_type_field\", \"type\": \"int\"}\n"
+                        + " ]\n";
+        Schema notNullSchema = getAvroSchemaFromFieldString(notNullSchemaFieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(notNullSchema);
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+
+        String fieldString = TestBigQuerySchemas.getSchemaWithNullType();
+        Schema nullSchema = getAvroSchemaFromFieldString(fieldString);
+
+        GenericRecord record =
+                new GenericRecordBuilder(nullSchema).set("null_type_field", 1234).build();
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class, () -> serializer.serialize(record));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Null Type Field not supported in BigQuery!");
     }
 }

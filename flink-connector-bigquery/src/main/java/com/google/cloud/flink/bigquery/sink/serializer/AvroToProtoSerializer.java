@@ -66,7 +66,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         try {
             return getDynamicMessageFromGenericRecord(record, this.descriptor).toByteString();
         } catch (Exception e) {
-            throw new BigQuerySerializationException(e.getMessage(), e);
+            throw new BigQuerySerializationException(e.getMessage());
         }
     }
 
@@ -82,7 +82,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             GenericRecord element, Descriptor descriptor) {
         Schema recordSchema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-        // Get the record's schema and find the field descriptor for each field one by one.
+        // Get a record's field schema and find the field descriptor for each field one by one.
         for (Schema.Field field : recordSchema.getFields()) {
             // In case no field descriptor exists for the field, throw an error as we have
             // incompatible schemas.
@@ -93,7 +93,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             // Check if the value is null.
             @Nullable Object value = element.get(field.name());
             if (value == null) {
-                // If the field required, throw an error.
+                // Do nothing in case value == null and fieldDescriptor != "REQUIRED"
                 if (fieldDescriptor.isRequired()) {
                     throw new IllegalArgumentException(
                             "Received null value for non-nullable field "
@@ -124,20 +124,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 return getDynamicMessageFromGenericRecord(
                         (GenericRecord) value, fieldDescriptor.getMessageType());
             case ARRAY:
-                Iterable<Object> iterable = (Iterable<Object>) value;
-                // Get the inner element type.
-                @Nullable Schema arrayElementType = avroSchema.getElementType();
-                if (arrayElementType.isNullable()) {
-                    throw new IllegalArgumentException("Array cannot have NULLABLE datatype");
-                }
-                if (arrayElementType.isUnion()) {
-                    throw new IllegalArgumentException(
-                            "ARRAY cannot have multiple datatypes in BigQuery.");
-                }
-                // Convert each value one by one.
-                return StreamSupport.stream(iterable.spliterator(), false)
-                        .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
-                        .collect(Collectors.toList());
+                return AvroSchemaHandler.handleArraySchema(fieldDescriptor, avroSchema, value);
             case UNION:
                 Schema type = AvroSchemaHandler.handleUnionSchema(avroSchema).getLeft();
                 // Get the schema of the field.
@@ -191,6 +178,42 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     /** Class to handle Specific Avro Proto Schema Types (Logical and Union). */
     static class AvroSchemaHandler {
         private AvroSchemaHandler() {}
+
+        /**
+         * Function to convert a value of an <b>ARRAY</b> Type AvroSchemaField value to required
+         * Dynamic Message value.
+         *
+         * @param fieldDescriptor {@link com.google.protobuf.Descriptors.FieldDescriptor} Object
+         *     describes the destination field in the sink table. Given value must be converted to a
+         *     format compatible with this field.
+         * @param avroSchema {@link Schema} Object describing the value of Avro Schema Field.
+         * @param value Value of the Avro Schema Field.
+         * @return Converted List Object
+         */
+        public static List<Object> handleArraySchema(
+                FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
+            Iterable<Object> iterable;
+            if (value instanceof Iterable) {
+                iterable = (Iterable<Object>) value;
+            } else {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Expected an Iterable,%n Found %s instead.", value.getClass()));
+            }
+            // Get the inner element type.
+            @Nullable Schema arrayElementType = avroSchema.getElementType();
+            if (arrayElementType.isNullable()) {
+                throw new IllegalArgumentException("Array cannot have NULLABLE datatype");
+            }
+            if (arrayElementType.isUnion()) {
+                throw new IllegalArgumentException(
+                        "ARRAY cannot have multiple datatypes in BigQuery.");
+            }
+            // Convert each value one by one.
+            return StreamSupport.stream(iterable.spliterator(), false)
+                    .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
+                    .collect(Collectors.toList());
+        }
 
         /**
          * Helper function to handle the UNION Schema Type. We only consider the union schema valid

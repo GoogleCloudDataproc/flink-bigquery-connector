@@ -415,6 +415,12 @@ public class TestBigQuerySchemas {
                 + " ]\n";
     }
 
+    public static String getSchemaWithNullType() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"null_type_field\", \"type\": \"null\"}\n"
+                + " ]\n";
+    }
+
     public static BigQuerySchemaProvider getSchemaWithUnionOfRecord() {
         String fieldString =
                 " \"fields\": [\n"
