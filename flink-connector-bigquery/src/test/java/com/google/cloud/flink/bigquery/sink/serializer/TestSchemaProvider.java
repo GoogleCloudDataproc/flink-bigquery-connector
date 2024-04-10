@@ -21,31 +21,29 @@ import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.avro.Schema;
 
 /**
- * An interface to derive {@link Descriptor} for Generic Record serialization. Also provides {@link
- * Schema} and {@link DescriptorProto}.
+ * Class inheriting {@link BigQuerySchemaProvider} for {@link AvroToProtoSerializerTest} and {@link
+ * BigQuerySchemaProviderTest}.
  */
-public interface BigQuerySchemaProvider {
+public class TestSchemaProvider implements BigQuerySchemaProvider {
+    private final Schema schema;
+    private final Descriptor descriptor;
 
-    /**
-     * Returns a {@link DescriptorProto} object essential for obtaining Proto Rows Builder and
-     * Descriptor instances.
-     *
-     * @return DescriptorProto
-     */
-    DescriptorProto getDescriptorProto();
+    TestSchemaProvider(Schema schema, Descriptor descriptor) {
+        this.schema = schema;
+        this.descriptor = descriptor;
+    }
 
-    /**
-     * Returns a {@link Descriptor} object essential for obtaining Dynamic Message instances.
-     *
-     * @return Descriptor
-     */
-    Descriptor getDescriptor();
+    @Override
+    public DescriptorProto getDescriptorProto() {
+        return this.getDescriptor().toProto();
+    }
 
-    /**
-     * Returns a {@link Schema} object required for obtaining Descriptor and DescriptorProto
-     * instances.
-     *
-     * @return AvroSchema
-     */
-    Schema getAvroSchema();
+    @Override
+    public Descriptor getDescriptor() {
+        return this.descriptor;
+    }
+
+    public Schema getAvroSchema() {
+        return this.schema;
+    }
 }
