@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 
 import com.google.api.core.ApiFuture;
@@ -84,7 +85,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     /** Append pending records and validate all remaining append responses. */
     @Override
-    public void flush(boolean endOfInput) throws IOException, InterruptedException {
+    public void flush(boolean endOfInput) {
         if (appendRequestSizeBytes > 0) {
             append();
         }
@@ -98,6 +99,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         logger.debug("Closing writer in subtask {}", subtaskId);
         if (protoRowsBuilder != null) {
             protoRowsBuilder.clear();
+        }
+        if (appendResponseFuturesQueue != null) {
+            appendResponseFuturesQueue.clear();
         }
         if (streamWriter != null) {
             streamWriter.close();
@@ -187,5 +191,15 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                 break;
             }
         }
+    }
+
+    /**
+     * Following "getters" expose some internal fields required for testing.
+     *
+     * <p>Do NOT use these methods outside tests!
+     */
+    @Internal
+    public long getAppendRequestSizeBytes() {
+        return appendRequestSizeBytes;
     }
 }

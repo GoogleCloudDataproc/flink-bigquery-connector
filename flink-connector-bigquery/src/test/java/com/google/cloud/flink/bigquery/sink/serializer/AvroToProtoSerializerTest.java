@@ -16,15 +16,29 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import org.junit.Test;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+
 /** Tests for {@link AvroToProtoSerializer}. */
 public class AvroToProtoSerializerTest {
 
-    //    @Test
-    //    public void testSerializeIsUnsupported() {
-    //        UnsupportedOperationException exception =
-    //                assertThrows(
-    //                        UnsupportedOperationException.class,
-    //                        () -> new AvroToProtoSerializer().serialize(null));
-    //        assertThat(exception).hasMessageThat().contains("serialize method is not supported");
-    //    }
+    @Test
+    public void testSerializeIsUnsupported() {
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> new AvroToProtoSerializer().serialize(null));
+        assertThat(exception).hasMessageThat().contains("serialize method is not supported");
+    }
+
+    @Test
+    public void testInitIsUnsupported() {
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> new AvroToProtoSerializer().init(null));
+        assertThat(exception).hasMessageThat().contains("init method is not supported");
+    }
 }

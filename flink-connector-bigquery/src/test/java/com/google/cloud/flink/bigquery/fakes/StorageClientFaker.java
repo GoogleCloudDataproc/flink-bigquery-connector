@@ -335,7 +335,9 @@ public class StorageClientFaker {
             }
 
             @Override
-            public void close() {}
+            public void close() {
+                Mockito.when(mockedWriter.isUserClosed()).thenReturn(true);
+            }
         }
     }
 
@@ -589,8 +591,8 @@ public class StorageClientFaker {
                 .build();
     }
 
-    public static BigQueryConnectOptions createWriteOptions(AppendRowsResponse appendResponse)
-            throws IOException {
+    public static BigQueryConnectOptions createConnectOptionsForWrite(
+            AppendRowsResponse appendResponse) throws IOException {
         return BigQueryConnectOptions.builder()
                 .setDataset("dataset")
                 .setProjectId("project")

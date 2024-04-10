@@ -29,7 +29,7 @@ abstract class BigQueryBaseSink implements Sink {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    public static final int MAX_SINK_PARALLELISM = 200;
+    public static final int MAX_SINK_PARALLELISM = 100;
 
     final BigQueryConnectOptions connectOptions;
     final BigQuerySchemaProvider schemaProvider;
@@ -56,6 +56,9 @@ abstract class BigQueryBaseSink implements Sink {
         }
         if (sinkConfig.getSerializer() == null) {
             throw new IllegalArgumentException("BigQuery serializer cannot be null");
+        }
+        if (sinkConfig.getSchemaProvider() == null) {
+            throw new IllegalArgumentException("BigQuery schema provider cannot be null");
         }
     }
 
