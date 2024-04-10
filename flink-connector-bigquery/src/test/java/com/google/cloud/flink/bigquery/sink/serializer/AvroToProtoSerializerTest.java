@@ -388,8 +388,8 @@ public class AvroToProtoSerializerTest {
                         ClassCastException.class,
                         () -> getDynamicMessageFromGenericRecord(record, descriptor));
         Assertions.assertThat(exception)
-                .hasMessageContaining(
-                        "class java.lang.Integer cannot be cast to class java.lang.Boolean");
+                .hasMessageFindingMatch(
+                        "(class)? ?java.lang.Integer cannot be cast to (class)? ?java.lang.Boolean");
     }
 
     /**
