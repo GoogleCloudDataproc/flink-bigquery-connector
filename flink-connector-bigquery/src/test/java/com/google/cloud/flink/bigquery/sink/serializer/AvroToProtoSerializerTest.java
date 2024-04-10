@@ -135,7 +135,7 @@ public class AvroToProtoSerializerTest {
 
     /**
      * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Primitive types supported
-     * by Avro but not offered by Bigquery.
+     * by Avro but not offered by BigQuery.
      *
      * <ul>
      *   <li>DOUBLE
@@ -173,7 +173,7 @@ public class AvroToProtoSerializerTest {
 
     /**
      * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Primitive types supported
-     * by Avro but not offered by Bigquery. However <code>null</code> value is passed to the record
+     * by Avro but not offered by BigQuery. However <code>null</code> value is passed to the record
      * field to test for error.
      */
     @Test
@@ -204,7 +204,7 @@ public class AvroToProtoSerializerTest {
     }
 
     /**
-     * Test to check <code>serialize()</code> for Primitive types supported by Bigquery, but the
+     * Test to check <code>serialize()</code> for Primitive types supported by BigQuery, but the
      * fields are <b>NULLABLE</b>, so conversion of <code>null</code> is tested - serialized byte
      * string should be empty.
      */
@@ -236,7 +236,7 @@ public class AvroToProtoSerializerTest {
 
     /**
      * Test to check <code>serialize()</code> for Primitive types supported Avro but not by
-     * Bigquery, but the fields are <b>NULLABLE</b>, so conversion of <code>null</code> is tested -
+     * BigQuery, but the fields are <b>NULLABLE</b>, so conversion of <code>null</code> is tested -
      * serialized byte string should be empty.
      */
     @Test
@@ -501,7 +501,7 @@ public class AvroToProtoSerializerTest {
 
     /**
      * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
-     * all Primitive type fields (supported by Avro, not by BiQquery).
+     * all Primitive type fields (supported by Avro, not by BigQuery).
      */
     @Test
     public void
@@ -549,10 +549,10 @@ public class AvroToProtoSerializerTest {
      *
      * <ol>
      *   <li>UNION of NULL, LONG:<br>
-     *       An array is created with Long and null values. Since Bigquery cannot have null values
+     *       An array is created with Long and null values. Since BigQuery cannot have null values
      *       in a REPEATED field, error is expected
-     *   <li>UNION of LONG and INT:<br>
-     *       An array is created with Long and Integer values. * Since Bigquery cannot have multiple
+     *   <li>UNION of LONG, INT:<br>
+     *       An array is created with Long and Integer values. Since BigQuery cannot have multiple
      *       datatype values in a REPEATED field, error is expected
      * </ol>
      */
@@ -603,8 +603,8 @@ public class AvroToProtoSerializerTest {
      * Test to check <code>serialize()</code> for ARRAY type schema having a NULL type. Since
      * BigQuery does not allow <code>null</code> values in REPEATED type field, a descriptor is
      * created with long type ARRAY. <br>
-     * An array is created with null values. Since Bigquery cannot have null values in a REPEATED
-     * field, error is expected
+     * An array is created with null values. Since BigQuery cannot have null values in a REPEATED
+     * field, error is expected.
      */
     @Test
     public void testArrayOfNullConversionToByteStringIncorrectly() {
@@ -642,7 +642,7 @@ public class AvroToProtoSerializerTest {
      * An array is created with RECORD type values.
      */
     @Test
-    public void testArrayOfRecordConversion() {
+    public void testArrayOfRecordConversionToDynamicMessageCorrectly() {
         // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArrayOfRecord();
@@ -685,9 +685,18 @@ public class AvroToProtoSerializerTest {
      * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different ARRAYS having
      * all Primitive types. <br>
      * A record is created having six fields, each of ARRAY (different item type) types.
+     *
+     * <ul>
+     *   <li>number - ARRAY of type LONG
+     *   <li>price - ARRAY of type DOUBLE
+     *   <li>species - ARRAY of type STRING
+     *   <li>flighted - ARRAY of type BOOLEAN
+     *   <li>sound - ARRAY of type BYTES
+     *   <li>required_record_field - ARRAY of type RECORD
+     * </ul>
      */
     @Test
-    public void testArraysOfPrimitiveTypesConversion() {
+    public void testArraysOfPrimitiveTypesConversionToDynamicMessageCorrectly() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArraysOfPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -770,8 +779,20 @@ public class AvroToProtoSerializerTest {
         assertEquals("f", arrayResult.get(5));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different ARRAYS having
+     * all Primitive types (supported by Avro, not BQ). <br>
+     * A record is created having four fields, each of ARRAY (different item type) types.
+     *
+     * <ul>
+     *   <li>quantity - ARRAY of type INT
+     *   <li>fixed_field - ARRAY of type FIXED
+     *   <li>float_field - ARRAY of type FLOAT
+     *   <li>enum_field - ARRAY of type ENUM
+     * </ul>
+     */
     @Test
-    public void testArraysOfRemainingPrimitiveTypesConversion() {
+    public void testArraysOfRemainingPrimitiveTypesConversionToDynamicMessageCorrectly() {
         // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArraysOfRemainingPrimitiveTypes();
@@ -831,8 +852,17 @@ public class AvroToProtoSerializerTest {
     }
 
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
+    /**
+     * Test to check <code>serialize()</code> for UNION having ARRAY type. <br>
+     * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
+     * type float. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * Byte String is expected to be empty (as Storage API will automatically cast it as <code>[]
+     * </code>)
+     */
     @Test
-    public void testUnionOfArrayConversion() throws BigQuerySerializationException {
+    public void testUnionOfArrayConversionToDynamicMessageCorrectly()
+            throws BigQuerySerializationException {
         // Obtaining the Schema Provider and the Avro-Record.
         // -- Obtaining the nullable type for record formation
         String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArray();
@@ -858,8 +888,17 @@ public class AvroToProtoSerializerTest {
         assertEquals("", byteString.toStringUtf8());
     }
 
+    /**
+     * Test to check <code>serialize()</code> for UNION having ARRAY of Type RECORD. <br>
+     * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
+     * type RECORD. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * Byte String is expected to be empty (as Storage API will automatically cast it as <code>[]
+     * </code>)
+     */
     @Test
-    public void testUnionOfArrayOfRecordConversion() throws BigQuerySerializationException {
+    public void testUnionOfArrayOfRecordConversionToDynamicMessageCorrectly()
+            throws BigQuerySerializationException {
         // Obtaining the Schema Provider and the Avro-Record.
         // -- Obtaining the nullable type for record formation
         String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArrayOfRecord();
@@ -888,8 +927,14 @@ public class AvroToProtoSerializerTest {
         assertEquals("", byteString.toStringUtf8());
     }
 
+    /**
+     * Test to check <code>serialize()</code> for a REQUIRED RECORD. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * This record is attempted to be serialized for a REQUIRED field, and is expected to throw an
+     * error.
+     */
     @Test
-    public void testNullInsertionInRequiredField() {
+    public void testNullableRecordToByteStringIncorrectly() {
         // Obtaining the Schema Provider and the Avro-Record.
         String recordSchemaString =
                 "\"fields\":[{\"name\": \"record_field_union\", \"type\":"
@@ -921,8 +966,15 @@ public class AvroToProtoSerializerTest {
                         "Received null value for non-nullable field record_field_union");
     }
 
+    /**
+     * Test to check <code>serialize()</code> for a NULLABLE RECORD. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * This record is attempted to be serialized for a NULLABLE field, and an empty byte string is
+     * expected.
+     */
     @Test
-    public void testUnionOfNullRecordConversion() throws BigQuerySerializationException {
+    public void testUnionOfNullRecordConversionToByteStringCorrectly()
+            throws BigQuerySerializationException {
         // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithUnionOfRecord();
@@ -940,8 +992,12 @@ public class AvroToProtoSerializerTest {
         assertEquals("", byteString.toStringUtf8());
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for a UNION of a RECORD. <br>
+     * This record is serialized for a NULLABLE field.
+     */
     @Test
-    public void testUnionOfRecordConversion() throws BigQuerySerializationException {
+    public void testUnionOfRecordConversion() {
         // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithUnionOfRecord();
@@ -977,6 +1033,19 @@ public class AvroToProtoSerializerTest {
         assertEquals("hello", message.getField(descriptor.findFieldByNumber(2)));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different fields having
+     * UNION of a single primitive type. The record is created with the following datatypes.
+     *
+     * <ol>
+     *   <li>number - UNION of type LONG (["long"])
+     *   <li>price - UNION of type DOUBLE (["double"])
+     *   <li>species - UNION of type STRING (["string"])
+     *   <li>flighted - UNION of type BOOLEAN (["boolean"])
+     *   <li>sound - UNION of type BYTES (["bytes"])
+     *   <li>required_record_field - UNION of type RECORD (["record"])
+     * </ol>
+     */
     @Test
     public void testUnionOfSinglePrimitiveTypeConversion() {
         // Obtaining the Schema Provider and the Avro-Record.
@@ -1024,6 +1093,10 @@ public class AvroToProtoSerializerTest {
                                 .findFieldByNumber(1)));
     }
 
+    /**
+     * Test to check <code>serialize()</code> for NULL type field. Since NULL type is not supported
+     * in BigQuery, when a record having type NULL is serialized, error is expected.
+     */
     @Test
     public void testNullTypeConversion() {
         // Obtaining the Schema Provider and the Avro-Record.
