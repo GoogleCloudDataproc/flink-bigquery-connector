@@ -148,6 +148,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 */
             case LONG:
             case INT:
+                // STRING, LONG and INT cases all fall through to execute `handleLogicalTypeSchema`.
                 // Return the converted value.
                 return AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
             case BYTES:
