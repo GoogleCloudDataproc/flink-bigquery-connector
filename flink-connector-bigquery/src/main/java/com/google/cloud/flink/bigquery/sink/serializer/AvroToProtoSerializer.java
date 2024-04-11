@@ -146,15 +146,28 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                     GEOGRAPHY - STRING
                     JSON - STRING
                 */
-            case LONG:
-            case INT:
-                // STRING, LONG and INT cases all fall through to execute `handleLogicalTypeSchema`.
-                // Return the converted value.
-                return AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
-            case BYTES:
-                // Find if it is of decimal Type.
                 Object convertedValue =
                         AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                if (convertedValue != value) {
+                    return convertedValue;
+                }
+                return value.toString();
+            case LONG:
+                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                if (convertedValue != value) {
+                    return convertedValue;
+                }
+                return Long.parseLong(value.toString());
+            case INT:
+                // Return the converted value.
+                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                if (convertedValue != value) {
+                    return convertedValue;
+                }
+                return Integer.parseInt(value.toString());
+            case BYTES:
+                // Find if it is of decimal Type.
+                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
                 if (convertedValue != value) {
                     return convertedValue;
                 }
