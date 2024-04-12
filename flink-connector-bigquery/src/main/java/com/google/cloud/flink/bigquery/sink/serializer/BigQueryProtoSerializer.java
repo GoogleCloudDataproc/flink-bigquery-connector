@@ -22,21 +22,13 @@ import com.google.protobuf.ByteString;
 import java.io.Serializable;
 
 /**
- * Interface for defining a Flink record to BigQuery proto serializer.
+ * Base class for defining a Flink record to BigQuery proto serializer.
  *
  * <p>One BigQueryProtoSerializer should correspond to a single BigQuery table.
  *
  * @param <IN> Type of records to be written to BigQuery.
  */
-public interface BigQueryProtoSerializer<IN> extends Serializable {
-
-    /**
-     * Initializes the serializer with a BigQuery table schema. This should be called once for every
-     * serializer instance before its first serialize call.
-     *
-     * @param schemaProvider BigQuery table's schema information.
-     */
-    public void init(BigQuerySchemaProvider schemaProvider);
+public abstract class BigQueryProtoSerializer<IN> implements Serializable {
 
     /**
      * Convert Flink record to proto ByteString compatible with BigQuery table.
@@ -45,5 +37,13 @@ public interface BigQueryProtoSerializer<IN> extends Serializable {
      * @return ByteString.
      * @throws BigQuerySerializationException If serialization failed.
      */
-    public ByteString serialize(IN record) throws BigQuerySerializationException;
+    public abstract ByteString serialize(IN record) throws BigQuerySerializationException;
+
+    /**
+     * Initializes the serializer with a BigQuery table schema. This will be called once for every
+     * serializer instance before its first serialize call.
+     *
+     * @param schemaProvider BigQuery table's schema information.
+     */
+    public void init(BigQuerySchemaProvider schemaProvider) {}
 }

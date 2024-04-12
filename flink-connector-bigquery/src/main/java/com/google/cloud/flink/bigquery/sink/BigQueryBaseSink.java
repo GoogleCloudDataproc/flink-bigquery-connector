@@ -41,7 +41,6 @@ abstract class BigQueryBaseSink implements Sink {
         this.connectOptions = sinkConfig.getConnectOptions();
         this.schemaProvider = sinkConfig.getSchemaProvider();
         this.serializer = sinkConfig.getSerializer();
-        this.serializer.init(schemaProvider);
         this.tablePath =
                 String.format(
                         "projects/%s/datasets/%s/tables/%s",

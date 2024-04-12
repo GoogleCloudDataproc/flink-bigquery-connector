@@ -24,8 +24,8 @@ import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
-import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySerializer;
 import com.google.protobuf.ByteString;
 import com.google.rpc.Status;
 import org.junit.Test;
@@ -47,7 +47,8 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testConstructor() throws IOException {
-        BigQueryDefaultWriter defaultWriter = createDefaultWriter(null, null);
+        BigQueryDefaultWriter defaultWriter =
+                createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         assertNotNull(defaultWriter);
         assertNull(defaultWriter.streamWriter);
         assertEquals(
@@ -63,7 +64,7 @@ public class BigQueryDefaultWriterTest {
     public void testWriteWithoutAppend() throws IOException {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
-                        new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")), null);
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")), null);
         // ByteString for "foo" will be 3 bytes in size, and serialization overhead of 2 will be
         // added.
         defaultWriter.write(new Object(), null);
@@ -82,7 +83,7 @@ public class BigQueryDefaultWriterTest {
             streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
             BigQueryDefaultWriter defaultWriter =
                     createDefaultWriter(
-                            new TestBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                            new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                             AppendRowsResponse.newBuilder().build());
             // First element will be added to append request.
             defaultWriter.write(new Object(), null);
@@ -104,7 +105,7 @@ public class BigQueryDefaultWriterTest {
             streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
             BigQueryDefaultWriter defaultWriter =
                     createDefaultWriter(
-                            new TestBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                            new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                             AppendRowsResponse.newBuilder().build());
             defaultWriter.write(new Object(), null);
             assertTrue(defaultWriter.appendResponseFuturesQueue.isEmpty());
@@ -122,7 +123,7 @@ public class BigQueryDefaultWriterTest {
             streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
             BigQueryDefaultWriter defaultWriter =
                     createDefaultWriter(
-                            new TestBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                            new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                             AppendRowsResponse.newBuilder().build());
             ApiFuture responseFuture1 =
                     ApiFutures.immediateFuture(AppendRowsResponse.newBuilder().build());
@@ -151,7 +152,7 @@ public class BigQueryDefaultWriterTest {
             streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
             BigQueryDefaultWriter defaultWriter =
                     createDefaultWriter(
-                            new TestBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                            new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                             AppendRowsResponse.newBuilder().build());
             defaultWriter.write(new Object(), null);
             assertEquals(1, defaultWriter.protoRowsBuilder.getSerializedRowsCount());
@@ -174,7 +175,7 @@ public class BigQueryDefaultWriterTest {
             streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
             BigQueryDefaultWriter defaultWriter =
                     createDefaultWriter(
-                            new TestBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                            new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                             AppendRowsResponse.newBuilder().build());
             defaultWriter.write(new Object(), null);
             assertEquals(1, defaultWriter.protoRowsBuilder.getSerializedRowsCount());
@@ -194,7 +195,7 @@ public class BigQueryDefaultWriterTest {
     @Test
     public void testWriteWithSerializationException() throws IOException {
         BigQueryDefaultWriter defaultWriter =
-                createDefaultWriter(TestBigQuerySerializer.getErringSerializer(), null);
+                createDefaultWriter(FakeBigQuerySerializer.getErringSerializer(), null);
         assertEquals(0, defaultWriter.protoRowsBuilder.getSerializedRowsCount());
         // If write experiences a serialization exception, then the element is ignored and no
         // action is taken.
@@ -211,7 +212,7 @@ public class BigQueryDefaultWriterTest {
             streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
             BigQueryDefaultWriter defaultWriter =
                     createDefaultWriter(
-                            new TestBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")),
+                            new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")),
                             AppendRowsResponse.newBuilder().build());
             defaultWriter.getProtoRow(new Object());
         }
@@ -224,7 +225,7 @@ public class BigQueryDefaultWriterTest {
             streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
             BigQueryDefaultWriter defaultWriter =
                     createDefaultWriter(
-                            new TestBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")),
+                            new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")),
                             AppendRowsResponse.newBuilder().build());
             assertEquals(0, defaultWriter.protoRowsBuilder.getSerializedRowsCount());
             // This will add 14 bytes to append request but maximum request size is 5, leading to
@@ -237,7 +238,8 @@ public class BigQueryDefaultWriterTest {
 
     @Test(expected = BigQueryConnectorException.class)
     public void testResponseValidationError() throws IOException {
-        BigQueryDefaultWriter defaultWriter = createDefaultWriter(null, null);
+        BigQueryDefaultWriter defaultWriter =
+                createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         defaultWriter.appendResponseFuturesQueue.add(
                 ApiFutures.immediateFuture(
                         AppendRowsResponse.newBuilder()

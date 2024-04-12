@@ -20,23 +20,29 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.protobuf.ByteString;
 
 /** Mock serializer for Sink unit tests. */
-public class TestBigQuerySerializer implements BigQueryProtoSerializer {
+public class FakeBigQuerySerializer extends BigQueryProtoSerializer {
 
-    private static final TestBigQuerySerializer ERRING_SERIALIZER =
-            new TestBigQuerySerializer(null, true);
+    private static final FakeBigQuerySerializer EMPTY_SERIALIZER =
+            new FakeBigQuerySerializer(null, false);
+    private static final FakeBigQuerySerializer ERRING_SERIALIZER =
+            new FakeBigQuerySerializer(null, true);
 
     private final ByteString serializeResult;
     private final boolean throwException;
 
-    public TestBigQuerySerializer(ByteString serializeResponse) {
+    public FakeBigQuerySerializer(ByteString serializeResponse) {
         this(serializeResponse, false);
     }
 
-    public static TestBigQuerySerializer getErringSerializer() {
+    public static FakeBigQuerySerializer getEmptySerializer() {
+        return EMPTY_SERIALIZER;
+    }
+
+    public static FakeBigQuerySerializer getErringSerializer() {
         return ERRING_SERIALIZER;
     }
 
-    public TestBigQuerySerializer(ByteString serializeResponse, boolean throwException) {
+    public FakeBigQuerySerializer(ByteString serializeResponse, boolean throwException) {
         this.serializeResult = serializeResponse;
         this.throwException = throwException;
     }

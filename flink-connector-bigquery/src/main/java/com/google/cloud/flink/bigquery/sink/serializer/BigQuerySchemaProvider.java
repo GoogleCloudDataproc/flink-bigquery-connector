@@ -20,11 +20,13 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.avro.Schema;
 
+import java.io.Serializable;
+
 /**
- * An interface to derive {@link Descriptor} for Generic Record serialization. Also provides {@link
- * Schema} and {@link DescriptorProto}.
+ * Interface to derive {@link Descriptor} for Generic Record serialization, along with access to
+ * Avro {@link Schema} and {@link DescriptorProto}.
  */
-public interface BigQuerySchemaProvider {
+public interface BigQuerySchemaProvider extends Serializable {
 
     /**
      * Returns a {@link DescriptorProto} object essential for obtaining Proto Rows Builder and

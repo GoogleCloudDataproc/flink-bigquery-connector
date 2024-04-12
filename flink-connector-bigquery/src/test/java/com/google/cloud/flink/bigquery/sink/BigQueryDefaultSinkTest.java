@@ -20,8 +20,8 @@ import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.Sink.InitContext;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
-import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySerializer;
 import com.google.protobuf.ByteString;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -41,7 +41,7 @@ public class BigQueryDefaultSinkTest {
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
-                        .serializer(new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .build();
         assertNotNull(new BigQueryDefaultSink(sinkConfig));
     }
@@ -52,7 +52,7 @@ public class BigQueryDefaultSinkTest {
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(null)
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
-                        .serializer(new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
@@ -80,7 +80,7 @@ public class BigQueryDefaultSinkTest {
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(null)
-                        .serializer(new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
@@ -97,7 +97,7 @@ public class BigQueryDefaultSinkTest {
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
-                        .serializer(new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .build();
         Sink defaultSink = new BigQueryDefaultSink(sinkConfig);
         assertNotNull(defaultSink.createWriter(mockedContext));
@@ -112,7 +112,7 @@ public class BigQueryDefaultSinkTest {
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
-                        .serializer(new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .build();
         IllegalStateException exception =
                 assertThrows(

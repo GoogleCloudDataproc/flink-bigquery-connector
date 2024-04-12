@@ -46,6 +46,18 @@ import java.util.Queue;
  * <p>This class abstracts implementation details common for BigQuery writers which use the {@link
  * StreamWriter}.
  *
+ * <p>Key methods to note are "write" (implemented in child classes) and "flush" (implemented here).
+ * Write gets called for every record and flush gets invoked at checkpoints. Writes collect records
+ * to maximize the payload of BigQuery storage write APIs. Flush method is used to send pending
+ * records before checkpoint completion.
+ *
+ * <p>BigQuery write APIs are invoked asynchronously for better performance, and responses are
+ * validated lazily.
+ *
+ * <p>Serializer's "init" method is called in the writer's constructor because the resulting {@link
+ * Descriptor} is not serializable and cannot be propagated to machines hosting writer instances.
+ * Hence, this derivation of descriptors must be performed during writer initialization.
+ *
  * @param <IN> Type of records to be written to BigQuery.
  */
 abstract class BaseWriter<IN> implements SinkWriter<IN> {
@@ -78,6 +90,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         this.connectOptions = connectOptions;
         this.protoSchema = getProtoSchema(schemaProvider);
         this.serializer = serializer;
+        this.serializer.init(schemaProvider);
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();

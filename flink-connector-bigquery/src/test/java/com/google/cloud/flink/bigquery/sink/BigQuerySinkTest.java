@@ -19,8 +19,8 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
-import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySerializer;
 import com.google.protobuf.ByteString;
 import org.junit.Test;
 
@@ -32,12 +32,25 @@ import static org.junit.Assert.assertNotNull;
 public class BigQuerySinkTest {
 
     @Test
-    public void testGet() throws IOException {
+    public void testGetWithAtLeastOnce() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
-                        .serializer(new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .build();
+        assertNotNull(BigQuerySink.get(sinkConfig, null));
+    }
+
+    @Test
+    public void testGetWithNoneDeliveryGuarantee() throws IOException {
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.NONE)
                         .build();
         assertNotNull(BigQuerySink.get(sinkConfig, null));
     }
@@ -48,7 +61,7 @@ public class BigQuerySinkTest {
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
-                        .serializer(new TestBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                         .build();
         assertNotNull(BigQuerySink.get(sinkConfig, null));
