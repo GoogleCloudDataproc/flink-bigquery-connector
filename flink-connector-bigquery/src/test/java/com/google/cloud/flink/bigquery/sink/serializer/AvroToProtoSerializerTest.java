@@ -51,14 +51,24 @@ import static org.junit.Assert.assertThrows;
 public class AvroToProtoSerializerTest {
 
     // ---------- Test the Helper Functions --------------
+
+    /** Test for a valid Json Value. */
     @Test
-    public void testConvertJson() {
+    public void testValidJsonConversion() {
         Object value = "{\"name\": \"test_value\", \"value\": \"value\"}";
         assertEquals(value.toString(), AvroSchemaHandler.convertJson(value));
     }
 
+    /**
+     * Test for an invalid Json Value, error is expected.
+     *
+     * <ol>
+     *   <li>A string type object is provided - which is not a JSON string
+     *   <li>A integer type object is provided
+     * </ol>
+     */
     @Test
-    public void testErrorConvertJson() {
+    public void testInvalidJsonConversion() {
         Object value = "invalid_json_string";
         IllegalArgumentException exception =
                 assertThrows(
@@ -74,14 +84,22 @@ public class AvroToProtoSerializerTest {
                 .hasMessageContaining("Expecting a value as String/Utf8 type (json format)");
     }
 
+    /** Test for a valid Geography Value. */
     @Test
-    public void testConvertGeography() {
+    public void testValidGeographyConversion() {
         Object value = "POINT(-121 41)";
         assertEquals(value.toString(), AvroSchemaHandler.convertGeography(value));
     }
 
+    /**
+     * Test for an invalid Geography Value, error is expected.
+     *
+     * <ol>
+     *   <li>An integer type object is provided
+     * </ol>
+     */
     @Test
-    public void testErrorConvertGeography() {
+    public void testInvalidGeographyConversion() {
         Object value = 5678;
         IllegalArgumentException exception =
                 assertThrows(
@@ -92,20 +110,21 @@ public class AvroToProtoSerializerTest {
                         "Expecting a value as String/Utf8 type (geography_wkt or geojson format).");
     }
 
+    /** Test for an valid UUID Value. */
     @Test
-    public void testConvertUUID() {
+    public void testValidUUIDConversionFromUUID() {
         Object value = UUID.randomUUID();
         assertEquals(value.toString(), AvroSchemaHandler.convertUUID(value));
     }
 
     @Test
-    public void testConvertUUIDString() {
+    public void testValidUUIDConversionFromString() {
         Object value = UUID.randomUUID().toString();
         assertEquals(value.toString(), AvroSchemaHandler.convertUUID(value));
     }
 
     @Test
-    public void testErrorConvertUUID() {
+    public void testInvalidUUIDConversion() {
         Object value = 5678;
         IllegalArgumentException exception =
                 assertThrows(

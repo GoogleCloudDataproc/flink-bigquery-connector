@@ -30,7 +30,5 @@ public interface BigQueryProtoSerializer<IN> extends Serializable {
 
     void init(BigQuerySchemaProvider bigQuerySchemaProvider);
 
-    void init(BigQuerySchemaProvider bigQuerySchemaProvider);
-
     ByteString serialize(IN record) throws BigQuerySerializationException;
 }
