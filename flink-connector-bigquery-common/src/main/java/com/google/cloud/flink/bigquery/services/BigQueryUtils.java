@@ -85,6 +85,16 @@ public class BigQueryUtils {
         return UUID.randomUUID().toString().replaceAll("-", "");
     }
 
+    /**
+     * Function to obtain a Random Descriptor Name. Descriptor name starts with a "D" and cannot
+     * contain the character '-'
+     *
+     * @return String for descriptor name.
+     */
+    public static String bqSanitizedRandomUUIDForDescriptor() {
+        return "D" + UUID.randomUUID().toString().replaceAll("-", "_");
+    }
+
     static <T> FailsafeExecutor<T> buildRetriableExecutorForOperation(String operationName) {
         return Failsafe.with(
                 RetryPolicy.<T>builder()
