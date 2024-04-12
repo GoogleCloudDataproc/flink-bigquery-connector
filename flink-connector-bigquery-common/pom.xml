@@ -58,6 +58,11 @@ under the License.
 			<groupId>org.assertj</groupId>
 			<artifactId>assertj-core</artifactId>
 		</dependency>
+		<!-- commons-lang3 used in common.utils BigQueryPartitionUtils for StringUtils -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+		</dependency>
 		<!-- Dependency required for running surefire plugin and unit tests -->
 		<dependency>
 			<groupId>org.junit.vintage</groupId>

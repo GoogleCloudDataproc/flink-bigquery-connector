@@ -1057,7 +1057,7 @@ public class AvroToProtoSerializerTest {
         String recordSchemaString =
                 "{\"type\":\"record\",\"name\":\"required_record_field\","
                         + "\"doc\":\"Translated Avro Schema for required_record_field\","
-                        + "\"fields\":[{\"name\":\"species\",\"type\":\"string\"}]}}";
+                        + "\"fields\":[{\"name\":\"species\",\"type\":\"string\"}]}";
         Schema recordSchema = new Schema.Parser().parse(recordSchemaString);
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)

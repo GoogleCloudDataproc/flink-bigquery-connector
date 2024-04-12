@@ -16,9 +16,6 @@
 
 package com.google.cloud.flink.bigquery.services;
 
-import org.apache.flink.FlinkVersion;
-import org.apache.flink.annotation.Internal;
-
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.rpc.FixedHeaderProvider;
@@ -53,6 +50,8 @@ import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
+import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
+import com.google.cloud.flink.bigquery.common.utils.flink.core.FlinkVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
@@ -117,7 +116,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
     public static class StorageReadClientImpl implements StorageReadClient {
         private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
                 FixedHeaderProvider.create(
-                        "user-agent", "Apache_Flink_Java/" + FlinkVersion.current().toString());
+                        "user-agent", "Apache_Flink_Java/" + FlinkVersion.getVersion());
 
         private final BigQueryReadClient client;
 
@@ -180,7 +179,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
     public static class StorageWriteClientImpl implements StorageWriteClient {
         private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
                 FixedHeaderProvider.create(
-                        "user-agent", "Apache_Flink_Java/" + FlinkVersion.current().toString());
+                        "user-agent", "Apache_Flink_Java/" + FlinkVersion.getVersion());
 
         private final BigQueryWriteClient client;
 
