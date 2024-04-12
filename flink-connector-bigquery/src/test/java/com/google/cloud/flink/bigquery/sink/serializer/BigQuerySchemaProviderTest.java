@@ -297,6 +297,13 @@ public class BigQuerySchemaProviderTest {
     }
 
     @Test
+    public void testArrayOfNullSchemaConversion() {
+        String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfNullValue();
+        assertExpectedUnsupportedException(
+                fieldString, "Converting AVRO type NULL to Storage API Proto type is unsupported");
+    }
+
+    @Test
     public void testArrayOfMapSchemaConversion() {
         String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfMap();
         assertExpectedUnsupportedException(fieldString, "Array of Type MAP not supported yet.");
@@ -457,7 +464,7 @@ public class BigQuerySchemaProviderTest {
                 assertThrows(
                         UnsupportedOperationException.class,
                         () -> new BigQuerySchemaProviderImpl(avroSchema));
-        assertThat(exception).hasMessageThat().contains(expectedError);
+        Assertions.assertThat(exception).hasMessageContaining(expectedError);
     }
 
     private void assertPrimitive(Descriptor descriptor, FieldDescriptorProto.Label label) {
