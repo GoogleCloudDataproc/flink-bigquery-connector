@@ -335,6 +335,20 @@ public class TestBigQuerySchemas {
                 + " ]\n";
     }
 
+    public static String getSchemaWithArrayOfMultipleValues() {
+        return " \"fields\": [\n"
+                + "{\"name\": \"array_with_union\", \"type\": "
+                + "{\"type\": \"array\", \"items\":  [\"long\", \"int\"]}}"
+                + " ]\n";
+    }
+
+    public static String getSchemaWithArrayOfNullValue() {
+        return " \"fields\": [\n"
+                + "{\"name\": \"array_with_null\", \"type\": "
+                + "{\"type\": \"array\", \"items\":  \"null\"}}"
+                + " ]\n";
+    }
+
     public static String getSchemaWithArrayOfMap() {
         return " \"fields\": [\n"
                 + "   {\"name\": \"array_of_map\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"map\", \"values\": \"bytes\"}}}\n"
@@ -408,6 +422,12 @@ public class TestBigQuerySchemas {
     public static String getSchemaWithUnionOfMap() {
         return " \"fields\": [\n"
                 + "   {\"name\": \"map_field_union\", \"type\": [\"null\", {\"type\": \"map\", \"values\": \"long\"}]}\n"
+                + " ]\n";
+    }
+
+    public static String getSchemaWithNullType() {
+        return " \"fields\": [\n"
+                + "   {\"name\": \"null_type_field\", \"type\": \"null\"}\n"
                 + " ]\n";
     }
 
