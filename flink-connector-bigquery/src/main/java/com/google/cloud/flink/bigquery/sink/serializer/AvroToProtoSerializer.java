@@ -31,6 +31,7 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.avro.util.Utf8;
 import org.joda.time.Days;
 import org.joda.time.Instant;
@@ -49,6 +50,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -84,7 +86,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         try {
             return getDynamicMessageFromGenericRecord(record, this.descriptor).toByteString();
         } catch (Exception e) {
-            throw new BigQuerySerializationException(e.getMessage(), e);
+            throw new BigQuerySerializationException(e.getMessage());
         }
     }
 
@@ -100,7 +102,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             GenericRecord element, Descriptor descriptor) {
         Schema recordSchema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-        // Get the record's schema and find the field descriptor for each field one by one.
+        // Get a record's field schema and find the field descriptor for each field one by one.
         for (Schema.Field field : recordSchema.getFields()) {
             // In case no field descriptor exists for the field, throw an error as we have
             // incompatible schemas.
@@ -111,7 +113,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             // Check if the value is null.
             @Nullable Object value = element.get(field.name());
             if (value == null) {
-                // If the field required, throw an error.
+                // Do nothing in case value == null and fieldDescriptor != "REQUIRED"
                 if (fieldDescriptor.isRequired()) {
                     throw new IllegalArgumentException(
                             "Received null value for non-nullable field "
@@ -142,22 +144,9 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 return getDynamicMessageFromGenericRecord(
                         (GenericRecord) value, fieldDescriptor.getMessageType());
             case ARRAY:
-                Iterable<Object> iterable = (Iterable<Object>) value;
-                // Get the inner element type.
-                @Nullable Schema arrayElementType = avroSchema.getElementType();
-                if (arrayElementType.isNullable()) {
-                    throw new IllegalArgumentException("Array cannot have NULLABLE datatype");
-                }
-                if (arrayElementType.isUnion()) {
-                    throw new IllegalArgumentException(
-                            "ARRAY cannot have multiple datatypes in BigQuery.");
-                }
-                // Convert each value one by one.
-                return StreamSupport.stream(iterable.spliterator(), false)
-                        .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
-                        .collect(Collectors.toList());
+                return AvroSchemaHandler.handleArraySchema(fieldDescriptor, avroSchema, value);
             case UNION:
-                Schema type = BigQuerySchemaProviderImpl.handleUnionSchema(avroSchema).getLeft();
+                Schema type = AvroSchemaHandler.handleUnionSchema(avroSchema).getLeft();
                 // Get the schema of the field.
                 return toProtoValue(fieldDescriptor, type, value);
             case MAP:
@@ -177,13 +166,28 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                     GEOGRAPHY - STRING
                     JSON - STRING
                 */
+                Object convertedValue =
+                        AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                if (convertedValue != value) {
+                    return convertedValue;
+                }
+                return value.toString();
             case LONG:
+                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                if (convertedValue != value) {
+                    return convertedValue;
+                }
+                return Long.parseLong(value.toString());
             case INT:
                 // Return the converted value.
-                return handleLogicalTypeSchema(avroSchema, value);
+                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                if (convertedValue != value) {
+                    return convertedValue;
+                }
+                return Integer.parseInt(value.toString());
             case BYTES:
                 // Find if it is of decimal Type.
-                Object convertedValue = handleLogicalTypeSchema(avroSchema, value);
+                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
                 if (convertedValue != value) {
                     return convertedValue;
                 }
@@ -205,62 +209,140 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         }
     }
 
-    /**
-     * Function to convert Avro Schema Field value to Dynamic Message value (for Logical Types).
-     *
-     * @param fieldSchema Avro Schema describing the schema for the value.
-     * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
-     * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
-     *     value otherwise.
-     */
-    private static Object handleLogicalTypeSchema(Schema fieldSchema, Object value) {
-        String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
-        if (logicalTypeString != null) {
-            // 1. In case, the Schema has a Logical Type.
-            @Nullable
-            UnaryOperator<Object> encoder = getLogicalEncoder(fieldSchema, logicalTypeString);
-            // 2. Check if this is supported, Return the value
-            if (encoder != null) {
-                return encoder.apply(value);
-            }
-        }
-        // Otherwise, return the value as it is.
-        return value;
-    }
+    /** Class to handle Specific Avro Proto Schema Types (Logical and Union). */
+    static class AvroSchemaHandler {
+        private AvroSchemaHandler() {}
 
-    /**
-     * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to Dynamic
-     * Message.
-     *
-     * @param logicalTypeString String containing the name for Logical Schema Type.
-     * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
-     */
-    private static UnaryOperator<Object> getLogicalEncoder(
-            Schema fieldSchema, String logicalTypeString) {
-        Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
-        mapping.put(LogicalTypes.date().getName(), AvroToProtoSerializer::convertDate);
-        mapping.put(
-                LogicalTypes.decimal(1).getName(),
-                value -> AvroToProtoSerializer.convertBigDecimal(value, fieldSchema));
-        mapping.put(
-                LogicalTypes.timestampMicros().getName(),
-                value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
-        mapping.put(
-                LogicalTypes.timestampMillis().getName(),
-                value -> convertTimestamp(value, false, "Timestamp(micros/millis)"));
-        mapping.put(LogicalTypes.uuid().getName(), AvroToProtoSerializer::convertUUID);
-        mapping.put(LogicalTypes.timeMillis().getName(), value -> convertTime(value, false));
-        mapping.put(LogicalTypes.timeMicros().getName(), value -> convertTime(value, true));
-        mapping.put(
-                LogicalTypes.localTimestampMillis().getName(),
-                value -> convertDateTime(value, false));
-        mapping.put(
-                LogicalTypes.localTimestampMicros().getName(),
-                value -> convertDateTime(value, true));
-        mapping.put("geography_wkt", AvroToProtoSerializer::convertGeography);
-        mapping.put("Json", AvroToProtoSerializer::convertJson);
-        return mapping.get(logicalTypeString);
-    }
+        /**
+         * Function to convert a value of an <b>ARRAY</b> Type AvroSchemaField value to required
+         * Dynamic Message value.
+         *
+         * @param fieldDescriptor {@link com.google.protobuf.Descriptors.FieldDescriptor} Object
+         *     describes the destination field in the sink table. Given value must be converted to a
+         *     format compatible with this field.
+         * @param avroSchema {@link Schema} Object describing the value of Avro Schema Field.
+         * @param value Value of the Avro Schema Field.
+         * @return Converted List Object
+         */
+        public static List<Object> handleArraySchema(
+                FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
+            Iterable<Object> iterable;
+            if (value instanceof Iterable) {
+                iterable = (Iterable<Object>) value;
+            } else {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Expected an Iterable,%n Found %s instead.", value.getClass()));
+            }
+            // Get the inner element type.
+            @Nullable Schema arrayElementType = avroSchema.getElementType();
+            if (arrayElementType.isNullable()) {
+                throw new IllegalArgumentException("Array cannot have NULLABLE datatype");
+            }
+            if (arrayElementType.isUnion()) {
+                throw new IllegalArgumentException(
+                        "ARRAY cannot have multiple datatypes in BigQuery.");
+            }
+            // Convert each value one by one.
+            return StreamSupport.stream(iterable.spliterator(), false)
+                    .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
+                    .collect(Collectors.toList());
+        }
+
+        /**
+         * Helper function to handle the UNION Schema Type. We only consider the union schema valid
+         * when it is of the form ["null", datatype]. All other forms such as ["null"],["null",
+         * datatype1, datatype2, ...], and [datatype1, datatype2, ...] Are considered as invalid (as
+         * there is no such support in BQ) So we throw an error in all such cases. For the valid
+         * case of ["null", datatype] or [datatype] we set the Schema as the schema of the <b>not
+         * null</b> datatype.
+         *
+         * @param schema of type UNION to check and derive.
+         * @return Schema of the OPTIONAL field.
+         * @throws IllegalArgumentException If multiple non-null datatypes or only null is observed.
+         */
+        public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema)
+                throws IllegalArgumentException {
+            Schema elementType = schema;
+            boolean isNullable = true;
+            List<Schema> types = elementType.getTypes();
+            // don't need recursion because nested unions aren't supported in AVRO
+            // Extract all the nonNull Datatypes.
+            List<Schema> nonNullSchemaTypes =
+                    types.stream()
+                            .filter(schemaType -> schemaType.getType() != Schema.Type.NULL)
+                            .collect(Collectors.toList());
+
+            int nonNullSchemaTypesSize = nonNullSchemaTypes.size();
+
+            if (nonNullSchemaTypesSize == 1) {
+                elementType = nonNullSchemaTypes.get(0);
+                if (nonNullSchemaTypesSize == types.size()) {
+                    // Case, when there is only a single type in UNION.
+                    // Then it is essentially the same as not having a UNION.
+                    isNullable = false;
+                }
+                return new ImmutablePair<>(elementType, isNullable);
+            }
+
+            throw new IllegalArgumentException("Multiple non-null union types are not supported.");
+        }
+
+        /**
+         * Function to convert Avro Schema Field value to Dynamic Message value (for Logical Types).
+         *
+         * @param fieldSchema Avro Schema describing the schema for the value.
+         * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
+         * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
+         *     value otherwise.
+         */
+        private static Object handleLogicalTypeSchema(Schema fieldSchema, Object value) {
+            String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
+            if (logicalTypeString != null) {
+                // 1. In case, the Schema has a Logical Type.
+                @Nullable UnaryOperator<Object> encoder = getLogicalEncoder(logicalTypeString);
+                // 2. Check if this is supported, Return the value
+                if (encoder != null) {
+                    return encoder.apply(value);
+                }
+            }
+            // Otherwise, return the value as it is.
+            return value;
+        }
+
+        /**
+         * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to Dynamic
+         * Message.
+         *
+         * @param logicalTypeString String containing the name for Logical Schema Type.
+         * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
+         */
+        private static UnaryOperator<Object> getLogicalEncoder(
+                Schema fieldSchema, String logicalTypeString) {
+            Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
+            mapping.put(LogicalTypes.date().getName(), AvroToProtoSerializer::convertDate);
+            mapping.put(
+                    LogicalTypes.decimal(1).getName(),
+                    value -> AvroToProtoSerializer.convertBigDecimal(value, fieldSchema));
+            mapping.put(
+                    LogicalTypes.timestampMicros().getName(),
+                    value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
+            mapping.put(
+                    LogicalTypes.timestampMillis().getName(),
+                    value -> convertTimestamp(value, false, "Timestamp(micros/millis)"));
+            mapping.put(LogicalTypes.uuid().getName(), AvroToProtoSerializer::convertUUID);
+            mapping.put(LogicalTypes.timeMillis().getName(), value -> convertTime(value, false));
+            mapping.put(LogicalTypes.timeMicros().getName(), value -> convertTime(value, true));
+            mapping.put(
+                    LogicalTypes.localTimestampMillis().getName(),
+                    value -> convertDateTime(value, false));
+            mapping.put(
+                    LogicalTypes.localTimestampMicros().getName(),
+                    value -> convertDateTime(value, true));
+            mapping.put("geography_wkt", AvroToProtoSerializer::convertGeography);
+            mapping.put("Json", AvroToProtoSerializer::convertJson);
+            return mapping.get(logicalTypeString);
+        }
 
     // ---- Utilities to enable Conversions for Logical Types ------------
     @VisibleForTesting

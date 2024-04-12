@@ -384,15 +384,26 @@ public class AvroToProtoSerializerTest {
     }
     // --------------------------------------------------------------------------------------------------
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Primitive types supported
+     * by BigQuery.
+     *
+     * <ul>
+     *   <li>BQ Type - Converted Avro Type
+     *   <li>"INTEGER" - LONG
+     *   <li>"FLOAT" - FLOAT
+     *   <li>"STRING" - STRING
+     *   <li>"BOOLEAN" - BOOLEAN
+     *   <li>"BYTES" - BYTES
+     * </ul>
+     */
     @Test
-    public void testPrimitiveTypesConversion() {
+    public void testAllBigQuerySupportedPrimitiveTypesConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRequiredPrimitiveTypes();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-
         byte[] byteArray = "Any String you want".getBytes();
         Schema recordSchema = avroSchema.getField("required_record_field").schema();
         GenericRecord record =
@@ -409,14 +420,16 @@ public class AvroToProtoSerializerTest {
                                         .build())
                         .build();
 
+        // Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
         assertEquals(-7099548873856657385L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(0.5616495161359795, message.getField(descriptor.findFieldByNumber(2)));
         assertEquals("String", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(true, message.getField(descriptor.findFieldByNumber(4)));
         assertEquals(
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(5)));
-
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(6);
         message = (DynamicMessage) message.getField(fieldDescriptor);
         assertEquals(
@@ -427,39 +440,20 @@ public class AvroToProtoSerializerTest {
                                 .findFieldByNumber(1)));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Primitive types supported
+     * by BigQuery. However <code>null</code> value is passed to the record field to test for error.
+     */
     @Test
-    public void testRemainingPrimitiveTypesConversion() {
+    public void testAllBigQuerySupportedPrimitiveTypesConversionToDynamicMessageIncorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
+        // -- Non-nullable Schema for descriptor
         BigQuerySchemaProvider bigQuerySchemaProvider =
-                TestBigQuerySchemas.getSchemaWithRemainingPrimitiveTypes();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
+                TestBigQuerySchemas.getSchemaWithRequiredPrimitiveTypes();
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-
-        byte[] byteArray = "Any String you want".getBytes();
-        GenericRecord record =
-                new GenericRecordBuilder(avroSchema)
-                        .set("quantity", 1234)
-                        .set("fixed_field", new GenericData.Fixed(avroSchema, byteArray))
-                        .set("float_field", Float.parseFloat("12345.6789"))
-                        .set("enum_field", "C")
-                        .build();
-        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
-        assertEquals(1234, message.getField(descriptor.findFieldByNumber(1)));
-        assertEquals(
-                ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals(12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
-        assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
-    }
-
-    @Test
-    public void testNullablePrimitiveTypesConversion() throws BigQuerySerializationException {
-        BigQuerySchemaProvider bigQuerySchemaProvider =
-                TestBigQuerySchemas.getSchemaWithNullablePrimitiveTypes();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
-        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-
+        // -- Nullable Schema for descriptor
+        Schema avroSchema =
+                TestBigQuerySchemas.getSchemaWithNullablePrimitiveTypes().getAvroSchema();
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set("number", null)
@@ -470,18 +464,68 @@ public class AvroToProtoSerializerTest {
                         .set("required_record_field", null)
                         .build();
 
-        ByteString byteString = serializer.serialize(record);
-        assertEquals("", byteString.toStringUtf8());
+        // Check for the desired results.
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> getDynamicMessageFromGenericRecord(record, descriptor));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Received null value for non-nullable field");
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Primitive types supported
+     * by Avro but not offered by BigQuery.
+     *
+     * <ul>
+     *   <li>DOUBLE
+     *   <li>ENUM
+     *   <li>FIXED
+     *   <li>INT
+     * </ul>
+     */
     @Test
-    public void testUnionOfRemainingPrimitiveConversion() throws BigQuerySerializationException {
+    public void testAllRemainingAvroSupportedPrimitiveTypesConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
-                TestBigQuerySchemas.getSchemaWithUnionOfRemainingPrimitiveTypes();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
+                TestBigQuerySchemas.getSchemaWithRemainingPrimitiveTypes();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        byte[] byteArray = "Any String you want".getBytes();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("quantity", 1234)
+                        .set("fixed_field", new GenericData.Fixed(avroSchema, byteArray))
+                        .set("float_field", Float.parseFloat("12345.6789"))
+                        .set("enum_field", "C")
+                        .build();
 
+        // Form the Dynamic Message.
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
+        assertEquals(1234, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(
+                ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Primitive types supported
+     * by Avro but not offered by BigQuery. However <code>null</code> value is passed to the record
+     * field to test for error.
+     */
+    @Test
+    public void testAllRemainingAvroSupportedPrimitiveTypesConversionToDynamicMessageIncorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
+        // -- Non-nullable Schema for descriptor
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithRemainingPrimitiveTypes();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        // -- Nullable Schema for descriptor
+        Schema avroSchema =
+                TestBigQuerySchemas.getSchemaWithUnionOfRemainingPrimitiveTypes().getAvroSchema();
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set("quantity", null)
@@ -489,7 +533,74 @@ public class AvroToProtoSerializerTest {
                         .set("float_field", null)
                         .set("enum_field", null)
                         .build();
+
+        // Check for the desired error.
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> getDynamicMessageFromGenericRecord(record, descriptor));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Received null value for non-nullable field");
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for Primitive types supported by BigQuery, but the
+     * fields are <b>NULLABLE</b>, so conversion of <code>null</code> is tested - serialized byte
+     * string should be empty.
+     */
+    @Test
+    public void testAllBigQuerySupportedNullablePrimitiveTypesConversionToEmptyByteStringCorrectly()
+            throws BigQuerySerializationException {
+        // Obtaining the Schema Provider and the Avro-Record.
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithNullablePrimitiveTypes();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("number", null)
+                        .set("price", null)
+                        .set("species", null)
+                        .set("flighted", null)
+                        .set("sound", null)
+                        .set("required_record_field", null)
+                        .build();
+
+        // Form the Dynamic Message via the serializer.
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
         ByteString byteString = serializer.serialize(record);
+
+        // Check for the desired results.
+        assertEquals("", byteString.toStringUtf8());
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for Primitive types supported Avro but not by
+     * BigQuery, but the fields are <b>NULLABLE</b>, so conversion of <code>null</code> is tested -
+     * serialized byte string should be empty.
+     */
+    @Test
+    public void
+            testUnionOfAllRemainingAvroSupportedPrimitiveTypesConversionToEmptyByteStringCorrectly()
+                    throws BigQuerySerializationException {
+        // Obtaining the Schema Provider and the Avro-Record.
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithUnionOfRemainingPrimitiveTypes();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("quantity", null)
+                        .set("fixed_field", null)
+                        .set("float_field", null)
+                        .set("enum_field", null)
+                        .build();
+
+        // Form the Dynamic Message via the serializer.
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        ByteString byteString = serializer.serialize(record);
+
+        // Check for the desired results.
         assertEquals("", byteString.toStringUtf8());
     }
 
@@ -602,12 +713,15 @@ public class AvroToProtoSerializerTest {
     }
 
     // ------------ Test Schemas with Record of Different Types -----------
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
+     * an ARRAY field.
+     */
     @Test
-    public void testRecordOfArrayConversation() {
+    public void testRecordOfArrayConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfArray();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         List<Boolean> arrayList = Arrays.asList(false, true, false);
@@ -620,9 +734,12 @@ public class AvroToProtoSerializerTest {
                                         .set("array_in_record", arrayList)
                                         .build())
                         .build();
-
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
+
+        // Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
         message = (DynamicMessage) message.getField(fieldDescriptor);
         assertEquals(
                 arrayList,
@@ -632,15 +749,49 @@ public class AvroToProtoSerializerTest {
                                 .findFieldByNumber(1)));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
+     * an ARRAY field. However, an invalid value (integer value instead of Array) is passed to test
+     * for error.
+     */
     @Test
-    public void testRecordOfUnionSchemaConversation() {
+    public void testRecordOfArrayConversionToDynamicMessageIncorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
-                TestBigQuerySchemas.getSchemaWithRecordOfUnionType();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
+                TestBigQuerySchemas.getSchemaWithRecordOfArray();
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set(
+                                "record_with_array",
+                                new GenericRecordBuilder(
+                                                avroSchema.getField("record_with_array").schema())
+                                        .set("array_in_record", 12345)
+                                        .build())
+                        .build();
 
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> getDynamicMessageFromGenericRecord(record, descriptor));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Expected an Iterable,\n" + " Found class java.lang.Integer instead");
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for Record type schema having a UNION field (with
+     * null). Since the record has a union of NULL field, <code>null</code> value is serialized. The
+     * serialized byte string is checked to be empty.
+     */
+    @Test
+    public void testRecordOfUnionSchemaConversionToEmptyByteStringCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithRecordOfUnionType();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set(
@@ -650,19 +801,54 @@ public class AvroToProtoSerializerTest {
                                         .set("union_in_record", null)
                                         .build())
                         .build();
-
-        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
+
+        // Form the Dynamic Message.
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
         ByteString byteString = ((DynamicMessage) message.getField(fieldDescriptor)).toByteString();
         assertEquals("", byteString.toStringUtf8());
     }
 
+    /**
+     * Test to check <code>serialize()</code> for Record type schema having a UNION field (of null
+     * and boolean). To check an invalid value, an Integer is passed.
+     */
     @Test
-    public void testRecordOfRecordConversion() {
+    public void testRecordOfUnionSchemaConversionToEmptyByteStringIncorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithRecordOfUnionType();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set(
+                                "record_with_union",
+                                new GenericRecordBuilder(
+                                                avroSchema.getField("record_with_union").schema())
+                                        .set("union_in_record", 12345)
+                                        .build())
+                        .build();
+        ClassCastException exception =
+                assertThrows(
+                        ClassCastException.class,
+                        () -> getDynamicMessageFromGenericRecord(record, descriptor));
+        Assertions.assertThat(exception)
+                .hasMessageFindingMatch(
+                        "(class)? ?java.lang.Integer cannot be cast to (class)? ?java.lang.Boolean");
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
+     * a RECORD type field.
+     */
+    @Test
+    public void testRecordOfRecordConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfRecord();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         GenericRecord innerRecord =
@@ -681,7 +867,11 @@ public class AvroToProtoSerializerTest {
                         .build();
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema).set("record_in_record", innerRecord).build();
+
+        // Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
         message = (DynamicMessage) message.getField(descriptor.findFieldByNumber(1));
         descriptor =
                 descriptor.findNestedTypeByName(
@@ -696,17 +886,18 @@ public class AvroToProtoSerializerTest {
                 message.getField(descriptor.findFieldByNumber(2)));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
+     * all Primitive type fields (supported by BigQuery).
+     */
     @Test
-    public void testRecordOfPrimitiveTypeConversion() {
+    public void testRecordOfAllBigQuerySupportedPrimitiveTypeConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema innerRecordSchema = avroSchema.getField("record_of_primitive_types").schema();
-
         byte[] byteArray = "Any String you want".getBytes();
         Schema recordSchema =
                 avroSchema
@@ -732,19 +923,20 @@ public class AvroToProtoSerializerTest {
                         .set("record_of_primitive_types", innerRecord)
                         .build();
 
+        // Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
         message = (DynamicMessage) message.getField(descriptor.findFieldByNumber(1));
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
-
         assertEquals(-7099548873856657385L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(0.5616495161359795, message.getField(descriptor.findFieldByNumber(2)));
         assertEquals("String", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(true, message.getField(descriptor.findFieldByNumber(4)));
         assertEquals(
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(5)));
-
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(6);
         message = (DynamicMessage) message.getField(fieldDescriptor);
         assertEquals(
@@ -755,17 +947,20 @@ public class AvroToProtoSerializerTest {
                                 .findFieldByNumber(1)));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
+     * all Primitive type fields (supported by Avro, not by BigQuery).
+     */
     @Test
-    public void testRecordOfRemainingPrimitiveTypeConversion() {
+    public void
+            testRecordOfAllRemainingAvroSupportedPrimitiveTypeConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRecordOfRemainingPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema innerRecordSchema =
                 avroSchema.getField("record_of_remaining_primitive_types").schema();
-
         byte[] byteArray = "Any String you want".getBytes();
         GenericRecord innerRecord =
                 new GenericRecordBuilder(innerRecordSchema)
@@ -779,7 +974,10 @@ public class AvroToProtoSerializerTest {
                         .set("record_of_remaining_primitive_types", innerRecord)
                         .build();
 
+        // Form the Dynamic Message via the serializer.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
         message = (DynamicMessage) message.getField(descriptor.findFieldByNumber(1));
         descriptor =
                 descriptor.findNestedTypeByName(
@@ -872,76 +1070,111 @@ public class AvroToProtoSerializerTest {
     }
 
     // ------------Test Schemas with ARRAY of Different Types -------------
+    /**
+     * Test to check <code>serialize()</code> for ARRAY type schema having a UNION type. Since
+     * BigQuery does not allow <code>null</code> values in REPEATED type field, a descriptor is
+     * created with long type ARRAY.
+     *
+     * <ol>
+     *   <li>UNION of NULL, LONG:<br>
+     *       An array is created with Long and null values. Since BigQuery cannot have null values
+     *       in a REPEATED field, error is expected
+     *   <li>UNION of LONG, INT:<br>
+     *       An array is created with Long and Integer values. Since BigQuery cannot have multiple
+     *       datatype values in a REPEATED field, error is expected
+     * </ol>
+     */
     @Test
-    public void testArrayOfUnionConversion() {
+    public void testArrayOfUnionConversionToByteStringIncorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         String notNullString =
                 " \"fields\": [\n"
                         + "{\"name\": \"array_with_union\", \"type\": {\"type\": \"array\", \"items\":  \"long\"}} ]";
         Schema notNullSchema = getAvroSchemaFromFieldString(notNullString);
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 new BigQuerySchemaProviderImpl(notNullSchema);
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
-
-        // 1. check UNION with NULL
+        // -- 1. check UNION with NULL
         String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfUnionValue();
         Schema nullSchema = getAvroSchemaFromFieldString(fieldString);
-        GenericRecord record =
+        GenericRecord recordWithNullInUnion =
                 new GenericRecordBuilder(nullSchema)
                         .set("array_with_union", Arrays.asList(1234567L, null))
                         .build();
-        BigQuerySerializationException exception =
-                assertThrows(
-                        BigQuerySerializationException.class, () -> serializer.serialize(record));
-        Assertions.assertThat(exception)
-                .hasMessageContaining("Array cannot have NULLABLE datatype");
-
-        // 2. Check union of NOT NULL-multiple types.
+        // -- 2. Check union of NOT NULL-multiple types.
         fieldString = TestBigQuerySchemas.getSchemaWithArrayOfMultipleValues();
         nullSchema = getAvroSchemaFromFieldString(fieldString);
-        GenericRecord anotherRecord =
+        GenericRecord recordWithMultipleDatatypesInUnion =
                 new GenericRecordBuilder(nullSchema)
                         .set("array_with_union", Arrays.asList(1234567L, 12345))
                         .build();
-        exception =
+
+        // Form the Dynamic Message via the serializer.
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        BigQuerySerializationException exceptionForNullInUnion =
                 assertThrows(
                         BigQuerySerializationException.class,
-                        () -> serializer.serialize(anotherRecord));
-        Assertions.assertThat(exception)
+                        () -> serializer.serialize(recordWithNullInUnion));
+        BigQuerySerializationException exceptionForMultipleDatatypesInUnion =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> serializer.serialize(recordWithMultipleDatatypesInUnion));
+
+        // Check for the desired results.
+        Assertions.assertThat(exceptionForNullInUnion)
+                .hasMessageContaining("Array cannot have NULLABLE datatype");
+        Assertions.assertThat(exceptionForMultipleDatatypesInUnion)
                 .hasMessageContaining("ARRAY cannot have multiple datatypes in BigQuery.");
     }
 
+    /**
+     * Test to check <code>serialize()</code> for ARRAY type schema having a NULL type. Since
+     * BigQuery does not allow <code>null</code> values in REPEATED type field, a descriptor is
+     * created with long type ARRAY. <br>
+     * An array is created with null values. Since BigQuery cannot have null values in a REPEATED
+     * field, error is expected.
+     */
     @Test
-    public void testArrayOfNullConversion() {
-        String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfNullValue();
+    public void testArrayOfNullConversionToByteStringIncorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
+        // -- Obtaining notNull schema for descriptor.
         String notNullString =
                 " \"fields\": [\n"
                         + "{\"name\": \"array_with_null\", \"type\": {\"type\": \"array\", \"items\":  \"long\"}} ]";
         Schema notNullSchema = getAvroSchemaFromFieldString(notNullString);
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 new BigQuerySchemaProviderImpl(notNullSchema);
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
-
+        // -- Obtaining null schema for descriptor.
+        String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfNullValue();
         Schema nullSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record =
                 new GenericRecordBuilder(nullSchema)
                         .set("array_with_null", Arrays.asList(1234567L, null))
                         .build();
+
+        // Form the Dynamic Message via the serializer.
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
         BigQuerySerializationException exception =
                 assertThrows(
                         BigQuerySerializationException.class, () -> serializer.serialize(record));
+
+        // Check for the desired results.
         Assertions.assertThat(exception)
                 .hasMessageContaining("Array cannot have NULLABLE datatype");
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for ARRAY type schema having
+     * a RECORD type. <br>
+     * An array is created with RECORD type values.
+     */
     @Test
-    public void testArrayOfRecordConversion() {
+    public void testArrayOfRecordConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArrayOfRecord();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         Schema innerRecordSchema = new Schema.Parser().parse(getRecordSchema("inside_record"));
         GenericRecord innerRecord =
@@ -953,11 +1186,16 @@ public class AvroToProtoSerializerTest {
                 new GenericRecordBuilder(avroSchema)
                         .set("array_of_records", Arrays.asList(innerRecord, innerRecord))
                         .build();
+
+        // Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        assertThat(message.getField(descriptor.findFieldByNumber(1))).isInstanceOf(List.class);
         List<DynamicMessage> arrayResult =
                 (List<DynamicMessage>) message.getField(descriptor.findFieldByNumber(1));
+
+        // Check for the desired results.
         assertThat(arrayResult).hasSize(2);
-        // the descriptor for elements inside the array.
+        // -- the descriptor for elements inside the array.
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
@@ -965,15 +1203,28 @@ public class AvroToProtoSerializerTest {
         assertEquals(8034881802526489441L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(
                 "fefmmuyoosmglqtnwfxahgoxqpyhc", message.getField(descriptor.findFieldByNumber(2)));
-
         message = arrayResult.get(1);
         assertEquals(8034881802526489441L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(
                 "fefmmuyoosmglqtnwfxahgoxqpyhc", message.getField(descriptor.findFieldByNumber(2)));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different ARRAYS having
+     * all Primitive types. <br>
+     * A record is created having six fields, each of ARRAY (different item type) types.
+     *
+     * <ul>
+     *   <li>number - ARRAY of type LONG
+     *   <li>price - ARRAY of type DOUBLE
+     *   <li>species - ARRAY of type STRING
+     *   <li>flighted - ARRAY of type BOOLEAN
+     *   <li>sound - ARRAY of type BYTES
+     *   <li>required_record_field - ARRAY of type RECORD
+     * </ul>
+     */
     @Test
-    public void testArraysOfPrimitiveTypesConversion() {
+    public void testArraysOfPrimitiveTypesConversionToDynamicMessageCorrectly() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArraysOfPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
@@ -1056,14 +1307,26 @@ public class AvroToProtoSerializerTest {
         assertEquals("f", arrayResult.get(5));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different ARRAYS having
+     * all Primitive types (supported by Avro, not BQ). <br>
+     * A record is created having four fields, each of ARRAY (different item type) types.
+     *
+     * <ul>
+     *   <li>quantity - ARRAY of type INT
+     *   <li>fixed_field - ARRAY of type FIXED
+     *   <li>float_field - ARRAY of type FLOAT
+     *   <li>enum_field - ARRAY of type ENUM
+     * </ul>
+     */
     @Test
-    public void testArraysOfRemainingPrimitiveTypesConversion() {
+    public void testArraysOfRemainingPrimitiveTypesConversionToDynamicMessageCorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithArraysOfRemainingPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        // -- Initialising the RECORD.
         byte[] byteArray =
                 ByteBuffer.allocate(40)
                         .putInt(-77)
@@ -1088,22 +1351,27 @@ public class AvroToProtoSerializerTest {
                                 Arrays.asList(0.26904225f, 0.558431f, 0.2269839f, 0.70421267f))
                         .set("enum_field", Arrays.asList("A", "C", "A"))
                         .build();
+
+        // Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
+        // -- 1. check field [1] - quantity
         List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(1);
         assertEquals(89767285, arrayResult.get(0));
-
+        // -- 2. check field [21] - fixed_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
         assertThat(arrayResult).hasSize(1);
         assertEquals(ByteString.copyFrom(byteArray), arrayResult.get(0));
-
+        // -- 3. check field [3] - float_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(4);
         assertEquals(0.26904225f, arrayResult.get(0));
         assertEquals(0.558431f, arrayResult.get(1));
         assertEquals(0.2269839f, arrayResult.get(2));
         assertEquals(0.70421267f, arrayResult.get(3));
-
+        // -- 4. check field [4] - enum_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(3);
         assertEquals("A", arrayResult.get(0));
@@ -1223,13 +1491,24 @@ public class AvroToProtoSerializerTest {
     }
 
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
+    /**
+     * Test to check <code>serialize()</code> for UNION having ARRAY type. <br>
+     * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
+     * type float. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * Byte String is expected to be empty (as Storage API will automatically cast it as <code>[]
+     * </code>)
+     */
     @Test
-    public void testUnionOfArrayConversion() throws BigQuerySerializationException {
+    public void testUnionOfArrayConversionToDynamicMessageCorrectly()
+            throws BigQuerySerializationException {
+        // Obtaining the Schema Provider and the Avro-Record.
+        // -- Obtaining the nullable type for record formation
         String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArray();
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema).set("array_field_union", null).build();
-
+        // -- Obtaining the non-nullable type for descriptor
         String nonNullFieldString =
                 "\"fields\": [\n"
                         + "   {\"name\": \"array_field_union\", \"type\": {\"type\": \"array\","
@@ -1238,19 +1517,34 @@ public class AvroToProtoSerializerTest {
         Schema nonNullSchema = getAvroSchemaFromFieldString(nonNullFieldString);
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 new BigQuerySchemaProviderImpl(nonNullSchema);
+
+        // Form the Dynamic Message via the serializer.
         BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         ByteString byteString = serializer.serialize(record);
+
+        // Check for the desired results.
         assertEquals("", byteString.toStringUtf8());
     }
 
+    /**
+     * Test to check <code>serialize()</code> for UNION having ARRAY of Type RECORD. <br>
+     * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
+     * type RECORD. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * Byte String is expected to be empty (as Storage API will automatically cast it as <code>[]
+     * </code>)
+     */
     @Test
-    public void testUnionOfArrayOfRecordConversion() throws BigQuerySerializationException {
+    public void testUnionOfArrayOfRecordConversionToDynamicMessageCorrectly()
+            throws BigQuerySerializationException {
+        // Obtaining the Schema Provider and the Avro-Record.
+        // -- Obtaining the nullable type for record formation
         String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArrayOfRecord();
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRecord record =
                 new GenericRecordBuilder(avroSchema).set("array_of_records_union", null).build();
-
+        // -- Obtaining the non-nullable type for descriptor
         String nonNullFieldString =
                 "\"fields\": [\n"
                         + "   {\"name\": \"array_of_records_union\", \"type\": "
@@ -1262,57 +1556,94 @@ public class AvroToProtoSerializerTest {
         Schema nonNullSchema = getAvroSchemaFromFieldString(nonNullFieldString);
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 new BigQuerySchemaProviderImpl(nonNullSchema);
+
+        // Form the Dynamic Message via the serializer.
         BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
         ByteString byteString = serializer.serialize(record);
+
+        // Check for the desired results.
         assertEquals("", byteString.toStringUtf8());
     }
 
+    /**
+     * Test to check <code>serialize()</code> for a REQUIRED RECORD. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * This record is attempted to be serialized for a REQUIRED field, and is expected to throw an
+     * error.
+     */
     @Test
-    public void testNullInsertionInRequiredField() {
+    public void testNullableRecordToByteStringIncorrectly() {
+        // Obtaining the Schema Provider and the Avro-Record.
         String recordSchemaString =
                 "\"fields\":[{\"name\": \"record_field_union\", \"type\":"
                         + getRecordSchema("inner_record")
                         + " }]";
         Schema recordSchema = getAvroSchemaFromFieldString(recordSchemaString);
-        // For descriptor with RECORD of MODE Required.
+        // -- Obtain the schema provider for descriptor with RECORD of MODE Required.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 new BigQuerySchemaProviderImpl(recordSchema);
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
-
+        // -- Obtain the nullable type for descriptor
         Schema nullableRecordSchema =
                 TestBigQuerySchemas.getSchemaWithUnionOfRecord().getAvroSchema();
-        // Form a Null record.
+        // -- Form a Null record.
         GenericRecord record =
                 new GenericRecordBuilder(nullableRecordSchema)
                         .set("record_field_union", null)
                         .build();
-        // Try to serialize.
+
+        // Try to serialize, Form the Dynamic Message via the serializer.
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
         BigQuerySerializationException exception =
                 assertThrows(
                         BigQuerySerializationException.class, () -> serializer.serialize(record));
+
+        // Check for the desired results.
         Assertions.assertThat(exception)
                 .hasMessageContaining(
                         "Received null value for non-nullable field record_field_union");
     }
 
+    /**
+     * Test to check <code>serialize()</code> for a NULLABLE RECORD. <br>
+     * A record is created with <code>null</code> value for this field. <br>
+     * This record is attempted to be serialized for a NULLABLE field, and an empty byte string is
+     * expected.
+     */
     @Test
-    public void testUnionOfRecordConversion() throws BigQuerySerializationException {
+    public void testUnionOfNullRecordConversionToByteStringCorrectly()
+            throws BigQuerySerializationException {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithUnionOfRecord();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        // -- Record Is Null
+        GenericRecord nullRecord =
+                new GenericRecordBuilder(avroSchema).set("record_field_union", null).build();
+
+        // Try to serialize, Form the Dynamic Message via the serializer.
         BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         serializer.init(bigQuerySchemaProvider);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-        // Record Is Null
-        GenericRecord record =
-                new GenericRecordBuilder(avroSchema).set("record_field_union", null).build();
-        ByteString byteString = serializer.serialize(record);
-        assertEquals("", byteString.toStringUtf8());
+        ByteString byteString = serializer.serialize(nullRecord);
 
-        // Record is not null
-        record =
+        // Check for the desired results.
+        assertEquals("", byteString.toStringUtf8());
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for a UNION of a RECORD. <br>
+     * This record is serialized for a NULLABLE field.
+     */
+    @Test
+    public void testUnionOfRecordConversion() {
+        // Obtaining the Schema Provider and the Avro-Record.
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithUnionOfRecord();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        // -- Record is not null
+        GenericRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set(
                                 "record_field_union",
@@ -1326,10 +1657,14 @@ public class AvroToProtoSerializerTest {
                                         .set("another_value", "hello")
                                         .build())
                         .build();
+
+        // Try to serialize, Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
-        // obtain "inner_record"
+
+        // Check for the desired results.
+        // -- Obtain "inner_record"
         message = (DynamicMessage) message.getField(descriptor.findFieldByNumber(1));
-        // update the descriptor to point to the "inner_record" now.
+        // -- Update the descriptor to point to the "inner_record" now.
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
@@ -1337,15 +1672,26 @@ public class AvroToProtoSerializerTest {
         assertEquals("hello", message.getField(descriptor.findFieldByNumber(2)));
     }
 
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different fields having
+     * UNION of a single primitive type. The record is created with the following datatypes.
+     *
+     * <ol>
+     *   <li>number - UNION of type LONG (["long"])
+     *   <li>price - UNION of type DOUBLE (["double"])
+     *   <li>species - UNION of type STRING (["string"])
+     *   <li>flighted - UNION of type BOOLEAN (["boolean"])
+     *   <li>sound - UNION of type BYTES (["bytes"])
+     *   <li>required_record_field - UNION of type RECORD (["record"])
+     * </ol>
+     */
     @Test
-    public void testUnionOfSinglePrimitiveType() {
+    public void testUnionOfSinglePrimitiveTypeConversion() {
+        // Obtaining the Schema Provider and the Avro-Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithAllPrimitiveSingleUnion();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
-        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
-        serializer.init(bigQuerySchemaProvider);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-
         byte[] byteArray = "Any String you want".getBytes();
         String recordSchemaString =
                 "{\"type\":\"record\",\"name\":\"required_record_field\","
@@ -1365,14 +1711,17 @@ public class AvroToProtoSerializerTest {
                                         .set("species", "hello")
                                         .build())
                         .build();
+
+        // Try to serialize, Form the Dynamic Message.
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        // Check for the desired results.
         assertEquals(-7099548873856657385L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(0.5616495161359795, message.getField(descriptor.findFieldByNumber(2)));
         assertEquals("String", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(true, message.getField(descriptor.findFieldByNumber(4)));
         assertEquals(
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(5)));
-
         FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(6);
         message = (DynamicMessage) message.getField(fieldDescriptor);
         assertEquals(
@@ -1381,5 +1730,38 @@ public class AvroToProtoSerializerTest {
                         descriptor
                                 .findNestedTypeByName(fieldDescriptor.toProto().getTypeName())
                                 .findFieldByNumber(1)));
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for NULL type field. Since NULL type is not supported
+     * in BigQuery, when a record having type NULL is serialized, error is expected.
+     */
+    @Test
+    public void testNullTypeConversion() {
+        // Obtaining the Schema Provider and the Avro-Record.
+        // -- Obtain the not null schema for descriptor
+        String notNullSchemaFieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"null_type_field\", \"type\": \"int\"}\n"
+                        + " ]\n";
+        Schema notNullSchema = getAvroSchemaFromFieldString(notNullSchemaFieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(notNullSchema);
+        // -- Obtain nullable schema for record formation.
+        String fieldString = TestBigQuerySchemas.getSchemaWithNullType();
+        Schema nullSchema = getAvroSchemaFromFieldString(fieldString);
+        GenericRecord record =
+                new GenericRecordBuilder(nullSchema).set("null_type_field", 1234).build();
+
+        // Try to serialize, Form the Dynamic Message via the Serializer.
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class, () -> serializer.serialize(record));
+
+        // Check for the desired results.
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Null Type Field not supported in BigQuery!");
     }
 }
