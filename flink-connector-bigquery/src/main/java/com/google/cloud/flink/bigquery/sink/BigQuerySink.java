@@ -23,7 +23,16 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Class wrapping BigQuery sinks with appropriate configurations. */
+/**
+ * Class wrapping BigQuery sinks with appropriate configurations.
+ *
+ * <p>With {@link DeliveryGuarantee#NONE} or {@link DeliveryGuarantee#AT_LEAST_ONCE}, the Sink added
+ * to Flink job will be {@link BigQueryDefaultSink}. Eventual data consistency at destination is
+ * also dependent on checkpointing mode.
+ * <li>With checkpointing disabled, any BigQuery Sink will offer at-most-once consistency.
+ * <li>With {@link CheckpointingMode#AT_LEAST_ONCE} or {@link CheckpointingMode#EXACTLY_ONCE}, the
+ *     {@link BigQueryDefaultSink} will offer at-least-once consistency.
+ */
 public class BigQuerySink {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);

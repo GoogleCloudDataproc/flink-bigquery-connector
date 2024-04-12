@@ -27,7 +27,7 @@ import com.google.cloud.flink.bigquery.sink.writer.BigQueryDefaultWriter;
  * consistency guarantee.
  * <li>{@link CheckpointingMode#EXACTLY_ONCE}: at-least-once write consistency.
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
- * <li>{@link CheckpointingMode#NONE}: at-most-once write consistency.
+ * <li>Checkpointing disabled: at-most-once write consistency.
  */
 class BigQueryDefaultSink extends BigQueryBaseSink {
 
