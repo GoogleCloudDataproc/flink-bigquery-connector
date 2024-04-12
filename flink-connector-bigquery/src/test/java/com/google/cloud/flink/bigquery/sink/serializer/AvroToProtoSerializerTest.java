@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer.AvroSchemaHandler;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -53,7 +54,7 @@ public class AvroToProtoSerializerTest {
     @Test
     public void testConvertJson() {
         Object value = "{\"name\": \"test_value\", \"value\": \"value\"}";
-        assertEquals(value.toString(), AvroToProtoSerializer.convertJson(value));
+        assertEquals(value.toString(), AvroSchemaHandler.convertJson(value));
     }
 
     @Test
@@ -61,15 +62,14 @@ public class AvroToProtoSerializerTest {
         Object value = "invalid_json_string";
         IllegalArgumentException exception =
                 assertThrows(
-                        IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertJson(value));
+                        IllegalArgumentException.class, () -> AvroSchemaHandler.convertJson(value));
         Assertions.assertThat(exception).hasMessageContaining(" is not in valid JSON Format.");
 
         Object invalidType = 123456;
         exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertJson(invalidType));
+                        () -> AvroSchemaHandler.convertJson(invalidType));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Expecting a value as String/Utf8 type (json format)");
     }
@@ -77,7 +77,7 @@ public class AvroToProtoSerializerTest {
     @Test
     public void testConvertGeography() {
         Object value = "POINT(-121 41)";
-        assertEquals(value.toString(), AvroToProtoSerializer.convertGeography(value));
+        assertEquals(value.toString(), AvroSchemaHandler.convertGeography(value));
     }
 
     @Test
@@ -86,7 +86,7 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertGeography(value));
+                        () -> AvroSchemaHandler.convertGeography(value));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
                         "Expecting a value as String/Utf8 type (geography_wkt or geojson format).");
@@ -95,13 +95,13 @@ public class AvroToProtoSerializerTest {
     @Test
     public void testConvertUUID() {
         Object value = UUID.randomUUID();
-        assertEquals(value.toString(), AvroToProtoSerializer.convertUUID(value));
+        assertEquals(value.toString(), AvroSchemaHandler.convertUUID(value));
     }
 
     @Test
     public void testConvertUUIDString() {
         Object value = UUID.randomUUID().toString();
-        assertEquals(value.toString(), AvroToProtoSerializer.convertUUID(value));
+        assertEquals(value.toString(), AvroSchemaHandler.convertUUID(value));
     }
 
     @Test
@@ -109,15 +109,14 @@ public class AvroToProtoSerializerTest {
         Object value = 5678;
         IllegalArgumentException exception =
                 assertThrows(
-                        IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertUUID(value));
+                        IllegalArgumentException.class, () -> AvroSchemaHandler.convertUUID(value));
         Assertions.assertThat(exception).hasMessageContaining("Expecting a value as String type.");
 
         Object invalidUuidValue = "This is not a valid UUID String";
         exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertUUID(invalidUuidValue));
+                        () -> AvroSchemaHandler.convertUUID(invalidUuidValue));
         Assertions.assertThat(exception).hasMessageContaining("Invalid UUID string: ");
     }
 
@@ -145,7 +144,7 @@ public class AvroToProtoSerializerTest {
         Object value = "A random string";
         assertThrows(
                 IllegalArgumentException.class,
-                () -> AvroToProtoSerializer.convertBigDecimal(value, bigNumericSchema));
+                () -> AvroSchemaHandler.convertBigDecimal(value, bigNumericSchema));
 
         BigDecimal bigDecimal =
                 new BigDecimal(
@@ -155,9 +154,7 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () ->
-                                AvroToProtoSerializer.convertBigDecimal(
-                                        byteBuffer, bigNumericSchema));
+                        () -> AvroSchemaHandler.convertBigDecimal(byteBuffer, bigNumericSchema));
         Assertions.assertThat(exception).hasMessageContaining("ByteString overflow:");
     }
 
@@ -183,7 +180,7 @@ public class AvroToProtoSerializerTest {
         Object value = "A random string";
         assertThrows(
                 IllegalArgumentException.class,
-                () -> AvroToProtoSerializer.convertBigDecimal(value, numericSchema));
+                () -> AvroSchemaHandler.convertBigDecimal(value, numericSchema));
 
         BigDecimal bigDecimal = new BigDecimal("57896349923328446186583439539266.349923328");
         // Form byte array in big-endian order.
@@ -191,26 +188,26 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertBigDecimal(byteBuffer, numericSchema));
+                        () -> AvroSchemaHandler.convertBigDecimal(byteBuffer, numericSchema));
         Assertions.assertThat(exception).hasMessageContaining("ByteString overflow:");
     }
 
     @Test
     public void testConvertTimeStringType() {
         Object value = "00:22:59.700440";
-        assertEquals(value.toString(), AvroToProtoSerializer.convertTime(value, true));
+        assertEquals(value.toString(), AvroSchemaHandler.convertTime(value, true));
     }
 
     @Test
     public void testConvertTimeLongType() {
         Object value = 36708529123L;
-        assertEquals("10:11:48.529123", AvroToProtoSerializer.convertTime(value, true));
+        assertEquals("10:11:48.529123", AvroSchemaHandler.convertTime(value, true));
     }
 
     @Test
     public void testConvertTimeLongMillisType() {
         Object value = 36708529;
-        assertEquals("10:11:48.529", AvroToProtoSerializer.convertTime(value, false));
+        assertEquals("10:11:48.529", AvroSchemaHandler.convertTime(value, false));
     }
 
     @Test
@@ -219,7 +216,7 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertTime(invalidValueLong, true));
+                        () -> AvroSchemaHandler.convertTime(invalidValueLong, true));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Time passed should be between 00:00 and 23:59:59.999999");
 
@@ -227,7 +224,7 @@ public class AvroToProtoSerializerTest {
         exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertTime(invalidValueInt, false));
+                        () -> AvroSchemaHandler.convertTime(invalidValueInt, false));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Time passed should be between 00:00 and 23:59:59.999999");
     }
@@ -239,7 +236,7 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertTime(invalidValueInt, true));
+                        () -> AvroSchemaHandler.convertTime(invalidValueInt, true));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Expecting a value as LONG type for Time(micros)");
 
@@ -247,7 +244,7 @@ public class AvroToProtoSerializerTest {
         exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertTime(invalidValueLong, false));
+                        () -> AvroSchemaHandler.convertTime(invalidValueLong, false));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Expecting a value as INTEGER type for Time(millis)");
 
@@ -255,7 +252,7 @@ public class AvroToProtoSerializerTest {
         exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertTime(floatValue, true));
+                        () -> AvroSchemaHandler.convertTime(floatValue, true));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Expecting a value as LONG type for Time(micros)");
     }
@@ -264,29 +261,27 @@ public class AvroToProtoSerializerTest {
     public void testConvertTimestampMillis() {
         Object value = 1710270870L;
         assertThat(1710270870000L)
-                .isEqualTo(
-                        AvroToProtoSerializer.convertTimestamp(value, false, "Timestamp (millis)"));
+                .isEqualTo(AvroSchemaHandler.convertTimestamp(value, false, "Timestamp (millis)"));
     }
 
     @Test
     public void testConvertTimestampMillisTimeInstant() {
         Object value = Instant.ofEpochMilli(1710270870123L);
         assertThat(1710270870123000L)
-                .isEqualTo(
-                        AvroToProtoSerializer.convertTimestamp(value, false, "Timestamp (millis)"));
+                .isEqualTo(AvroSchemaHandler.convertTimestamp(value, false, "Timestamp (millis)"));
     }
 
     @Test
     public void testConvertTimestampMicrosTimeInstant() {
         Object value = Instant.parse("2024-03-13T01:01:16.579501+00:00");
-        assertThat(AvroToProtoSerializer.convertTimestamp(value, true, "Timestamp (micros)"))
+        assertThat(AvroSchemaHandler.convertTimestamp(value, true, "Timestamp (micros)"))
                 .isEqualTo(1710291676579000L);
     }
 
     @Test
     public void testConvertTimestampMicros() {
         Object value = 1710270870123L;
-        assertThat(AvroToProtoSerializer.convertTimestamp(value, true, "Timestamp (micros)"))
+        assertThat(AvroSchemaHandler.convertTimestamp(value, true, "Timestamp (micros)"))
                 .isEqualTo(1710270870123L);
     }
 
@@ -297,7 +292,7 @@ public class AvroToProtoSerializerTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
-                                AvroToProtoSerializer.convertTimestamp(
+                                AvroSchemaHandler.convertTimestamp(
                                         invalidValue, true, "Timestamp (micros)"));
         Assertions.assertThat(exception).hasMessageContaining("Expecting a value as Long type");
 
@@ -307,7 +302,7 @@ public class AvroToProtoSerializerTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
-                                AvroToProtoSerializer.convertTimestamp(
+                                AvroSchemaHandler.convertTimestamp(
                                         invalidLongValue, true, "Timestamp (micros)"));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
@@ -321,7 +316,7 @@ public class AvroToProtoSerializerTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
-                                AvroToProtoSerializer.convertTimestamp(
+                                AvroSchemaHandler.convertTimestamp(
                                         anotherInvalidLongValue, true, "Timestamp (micros)"));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
@@ -333,13 +328,13 @@ public class AvroToProtoSerializerTest {
     @Test
     public void testConvertDateInstant() {
         Object value = Instant.parse("2024-03-13T00:00:00.000000+00:00");
-        assertThat(19795).isEqualTo(AvroToProtoSerializer.convertDate(value));
+        assertThat(19795).isEqualTo(AvroSchemaHandler.convertDate(value));
     }
 
     @Test
     public void testConvertDate() {
         Object value = 19794;
-        assertThat(19794).isEqualTo(AvroToProtoSerializer.convertDate(value));
+        assertThat(19794).isEqualTo(AvroSchemaHandler.convertDate(value));
     }
 
     @Test
@@ -348,27 +343,26 @@ public class AvroToProtoSerializerTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroToProtoSerializer.convertDate(invalidValue));
+                        () -> AvroSchemaHandler.convertDate(invalidValue));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
                         "Should be a Integer value indicating days since Epoch (1970-01-01 00:00:00)");
 
         Object floatValue = 1234.56;
         assertThrows(
-                IllegalArgumentException.class,
-                () -> AvroToProtoSerializer.convertDate(floatValue));
+                IllegalArgumentException.class, () -> AvroSchemaHandler.convertDate(floatValue));
     }
 
     @Test
     public void testConvertDateTimeStringType() {
         Object value = "2024-01-01 00:22:59.700440";
-        assertEquals(value.toString(), AvroToProtoSerializer.convertDateTime(value, true));
+        assertEquals(value.toString(), AvroSchemaHandler.convertDateTime(value, true));
     }
 
     @Test
     public void testConvertDateTimeLongType() {
         Object value = 1710290574347000L;
-        assertEquals("2024-03-13T00:42:54.347", AvroToProtoSerializer.convertDateTime(value, true));
+        assertEquals("2024-03-13T00:42:54.347", AvroSchemaHandler.convertDateTime(value, true));
     }
 
     @Test
@@ -376,11 +370,11 @@ public class AvroToProtoSerializerTest {
         Object value = 1424413213878251952L;
         assertThrows(
                 IllegalArgumentException.class,
-                () -> AvroToProtoSerializer.convertDateTime(value, true));
+                () -> AvroSchemaHandler.convertDateTime(value, true));
         Object floatValue = 1234.56;
         assertThrows(
                 IllegalArgumentException.class,
-                () -> AvroToProtoSerializer.convertDateTime(floatValue, true));
+                () -> AvroSchemaHandler.convertDateTime(floatValue, true));
     }
     // --------------------------------------------------------------------------------------------------
 

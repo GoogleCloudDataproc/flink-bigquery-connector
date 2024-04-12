@@ -38,7 +38,6 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import javax.annotation.Nullable;
 
-import java.io.Serializable;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +48,7 @@ import java.util.Optional;
  * A class that inherits {@link BigQuerySchemaProvider} deriving {@link Schema} from {@link
  * TableSchema} sourced from {@link BigQueryConnectOptions}.
  */
-public class BigQuerySchemaProviderImpl implements Serializable, BigQuerySchemaProvider {
+public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
 
     private final Schema avroSchema;
     private final DescriptorProto descriptorProto;

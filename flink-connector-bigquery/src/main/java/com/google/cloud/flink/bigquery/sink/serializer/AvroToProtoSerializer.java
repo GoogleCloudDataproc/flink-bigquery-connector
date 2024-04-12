@@ -31,8 +31,8 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.avro.util.Utf8;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.joda.time.Days;
 import org.joda.time.Instant;
 import org.joda.time.ReadableInstant;
@@ -300,7 +300,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
             if (logicalTypeString != null) {
                 // 1. In case, the Schema has a Logical Type.
-                @Nullable UnaryOperator<Object> encoder = getLogicalEncoder(logicalTypeString);
+                @Nullable
+                UnaryOperator<Object> encoder = getLogicalEncoder(fieldSchema, logicalTypeString);
                 // 2. Check if this is supported, Return the value
                 if (encoder != null) {
                     return encoder.apply(value);
@@ -311,8 +312,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         }
 
         /**
-         * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to Dynamic
-         * Message.
+         * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to
+         * Dynamic Message.
          *
          * @param logicalTypeString String containing the name for Logical Schema Type.
          * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
@@ -320,17 +321,17 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         private static UnaryOperator<Object> getLogicalEncoder(
                 Schema fieldSchema, String logicalTypeString) {
             Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
-            mapping.put(LogicalTypes.date().getName(), AvroToProtoSerializer::convertDate);
+            mapping.put(LogicalTypes.date().getName(), AvroSchemaHandler::convertDate);
             mapping.put(
                     LogicalTypes.decimal(1).getName(),
-                    value -> AvroToProtoSerializer.convertBigDecimal(value, fieldSchema));
+                    value -> AvroSchemaHandler.convertBigDecimal(value, fieldSchema));
             mapping.put(
                     LogicalTypes.timestampMicros().getName(),
                     value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
             mapping.put(
                     LogicalTypes.timestampMillis().getName(),
                     value -> convertTimestamp(value, false, "Timestamp(micros/millis)"));
-            mapping.put(LogicalTypes.uuid().getName(), AvroToProtoSerializer::convertUUID);
+            mapping.put(LogicalTypes.uuid().getName(), AvroSchemaHandler::convertUUID);
             mapping.put(LogicalTypes.timeMillis().getName(), value -> convertTime(value, false));
             mapping.put(LogicalTypes.timeMicros().getName(), value -> convertTime(value, true));
             mapping.put(
@@ -339,253 +340,257 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             mapping.put(
                     LogicalTypes.localTimestampMicros().getName(),
                     value -> convertDateTime(value, true));
-            mapping.put("geography_wkt", AvroToProtoSerializer::convertGeography);
-            mapping.put("Json", AvroToProtoSerializer::convertJson);
+            mapping.put("geography_wkt", AvroSchemaHandler::convertGeography);
+            mapping.put("Json", AvroSchemaHandler::convertJson);
             return mapping.get(logicalTypeString);
         }
 
-    // ---- Utilities to enable Conversions for Logical Types ------------
-    @VisibleForTesting
-    static String convertUUID(Object value) {
-        if (value instanceof UUID) {
-            return ((UUID) value).toString();
-        } else {
-            Preconditions.checkArgument(
-                    value instanceof String, "Expecting a value as String type.");
-            UUID.fromString((String) value);
-            return (String) value;
+        // ---- Utilities to enable Conversions for Logical Types ------------
+        @VisibleForTesting
+        static String convertUUID(Object value) {
+            if (value instanceof UUID) {
+                return ((UUID) value).toString();
+            } else {
+                Preconditions.checkArgument(
+                        value instanceof String, "Expecting a value as String type.");
+                UUID.fromString((String) value);
+                return (String) value;
+            }
         }
-    }
 
-    private static long validateTimestamp(long timestamp) {
-        Timestamp minTs = Timestamp.parseTimestamp("0001-01-01T00:00:00.000000+00:00");
-        Timestamp maxTs = Timestamp.parseTimestamp("9999-12-31T23:59:59.999999+00:00");
-        try {
-            // Validate timestamp from microseconds since EPOCH.
-            Timestamp.ofTimeMicroseconds(timestamp);
-            return timestamp;
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Invalid Timestamp '%s' Provided."
-                                    + "\nShould be a long value indicating microseconds since Epoch (1970-01-01 00:00:00.000000+00:00) "
-                                    + "between %s and %s",
-                            timestamp, minTs, maxTs));
+        private static long validateTimestamp(long timestamp) {
+            Timestamp minTs = Timestamp.parseTimestamp("0001-01-01T00:00:00.000000+00:00");
+            Timestamp maxTs = Timestamp.parseTimestamp("9999-12-31T23:59:59.999999+00:00");
+            try {
+                // Validate timestamp from microseconds since EPOCH.
+                Timestamp.ofTimeMicroseconds(timestamp);
+                return timestamp;
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Invalid Timestamp '%s' Provided."
+                                        + "\nShould be a long value indicating microseconds since Epoch (1970-01-01 00:00:00.000000+00:00) "
+                                        + "between %s and %s",
+                                timestamp, minTs, maxTs));
+            }
         }
-    }
 
-    // BigQuery inputs timestamp as microseconds since EPOCH,
-    // So if we have TIMESTAMP in micros - we convert as it is.
-    // If the TIMESTAMP is in millis - we convert to Micros and then add.
-    @VisibleForTesting
-    static Long convertTimestamp(Object value, boolean micros, String type) {
-        long timestamp;
-        if (value instanceof ReadableInstant) {
-            timestamp = TimeUnit.MILLISECONDS.toMicros(((ReadableInstant) value).getMillis());
-        } else {
+        // BigQuery inputs timestamp as microseconds since EPOCH,
+        // So if we have TIMESTAMP in micros - we convert as it is.
+        // If the TIMESTAMP is in millis - we convert to Micros and then add.
+        @VisibleForTesting
+        static Long convertTimestamp(Object value, boolean micros, String type) {
+            long timestamp;
+            if (value instanceof ReadableInstant) {
+                timestamp = TimeUnit.MILLISECONDS.toMicros(((ReadableInstant) value).getMillis());
+            } else {
+                Preconditions.checkArgument(
+                        value instanceof Long,
+                        String.format(
+                                "Expecting a value as Long type %s. Instead %s was obtained",
+                                type, value.getClass()));
+                timestamp = (micros ? (Long) value : TimeUnit.MILLISECONDS.toMicros((Long) value));
+            }
+            return validateTimestamp(timestamp);
+        }
+
+        private static Integer validateDate(Integer date) {
+            if (date > 2932896 || date < -719162) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Invalid Date '%s' Provided."
+                                        + "\nShould be a Integer value indicating days since Epoch (1970-01-01 00:00:00) "
+                                        + "between %s and %s",
+                                LocalDate.ofEpochDay(date), "0001-01-01", "9999-12-31"));
+            }
+            return date;
+        }
+
+        @VisibleForTesting
+        static Integer convertDate(Object value) {
+            // The value is the number of days since the Unix epoch (1970-01-01).
+            // The valid range is `-719162` (0001-01-01) to `2932896` (9999-12-31).
+            int date;
+            if (value instanceof ReadableInstant) {
+                date = Days.daysBetween(Instant.EPOCH, (ReadableInstant) value).getDays();
+            } else {
+                Preconditions.checkArgument(
+                        value instanceof Integer, "Expecting a value as Integer type (days).");
+                date = (Integer) value;
+            }
+            return validateDate(date);
+        }
+
+        @VisibleForTesting
+        static String convertDateTime(Object value, boolean micros) {
+            if (value instanceof String) {
+                return (String) value;
+            }
+            if (value instanceof Utf8) {
+                return ((Utf8) value).toString();
+            }
             Preconditions.checkArgument(
                     value instanceof Long,
                     String.format(
-                            "Expecting a value as Long type %s. Instead %s was obtained",
-                            type, value.getClass()));
-            timestamp = (micros ? (Long) value : TimeUnit.MILLISECONDS.toMicros((Long) value));
+                            "Expecting a value as Long type " + "%s.%n Instead %s was obtained",
+                            "Local-Timestamp(micros/millis)", value.getClass()));
+            // Convert to Microseconds if provided in millisecond precision.
+            /* We follow the same steps as that of Timestamp conversion
+            because essentially we have a timestamp - we just need to strip the timezone before insertion.
+             */
+            Long convertedTs = convertTimestamp(value, micros, "Local Timestamp(millis/micros)");
+            Timestamp convertedTimestamp = Timestamp.ofTimeMicroseconds(convertedTs);
+            return LocalDateTime.ofEpochSecond(
+                            convertedTimestamp.getSeconds(),
+                            convertedTimestamp.getNanos(),
+                            ZoneOffset.UTC)
+                    .toString();
         }
-        return validateTimestamp(timestamp);
-    }
 
-    private static Integer validateDate(Integer date) {
-        if (date > 2932896 || date < -719162) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Invalid Date '%s' Provided."
-                                    + "\nShould be a Integer value indicating days since Epoch (1970-01-01 00:00:00) "
-                                    + "between %s and %s",
-                            LocalDate.ofEpochDay(date), "0001-01-01", "9999-12-31"));
+        private static void validateTime(long value) {
+            LocalTime minTime = LocalTime.parse("00:00:00");
+            LocalTime maxTime = LocalTime.parse("23:59:59.999999");
+            long minTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, minTime);
+            long maxTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, maxTime);
+            if (value < minTimeMicros || value > maxTimeMicros) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Time passed should be between %s and %s.", minTime, maxTime));
+            }
         }
-        return date;
-    }
 
-    @VisibleForTesting
-    static Integer convertDate(Object value) {
-        // The value is the number of days since the Unix epoch (1970-01-01).
-        // The valid range is `-719162` (0001-01-01) to `2932896` (9999-12-31).
-        int date;
-        if (value instanceof ReadableInstant) {
-            date = Days.daysBetween(Instant.EPOCH, (ReadableInstant) value).getDays();
-        } else {
-            Preconditions.checkArgument(
-                    value instanceof Integer, "Expecting a value as Integer type (days).");
-            date = (Integer) value;
+        @VisibleForTesting
+        static String convertTime(Object value, boolean micros) {
+            if (value instanceof String) {
+                return (String) value;
+            }
+            Long microSecondsSinceMidnight = null;
+            /* Check if time-millis is in int and time-micros are provided in long*/
+            if (micros) {
+                if (value instanceof Long) {
+                    microSecondsSinceMidnight = (long) value;
+                } else {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Expecting a value as LONG type for "
+                                            + "%s. Instead %s was obtained",
+                                    "Time(micros)", value.getClass()));
+                }
+            } else {
+                if (value instanceof Integer) {
+                    microSecondsSinceMidnight = TimeUnit.MILLISECONDS.toMicros((int) value);
+                } else {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Expecting a value as INTEGER type for "
+                                            + "%s. Instead %s was obtained",
+                                    "Time(millis)", value.getClass()));
+                }
+            }
+            // Either microSecondsSinceMidnight would be set or error would be thrown.
+            validateTime(microSecondsSinceMidnight);
+            LocalTime time =
+                    LocalTime.MIDNIGHT.plusNanos(
+                            TimeUnit.MICROSECONDS.toNanos(microSecondsSinceMidnight));
+            return time.toString();
         }
-        return validateDate(date);
-    }
 
-    @VisibleForTesting
-    static String convertDateTime(Object value, boolean micros) {
-        if (value instanceof String) {
-            return (String) value;
-        }
-        if (value instanceof Utf8) {
-            return ((Utf8) value).toString();
-        }
-        Preconditions.checkArgument(
-                value instanceof Long,
-                String.format(
-                        "Expecting a value as Long type " + "%s.%n Instead %s was obtained",
-                        "Local-Timestamp(micros/millis)", value.getClass()));
-        // Convert to Microseconds if provided in millisecond precision.
-        /* We follow the same steps as that of Timestamp conversion
-        because essentially we have a timestamp - we just need to strip the timezone before insertion.
+        /**
+         * Function to convert ByteBuffer value to ByteString for Bignumeric Field.
+         *
+         * <ol>
+         *   <li>If scale and precision is set in the BQ Table
+         *       <ul>
+         *         <li>Precision > BQ table and Scale > BQ Table - ERROR while inserting to Storage
+         *             Write API
+         *         <li>Precision > BQ table and Scale <= BQ Table - ERROR while inserting to Storage
+         *             Write API
+         *         <li>Precision <= BQ table and Scale > BQ Table - ROUND OFF
+         *             <ul>
+         *               <li>Example: 1.234567(Precision 7, Scale = 6) value is converted to 1.23457
+         *                   for a table of type BIGNUMERIC(9, 5)
+         *             </ul>
+         *         <li>Precision <= BQ table and Scale <= BQ Table - AS IT IS
+         *       </ul>
+         *   <li>If No scale is set in the BQ Table
+         *       <ul>
+         *         <li>The value is inserted as it is (should be within the limits of BIG NUMERIC
+         *             Field of a BigQuery Table)
+         *       </ul>
+         * </ol>
+         *
+         * @param value {@link ByteBuffer} object containing the 2's-complement binary
+         *     representation of a BigInteger (in big-endian byte order).
+         * @param fieldSchema {@link Schema} object of the value to be converted.
+         * @return {@link ByteString} object of the converted BigDecimal
          */
-        Long convertedTs = convertTimestamp(value, micros, "Local Timestamp(millis/micros)");
-        Timestamp convertedTimestamp = Timestamp.ofTimeMicroseconds(convertedTs);
-        return LocalDateTime.ofEpochSecond(
-                        convertedTimestamp.getSeconds(),
-                        convertedTimestamp.getNanos(),
-                        ZoneOffset.UTC)
-                .toString();
-    }
+        @VisibleForTesting
+        static ByteString convertBigDecimal(Object value, Schema fieldSchema) {
+            // Check if a ByteBuffer instance is passed.
+            Preconditions.checkArgument(
+                    value instanceof ByteBuffer,
+                    String.format("Expecting a ByteBuffer, found %s instead.", value.getClass()));
+            byte[] byteArray = ((ByteBuffer) value).array(); // This is in big-endian format.
 
-    private static void validateTime(long value) {
-        LocalTime minTime = LocalTime.parse("00:00:00");
-        LocalTime maxTime = LocalTime.parse("23:59:59.999999");
-        long minTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, minTime);
-        long maxTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, maxTime);
-        if (value < minTimeMicros || value > maxTimeMicros) {
-            throw new IllegalArgumentException(
-                    String.format("Time passed should be between %s and %s.", minTime, maxTime));
-        }
-    }
+            // Extract the scale from the Record Schema.
+            Preconditions.checkNotNull(fieldSchema.getLogicalType(), "Invalid decimal type passed");
+            LogicalTypes.Decimal decimalFieldSchema =
+                    (LogicalTypes.Decimal) fieldSchema.getLogicalType();
+            int scale = decimalFieldSchema.getScale();
 
-    @VisibleForTesting
-    static String convertTime(Object value, boolean micros) {
-        if (value instanceof String) {
-            return (String) value;
-        }
-        Long microSecondsSinceMidnight = null;
-        /* Check if time-millis is in int and time-micros are provided in long*/
-        if (micros) {
-            if (value instanceof Long) {
-                microSecondsSinceMidnight = (long) value;
-            } else {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Expecting a value as LONG type for "
-                                        + "%s. Instead %s was obtained",
-                                "Time(micros)", value.getClass()));
-            }
-        } else {
-            if (value instanceof Integer) {
-                microSecondsSinceMidnight = TimeUnit.MILLISECONDS.toMicros((int) value);
-            } else {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Expecting a value as INTEGER type for "
-                                        + "%s. Instead %s was obtained",
-                                "Time(millis)", value.getClass()));
+            BigInteger scaledValue = new BigInteger(byteArray); // requires big-endian.
+            BigDecimal decimalValue = new BigDecimal(scaledValue, scale);
+
+            try {
+                if (fieldSchema.getObjectProp("isNumeric") != null
+                        && (boolean) fieldSchema.getObjectProp("isNumeric")) {
+                    // Pass the BigDecimal Object to be converted to ByteString (with Numeric
+                    // Scale).
+                    return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
+                }
+                // Pass the BigDecimal Object to be converted to ByteString (with Bignumeric scale).
+                return BigDecimalByteStringEncoder.encodeToBigNumericByteString(decimalValue);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(e);
             }
         }
-        // Either microSecondsSinceMidnight would be set or error would be thrown.
-        validateTime(microSecondsSinceMidnight);
-        LocalTime time =
-                LocalTime.MIDNIGHT.plusNanos(
-                        TimeUnit.MICROSECONDS.toNanos(microSecondsSinceMidnight));
-        return time.toString();
-    }
 
-    /**
-     * Function to convert ByteBuffer value to ByteString for Bignumeric Field.
-     *
-     * <ol>
-     *   <li>If scale and precision is set in the BQ Table
-     *       <ul>
-     *         <li>Precision > BQ table and Scale > BQ Table - ERROR while inserting to Storage
-     *             Write API
-     *         <li>Precision > BQ table and Scale <= BQ Table - ERROR while inserting to Storage
-     *             Write API
-     *         <li>Precision <= BQ table and Scale > BQ Table - ROUND OFF
-     *             <ul>
-     *               <li>Example: 1.234567(Precision 7, Scale = 6) value is converted to 1.23457 for
-     *                   a table of type BIGNUMERIC(9, 5)
-     *             </ul>
-     *         <li>Precision <= BQ table and Scale <= BQ Table - AS IT IS
-     *       </ul>
-     *   <li>If No scale is set in the BQ Table
-     *       <ul>
-     *         <li>The value is inserted as it is (should be within the limits of BIG NUMERIC Field
-     *             of a BigQuery Table)
-     *       </ul>
-     * </ol>
-     *
-     * @param value {@link ByteBuffer} object containing the 2's-complement binary representation of
-     *     a BigInteger (in big-endian byte order).
-     * @param fieldSchema {@link Schema} object of the value to be converted.
-     * @return {@link ByteString} object of the converted BigDecimal
-     */
-    @VisibleForTesting
-    static ByteString convertBigDecimal(Object value, Schema fieldSchema) {
-        // Check if a ByteBuffer instance is passed.
-        Preconditions.checkArgument(
-                value instanceof ByteBuffer,
-                String.format("Expecting a ByteBuffer, found %s instead.", value.getClass()));
-        byte[] byteArray = ((ByteBuffer) value).array(); // This is in big-endian format.
-
-        // Extract the scale from the Record Schema.
-        Preconditions.checkNotNull(fieldSchema.getLogicalType(), "Invalid decimal type passed");
-        LogicalTypes.Decimal decimalFieldSchema =
-                (LogicalTypes.Decimal) fieldSchema.getLogicalType();
-        int scale = decimalFieldSchema.getScale();
-
-        BigInteger scaledValue = new BigInteger(byteArray); // requires big-endian.
-        BigDecimal decimalValue = new BigDecimal(scaledValue, scale);
-
-        try {
-            if (fieldSchema.getObjectProp("isNumeric") != null
-                    && (boolean) fieldSchema.getObjectProp("isNumeric")) {
-                // Pass the BigDecimal Object to be converted to ByteString (with Numeric Scale).
-                return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
+        @VisibleForTesting
+        static String convertGeography(Object value) {
+            if (value instanceof Utf8) {
+                return ((Utf8) value).toString();
             }
-            // Pass the BigDecimal Object to be converted to ByteString (with Bignumeric scale).
-            return BigDecimalByteStringEncoder.encodeToBigNumericByteString(decimalValue);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
-    @VisibleForTesting
-    static String convertGeography(Object value) {
-        if (value instanceof Utf8) {
-            return ((Utf8) value).toString();
-        }
-        Preconditions.checkArgument(
-                value instanceof String,
-                String.format(
-                        "Expecting a value as String/Utf8 type (geography_wkt or geojson format)."
-                                + "\nInstead got %s: ",
-                        value.getClass()));
-        return (String) value;
-    }
-
-    @VisibleForTesting
-    static String convertJson(Object value) {
-        String jsonString;
-        if (value instanceof Utf8) {
-            jsonString = ((Utf8) value).toString();
-        } else if (value instanceof String) {
-            jsonString = (String) value;
-        } else {
-            throw new IllegalArgumentException(
+            Preconditions.checkArgument(
+                    value instanceof String,
                     String.format(
-                            "Expecting a value as String/Utf8 type (json format)."
+                            "Expecting a value as String/Utf8 type (geography_wkt or geojson format)."
                                     + "\nInstead got %s: ",
                             value.getClass()));
+            return (String) value;
         }
-        try {
-            new JSONObject(jsonString);
-        } catch (JSONException e) {
-            throw new IllegalArgumentException(
-                    String.format("The input string %s is not in valid JSON Format.", jsonString));
+
+        @VisibleForTesting
+        static String convertJson(Object value) {
+            String jsonString;
+            if (value instanceof Utf8) {
+                jsonString = ((Utf8) value).toString();
+            } else if (value instanceof String) {
+                jsonString = (String) value;
+            } else {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Expecting a value as String/Utf8 type (json format)."
+                                        + "\nInstead got %s: ",
+                                value.getClass()));
+            }
+            try {
+                new JSONObject(jsonString);
+            } catch (JSONException e) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The input string %s is not in valid JSON Format.", jsonString));
+            }
+            return jsonString;
         }
-        return jsonString;
     }
 }
