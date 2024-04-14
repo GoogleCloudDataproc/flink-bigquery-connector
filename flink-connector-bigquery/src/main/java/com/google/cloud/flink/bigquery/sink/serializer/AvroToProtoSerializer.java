@@ -38,6 +38,8 @@ import org.joda.time.Instant;
 import org.joda.time.ReadableInstant;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -150,7 +152,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 // Get the schema of the field.
                 return toProtoValue(fieldDescriptor, type, value);
             case MAP:
-                throw new UnsupportedOperationException("Not supported yet");
+                throw new UnsupportedOperationException("MAP type not supported yet");
             case STRING:
                 /*
                 Logical Types currently supported are of the following underlying types:
@@ -213,6 +215,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
     static class AvroSchemaHandler {
         private AvroSchemaHandler() {}
 
+        private static final Logger LOG = LoggerFactory.getLogger(AvroSchemaHandler.class);
+
         /**
          * Function to convert a value of an <b>ARRAY</b> Type AvroSchemaField value to required
          * Dynamic Message value.
@@ -230,9 +234,9 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             if (value instanceof Iterable) {
                 iterable = (Iterable<Object>) value;
             } else {
+                LOG.error(getLogErrorMessage("Iterable", "ARRAY", value.getClass().toString()));
                 throw new IllegalArgumentException(
-                        String.format(
-                                "Expected an Iterable,%n Found %s instead.", value.getClass()));
+                        "Expecting the value as Iterable type for type ARRAY.");
             }
             // Get the inner element type.
             @Nullable Schema arrayElementType = avroSchema.getElementType();
@@ -284,7 +288,11 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 }
                 return new ImmutablePair<>(elementType, isNullable);
             }
-
+            LOG.error(
+                    getLogErrorMessage(
+                            "['datatype'] or ['null', 'datatype']",
+                            "UNION",
+                            "Multiple not-null types: " + types));
             throw new IllegalArgumentException("Multiple non-null union types are not supported.");
         }
 
@@ -350,28 +358,27 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         static String convertUUID(Object value) {
             if (value instanceof UUID) {
                 return ((UUID) value).toString();
-            } else {
-                Preconditions.checkArgument(
-                        value instanceof String, "Expecting a value as String type.");
+            } else if (value instanceof String) {
                 UUID.fromString((String) value);
                 return (String) value;
             }
+            LOG.error(getLogErrorMessage("String/UUID", "UUID", value.getClass().toString()));
+            throw new IllegalArgumentException(getErrorMessage("String/UUID", "UUID"));
         }
 
-        private static long validateTimestamp(long timestamp) {
-            Timestamp minTs = Timestamp.parseTimestamp("0001-01-01T00:00:00.000000+00:00");
-            Timestamp maxTs = Timestamp.parseTimestamp("9999-12-31T23:59:59.999999+00:00");
+        private static void validateTimestamp(long timestamp) {
             try {
                 // Validate timestamp from microseconds since EPOCH.
                 Timestamp.ofTimeMicroseconds(timestamp);
-                return timestamp;
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException(
+                LOG.error(
                         String.format(
                                 "Invalid Timestamp '%s' Provided."
-                                        + "\nShould be a long value indicating microseconds since Epoch (1970-01-01 00:00:00.000000+00:00) "
-                                        + "between %s and %s",
-                                timestamp, minTs, maxTs));
+                                        + "\nShould be a long value indicating microseconds since "
+                                        + "Epoch (1970-01-01 00:00:00.000000+00:00) between %s and %s",
+                                timestamp, Timestamp.MIN_VALUE, Timestamp.MAX_VALUE));
+                throw new IllegalArgumentException(
+                        String.format("Invalid Timestamp '%s' Provided.", timestamp));
             }
         }
 
@@ -383,27 +390,31 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             long timestamp;
             if (value instanceof ReadableInstant) {
                 timestamp = TimeUnit.MILLISECONDS.toMicros(((ReadableInstant) value).getMillis());
-            } else {
-                Preconditions.checkArgument(
-                        value instanceof Long,
-                        String.format(
-                                "Expecting a value as Long type %s. Instead %s was obtained",
-                                type, value.getClass()));
+            } else if (value instanceof Long) {
                 timestamp = (micros ? (Long) value : TimeUnit.MILLISECONDS.toMicros((Long) value));
+            } else {
+                LOG.error(
+                        getLogErrorMessage(
+                                "LONG/ReadableInstant",
+                                "TIMESTAMP (" + type + ")",
+                                value.getClass().toString()));
+                throw new IllegalArgumentException(
+                        getErrorMessage("LONG/ReadableInstant", "TIMESTAMP"));
             }
-            return validateTimestamp(timestamp);
+            validateTimestamp(timestamp);
+            return timestamp;
         }
 
-        private static Integer validateDate(Integer date) {
+        private static void validateDate(Integer date) {
             if (date > 2932896 || date < -719162) {
-                throw new IllegalArgumentException(
+                LOG.error(
                         String.format(
                                 "Invalid Date '%s' Provided."
                                         + "\nShould be a Integer value indicating days since Epoch (1970-01-01 00:00:00) "
                                         + "between %s and %s",
                                 LocalDate.ofEpochDay(date), "0001-01-01", "9999-12-31"));
+                throw new IllegalArgumentException("Invalid date Provided.");
             }
-            return date;
         }
 
         @VisibleForTesting
@@ -413,12 +424,18 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             int date;
             if (value instanceof ReadableInstant) {
                 date = Days.daysBetween(Instant.EPOCH, (ReadableInstant) value).getDays();
-            } else {
-                Preconditions.checkArgument(
-                        value instanceof Integer, "Expecting a value as Integer type (days).");
+            } else if (value instanceof Integer) {
                 date = (Integer) value;
+            } else {
+                LOG.error(
+                        getLogErrorMessage(
+                                "ReadableInstant/Integer",
+                                "Days(micros/millis)",
+                                value.getClass().toString()));
+                throw new IllegalArgumentException(getErrorMessage("Integer", "DATE"));
             }
-            return validateDate(date);
+            validateDate(date);
+            return date;
         }
 
         @VisibleForTesting
@@ -429,22 +446,27 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             if (value instanceof Utf8) {
                 return ((Utf8) value).toString();
             }
-            Preconditions.checkArgument(
-                    value instanceof Long,
-                    String.format(
-                            "Expecting a value as Long type " + "%s.%n Instead %s was obtained",
-                            "Local-Timestamp(micros/millis)", value.getClass()));
-            // Convert to Microseconds if provided in millisecond precision.
-            /* We follow the same steps as that of Timestamp conversion
-            because essentially we have a timestamp - we just need to strip the timezone before insertion.
-             */
-            Long convertedTs = convertTimestamp(value, micros, "Local Timestamp(millis/micros)");
-            Timestamp convertedTimestamp = Timestamp.ofTimeMicroseconds(convertedTs);
-            return LocalDateTime.ofEpochSecond(
-                            convertedTimestamp.getSeconds(),
-                            convertedTimestamp.getNanos(),
-                            ZoneOffset.UTC)
-                    .toString();
+            if (value instanceof Long) {
+                // Convert to Microseconds if provided in millisecond precision.
+                /* We follow the same steps as that of Timestamp conversion
+                because essentially we have a timestamp - we just need to strip the timezone before insertion.
+                 */
+                Long convertedTs =
+                        convertTimestamp(value, micros, "Local Timestamp(millis/micros)");
+                Timestamp convertedTimestamp = Timestamp.ofTimeMicroseconds(convertedTs);
+                return LocalDateTime.ofEpochSecond(
+                                convertedTimestamp.getSeconds(),
+                                convertedTimestamp.getNanos(),
+                                ZoneOffset.UTC)
+                        .toString();
+            }
+            LOG.error(
+                    getLogErrorMessage(
+                            "String/Long/UTF-8",
+                            "Local-Timestamp(micros/millis)",
+                            value.getClass().toString()));
+            throw new IllegalArgumentException(
+                    getErrorMessage("String/LONG/UTF-8", "Local-Timestamp(micros/millis)"));
         }
 
         private static void validateTime(long value) {
@@ -453,9 +475,13 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             long minTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, minTime);
             long maxTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, maxTime);
             if (value < minTimeMicros || value > maxTimeMicros) {
-                throw new IllegalArgumentException(
+                LOG.error(
                         String.format(
-                                "Time passed should be between %s and %s.", minTime, maxTime));
+                                "Input Time should be between %s and %s.%n Found %s instead.",
+                                minTime,
+                                maxTime,
+                                minTime.plusNanos(TimeUnit.MICROSECONDS.toNanos(value))));
+                throw new IllegalArgumentException("Invalid time value obtained.");
             }
         }
 
@@ -470,21 +496,19 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                 if (value instanceof Long) {
                     microSecondsSinceMidnight = (long) value;
                 } else {
-                    throw new IllegalArgumentException(
-                            String.format(
-                                    "Expecting a value as LONG type for "
-                                            + "%s. Instead %s was obtained",
-                                    "Time(micros)", value.getClass()));
+                    LOG.error(
+                            getLogErrorMessage(
+                                    "LONG", "Time(micros)", value.getClass().toString()));
+                    throw new IllegalArgumentException(getErrorMessage("LONG", "Time(micros)"));
                 }
             } else {
                 if (value instanceof Integer) {
                     microSecondsSinceMidnight = TimeUnit.MILLISECONDS.toMicros((int) value);
                 } else {
-                    throw new IllegalArgumentException(
-                            String.format(
-                                    "Expecting a value as INTEGER type for "
-                                            + "%s. Instead %s was obtained",
-                                    "Time(millis)", value.getClass()));
+                    LOG.error(
+                            getLogErrorMessage(
+                                    "INTEGER", "Time(millis)", value.getClass().toString()));
+                    throw new IllegalArgumentException(getErrorMessage("INTEGER", "Time(millis)"));
                 }
             }
             // Either microSecondsSinceMidnight would be set or error would be thrown.
@@ -526,14 +550,18 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
          */
         @VisibleForTesting
         static ByteString convertBigDecimal(Object value, Schema fieldSchema) {
-            // Check if a ByteBuffer instance is passed.
-            Preconditions.checkArgument(
-                    value instanceof ByteBuffer,
-                    String.format("Expecting a ByteBuffer, found %s instead.", value.getClass()));
+            // Check if a ByteBuffer instance is obtained.\
+            if (!(value instanceof ByteBuffer)) {
+                LOG.error(
+                        getLogErrorMessage(
+                                "ByteBuffer", "BigDecimal", value.getClass().toString()));
+                throw new IllegalArgumentException(getErrorMessage("ByteBuffer", "BigDecimal"));
+            }
             byte[] byteArray = ((ByteBuffer) value).array(); // This is in big-endian format.
 
             // Extract the scale from the Record Schema.
-            Preconditions.checkNotNull(fieldSchema.getLogicalType(), "Invalid decimal type passed");
+            Preconditions.checkNotNull(
+                    fieldSchema.getLogicalType(), "Invalid decimal type obtained");
             LogicalTypes.Decimal decimalFieldSchema =
                     (LogicalTypes.Decimal) fieldSchema.getLogicalType();
             int scale = decimalFieldSchema.getScale();
@@ -560,13 +588,15 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             if (value instanceof Utf8) {
                 return ((Utf8) value).toString();
             }
-            Preconditions.checkArgument(
-                    value instanceof String,
-                    String.format(
-                            "Expecting a value as String/Utf8 type (geography_wkt or geojson format)."
-                                    + "\nInstead got %s: ",
-                            value.getClass()));
-            return (String) value;
+            if (value instanceof String) {
+                return (String) value;
+            }
+            LOG.error(
+                    getLogErrorMessage(
+                            "STRING/UTF-8",
+                            "geography_wkt or geojson format",
+                            value.getClass().toString()));
+            throw new IllegalArgumentException(getErrorMessage("STRING/UTF-8", "GEOGRAPHY"));
         }
 
         @VisibleForTesting
@@ -577,11 +607,8 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
             } else if (value instanceof String) {
                 jsonString = (String) value;
             } else {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Expecting a value as String/Utf8 type (json format)."
-                                        + "\nInstead got %s: ",
-                                value.getClass()));
+                LOG.error(getLogErrorMessage("UTF-8/STRING", "JSON", value.getClass().toString()));
+                throw new IllegalArgumentException(getErrorMessage("UTF-8/STRING", "JSON"));
             }
             try {
                 new JSONObject(jsonString);
@@ -591,6 +618,19 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                                 "The input string %s is not in valid JSON Format.", jsonString));
             }
             return jsonString;
+        }
+
+        // --------- Utilities for maintaining consistency across error messages ------------------
+        private static String getLogErrorMessage(
+                String expectedType, String actualType, String foundInstead) {
+            return String.format(
+                    "Expecting the value as %s type for " + "%s.%nFound %s instead.",
+                    expectedType, actualType, foundInstead);
+        }
+
+        private static String getErrorMessage(String expectedType, String actualType) {
+            return String.format(
+                    "Expecting the value as %s type for type %s.", expectedType, actualType);
         }
     }
 }
