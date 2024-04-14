@@ -29,7 +29,7 @@ under the License.
 
     <artifactId>flink-connector-bigquery-common</artifactId>
     <name>Flink : Connectors : Google BigQuery Common</name>
-	<version>${revision}</version>
+    <version>${revision}</version>
 
     <packaging>jar</packaging>
 
@@ -47,28 +47,28 @@ under the License.
             <artifactId>google-cloud-bigquery</artifactId>
         </dependency>
 
-		<!-- org.apache.avro - used by SchemaTransform -->
-		<dependency>
-			<groupId>org.apache.avro</groupId>
-			<artifactId>avro</artifactId>
-		</dependency>
+        <!-- org.apache.avro - used by SchemaTransform -->
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+        </dependency>
 
-		<!-- assertj-core used in common.utils tests -->
-		<dependency>
-			<groupId>org.assertj</groupId>
-			<artifactId>assertj-core</artifactId>
-		</dependency>
-		<!-- commons-lang3 used in common.utils BigQueryPartitionUtils for StringUtils -->
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-lang3</artifactId>
-		</dependency>
-		<!-- Dependency required for running surefire plugin and unit tests -->
-		<dependency>
-			<groupId>org.junit.vintage</groupId>
-			<artifactId>junit-vintage-engine</artifactId>
-			<version>${junit5.version}</version>
-		</dependency>
+        <!-- assertj-core used in common.utils tests -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
+        <!-- commons-lang3 used in common.utils BigQueryPartitionUtils for StringUtils -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <!-- Dependency required for running surefire plugin and unit tests -->
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+            <version>${junit5.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

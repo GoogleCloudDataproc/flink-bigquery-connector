@@ -75,8 +75,6 @@ public class GoogleCredentialsSupplier {
             // 2. Base64:
             // https://docs.oracle.com/javase/8/docs/api/java/util/Base64.html
             return GoogleCredentials.fromStream(
-                    //                    new
-                    // ByteArrayInputStream(BaseEncoding.base64().decode(key)));
                     new ByteArrayInputStream(Base64.getDecoder().decode(key)));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create Credentials from key", e);
