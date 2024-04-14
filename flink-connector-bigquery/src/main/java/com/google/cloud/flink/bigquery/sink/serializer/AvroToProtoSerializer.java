@@ -470,17 +470,16 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         }
 
         private static void validateTime(long value) {
-            LocalTime minTime = LocalTime.parse("00:00:00");
-            LocalTime maxTime = LocalTime.parse("23:59:59.999999");
-            long minTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, minTime);
-            long maxTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, maxTime);
+            long minTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, LocalTime.MIN);
+            long maxTimeMicros = ChronoUnit.MICROS.between(LocalTime.MIDNIGHT, LocalTime.MAX);
             if (value < minTimeMicros || value > maxTimeMicros) {
                 LOG.error(
                         String.format(
                                 "Input Time should be between %s and %s.%n Found %s instead.",
-                                minTime,
-                                maxTime,
-                                minTime.plusNanos(TimeUnit.MICROSECONDS.toNanos(value))));
+                                LocalTime.MIN,
+                                LocalTime.MIN,
+                                LocalTime.MIDNIGHT.plusNanos(
+                                        TimeUnit.MICROSECONDS.toNanos(value))));
                 throw new IllegalArgumentException("Invalid time value obtained.");
             }
         }
