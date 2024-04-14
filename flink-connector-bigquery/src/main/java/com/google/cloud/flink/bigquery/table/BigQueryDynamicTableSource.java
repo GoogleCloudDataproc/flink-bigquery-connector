@@ -144,7 +144,7 @@ public class BigQueryDynamicTableSource
                 translatedFilters.getOrDefault(true, new ArrayList<>()).stream()
                         .map(t -> t.f1)
                         .collect(Collectors.joining(" AND "));
-        String newRowRestriction = this.readOptions.getRowRestriction();
+        String newRowRestriction = this.readOptions.getRowRestriction().orElse("");
         if (!rowRestrictionByFilters.isEmpty()) {
             if (newRowRestriction.isEmpty()) {
                 newRowRestriction = rowRestrictionByFilters;
@@ -224,7 +224,7 @@ public class BigQueryDynamicTableSource
                         .toBuilder()
                         .setRowRestriction(
                                 rebuildRestrictionsApplyingPartitions(
-                                        this.readOptions.getRowRestriction(),
+                                        this.readOptions.getRowRestriction().orElse(""),
                                         partitionInfo,
                                         remainingPartitions))
                         .build();
