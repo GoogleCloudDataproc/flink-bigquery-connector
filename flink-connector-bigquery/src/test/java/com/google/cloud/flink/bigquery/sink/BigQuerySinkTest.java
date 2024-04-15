@@ -43,7 +43,7 @@ public class BigQuerySinkTest {
         assertNotNull(BigQuerySink.get(sinkConfig, null));
     }
 
-    @Test
+    @Test(expected = UnsupportedOperationException.class)
     public void testGetWithNoneDeliveryGuarantee() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()

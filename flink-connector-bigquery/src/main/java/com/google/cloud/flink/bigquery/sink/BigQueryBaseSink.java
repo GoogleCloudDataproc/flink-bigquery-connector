@@ -29,6 +29,12 @@ abstract class BigQueryBaseSink implements Sink {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
+    // BigQuery write streams can offer over 10 MBps throughput, and per project throughput quotas
+    // are in the order of single digit GBps. With each sink writer maintaining a single and unique
+    // write connection to BigQuery, maximum parallelism for sink is intentionally restricted to
+    // 100 for initial releases of this connector.
+    // Based on performance observations and user feedback, this number can be increased in the
+    // future.
     public static final int MAX_SINK_PARALLELISM = 100;
 
     final BigQueryConnectOptions connectOptions;
