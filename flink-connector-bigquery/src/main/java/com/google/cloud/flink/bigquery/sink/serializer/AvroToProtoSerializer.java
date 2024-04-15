@@ -377,7 +377,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                         String.format(
                                 "Invalid Timestamp '%s' Provided."
                                         + "\nShould be a long value indicating microseconds since "
-                                        + "Epoch (1970-01-01 00:00:00.000000+00:00) between %s and %s",
+                                        + "Epoch between %s and %s",
                                 timestamp, Timestamp.MIN_VALUE, Timestamp.MAX_VALUE));
                 throw new IllegalArgumentException(
                         String.format("Invalid Timestamp '%s' Provided.", timestamp));
@@ -408,7 +408,11 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         }
 
         private static void validateDate(Integer date) {
-            if (date > 2932896 || date < -719162) {
+            // The value is the number of days since the Unix epoch (1970-01-01).
+            // The valid range is `-719162` (0001-01-01) to `2932896` (9999-12-31).
+            int maxDateValue = 2932896;
+            int minDateValue = -719162;
+            if (date > maxDateValue || date < minDateValue) {
                 LOG.error(
                         String.format(
                                 "Invalid Date '%s' Provided."
@@ -659,7 +663,7 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         private static String getLogErrorMessage(
                 String expectedType, String actualType, String foundInstead) {
             return String.format(
-                    "Expecting the value as %s type for " + "%s.%nFound %s instead.",
+                    "Expecting the value as %s type for %s.%nFound %s instead.",
                     expectedType, actualType, foundInstead);
         }
 
