@@ -47,4 +47,3 @@ esac
 # Upload test coverage report to Codecov
 bash <(curl -s https://codecov.io/bash) -K -F "${STEP}"
 
-popd
