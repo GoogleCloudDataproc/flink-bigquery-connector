@@ -390,7 +390,7 @@ public class AvroToProtoSerializerTest {
     @Test
     public void testConvertDateTimeStringType() {
         Object value = "2024-01-01 00:22:59.700440";
-        assertEquals(value.toString(), AvroSchemaHandler.convertDateTime(value, true));
+        assertEquals("2024-01-01T00:22:59.700440", AvroSchemaHandler.convertDateTime(value, true));
     }
 
     @Test

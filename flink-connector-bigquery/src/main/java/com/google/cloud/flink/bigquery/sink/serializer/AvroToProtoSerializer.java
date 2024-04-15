@@ -50,6 +50,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
@@ -440,12 +442,6 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
 
         @VisibleForTesting
         static String convertDateTime(Object value, boolean micros) {
-            if (value instanceof String) {
-                return (String) value;
-            }
-            if (value instanceof Utf8) {
-                return ((Utf8) value).toString();
-            }
             if (value instanceof Long) {
                 // Convert to Microseconds if provided in millisecond precision.
                 /* We follow the same steps as that of Timestamp conversion
@@ -460,13 +456,37 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
                                 ZoneOffset.UTC)
                         .toString();
             }
-            LOG.error(
-                    getLogErrorMessage(
-                            "String/Long/UTF-8",
-                            "Local-Timestamp(micros/millis)",
-                            value.getClass().toString()));
-            throw new IllegalArgumentException(
-                    getErrorMessage("String/LONG/UTF-8", "Local-Timestamp(micros/millis)"));
+            String obtainedValue;
+            if (value instanceof String) {
+                obtainedValue = (String) value;
+            } else if (value instanceof Utf8) {
+                obtainedValue = ((Utf8) value).toString();
+            } else {
+                LOG.error(
+                        getLogErrorMessage(
+                                "String/Long/UTF-8",
+                                "Local-Timestamp(micros/millis)",
+                                value.getClass().toString()));
+                throw new IllegalArgumentException(
+                        getErrorMessage("String/LONG/UTF-8", "Local-Timestamp(micros/millis)"));
+            }
+            // LocalDateTime.parse is also responsible for validating the string passed.
+            // If the text cannot be parsed DateTimeParseException is thrown.
+            // Formatting,
+            // according to
+            // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#datetime_type.
+            try {
+                return LocalDateTime.parse(
+                                obtainedValue,
+                                DateTimeFormatter.ofPattern(
+                                        "yyyy-M[M]-d[d][[' ']['T']['t']H[H]':'m[m]':'s[s]['.'SSSSSS]['.'SSSSS]['.'SSSS]['.'SSS]['.'SS]['.'S]]"))
+                        .toString();
+            } catch (DateTimeParseException e) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The datetime string obtained %s, is of invalid format.",
+                                (String) value));
+            }
         }
 
         private static void validateTime(long value) {
@@ -487,7 +507,23 @@ public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRec
         @VisibleForTesting
         static String convertTime(Object value, boolean micros) {
             if (value instanceof String) {
-                return (String) value;
+                // LocalTime.parse is also responsible for validating the string passed.
+                // If the text cannot be parsed DateTimeParseException is thrown.
+                // Formatting,
+                // according to
+                // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#time_type.
+                try {
+                    return LocalTime.parse(
+                                    (String) value,
+                                    DateTimeFormatter.ofPattern(
+                                            "H[H]':'m[m]':'s[s]['.'SSSSSS]['.'SSSSS]['.'SSSS]['.'SSS]['.'SS]['.'S]"))
+                            .toString();
+                } catch (DateTimeParseException e) {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "The datetime string obtained %s, is of invalid format.",
+                                    (String) value));
+                }
             }
             Long microSecondsSinceMidnight = null;
             /* Check if time-millis is in int and time-micros are provided in long*/
