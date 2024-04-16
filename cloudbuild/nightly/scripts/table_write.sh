@@ -51,6 +51,9 @@ else
   exit 1
 fi
 
+# Wait for 30 seconds for the table to be populated.
+sleep 30
+
 # Now check the success of the job
 # Mode helps in checking for unbounded job separately.
 if [ "$IS_EXACTLY_ONCE_ENABLED" == True ]
