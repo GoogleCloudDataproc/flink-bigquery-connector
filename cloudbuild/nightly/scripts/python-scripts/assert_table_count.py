@@ -2,17 +2,11 @@ import argparse
 from collections.abc import Sequence
 
 from absl import app
-import parse_logs
 from google.cloud import bigquery
 from absl import logging
 
 
-def get_row_count(project_name, dataset_name, table_name):
-    client = bigquery.Client(project=project_name)
-    table_id = f"{project_name}.{dataset_name}.{table_name}"
-    query = (
-        "SELECT COUNT(DISTINCT(unique_key)) as unique_key_count FROM `" + table_id + "`;"
-    )
+def execute_query(client, table_name, query):
     logging.info(f"Query: {query}")
     try:
         job = client.query(query, location='US')
@@ -23,44 +17,60 @@ def get_row_count(project_name, dataset_name, table_name):
         raise RuntimeError(f'Could not obtain the count of unique keys from table: {table_name}')
 
 
-def assert_total_row_count(project_name, dataset_name, source_table_name, destination_table_name,
-                           is_exactly_once):
-    source_total_row_count = parse_logs.get_bq_table_row_count(project_name, project_name,
-                                                               dataset_name, source_table_name, "")
+def get_unique_key_count(client, project_name, dataset_name, table_name):
+    table_id = f"{project_name}.{dataset_name}.{table_name}"
+    query = (
+        "SELECT COUNT(DISTINCT(unique_key)) as unique_key_count FROM `" + table_id + "`;"
+    )
+    return execute_query(client, table_name, query)
+
+
+def get_total_row_count(client, project_name, dataset_name, table_name):
+    table_id = f"{project_name}.{dataset_name}.{table_name}"
+    query = (
+        "SELECT COUNT(*) as unique_key_count FROM `" + table_id + "`;"
+    )
+    return execute_query(client, table_name, query)
+
+
+def assert_total_row_count(client, project_name, dataset_name, source_table_name,
+                           destination_table_name, is_exactly_once):
+    source_total_row_count = get_total_row_count(client, project_name, dataset_name,
+                                                 source_table_name)
     logging.info(f"Total Row Count for Source Table {source_table_name}:"
                  f" {source_total_row_count}")
-    destination_total_row_count = parse_logs.get_bq_table_row_count(project_name, project_name,
-                                                                    dataset_name,
-                                                                    destination_table_name, "")
+
+    destination_total_row_count = get_total_row_count(client, project_name, dataset_name,
+                                                      destination_table_name)
     logging.info(f"Total Row Count for Destination Table {destination_table_name}:"
                  f" {destination_total_row_count}")
     if is_exactly_once:
         if source_total_row_count != destination_total_row_count:
-            logging.info(f"Source and Destination Row counts do not match")
-            # raise AssertionError("Source and Destination Row counts do not match")
+            raise AssertionError("Source and Destination Row counts do not match")
     else:
         if destination_total_row_count < source_total_row_count:
-            logging.info(f"Destination Row count is less than Source Row Count")
-            # raise AssertionError("Destination Row count is less than Source Row Count")
+            raise AssertionError("Destination Row count is less than Source Row Count")
 
 
-def assert_unique_key_count(project_name, dataset_name, source_table_name, destination_table_name,
+def assert_unique_key_count(client, project_name, dataset_name, source_table_name,
+                            destination_table_name,
                             is_exactly_once):
-    source_unique_key_count = get_row_count(project_name, dataset_name, source_table_name)
+    source_unique_key_count = get_unique_key_count(client, project_name, dataset_name,
+                                                   source_table_name)
     logging.info(
         f"Unique Key Count for Source Table {source_table_name}: {source_unique_key_count}")
-    destination_unique_key_count = get_row_count(project_name, dataset_name, destination_table_name)
+    destination_unique_key_count = get_unique_key_count(client, project_name, dataset_name,
+                                                        destination_table_name)
     logging.info(
-        f"Unique Key Count for Destination Table {destination_table_name}: {destination_unique_key_count}")
+        f"Unique Key Count for Destination Table {destination_table_name}:"
+        f" {destination_unique_key_count}")
 
     if is_exactly_once:
         if source_unique_key_count != destination_unique_key_count:
-            logging.info(f"Source and Destination Key counts do not match!")
-            # raise AssertionError("Source and Destination Key counts do not match!")
+            raise AssertionError("Source and Destination Key counts do not match!")
     else:
         if source_unique_key_count < destination_unique_key_count:
-            logging.info(f"Destination Row Key count is less than Source Key Count!")
-            # raise AssertionError("Destination Row Key count is less than Source Key Count!")
+            raise AssertionError("Destination Row Key count is less than Source Key Count!")
 
 
 def main(argv: Sequence[str]) -> None:
@@ -117,11 +127,12 @@ def main(argv: Sequence[str]) -> None:
     destination_table_name = args.destination_table_name
     is_exactly_once = args.is_exactly_once
 
-    assert_total_row_count(project_name, dataset_name, source_table_name, destination_table_name,
-                           is_exactly_once)
+    client = bigquery.Client(project=project_name)
+    assert_total_row_count(client, project_name, dataset_name, source_table_name,
+                           destination_table_name, is_exactly_once)
 
-    assert_unique_key_count(project_name, dataset_name, source_table_name, destination_table_name,
-                            is_exactly_once)
+    assert_unique_key_count(client, project_name, dataset_name, source_table_name,
+                            destination_table_name, is_exactly_once)
 
 
 if __name__ == '__main__':
