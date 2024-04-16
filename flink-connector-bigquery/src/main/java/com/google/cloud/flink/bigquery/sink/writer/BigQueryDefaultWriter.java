@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink.writer;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
@@ -76,12 +77,11 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
     /** Asynchronously append to BigQuery table's default stream. */
     @Override
-    void sendAppendRequest() {
+    ApiFuture sendAppendRequest(ProtoRows protoRows) {
         if (streamWriter == null) {
             streamWriter = createStreamWriter(true);
         }
-        ApiFuture responseFuture = streamWriter.append(protoRowsBuilder.build());
-        appendResponseFuturesQueue.add(responseFuture);
+        return streamWriter.append(protoRows);
     }
 
     /** Throws a RuntimeException if an error is found with append response. */

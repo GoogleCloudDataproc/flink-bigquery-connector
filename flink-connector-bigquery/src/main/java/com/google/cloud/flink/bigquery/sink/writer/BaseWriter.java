@@ -75,9 +75,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     private final BigQueryConnectOptions connectOptions;
     private final ProtoSchema protoSchema;
     private final BigQueryProtoSerializer serializer;
+    private final Queue<ApiFuture> appendResponseFuturesQueue;
+    private final ProtoRows.Builder protoRowsBuilder;
 
-    Queue<ApiFuture> appendResponseFuturesQueue;
-    ProtoRows.Builder protoRowsBuilder;
     StreamWriter streamWriter;
     String streamName;
 
@@ -125,7 +125,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     }
 
     /** Invoke BigQuery storage API for appending data to a table. */
-    abstract void sendAppendRequest();
+    abstract ApiFuture sendAppendRequest(ProtoRows protoRows);
 
     /** Checks append response for errors. */
     abstract void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture);
@@ -138,7 +138,8 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     /** Send append request to BigQuery storage and prepare for next append request. */
     void append() {
-        sendAppendRequest();
+        ApiFuture responseFuture = sendAppendRequest(protoRowsBuilder.build());
+        appendResponseFuturesQueue.add(responseFuture);
         protoRowsBuilder.clear();
         appendRequestSizeBytes = 0L;
     }
@@ -209,10 +210,23 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /**
      * Following "getters" expose some internal fields required for testing.
      *
+     * <p>In addition to keeping these methods package private, ensure that exposed field cannot be
+     * changed in a way that alters the class instance's state.
+     *
      * <p>Do NOT use these methods outside tests!
      */
     @Internal
-    public long getAppendRequestSizeBytes() {
+    long getAppendRequestSizeBytes() {
         return appendRequestSizeBytes;
+    }
+
+    @Internal
+    Queue<ApiFuture> getAppendResponseFuturesQueue() {
+        return new LinkedList(appendResponseFuturesQueue);
+    }
+
+    @Internal
+    ProtoRows getProtoRows() {
+        return protoRowsBuilder.build();
     }
 }
