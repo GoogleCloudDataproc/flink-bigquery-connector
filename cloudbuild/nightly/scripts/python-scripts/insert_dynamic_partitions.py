@@ -60,6 +60,15 @@ def main(argv: Sequence[str]) -> None:
         default=30000,
     )
 
+    parser.add_argument(
+        '--is_write_test',
+        dest='is_write_test',
+        help='Set the flag to True If the file would be run for write test.',
+        action='store_true',
+        default=False,
+        required=False,
+    )
+
     args = parser.parse_args(argv[1:])
 
     # Providing the values.
@@ -67,6 +76,7 @@ def main(argv: Sequence[str]) -> None:
     dataset_name = args.dataset_name
     table_name = args.table_name
     number_of_rows_per_partition = args.number_of_rows_per_partition
+    is_write_test = args.is_write_test
 
     execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -83,6 +93,14 @@ def main(argv: Sequence[str]) -> None:
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
         '"long","logicalType": "timestamp-micros"}}]'
     )
+    if is_write_test:
+        simple_avro_schema_fields_string = (
+            '"fields": [{"name": "unique_key", "type": "string"},'
+            ' {"name": "name", "type": "string"},'
+            '{"name": "number", "type": "long"},{"name" : "ts", "type" : {"type" :'
+            '"long","logicalType": "timestamp-micros"}}]'
+        )
+
     simple_avro_schema_string = (
         '{"namespace": "project.dataset","type": "record","name":'
         ' "table","doc": "Avro Schema for project.dataset.table",'
@@ -117,7 +135,7 @@ def main(argv: Sequence[str]) -> None:
             # Insert via concurrent threads.
             for thread_number in range(number_of_threads):
                 avro_file_local_identifier = avro_file_local.replace(
-                    '.', '_' + str(thread_number) + '.'
+                    '.', '_' + str(thread_number) + '_' + str(execution_timestamp) + '.'
                 )
                 thread = threading.Thread(
                     target=table_creation_utils.avro_to_bq_with_cleanup,
