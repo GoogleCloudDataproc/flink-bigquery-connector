@@ -51,19 +51,26 @@ else
   exit 1
 fi
 
-# Wait for 30 seconds for the table to be populated.
-sleep 30
+timestamp=$(date +"%Y%m%d%H%M%S")
+echo "$timestamp"
+#retry 10 times to check at what time records are available.
+for (( i=1; i <=7; i++ ))
+do
+  timestamp=$(date +"%Y%m%d%H%M%S")
+  echo "$timestamp"
+  echo "$i"
+  # Now check the success of the job
+  # Mode helps in checking for unbounded job separately.
+  if [ "$IS_EXACTLY_ONCE_ENABLED" == True ]
+  then
+    echo "Exactly Once!"
+    python3 cloudbuild/nightly/scripts/python-scripts/assert_table_count.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --source_table_name "$SOURCE_TABLE_NAME" --destination_table_name "$DESTINATION_TABLE_NAME" --is_exactly_once
+  else
+    echo "At-least Once!"
+    python3 cloudbuild/nightly/scripts/python-scripts/assert_table_count.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --source_table_name "$SOURCE_TABLE_NAME" --destination_table_name "$DESTINATION_TABLE_NAME"
+  fi
+done
 
-# Now check the success of the job
-# Mode helps in checking for unbounded job separately.
-if [ "$IS_EXACTLY_ONCE_ENABLED" == True ]
-then
-  echo "Exactly Once!"
-  python3 cloudbuild/nightly/scripts/python-scripts/assert_table_count.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --source_table_name "$SOURCE_TABLE_NAME" --destination_table_name "$DESTINATION_TABLE_NAME" --is_exactly_once
-else
-  echo "At-least Once!"
-  python3 cloudbuild/nightly/scripts/python-scripts/assert_table_count.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --source_table_name "$SOURCE_TABLE_NAME" --destination_table_name "$DESTINATION_TABLE_NAME"
-fi
 ret=$?
 if [ $ret -ne 0 ]
 then
