@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer.AvroSchemaHandler;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -26,13 +27,18 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.commons.lang3.ArrayUtils;
 import org.assertj.core.api.Assertions;
+import org.joda.time.DateTime;
+import org.joda.time.Instant;
 import org.junit.Test;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer.getDynamicMessageFromGenericRecord;
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
@@ -43,6 +49,438 @@ import static org.junit.Assert.assertThrows;
 
 /** Tests for {@link AvroToProtoSerializer}. */
 public class AvroToProtoSerializerTest {
+
+    // ---------- Test the Helper Functions --------------
+
+    /** Test for a valid Json Value. */
+    @Test
+    public void testValidJsonConversion() {
+        Object value = "{\"name\": \"test_value\", \"value\": \"value\"}";
+        assertEquals(value.toString(), AvroSchemaHandler.convertJson(value));
+    }
+
+    /**
+     * Test for an invalid Json Value, error is expected.
+     *
+     * <ol>
+     *   <li>A string type object is provided - which is not a JSON string
+     *   <li>A integer type object is provided
+     * </ol>
+     */
+    @Test
+    public void testInvalidJsonConversion() {
+        Object value = "invalid_json_string";
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class, () -> AvroSchemaHandler.convertJson(value));
+        Assertions.assertThat(exception).hasMessageContaining(" is not in valid JSON Format.");
+
+        Object invalidType = 123456;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertJson(invalidType));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Expecting the value as UTF-8/STRING type for type JSON.");
+    }
+
+    /** Test for a valid Geography Value. */
+    @Test
+    public void testValidGeographyConversion() {
+        Object value = "POINT(-121 41)";
+        assertEquals(value.toString(), AvroSchemaHandler.convertGeography(value));
+    }
+
+    /**
+     * Test for an invalid Geography Value, error is expected.
+     *
+     * <ol>
+     *   <li>An integer type object is provided
+     * </ol>
+     */
+    @Test
+    public void testInvalidGeographyConversion() {
+        Object value = 5678;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertGeography(value));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Expecting the value as STRING/UTF-8 type for type GEOGRAPHY");
+    }
+
+    /** Test for a valid UUID Value. */
+    @Test
+    public void testValidUUIDConversionFromUUID() {
+        Object value = UUID.randomUUID();
+        assertEquals(value.toString(), AvroSchemaHandler.convertUUID(value));
+    }
+
+    /**
+     * Test for a valid UUID Value (but the UUID is provided as a string instead of a UUID object).
+     */
+    @Test
+    public void testValidUUIDConversionFromString() {
+        Object value = UUID.randomUUID().toString();
+        assertEquals(value.toString(), AvroSchemaHandler.convertUUID(value));
+    }
+
+    /** Test for an invalid UUID Value. Integer value is provided, error is expected */
+    @Test
+    public void testInvalidUUIDConversion() {
+        Object value = 5678;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class, () -> AvroSchemaHandler.convertUUID(value));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Expecting the value as String/UUID type for type UUID.");
+
+        Object invalidUuidValue = "This is not a valid UUID String";
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertUUID(invalidUuidValue));
+        Assertions.assertThat(exception).hasMessageContaining("Invalid UUID string: ");
+    }
+
+    /**
+     * Test for an invalid Bignumeric Value.
+     *
+     * <ol>
+     *   <li>A string type value is tested to be converted to a bignumeric type
+     *   <li>A <code>BigDecimal</code> type value is tested - but this is above the limits of
+     *       BigQuery handled Bignumeric
+     * </ol>
+     */
+    @Test
+    public void testInvalidBigNumericConversion() {
+        String bigNumericSchemaString =
+                "{\"type\":\"record\","
+                        + "\"name\":\"root\","
+                        + "\"namespace\":\"com.google.cloud.flink.bigquery\","
+                        + "\"doc\":\"Translated Avro Schema for root\","
+                        + "\"fields\":"
+                        + "[{"
+                        + "\"name\":\"bignumeric_field\",\"type\":"
+                        + "{\"type\":\"bytes\","
+                        + "\"logicalType\":\"decimal\","
+                        + "\"precision\":77,"
+                        + "\"scale\":38}"
+                        + "}]"
+                        + "}\n";
+        Schema bigNumericSchema =
+                new Schema.Parser()
+                        .parse(bigNumericSchemaString)
+                        .getField("bignumeric_field")
+                        .schema();
+        Object value = "A random string";
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroSchemaHandler.convertBigDecimal(value, bigNumericSchema));
+
+        BigDecimal bigDecimal =
+                new BigDecimal(
+                        "5789604461865805559771174925043439539266.349923328202820554419728792395656481996700");
+        // Form byte array in big-endian order.
+        Object byteBuffer = ByteBuffer.wrap(bigDecimal.unscaledValue().toByteArray());
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertBigDecimal(byteBuffer, bigNumericSchema));
+        Assertions.assertThat(exception).hasMessageContaining("ByteString overflow:");
+    }
+
+    /**
+     * Test for an invalid Bignumeric Value.
+     *
+     * <ol>
+     *   <li>A string type value is tested to be converted to a numeric type
+     *   <li>A <code>BigDecimal</code> type value is tested - but this is above the limits of
+     *       BigQuery handled Numeric
+     * </ol>
+     */
+    @Test
+    public void testInvalidNumericConversion() {
+        String numericSchemaString =
+                "{\"type\":\"record\","
+                        + "\"name\":\"root\","
+                        + "\"namespace\":\"com.google.cloud.flink.bigquery\","
+                        + "\"doc\":\"Translated Avro Schema for root\","
+                        + "\"fields\":"
+                        + "[{"
+                        + "\"name\":\"numeric_field\",\"type\":"
+                        + "{\"type\":\"bytes\","
+                        + "\"logicalType\":\"decimal\","
+                        + "\"precision\":38,"
+                        + "\"scale\":9,"
+                        + "\"isNumeric\": true}"
+                        + "}]"
+                        + "}\n";
+        Schema numericSchema =
+                new Schema.Parser().parse(numericSchemaString).getField("numeric_field").schema();
+        Object value = "A random string";
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroSchemaHandler.convertBigDecimal(value, numericSchema));
+
+        BigDecimal bigDecimal = new BigDecimal("57896349923328446186583439539266.349923328");
+        // Form byte array in big-endian order.
+        Object byteBuffer = ByteBuffer.wrap(bigDecimal.unscaledValue().toByteArray());
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertBigDecimal(byteBuffer, numericSchema));
+        Assertions.assertThat(exception).hasMessageContaining("ByteString overflow:");
+    }
+
+    /** Test for a valid String type Value (representing a valid time literal). */
+    @Test
+    public void testValidTimeMicrosFromStringConversion() {
+        Object value = "00:22:59.700440";
+        assertEquals(value.toString(), AvroSchemaHandler.convertTime(value, true));
+    }
+
+    /**
+     * Test for a valid LONG type Value (representing a valid time). The LONG value here denotes
+     * microseconds since midnight.
+     */
+    @Test
+    public void testValidTimeMicrosFromLongConversion() {
+        Object value = 36708529123L;
+        assertEquals("10:11:48.529123", AvroSchemaHandler.convertTime(value, true));
+    }
+
+    /**
+     * Test for a valid LONG type Value (representing a valid time). The LONG value here denotes
+     * milliseconds since midnight (since parameter micros is set as false).
+     */
+    @Test
+    public void testValidTimeMillisFromLongConversion() {
+        Object value = 36708529;
+        assertEquals("10:11:48.529", AvroSchemaHandler.convertTime(value, false));
+    }
+
+    /**
+     * Test for an invalid LONG type Value (representing an invalid time).
+     *
+     * <ul>
+     *   <li>The LONG value here 86400000000L - represents a Out of Bounds (greater than allowed by
+     *       BQ) value.
+     *   <li>The LONG value here 86400000L - represents a Out of Bounds (lesser than allowed by BQ)
+     *       value.
+     * </ul>
+     */
+    @Test
+    public void testInvalidTimeOutOfBoundsValue() {
+        Object invalidValueLong = 86400000000L;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertTime(invalidValueLong, true));
+        Assertions.assertThat(exception).hasMessageContaining("Invalid time value obtained.");
+
+        Object invalidValueInt = 86400000;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertTime(invalidValueInt, false));
+        Assertions.assertThat(exception).hasMessageContaining("Invalid time value obtained.");
+    }
+
+    /**
+     * Test for an invalid type Value.
+     *
+     * <ul>
+     *   <li>Provide a INTEGER type value for microsecond precision time - Error is expected
+     *   <li>Provide a LONG type value for millisecond precision time - Error is expected
+     *   <li>Provide a FLOAT type value for millisecond precision time - Error is expected
+     * </ul>
+     */
+    @Test
+    public void testInvalidTimeTypeMismatchError() {
+
+        Object invalidValueInt = 1234567;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertTime(invalidValueInt, true));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Expecting the value as LONG type for type Time(micros)");
+
+        Object invalidValueLong = 123456789L;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertTime(invalidValueLong, false));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Expecting the value as INTEGER type for type Time(millis).");
+
+        Object floatValue = 1234.56;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertTime(floatValue, true));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Expecting the value as LONG type for type Time(micros).");
+    }
+
+    /**
+     * Test for a valid LONG type Value (representing a valid timestamp). The LONG value here
+     * denotes milliseconds since EPOCH (since parameter micros is set as false).
+     */
+    @Test
+    public void testValidTimestampMillisFromLongConversion() {
+        Object value = 1710270870L;
+        assertThat(1710270870000L)
+                .isEqualTo(AvroSchemaHandler.convertTimestamp(value, false, "Timestamp (millis)"));
+    }
+
+    /** Test for a valid Instant(joda.time) type Value (representing a valid timestamp). */
+    @Test
+    public void testValidTimestampMillisFromInstantConversion() {
+        Object value = Instant.ofEpochMilli(1710270870123L);
+        assertThat(1710270870123000L)
+                .isEqualTo(AvroSchemaHandler.convertTimestamp(value, false, "Timestamp (millis)"));
+    }
+
+    /** Test for a valid Instant(joda.time) type Value (representing a valid timestamp). */
+    @Test
+    public void testValidTimestampMicrosFromInstantConversion() {
+        Object value = Instant.parse("2024-03-13T01:01:16.579501+00:00");
+        assertThat(AvroSchemaHandler.convertTimestamp(value, true, "Timestamp (micros)"))
+                .isEqualTo(1710291676579000L);
+    }
+
+    /**
+     * Test for a valid LONG type Value (representing a valid timestamp). The LONG value here
+     * denotes microseconds since EPOCH (since parameter micros is set as true).
+     */
+    @Test
+    public void testValidTimestampMicrosFromLongConversion() {
+        Object value = 1710270870123L;
+        assertThat(AvroSchemaHandler.convertTimestamp(value, true, "Timestamp (micros)"))
+                .isEqualTo(1710270870123L);
+    }
+
+    /**
+     * Test for an invalid Timestamp type value.
+     *
+     * <ul>
+     *   <li>A plain text string is passed as a timestamp value - Error is expected
+     *   <li>A long value Maximum Timestamp + 1 is passed - Error is expected
+     *   <li>A long value Minimum Timestamp - 1 is passed - Error is expected
+     * </ul>
+     */
+    @Test
+    public void testInvalidTimestampConversion() {
+        Object invalidValue = "not_a_timestamp";
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroSchemaHandler.convertTimestamp(
+                                        invalidValue, true, "Timestamp (micros)"));
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Expecting the value as LONG/ReadableInstant type for type TIMESTAMP.");
+
+        // Maximum Timestamp + 1
+        Object invalidLongValue = 253402300800000000L;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroSchemaHandler.convertTimestamp(
+                                        invalidLongValue, true, "Timestamp (micros)"));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Invalid Timestamp '253402300800000000' Provided.");
+
+        // Minimum Timestamp - 1
+        Object anotherInvalidLongValue = -62135596800000001L;
+        exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroSchemaHandler.convertTimestamp(
+                                        anotherInvalidLongValue, true, "Timestamp (micros)"));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Invalid Timestamp '-62135596800000001' Provided.");
+    }
+
+    /** Test for a valid Instant type Value (representing a valid date). */
+    @Test
+    public void testValidDateTypeFromInstantConversion() {
+        Object value = Instant.parse("2024-03-13T00:00:00.000000+00:00");
+        assertThat(19795).isEqualTo(AvroSchemaHandler.convertDate(value));
+    }
+
+    /**
+     * Test for a valid Integer type Value (representing a valid date). The INTEGER value here
+     * denotes the number of days since EPOCH.
+     */
+    @Test
+    public void testValidDateTypeFromIntegerConversion() {
+        Object value = 19794;
+        assertThat(19794).isEqualTo(AvroSchemaHandler.convertDate(value));
+    }
+
+    /**
+     * Test for an invalid type Value.
+     *
+     * <ol>
+     *   <li>FLOAT Value is provided as date type - Error is expected.
+     *   <li>INTEGER Value - value greater than acceptable by BQ - Error is expected.
+     * </ol>
+     */
+    @Test
+    public void testInvalidDateTypeConversion() {
+        Object invalidValue = 29328967;
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.convertDate(invalidValue));
+        Assertions.assertThat(exception).hasMessageContaining("Invalid date Provided");
+
+        Object floatValue = 1234.56;
+        assertThrows(
+                IllegalArgumentException.class, () -> AvroSchemaHandler.convertDate(floatValue));
+    }
+
+    /** Test for a valid datetime string type Value. */
+    @Test
+    public void testValidDateTimeFromStringConversion() {
+        Object value = "2024-01-01 00:22:59.700440";
+        assertEquals("2024-01-01T00:22:59.700440", AvroSchemaHandler.convertDateTime(value, true));
+    }
+
+    /** Test for a valid datetime long type Value. */
+    @Test
+    public void testValidDateTimeFromLongConversion() {
+        Object value = 1710290574347000L;
+        assertEquals("2024-03-13T00:42:54.347", AvroSchemaHandler.convertDateTime(value, true));
+    }
+
+    /**
+     * Test for an invalid datetime type Value.
+     *
+     * <ol>
+     *   <li>Long value which is greater than the accepted BQ value - Error is expected.
+     *   <li>Float Value is passed - Error is expected.
+     * </ol>
+     */
+    @Test
+    public void testInvalidDateTimeConversion() {
+        Object value = 1424413213878251952L;
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroSchemaHandler.convertDateTime(value, true));
+        Object floatValue = 1234.56;
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroSchemaHandler.convertDateTime(floatValue, true));
+    }
+    // --------------------------------------------------------------------------------------------------
 
     /**
      * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Primitive types supported
@@ -264,6 +702,156 @@ public class AvroToProtoSerializerTest {
         assertEquals("", byteString.toStringUtf8());
     }
 
+    // --------------- Test Logical Data Types (Nullable and Required) ---------------
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Logical types supported
+     * BigQuery.
+     *
+     * <ul>
+     *   <li>BQ Type - Converted Avro Type {Logical Type}
+     *   <li>"TIMESTAMP" - LONG (microseconds since EPOCH) {timestamp-micros}
+     *   <li>"TIME" - LONG (microseconds since MIDNIGHT) {time-micros}
+     *   <li>"DATETIME" - INTEGER/LONG (microseconds since MIDNIGHT) {local-timestamp-micros}
+     *   <li>"DATE" - INTEGER (number of days since EPOCH) {date}
+     *   <li>"NUMERIC" - BYTES {decimal, isNumeric}
+     *   <li>"BIGNUMERIC" - BYTES {decimal}
+     *   <li>"GEOGRAPHY" - STRING {geography_wkt}
+     *   <li>"JSON" - STRING {Json}
+     * </ul>
+     */
+    @Test
+    public void testAllBigQueryAvroSupportedLogicalTypesConversionToDynamicMessageCorrectly() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithRequiredLogicalTypes();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+
+        BigDecimal bigDecimal = new BigDecimal("123456.7891011");
+        byte[] bytes = bigDecimal.unscaledValue().toByteArray();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("timestamp", DateTime.parse("2024-03-20T12:50:50.269+05:30"))
+                        .set("time", 50546554456L)
+                        .set("datetime", 1710943144787424L)
+                        .set("date", 19802)
+                        .set("numeric_field", ByteBuffer.wrap(bytes))
+                        .set("bignumeric_field", ByteBuffer.wrap(bytes))
+                        .set("geography", "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))")
+                        .set("Json", "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}")
+                        .build();
+
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        assertEquals(1710919250269000L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals("14:02:26.554456", message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(
+                "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
+        // TODO: Check the ByteString.
+        assertEquals(
+                "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))",
+                message.getField(descriptor.findFieldByNumber(7)));
+        assertEquals(
+                "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}",
+                message.getField(descriptor.findFieldByNumber(8)));
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Logical types supported
+     * by avro but not by BigQuery.
+     *
+     * <ul>
+     *   <li>BQ Type - Converted Avro Type {Logical Type}
+     *   <li>"ts_millis" - LONG (milliseconds since EPOCH) {timestamp-millis}
+     *   <li>"time_millis" - INTEGER (milliseconds since MIDNIGHT) {time-millis}
+     *   <li>"lts_millis" - INTEGER (milliseconds since EPOCH) {local-timestamp-millis}
+     *   <li>"uuid" - STRING (uuid string) {uuid}
+     * </ul>
+     */
+    @Test
+    public void testAllRemainingAvroSupportedLogicalTypesConversionToDynamicMessageCorrectly() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithRemainingLogicalTypes();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("ts_millis", DateTime.parse("2024-03-20T12:50:50.269+05:30"))
+                        .set("time_millis", 45745727)
+                        .set("lts_millis", 1710938587462L)
+                        .set("uuid", UUID.fromString("8e25e7e5-0dc5-4292-b59b-3665b0ab8280"))
+                        .build();
+
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        assertEquals(1710919250269000L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals("12:42:25.727", message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals("2024-03-20T12:43:07.462", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                "8e25e7e5-0dc5-4292-b59b-3665b0ab8280",
+                message.getField(descriptor.findFieldByNumber(4)));
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for Logical types supported by avro but not by
+     * BigQuery. However, the bigquery fields are <code>NULLABLE</code> so expecting an empty byte
+     * string.
+     */
+    @Test
+    public void testAllBigQuerySupportedNullableLogicalTypesConversionToEmptyByteStringCorrectly()
+            throws BigQuerySerializationException {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithNullableLogicalTypes();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("timestamp", null)
+                        .set("time", null)
+                        .set("datetime", null)
+                        .set("date", null)
+                        .set("numeric_field", null)
+                        .set("bignumeric_field", null)
+                        .set("geography", null)
+                        .set("Json", null)
+                        .build();
+        ByteString byteString = serializer.serialize(record);
+        assertEquals("", byteString.toStringUtf8());
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for Logical types supported by avro but not by
+     * BigQuery. However, the bigquery fields are <code>NULLABLE</code> so expecting an empty byte
+     * string.
+     */
+    @Test
+    public void
+            testUnionOfAllRemainingAvroSupportedLogicalTypesConversionToEmptyByteStringCorrectly()
+                    throws BigQuerySerializationException {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithUnionOfLogicalTypes();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("ts_millis", null)
+                        .set("time_millis", null)
+                        .set("lts_millis", null)
+                        .set("uuid", null)
+                        .build();
+
+        ByteString byteString = serializer.serialize(record);
+        assertEquals("", byteString.toStringUtf8());
+    }
+
     // ------------ Test Schemas with Record of Different Types -----------
     /**
      * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
@@ -328,8 +916,7 @@ public class AvroToProtoSerializerTest {
                         IllegalArgumentException.class,
                         () -> getDynamicMessageFromGenericRecord(record, descriptor));
         Assertions.assertThat(exception)
-                .hasMessageContaining(
-                        "Expected an Iterable,\n" + " Found class java.lang.Integer instead");
+                .hasMessageContaining("Expecting the value as Iterable type for type ARRAY.");
     }
 
     /**
@@ -539,6 +1126,95 @@ public class AvroToProtoSerializerTest {
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
         assertEquals(12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
         assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
+     * all Logical type fields (supported by BigQuery).
+     */
+    @Test
+    public void testRecordOfAllBigQuerySupportedLogicalTypeConversionToDynamicMessageCorrectly() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithRecordOfLogicalTypes();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema innerRecordSchema = avroSchema.getField("record_of_logical_types").schema();
+
+        BigDecimal bigDecimal = new BigDecimal("123456.7891011");
+        byte[] bytes = bigDecimal.unscaledValue().toByteArray();
+        GenericRecord innerRecord =
+                new GenericRecordBuilder(innerRecordSchema)
+                        .set("timestamp", DateTime.parse("2024-03-20T12:50:50.269+05:30"))
+                        .set("time", 50546554456L)
+                        .set("datetime", 1710943144787424L)
+                        .set("date", 19802)
+                        .set("numeric_field", ByteBuffer.wrap(bytes))
+                        .set("bignumeric_field", ByteBuffer.wrap(bytes))
+                        .set("geography", "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))")
+                        .set("Json", "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}")
+                        .build();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("record_of_logical_types", innerRecord)
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        message = (DynamicMessage) message.getField(descriptor.findFieldByNumber(1));
+        descriptor =
+                descriptor.findNestedTypeByName(
+                        descriptor.findFieldByNumber(1).toProto().getTypeName());
+        assertEquals(1710919250269000L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals("14:02:26.554456", message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(
+                "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
+        // TODO: Check the ByteString.
+        assertEquals(
+                "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))",
+                message.getField(descriptor.findFieldByNumber(7)));
+        assertEquals(
+                "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}",
+                message.getField(descriptor.findFieldByNumber(8)));
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for Record type schema having
+     * all Logical type fields (supported by Avro, not by BigQuery).
+     */
+    @Test
+    public void
+            testRecordOfAllRemainingAvroSupportedLogicalTypeConversionToDynamicMessageCorrectly() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithRecordOfRemainingLogicalTypes();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        Schema innerRecordSchema =
+                avroSchema.getField("record_of_remaining_logical_types").schema();
+        GenericRecord innerRecord =
+                new GenericRecordBuilder(innerRecordSchema)
+                        .set("ts_millis", DateTime.parse("2024-03-20T12:50:50.269+05:30"))
+                        .set("time_millis", 45745727)
+                        .set("lts_millis", 1710938587462L)
+                        .set("uuid", UUID.fromString("8e25e7e5-0dc5-4292-b59b-3665b0ab8280"))
+                        .build();
+
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("record_of_remaining_logical_types", innerRecord)
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        message = (DynamicMessage) message.getField(descriptor.findFieldByNumber(1));
+        descriptor =
+                descriptor.findNestedTypeByName(
+                        descriptor.findFieldByNumber(1).toProto().getTypeName());
+        assertEquals("12:42:25.727", message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals("2024-03-20T12:43:07.462", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                "8e25e7e5-0dc5-4292-b59b-3665b0ab8280",
+                message.getField(descriptor.findFieldByNumber(4)));
     }
 
     // ------------Test Schemas with ARRAY of Different Types -------------
@@ -849,6 +1525,145 @@ public class AvroToProtoSerializerTest {
         assertEquals("A", arrayResult.get(0));
         assertEquals("C", arrayResult.get(1));
         assertEquals("A", arrayResult.get(2));
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different ARRAYS having
+     * all Primitive types. <br>
+     * A record is created having six fields, each of ARRAY (different item type) types.
+     *
+     * <ul>
+     *   <li>timestamp - ARRAY of type TIMESTAMP
+     *   <li>time - ARRAY of type TIME
+     *   <li>datetime - ARRAY of type DATETIME
+     *   <li>date - ARRAY of type DATE
+     *   <li>numeric_field - ARRAY of type NUMERIC
+     *   <li>bignumeric_field - ARRAY of type BIGNUMERIC
+     *   <li>json - ARRAY of type JSON
+     *   <li>geography - ARRAY of type GEOGRAPHY
+     * </ul>
+     */
+    @Test
+    public void testArraysOfLogicalTypesConversionToDynamicMessageCorrectly() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithArraysOfLogicalTypes();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        BigDecimal bigDecimal = new BigDecimal("123456.7891011");
+        byte[] bytes = bigDecimal.unscaledValue().toByteArray();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set(
+                                "timestamp",
+                                Collections.singletonList(
+                                        DateTime.parse("2024-03-20T12:50:50.269+05:30")))
+                        .set("time", Arrays.asList(50546554456L, 50546554456L))
+                        .set(
+                                "datetime",
+                                Arrays.asList(
+                                        1710943144787424L, 1710943144787424L, 1710943144787424L))
+                        .set("date", Arrays.asList(19802, 19802, 19802, 19802))
+                        .set("numeric_field", Collections.singletonList(ByteBuffer.wrap(bytes)))
+                        .set("bignumeric_field", Collections.singletonList(ByteBuffer.wrap(bytes)))
+                        .set(
+                                "geography",
+                                Collections.singletonList(
+                                        "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))"))
+                        .set(
+                                "Json",
+                                Arrays.asList(
+                                        "{\"FirstName\" : \"John\", \"LastName\": \"Doe\"}",
+                                        "{\"FirstName\" : \"Jane\", \"LastName\": \"Doe\"}"))
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
+        assertThat(arrayResult).hasSize(1);
+        assertEquals(1710919250269000L, arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
+        assertThat(arrayResult).hasSize(2);
+        assertEquals("14:02:26.554456", arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
+        assertThat(arrayResult).hasSize(3);
+        assertEquals("2024-03-20T13:59:04.787424", arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
+        assertThat(arrayResult).hasSize(4);
+        assertEquals(19802, arrayResult.get(0));
+
+        ArrayUtils.reverse(bytes);
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(5));
+        assertThat(arrayResult).hasSize(1);
+        assertEquals(ByteString.copyFrom(bytes), arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(6));
+        assertThat(arrayResult).hasSize(1);
+        assertEquals(ByteString.copyFrom(bytes), arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(7));
+        assertThat(arrayResult).hasSize(1);
+        assertEquals("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))", arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(8));
+        assertThat(arrayResult).hasSize(2);
+        assertEquals("{\"FirstName\" : \"John\", \"LastName\": \"Doe\"}", arrayResult.get(0));
+        assertEquals("{\"FirstName\" : \"Jane\", \"LastName\": \"Doe\"}", arrayResult.get(1));
+    }
+
+    /**
+     * Test to check <code>getDynamicMessageFromGenericRecord()</code> for different ARRAYS having
+     * all Primitive types (supported by Avro, not BQ). <br>
+     * A record is created having four fields, each of ARRAY (different item type) types.
+     *
+     * <ul>
+     *   <li>time_millis - ARRAY of type TIMES (millisecond precision)
+     *   <li>lts_millis - ARRAY of type DATETIME (millisecond precision)
+     *   <li>ts_millis - ARRAY of type TIMESTAMP (millisecond precision)
+     *   <li>uuid - ARRAY of type UUID
+     * </ul>
+     */
+    @Test
+    public void testArraysOfRemainingLogicalTypesConversionToDynamicMessageCorrectly() {
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                TestBigQuerySchemas.getSchemaWithArraysOfRemainingLogicalTypes();
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("time_millis", Arrays.asList(45745727, 45745727, 45745727))
+                        .set("lts_millis", Arrays.asList(1710938587462L, 1710938587462L))
+                        .set(
+                                "ts_millis",
+                                Collections.singletonList(
+                                        DateTime.parse("2024-03-20T12:50:50.269+05:30")))
+                        .set(
+                                "uuid",
+                                Collections.singletonList(
+                                        UUID.fromString("8e25e7e5-0dc5-4292-b59b-3665b0ab8280")))
+                        .build();
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+
+        List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
+        assertThat(arrayResult).hasSize(3);
+        assertEquals("12:42:25.727", arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
+        assertThat(arrayResult).hasSize(1);
+        assertEquals(1710919250269000L, arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
+        assertThat(arrayResult).hasSize(2);
+        assertEquals("2024-03-20T12:43:07.462", arrayResult.get(0));
+
+        arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
+        assertThat(arrayResult).hasSize(1);
+        assertEquals("8e25e7e5-0dc5-4292-b59b-3665b0ab8280", arrayResult.get(0));
     }
 
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)

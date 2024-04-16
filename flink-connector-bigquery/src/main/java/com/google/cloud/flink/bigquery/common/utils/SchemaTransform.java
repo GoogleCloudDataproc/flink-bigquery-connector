@@ -207,8 +207,11 @@ public class SchemaTransform {
                 int precision =
                         Optional.ofNullable(bigQueryField.getPrecision()).orElse(38L).intValue();
                 int scale = Optional.ofNullable(bigQueryField.getScale()).orElse(9L).intValue();
-                return LogicalTypes.decimal(precision, scale)
-                        .addToSchema(Schema.create(Schema.Type.BYTES));
+                Schema numericSchema =
+                        LogicalTypes.decimal(precision, scale)
+                                .addToSchema(Schema.create(Schema.Type.BYTES));
+                numericSchema.addProp("isNumeric", true);
+                return numericSchema;
             case "BIGNUMERIC":
                 // Default value based on
                 // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#decimal_types

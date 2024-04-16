@@ -133,12 +133,11 @@ public class SchemaTransformTest {
                                 Schema.create(Schema.Type.NULL),
                                 LogicalTypes.timestampMicros()
                                         .addToSchema(Schema.create(Schema.Type.LONG))));
+        Schema numericSchema =
+                LogicalTypes.decimal(38, 9).addToSchema(Schema.create(Schema.Type.BYTES));
+        numericSchema.addProp("isNumeric", true);
         assertThat(avroSchema.getField("birthdayMoney").schema())
-                .isEqualTo(
-                        Schema.createUnion(
-                                Schema.create(Schema.Type.NULL),
-                                LogicalTypes.decimal(38, 9)
-                                        .addToSchema(Schema.create(Schema.Type.BYTES))));
+                .isEqualTo(Schema.createUnion(Schema.create(Schema.Type.NULL), numericSchema));
         assertThat(avroSchema.getField("lotteryWinnings").schema())
                 .isEqualTo(
                         Schema.createUnion(
