@@ -75,6 +75,11 @@ under the License.
             <artifactId>flink-metrics-dropwizard</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+
         <!-- Table ecosystem -->
         <!-- Projects depending on this project won't depend on flink-table-*. -->
         <dependency>
