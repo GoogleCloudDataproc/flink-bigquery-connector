@@ -24,19 +24,19 @@ under the License.
     <!-- Adding example root as parent to make sure the common dependencies are added -->
     <parent>
         <groupId>com.google.cloud.flink</groupId>
-        <artifactId>flink-connector-bigquery-flink-1.17</artifactId>
+        <artifactId>flink-1.17-connector-bigquery-parent</artifactId>
         <version>${revision}</version>
     </parent>
 
 
-    <artifactId>flink-connector-bigquery-examples</artifactId>
+    <artifactId>flink-1.17-connector-bigquery-examples</artifactId>
     <name>Flink : Connectors : Google BigQuery Example (Flink v1.17)</name>
     <packaging>jar</packaging>
 
     <dependencies>
         <dependency>
             <groupId>com.google.cloud.flink</groupId>
-            <artifactId>flink-connector-bigquery</artifactId>
+            <artifactId>flink-1.17-connector-bigquery</artifactId>
             <version>${revision}</version>
         </dependency>
     </dependencies>

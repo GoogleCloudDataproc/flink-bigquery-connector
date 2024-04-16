@@ -335,7 +335,7 @@ under the License.
         <profile>
             <id>flink_1.17</id>
             <modules>
-                <module>flink-connector-bigquery-flink-1.17</module>
+                <module>flink-1.17-connector-bigquery</module>
             </modules>
         </profile>
         <profile>
