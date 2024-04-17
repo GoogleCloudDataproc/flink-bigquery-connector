@@ -1,4 +1,4 @@
-"""Python script to dynamically partitions to a BigQuery partitioned table."""
+"""Python script to dynamically insert partitions to a BigQuery-partitioned table."""
 
 import argparse
 from collections.abc import Sequence
@@ -87,7 +87,8 @@ def main(argv: Sequence[str]) -> None:
     table_id = f'{project_name}.{dataset_name}.{table_name}'
 
     # Now add the partitions to the table.
-    # Hardcoded schema. Needs to be same as that in the pre-created table.
+    # Hardcoded schema.
+    # It Needs to be the same as that in the pre-created table.
     simple_avro_schema_fields_string = (
         '"fields": [{"name": "name", "type": "string"},{"name": "number",'
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
@@ -143,6 +144,7 @@ def main(argv: Sequence[str]) -> None:
                         'avro_file_local_identifier': avro_file_local_identifier,
                         'partition_number': partition_number + prev_partitions_offset,
                         'current_timestamp': execution_timestamp,
+                        'is_write_test': is_write_test
                     },
                 )
                 threads.append(thread)
