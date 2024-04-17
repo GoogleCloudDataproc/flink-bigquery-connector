@@ -154,9 +154,9 @@ public class BigQueryIntegrationTest {
 
         String recordPropertyToAggregate;
         String recordPropertyForTimestamps;
-        if (!destGcpProjectName.isEmpty()
-                && !destDatasetName.isEmpty()
-                && !destTableName.isEmpty()) {
+        if ((destGcpProjectName != null && !destGcpProjectName.isEmpty())
+                && (destDatasetName != null && !destDatasetName.isEmpty())
+                && (destTableName != null && !destTableName.isEmpty())) {
             // Sink Parameters have been provided.
             switch (mode) {
                 case "bounded":
