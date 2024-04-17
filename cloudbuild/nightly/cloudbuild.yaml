@@ -121,7 +121,7 @@ steps:
     id: 'e2e-bounded-write-nested-schema-table-test'
     waitFor: ['e2e-bounded-write-small-table-test', 'e2e-bounded-read-small-table-test']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_read_nested_schema_table_test']
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_write_nested_schema_table_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
@@ -155,7 +155,7 @@ steps:
     id: 'e2e-bounded-write-large-table-test'
     waitFor: ['create-clusters-bounded-large-table']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_read_large_table_test']
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_write_large_table_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
