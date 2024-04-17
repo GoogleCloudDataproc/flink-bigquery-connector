@@ -207,7 +207,7 @@ steps:
 # 6.2 Start the unbounded source table read e2e test
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-unbounded-read-test'
-    waitFor: ['create-clusters-unbounded-table']
+    waitFor: ['e2e-unbounded-write-test']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_unbounded_read_test']
     env:
