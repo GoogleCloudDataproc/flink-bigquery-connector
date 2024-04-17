@@ -9,7 +9,6 @@ import avro.datafile
 import avro.io
 from google.cloud import bigquery
 
-global_row_counter = 60000
 
 
 def is_perfect_hour(datetime_obj):
@@ -95,7 +94,9 @@ class TableCreationUtils:
         number_of_rows_per_batch,
         writer,
         partition_number,
-        current_timestamp, is_write_test = False
+        current_timestamp,
+        is_write_test=False,
+        global_row_counter=None
     ):
         """Method to generate records.
 
@@ -107,39 +108,42 @@ class TableCreationUtils:
             records into previously inserted partitions
           current_timestamp: The current timestamp, the base for calculating the
             offset.
-          is_write_test: Boolean, indicating if the insertion is being run for write test.
-
+          is_write_test: Boolean, indicating if the insertion is being run for a write test.
+          global_row_counter: Class, containing a global variable.
         """
+        # If the insertion is being run for a write test.
+        # Create a unique_key on the basis of a global counter.
         if is_write_test:
-            global global_row_counter
+            offset_timestamp = current_timestamp + datetime.timedelta(
+                hours=partition_number
+            )
+            # Write the specified number of rows.
+            for _ in range(number_of_rows_per_batch):
+                name = generate_random_string()
+                global_row_counter.global_var += 1
+                writer.append({
+                    'unique_key': str(global_row_counter.global_var) + "_" + name,
+                    'name': name,
+                    'number': generate_random_long(),
+                    'ts': generate_random_timestamp(offset_timestamp),
+                })
+
+        else:
             offset_timestamp = current_timestamp + datetime.timedelta(
                 hours=partition_number
             )
 
             # Write the specified number of rows.
             for _ in range(number_of_rows_per_batch):
-                name = generate_random_string()
-                global_row_counter += 1
                 writer.append({
-                    'unique_key': str(global_row_counter) + "_" + name,
-                    'name': name,
+                    'name': generate_random_string(),
                     'number': generate_random_long(),
                     'ts': generate_random_timestamp(offset_timestamp),
                 })
-        offset_timestamp = current_timestamp + datetime.timedelta(
-            hours=partition_number
-        )
-
-        # Write the specified number of rows.
-        for _ in range(number_of_rows_per_batch):
-            writer.append({
-                'name': generate_random_string(),
-                'number': generate_random_long(),
-                'ts': generate_random_timestamp(offset_timestamp),
-            })
 
     def write_avros(
-        self, avro_file_local_identifier, partition_number, current_timestamp, is_write_test
+        self, avro_file_local_identifier, partition_number, current_timestamp, is_write_test,
+        global_row_counter
     ):
         """Method to generate fake records for BQ table.
 
@@ -150,7 +154,8 @@ class TableCreationUtils:
             partitioned table creation.
           current_timestamp: Timestamp, one hour within which timestamp entries need
             to be generated.
-          is_write_test: Boolean, indicating if the insertion is being run for write test.
+          is_write_test: Boolean, indicating if the insertion is being run for a write test.
+          global_row_counter: Class, containing a global variable.
 
         Raises:
           RuntimeError: When invalid table_type is provided.
@@ -167,6 +172,7 @@ class TableCreationUtils:
             partition_number,
             current_timestamp,
             is_write_test,
+            global_row_counter,
         )
         writer.close()
 
@@ -200,10 +206,11 @@ class TableCreationUtils:
         avro_file_local_identifier,
         partition_number=0,
         current_timestamp=datetime.datetime.now(datetime.timezone.utc),
-        is_write_test = False
+        is_write_test=False,
+        global_row_counter=None
     ):
         self.write_avros(
-            avro_file_local_identifier, partition_number, current_timestamp, is_write_test
+            avro_file_local_identifier, partition_number, current_timestamp, is_write_test, global_row_counter
         )
         self.transfer_avro_rows_to_bq_table(avro_file_local_identifier)
         self.delete_local_file(avro_file_local_identifier)

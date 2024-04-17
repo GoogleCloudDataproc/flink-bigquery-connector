@@ -10,6 +10,11 @@ from absl import app
 import utils
 
 
+class GlobalClass:
+    def __init__(self):
+        self.global_var = 60000
+
+
 def sleep_for_seconds(duration):
     logging.info(
         'Going to sleep, waiting for connector to read existing, Time: %s',
@@ -59,11 +64,11 @@ def main(argv: Sequence[str]) -> None:
         required=False,
         default=30000,
     )
-
+    # Flag that is set when the file is run for write IT.
     parser.add_argument(
         '--is_write_test',
         dest='is_write_test',
-        help='Set the flag to True If the file would be run for write test.',
+        help='Set the flag if the file would be run for write test.',
         action='store_true',
         default=False,
         required=False,
@@ -94,6 +99,8 @@ def main(argv: Sequence[str]) -> None:
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
         '"long","logicalType": "timestamp-micros"}}]'
     )
+    # Write test relies on matching the count of unique_key which is <row_number>_<name>.
+    # Hence, create partitions accordingly.
     if is_write_test:
         simple_avro_schema_fields_string = (
             '"fields": [{"name": "unique_key", "type": "string"},'
@@ -123,6 +130,9 @@ def main(argv: Sequence[str]) -> None:
         table_id,
     )
 
+    # Global variable to keep the row_count for unique_key (write test)
+    global_var = GlobalClass()
+
     # Insert iteratively.
     prev_partitions_offset = 0
     for number_of_partitions in partitions:
@@ -144,7 +154,8 @@ def main(argv: Sequence[str]) -> None:
                         'avro_file_local_identifier': avro_file_local_identifier,
                         'partition_number': partition_number + prev_partitions_offset,
                         'current_timestamp': execution_timestamp,
-                        'is_write_test': is_write_test
+                        'is_write_test': is_write_test,  # Data would be generated accordingly.
+                        'global_row_counter': global_var # Global Counter Clas for unique row count
                     },
                 )
                 threads.append(thread)

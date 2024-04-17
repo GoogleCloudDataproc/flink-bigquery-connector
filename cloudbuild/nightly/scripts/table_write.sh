@@ -39,7 +39,7 @@ echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$SOURCE_TABLE_NAME" Write Test] Cre
 if [ "$MODE" == "bounded" ]
 then
   echo "Bounded Mode!"
-  # Modify the destination table name for all tests.
+  # Modify the destination table name.
   DESTINATION_TABLE_NAME="$SOURCE_TABLE_NAME"-"$timestamp"
   source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES"
 elif [ "$MODE" == "unbounded" ]
