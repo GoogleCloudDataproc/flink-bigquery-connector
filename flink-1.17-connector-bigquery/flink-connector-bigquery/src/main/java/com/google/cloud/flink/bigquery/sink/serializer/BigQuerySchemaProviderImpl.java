@@ -45,8 +45,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * A class that inherits {@link BigQuerySchemaProvider} deriving {@link Schema} from {@link
- * TableSchema} sourced from {@link BigQueryConnectOptions}.
+ * Default implementation of {@link BigQuerySchemaProvider} deriving Avro {@link Schema} from {@link
+ * TableSchema}, which in turn is sourced from {@link BigQueryConnectOptions}.
  */
 public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
 
