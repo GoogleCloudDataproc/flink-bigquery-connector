@@ -135,6 +135,7 @@ case $STEP in
 
   # Run the nested schema table read bounded e2e test.
   e2e_bounded_write_nested_schema_table_test)
+    IS_EXACTLY_ONCE_ENABLED=False
     run_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE" "$TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
     exit
     ;;
@@ -148,6 +149,7 @@ case $STEP in
   # Run the large table O(GB's) write bounded e2e test.
   e2e_bounded_write_large_table_test)
     # Run the large table test.
+    IS_EXACTLY_ONCE_ENABLED=False
     run_write_test "$PROJECT_ID" "$REGION_LARGE_TABLE_TEST_FILE" "$CLUSTER_LARGE_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_LARGE_TABLE" "$TABLE_NAME_DESTINATION_LARGE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB"
     exit
     ;;
