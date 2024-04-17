@@ -63,7 +63,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
-public class AvroToProtoSerializer implements BigQueryProtoSerializer<GenericRecord> {
+public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
 
     private Descriptor descriptor;
 

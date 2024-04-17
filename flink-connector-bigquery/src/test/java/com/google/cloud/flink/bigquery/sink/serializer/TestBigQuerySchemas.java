@@ -74,6 +74,16 @@ public class TestBigQuerySchemas {
                 + "}";
     }
 
+    public static BigQuerySchemaProvider getSimpleRecordSchema() {
+        String fieldString =
+                "\"fields\": "
+                        + "["
+                        + "{\"name\": \"long_field\", \"type\": \"long\"},"
+                        + "{\"name\": \"string_field\", \"type\": \"string\"}"
+                        + "]";
+        return getSchemaAndDescriptor(fieldString);
+    }
+
     public static BigQuerySchemaProvider getSchemaWithPrimitiveTypes(String mode) {
         List<TableFieldSchema> subFieldsNullable =
                 Collections.singletonList(
