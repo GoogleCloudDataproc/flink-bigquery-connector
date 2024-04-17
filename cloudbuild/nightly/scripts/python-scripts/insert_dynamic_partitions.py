@@ -132,8 +132,9 @@ def main(argv: Sequence[str]) -> None:
 
     # Global variable to keep the row_count for unique_key (write test)
     global_var = GlobalClass()
+    timestamp_for_avro_file = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    # Insert iteratively.
+# Insert iteratively.
     prev_partitions_offset = 0
     for number_of_partitions in partitions:
         start_time = time.time()
@@ -146,7 +147,8 @@ def main(argv: Sequence[str]) -> None:
             # Insert via concurrent threads.
             for thread_number in range(number_of_threads):
                 avro_file_local_identifier = avro_file_local.replace(
-                    '.', '_' + str(thread_number) + '_' + str(execution_timestamp) + '.'
+                    '.', '_' + str(thread_number) + '_' +
+                         str(timestamp_for_avro_file) + "_" + str(is_write_test) + '.'
                 )
                 thread = threading.Thread(
                     target=table_creation_utils.avro_to_bq_with_cleanup,

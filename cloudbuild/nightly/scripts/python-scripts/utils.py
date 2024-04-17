@@ -191,7 +191,6 @@ class TableCreationUtils:
             source_format=bigquery.SourceFormat.AVRO,
             use_avro_logical_types=True,
         )
-
         with open(avro_file_local_identifier, 'rb') as source_file:
             job = client.load_table_from_file(
                 source_file, self.table_id, job_config=job_config
