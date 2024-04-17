@@ -16,7 +16,7 @@
 
 package com.google.cloud.flink.bigquery.source.split;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
+import org.apache.flink.annotation.Internal;
 
 import java.util.Objects;
 

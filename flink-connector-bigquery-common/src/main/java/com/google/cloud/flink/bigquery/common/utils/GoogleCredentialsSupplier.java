@@ -16,10 +16,11 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
+import org.apache.flink.annotation.Internal;
+
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;

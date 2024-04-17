@@ -16,12 +16,13 @@
 
 package com.google.cloud.flink.bigquery.source.split;
 
+import org.apache.flink.annotation.Internal;
+
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.protobuf.Timestamp;

@@ -16,7 +16,8 @@
 
 package com.google.cloud.flink.bigquery.source.split.assigner;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
+import org.apache.flink.annotation.Internal;
+
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;

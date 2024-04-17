@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.source.reader;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.source.reader.RecordEmitter;
@@ -24,7 +25,6 @@ import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSource
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitState;
 import org.apache.avro.generic.GenericRecord;

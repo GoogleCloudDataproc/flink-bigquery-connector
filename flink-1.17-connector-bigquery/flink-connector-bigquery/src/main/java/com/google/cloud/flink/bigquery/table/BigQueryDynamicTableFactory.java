@@ -16,13 +16,13 @@
 
 package com.google.cloud.flink.bigquery.table;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.util.function.SerializableSupplier;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.SerializableSupplier;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfiguration;

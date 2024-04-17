@@ -16,6 +16,9 @@
 
 package com.google.cloud.flink.bigquery.services;
 
+import org.apache.flink.FlinkVersion;
+import org.apache.flink.annotation.Internal;
+
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -29,8 +32,6 @@ import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.Table;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.FlinkVersion;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
 import dev.failsafe.RetryPolicy;
@@ -78,7 +79,8 @@ public class BigQueryUtils {
                         JSON_FACTORY,
                         new HttpCredentialsAdapter(options.getCredentials()))
                 .setApplicationName(
-                        "BigQuery Connector for Apache Flink version " + FlinkVersion.getVersion());
+                        "BigQuery Connector for Apache Flink version "
+                                + FlinkVersion.current().toString());
     }
 
     public static String bqSanitizedRandomUUID() {

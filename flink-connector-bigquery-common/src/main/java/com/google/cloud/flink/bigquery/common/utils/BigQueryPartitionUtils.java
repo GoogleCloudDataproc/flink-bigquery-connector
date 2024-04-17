@@ -16,10 +16,11 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
+
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.Preconditions;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfo;
 import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;

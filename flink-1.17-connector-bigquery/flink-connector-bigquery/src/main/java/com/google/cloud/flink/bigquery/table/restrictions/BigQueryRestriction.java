@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.table.restrictions;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.expressions.CallExpression;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.expressions.FieldReferenceExpression;
@@ -25,7 +26,6 @@ import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.FunctionDefinition;
 
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 
 import java.time.Instant;
 import java.time.LocalDate;

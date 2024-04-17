@@ -16,10 +16,11 @@
 
 package com.google.cloud.flink.bigquery.common.config;
 
+import org.apache.flink.annotation.PublicEvolving;
+
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.flink.bigquery.common.utils.GoogleCredentialsSupplier;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.PublicEvolving;
 
 import javax.annotation.Nullable;
 

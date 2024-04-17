@@ -16,10 +16,10 @@
 
 package com.google.cloud.flink.bigquery.source.reader.deserializer;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 

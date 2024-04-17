@@ -16,12 +16,13 @@
 
 package com.google.cloud.flink.bigquery.source.config;
 
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.util.Preconditions;
+
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.serializable.SerializableAutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.PublicEvolving;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.Preconditions;
 import org.threeten.bp.Instant;
 
 import javax.annotation.Nullable;

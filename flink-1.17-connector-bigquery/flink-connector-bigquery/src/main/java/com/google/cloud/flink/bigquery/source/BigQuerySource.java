@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.source;
 
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
@@ -34,8 +36,6 @@ import com.google.auto.value.AutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.PublicEvolving;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.VisibleForTesting;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.emitter.BigQueryRecordEmitter;

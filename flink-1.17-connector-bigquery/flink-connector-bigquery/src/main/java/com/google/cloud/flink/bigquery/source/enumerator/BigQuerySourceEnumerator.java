@@ -16,11 +16,11 @@
 
 package com.google.cloud.flink.bigquery.source.enumerator;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;

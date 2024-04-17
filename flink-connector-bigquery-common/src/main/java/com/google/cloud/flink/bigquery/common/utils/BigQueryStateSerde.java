@@ -16,9 +16,9 @@
 
 package com.google.cloud.flink.bigquery.common.utils;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.BiConsumerWithException;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.FunctionWithException;
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.function.BiConsumerWithException;
+import org.apache.flink.util.function.FunctionWithException;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

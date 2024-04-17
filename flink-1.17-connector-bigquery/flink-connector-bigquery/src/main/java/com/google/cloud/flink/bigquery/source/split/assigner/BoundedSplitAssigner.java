@@ -16,11 +16,12 @@
 
 package com.google.cloud.flink.bigquery.source.split.assigner;
 
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
+
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.Preconditions;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;

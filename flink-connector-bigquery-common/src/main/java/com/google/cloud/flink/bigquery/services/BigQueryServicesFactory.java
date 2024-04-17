@@ -16,10 +16,11 @@
 
 package com.google.cloud.flink.bigquery.services;
 
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.util.Preconditions;
+
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.VisibleForTesting;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.Preconditions;
 
 import java.io.IOException;
 

@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.table;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
@@ -34,7 +35,6 @@ import org.apache.flink.table.types.logical.RowType;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;

@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.services;
 
+import org.apache.flink.annotation.Internal;
+
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
@@ -25,7 +27,6 @@ import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 
 import java.io.IOException;
 import java.io.Serializable;

@@ -16,11 +16,11 @@
 
 package com.google.cloud.flink.bigquery.source.emitter;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceOutput;
 import org.apache.flink.connector.base.source.reader.RecordEmitter;
 import org.apache.flink.util.Collector;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReader;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.BigQueryDeserializationSchema;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitState;

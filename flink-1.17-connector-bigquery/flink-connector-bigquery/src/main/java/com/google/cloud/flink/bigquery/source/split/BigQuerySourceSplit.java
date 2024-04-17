@@ -16,9 +16,8 @@
 
 package com.google.cloud.flink.bigquery.source.split;
 
+import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.connector.source.SourceSplit;
-
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.PublicEvolving;
 
 import java.io.Serializable;
 import java.util.Objects;

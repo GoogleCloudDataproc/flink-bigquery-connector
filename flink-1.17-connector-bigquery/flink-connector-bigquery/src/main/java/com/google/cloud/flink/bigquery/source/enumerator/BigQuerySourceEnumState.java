@@ -16,7 +16,8 @@
 
 package com.google.cloud.flink.bigquery.source.enumerator;
 
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.PublicEvolving;
+import org.apache.flink.annotation.PublicEvolving;
+
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 
 import java.util.ArrayList;

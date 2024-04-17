@@ -16,10 +16,9 @@
 
 package com.google.cloud.flink.bigquery.table.config;
 
+import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
-
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.PublicEvolving;
 
 /**
  * Base options for the BigQuery connector. Needs to be public so that the {@link

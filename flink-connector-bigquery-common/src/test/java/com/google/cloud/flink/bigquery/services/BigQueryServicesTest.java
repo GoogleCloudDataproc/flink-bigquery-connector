@@ -16,9 +16,10 @@
 
 package com.google.cloud.flink.bigquery.services;
 
+import org.apache.flink.util.function.SerializableSupplier;
+
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.flink.core.SerializableSupplier;
 import org.junit.Test;
 
 import java.io.IOException;

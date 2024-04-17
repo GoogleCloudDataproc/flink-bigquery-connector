@@ -46,6 +46,7 @@ under the License.
 
     <properties>
         <revision>0.1.0-preview</revision>
+        <flink.version>1.17.1</flink.version>
         <google-lib-bom.version>26.33.0</google-lib-bom.version>
 
         <junit5.version>5.9.3</junit5.version>
@@ -71,10 +72,7 @@ under the License.
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
+
 
         <!-- Logging API -->
         <dependency>
@@ -154,11 +152,6 @@ under the License.
                 <groupId>dev.failsafe</groupId>
                 <artifactId>failsafe</artifactId>
                 <version>3.3.2</version>
-            </dependency>
-            <dependency>
-                <groupId>joda-time</groupId>
-                <artifactId>joda-time</artifactId>
-                <version>2.10.10</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
@@ -266,6 +259,24 @@ under the License.
                 <artifactId>assertj-core</artifactId>
                 <version>3.24.2</version>
                 <scope>test</scope>
+            </dependency>
+            
+            <!-- Unavoidable Flink Dependencies -->
+            <!-- The Idea is to have one same flink
+            version that governs annotations and flink-core version -->
+            <!-- Dependency required for annotations across the project. -->
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-annotations</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+            <!-- Dependency required for SerializableSupplier, 
+                Preconditions, BiConsumerWithException,
+                FunctionWithException used across the Project. -->
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-core</artifactId>
+                <version>${flink.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

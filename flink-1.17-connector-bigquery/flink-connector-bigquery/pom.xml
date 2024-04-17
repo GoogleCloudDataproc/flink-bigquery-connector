@@ -43,6 +43,10 @@ under the License.
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client</artifactId>
         </dependency>
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
 
         <!-- Flink Dependencies -->
         <dependency>

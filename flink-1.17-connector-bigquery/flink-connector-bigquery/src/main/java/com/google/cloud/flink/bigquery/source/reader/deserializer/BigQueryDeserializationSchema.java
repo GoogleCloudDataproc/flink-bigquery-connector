@@ -16,10 +16,9 @@
 
 package com.google.cloud.flink.bigquery.source.reader.deserializer;
 
+import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.util.Collector;
-
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.PublicEvolving;
 
 import java.io.IOException;
 import java.io.Serializable;

@@ -69,6 +69,18 @@ under the License.
             <artifactId>junit-vintage-engine</artifactId>
             <version>${junit5.version}</version>
         </dependency>
+        <!-- Dependency required for annotations across the project. -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-annotations</artifactId>
+        </dependency>
+        <!-- Dependency required for SerializableSupplier,
+        Preconditions, BiConsumerWithException,
+        FunctionWithException used across the Project. -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-core</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

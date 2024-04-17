@@ -16,10 +16,10 @@
 
 package com.google.cloud.flink.bigquery.source.enumerator;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import com.google.cloud.flink.bigquery.common.utils.BigQueryStateSerde;
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitSerializer;
 

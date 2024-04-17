@@ -16,13 +16,12 @@
 
 package com.google.cloud.flink.bigquery.source.reader;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.groups.SourceReaderMetricGroup;
 import org.apache.flink.util.UserCodeClassLoader;
-
-import com.google.cloud.flink.bigquery.common.utils.flink.annotations.Internal;
 
 import java.util.concurrent.atomic.AtomicLong;
 
