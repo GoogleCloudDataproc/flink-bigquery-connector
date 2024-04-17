@@ -121,7 +121,7 @@ class TableCreationUtils:
                 name = generate_random_string()
                 global_row_counter += 1
                 writer.append({
-                    'update': str(global_row_counter) + "_" + name,
+                    'unique_key': str(global_row_counter) + "_" + name,
                     'name': name,
                     'number': generate_random_long(),
                     'ts': generate_random_timestamp(offset_timestamp),
