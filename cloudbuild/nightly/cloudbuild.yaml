@@ -170,7 +170,7 @@ steps:
 # 5.2 Start the large table read e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-read-large-table-test'
-    waitFor: ['create-clusters-bounded-large-table']
+    waitFor: ['e2e-bounded-write-large-table-test'] # Both cannot be run parallely.
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_read_large_table_test']
     env:
