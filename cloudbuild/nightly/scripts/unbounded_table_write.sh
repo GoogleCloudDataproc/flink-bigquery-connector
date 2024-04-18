@@ -15,6 +15,7 @@
 # limitations under the License.
 PROPERTIES=$1
 timestamp=$2
+UNBOUNDED_JOB_SINK_PARALLELISM=$3
 
 # Copy the table
 bq cp -f "$DATASET_NAME"."$SOURCE_TABLE_NAME" "$DATASET_NAME"."$SOURCE_TABLE_NAME"_"$timestamp"
