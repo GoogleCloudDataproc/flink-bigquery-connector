@@ -46,7 +46,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         'cluster_name': cluster_name,
         'config': {
             'master_config': {'num_instances': 1, 'machine_type_uri': 'n2-standard-4',
-                              'disk_config': {'boot_disk_size_gb': 200}},
+                              'disk_config': {'boot_disk_size_gb': 500}},
             'worker_config': {'num_instances': num_workers,
                               'machine_type_uri': worker_machine_type},
             'software_config': {
