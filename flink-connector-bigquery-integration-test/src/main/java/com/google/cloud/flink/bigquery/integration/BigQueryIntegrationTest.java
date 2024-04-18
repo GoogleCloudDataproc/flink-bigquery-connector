@@ -67,13 +67,22 @@ import java.util.concurrent.TimeoutException;
  *   <li>Bounded Jobs: Involve reading a BigQuery Table in the <i> bounded </i> mode.<br>
  *       The arguments given in this case would be:
  *       <ul>
- *         <li>--gcp-project {required; project ID which contains the BigQuery table}
- *         <li>--bq-dataset {required; name of BigQuery dataset containing the desired table} <br>
- *         <li>--bq-table {required; name of BigQuery table to read} <br>
+ *         <li>--gcp-source-project {required; project ID which contains the Source BigQuery table}
+ *         <li>--bq-source-dataset {required; name of Source BigQuery dataset containing the desired
+ *             table} <br>
+ *         <li>--bq-source-table {required; name of Source BigQuery table to read} <br>
  *         <li>--agg-prop {required; record property to aggregate in Flink job} <br>
  *         <li>--query {optional; SQL query to fetch data from BigQuery table}
+ *         <li>--gcp-dest-project {optional; project ID which contains the Destination BigQuery
+ *             table}
+ *         <li>--bq-dest-dataset {optional; name of Destination BigQuery dataset containing the
+ *             desired table}
+ *         <li>--bq-dest-table {optional; name of Destination BigQuery table to write} <br>
+ *         <li>--sink-parallelism {optional; parallelism for sink job}
+ *         <li>--exactly-once {optional; set flag to enable exactly once approach}
  *       </ul>
- *       The sequence of operations in this pipeline is: <i>source > flatMap > keyBy > sum </i> <br>
+ *       The sequence of operations in the read pipeline is: <i>source > flatMap > keyBy > sum </i>
+ *       <br>
  *       A counter counts the total number of records read (the number of records observed by keyBy
  *       operation) and logs this count at the end. <br>
  *       Command to run bounded tests on Dataproc Cluster is: <br>
@@ -121,10 +130,15 @@ public class BigQueryIntegrationTest {
             LOG.error(
                     "Missing parameters!\n"
                             + "Usage: flink run <additional runtime params> <jar>"
-                            + " --gcp-project <gcp project id>"
-                            + " --bq-dataset <dataset name>"
-                            + " --bq-table <table name>"
+                            + " --gcp-source-project <source gcp project id>"
+                            + " --bq-source-dataset <source dataset name>"
+                            + " --bq-source-table <source table name>"
                             + " --agg-prop <record property to aggregate>"
+                            + " --gcp-dest-project <destination gcp project id>"
+                            + " --bq-dest-dataset <destination dataset name>"
+                            + " --bq-dest-table <destination table name>"
+                            + " --sink-parallelism <parallelism for sink>"
+                            + " --exactly-once <set for sink via 'EXACTLY ONCE' approach>"
                             + " --mode <source type>"
                             + " --query <SQL query to get data from BQ table>"
                             + " --ts-prop <timestamp property>"

@@ -48,7 +48,8 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
             'master_config': {'num_instances': 1, 'machine_type_uri': 'n2-standard-4',
                               'disk_config': {'boot_disk_size_gb': 500}},
             'worker_config': {'num_instances': num_workers,
-                              'machine_type_uri': worker_machine_type},
+                              'machine_type_uri': worker_machine_type,
+                              'disk_config': {'boot_disk_size_gb': 500}},
             'software_config': {
                 'image_version': dataproc_image_version,
                 'optional_components': ['FLINK']},
