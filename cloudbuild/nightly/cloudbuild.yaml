@@ -31,7 +31,7 @@ steps:
       - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
       - 'WORKER_MACHINE_TYPE_SMALL_BOUNDED=${_WORKER_MACHINE_TYPE_SMALL_BOUNDED}'
 
-# 3.2 Create the dataproc cluster - for large table bounded read test
+# 3.2 Create the dataproc cluster - for large table bounded test
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'create-clusters-bounded-large-table'
     waitFor: ['init']
@@ -48,7 +48,7 @@ steps:
       - 'CLUSTER_LARGE_TABLE_TEST_FILE=${_CLUSTER_LARGE_TABLE_TEST_FILE}'
       - 'WORKER_MACHINE_TYPE_LARGE_BOUNDED=${_WORKER_MACHINE_TYPE_LARGE_BOUNDED}'
 
-# 3.3 Create the dataproc cluster - for unbounded read test.
+# 3.3 Create the dataproc cluster - for unbounded test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'create-clusters-unbounded-table'
     waitFor: ['init']
@@ -65,7 +65,7 @@ steps:
       - 'CLUSTER_UNBOUNDED_TABLE_TEST_FILE=${_CLUSTER_UNBOUNDED_TABLE_TEST_FILE}'
       - 'WORKER_MACHINE_TYPE_UNBOUNDED=${_WORKER_MACHINE_TYPE_UNBOUNDED}'
 
-# 4 Start the simple table write e2e test.
+# 4 Start the simple table e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-small-table-test'
     waitFor: ['create-clusters-bounded-small-table']
@@ -83,10 +83,10 @@ steps:
       - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
       - 'SINK_PARALLELISM_SMALL_BOUNDED_JOB=${_SINK_PARALLELISM_SMALL_BOUNDED_JOB}'
 
-# 5 Start the nested schema table write e2e test.
+# 5 Start the nested schema table e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-nested-schema-table-test'
-    waitFor: ['e2e-bounded-write-small-table-test']
+    waitFor: ['e2e-bounded-small-table-test']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_nested_schema_table_test']
     env:
@@ -104,7 +104,7 @@ steps:
 # 6 Start the query read e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-query-test'
-    waitFor: ['e2e-bounded-write-nested-schema-table-test']
+    waitFor: ['e2e-bounded-nested-schema-table-test']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_query_test']
     env:
@@ -117,7 +117,7 @@ steps:
       - 'REGION_SMALL_TEST_FILE=${_REGION_SMALL_TEST_FILE}'
       - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
 
-# 7 Start the large table write e2e test.
+# 7 Start the large table e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-large-table-test'
     waitFor: ['create-clusters-bounded-large-table']
@@ -135,7 +135,7 @@ steps:
       - 'CLUSTER_LARGE_TABLE_TEST_FILE=${_CLUSTER_LARGE_TABLE_TEST_FILE}'
       - 'SINK_PARALLELISM_LARGE_BOUNDED_JOB=${_SINK_PARALLELISM_LARGE_BOUNDED_JOB}'
 
-# 8 Start the unbounded source table write e2e test
+# 8 Start the unbounded source table e2e test
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-unbounded-test'
     waitFor: ['create-clusters-unbounded-table']
