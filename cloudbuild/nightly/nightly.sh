@@ -70,12 +70,24 @@ run_write_test(){
   IS_EXACTLY_ONCE_ENABLED=$8
   MODE=$9
   PROPERTIES=${10}
+  BOUNDED_JOB_SINK_PARALLELISM=${11}
   # Get the final region and the cluster name.
   export REGION=$(cat "$REGION_FILE")
   export CLUSTER_NAME=$(cat "$CLUSTER_FILE")
 
   # Run the simple bounded write table test.
-  source cloudbuild/nightly/scripts/table_write.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$SOURCE_TABLE_NAME" "$DESTINATION_TABLE_NAME" "$IS_EXACTLY_ONCE_ENABLED" "$MODE" "$PROPERTIES"
+  source cloudbuild/nightly/scripts/table_write.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$SOURCE_TABLE_NAME" "$DESTINATION_TABLE_NAME" "$IS_EXACTLY_ONCE_ENABLED" "$MODE" "$PROPERTIES" "$BOUNDED_JOB_SINK_PARALLELISM"
+}
+
+# Function to run the test to check BQ Table Write.
+# Also, delete the cluster and its buckets.
+run_write_test_delete_cluster(){
+  PROJECT_ID=$1
+  # Run the write test.
+  run_write_test "$PROJECT_ID" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}"
+  # REGION and CLUSTER_NAME should be in scope (from previous function).
+  # Delete the cluster as well as its staging and temp buckets.
+  python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_id "$PROJECT_ID"
 }
 
 # Function to run the test to check BQ Table Read.
@@ -114,29 +126,17 @@ case $STEP in
     exit
     ;;
 
-  # Run the small table read bounded e2e test.
-  e2e_bounded_read_small_table_test)
-    run_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SIMPLE_TABLE" "$AGG_PROP_NAME_SIMPLE_TABLE" "" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
-    exit
-    ;;
-
   # Run the small table write bounded e2e test.
   e2e_bounded_write_small_table_test)
     IS_EXACTLY_ONCE_ENABLED=False
-    run_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_SIMPLE_TABLE" "$TABLE_NAME_DESTINATION_SIMPLE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
+    run_write_test_delete_cluster "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_SIMPLE_TABLE" "$TABLE_NAME_DESTINATION_SIMPLE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB" "$SINK_PARALLELISM_SMALL_BOUNDED_JOB"
     exit
     ;;
 
-  # Run the nested schema table read bounded e2e test.
-  e2e_bounded_read_nested_schema_table_test)
-    run_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_COMPLEX_SCHEMA_TABLE" "$AGG_PROP_NAME_COMPLEX_SCHEMA_TABLE" "" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
-    exit
-    ;;
-
-  # Run the nested schema table read bounded e2e test.
+  # Run the nested schema table write bounded e2e test.
   e2e_bounded_write_nested_schema_table_test)
     IS_EXACTLY_ONCE_ENABLED=False
-    run_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE" "$TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
+    run_write_test_delete_cluster "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE" "$TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB" "$SINK_PARALLELISM_SMALL_BOUNDED_JOB"
     exit
     ;;
 
@@ -150,27 +150,14 @@ case $STEP in
   e2e_bounded_write_large_table_test)
     # Run the large table test.
     IS_EXACTLY_ONCE_ENABLED=False
-    run_write_test "$PROJECT_ID" "$REGION_LARGE_TABLE_TEST_FILE" "$CLUSTER_LARGE_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_LARGE_TABLE" "$TABLE_NAME_DESTINATION_LARGE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB"
-    exit
-    ;;
-
-  # Run the large table O(GB's) read bounded e2e test.
-  e2e_bounded_read_large_table_test)
-    # Run the large table test.
-    run_test_delete_cluster "$PROJECT_ID" "$REGION_LARGE_TABLE_TEST_FILE" "$CLUSTER_LARGE_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_LARGE_TABLE" "$AGG_PROP_NAME_LARGE_TABLE" "" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB"
+    run_write_test_delete_cluster "$PROJECT_ID" "$REGION_LARGE_TABLE_TEST_FILE" "$CLUSTER_LARGE_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_LARGE_TABLE" "$TABLE_NAME_DESTINATION_LARGE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB" "$SINK_PARALLELISM_LARGE_BOUNDED_JOB"
     exit
     ;;
 
   # Run the small table read bounded e2e test.
   e2e_unbounded_write_test)
     IS_EXACTLY_ONCE_ENABLED=False
-    run_write_test "$PROJECT_ID" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_UNBOUNDED_TABLE" "$TABLE_NAME_DESTINATION_UNBOUNDED_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "unbounded" "$PROPERTIES_UNBOUNDED_JOB"
-    exit
-    ;;
-
-  # Run the e2e tests unbounded partitioned table
-  e2e_unbounded_read_test)
-    run_test_delete_cluster "$PROJECT_ID" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_UNBOUNDED_TABLE" "$AGG_PROP_NAME_UNBOUNDED_TABLE" "" "unbounded" "$PROPERTIES_UNBOUNDED_JOB"
+    run_write_test "$PROJECT_ID" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_UNBOUNDED_TABLE" "$TABLE_NAME_DESTINATION_UNBOUNDED_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "unbounded" "$PROPERTIES_UNBOUNDED_JOB" "$SINK_PARALLELISM_UNBOUNDED_JOB"
     exit
     ;;
 

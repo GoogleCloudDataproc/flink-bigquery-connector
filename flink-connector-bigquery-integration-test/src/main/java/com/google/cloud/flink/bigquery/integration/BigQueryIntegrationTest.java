@@ -32,6 +32,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
@@ -143,6 +144,7 @@ public class BigQueryIntegrationTest {
         String destGcpProjectName = parameterTool.get("gcp-dest-project");
         String destDatasetName = parameterTool.get("bq-dest-dataset");
         String destTableName = parameterTool.get("bq-dest-table");
+        Integer sinkParallelism = parameterTool.getInt("sink-parallelism");
         boolean isExactlyOnceEnabled = parameterTool.getBoolean("exactly-once", false);
 
         // Ignored for bounded run and can be set for unbounded mode (not required).
@@ -167,7 +169,8 @@ public class BigQueryIntegrationTest {
                             destGcpProjectName,
                             destDatasetName,
                             destTableName,
-                            isExactlyOnceEnabled);
+                            isExactlyOnceEnabled,
+                            sinkParallelism);
                     break;
                 case "unbounded":
                     recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -179,6 +182,7 @@ public class BigQueryIntegrationTest {
                             destDatasetName,
                             destTableName,
                             isExactlyOnceEnabled,
+                            sinkParallelism,
                             recordPropertyForTimestamps,
                             partitionDiscoveryInterval,
                             timeoutTimePeriod);
@@ -238,7 +242,8 @@ public class BigQueryIntegrationTest {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
-            boolean exactlyOnce)
+            boolean exactlyOnce,
+            Integer sinkParallelism)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -279,15 +284,19 @@ public class BigQueryIntegrationTest {
             throw new IllegalArgumentException("EXACTLY ONCE is not supported yet ");
         }
 
-        env.fromSource(
-                        source,
-                        WatermarkStrategy.noWatermarks(),
-                        "BigQueryBoundedSource",
-                        source.getProducedType())
-                .returns(
-                        new GenericRecordAvroTypeInfo(
-                                sinkConfig.getSchemaProvider().getAvroSchema()))
-                .sinkTo(BigQuerySink.get(sinkConfig, env));
+        DataStreamSink boundedStreamSink =
+                env.fromSource(
+                                source,
+                                WatermarkStrategy.noWatermarks(),
+                                "BigQueryBoundedSource",
+                                source.getProducedType())
+                        .returns(
+                                new GenericRecordAvroTypeInfo(
+                                        sinkConfig.getSchemaProvider().getAvroSchema()))
+                        .sinkTo(BigQuerySink.get(sinkConfig, env));
+        if (sinkParallelism != null) {
+            boundedStreamSink.setParallelism(sinkParallelism);
+        }
 
         env.execute("Flink BigQuery Bounded Read-Write Integration Test");
     }
@@ -300,6 +309,7 @@ public class BigQueryIntegrationTest {
             String destDatasetName,
             String destTableName,
             boolean exactlyOnce,
+            Integer sinkParallelism,
             String recordPropertyForTimestamps,
             Integer partitionDiscoveryInterval,
             Integer timeoutTimePeriod)
@@ -345,7 +355,8 @@ public class BigQueryIntegrationTest {
                 sinkConfig,
                 source.getProducedType(),
                 recordPropertyForTimestamps,
-                timeoutTimePeriod);
+                timeoutTimePeriod,
+                sinkParallelism);
     }
 
     private static void runJobWithSink(
@@ -353,26 +364,34 @@ public class BigQueryIntegrationTest {
             BigQuerySinkConfig sinkConfig,
             TypeInformation<GenericRecord> typeInfo,
             String recordPropertyForTimestamps,
-            Integer timeoutTimePeriod)
+            Integer timeoutTimePeriod,
+            Integer sinkParallelism)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
-        env.fromSource(
-                        source,
-                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
-                                        Duration.ofMinutes(MAX_OUT_OF_ORDER))
-                                .withTimestampAssigner(
-                                        (event, timestamp) ->
-                                                (Long) event.get(recordPropertyForTimestamps))
-                                .withIdleness(Duration.ofMinutes(MAX_IDLENESS)),
-                        "BigQueryStreamingSource",
-                        typeInfo)
-                .returns(
-                        new GenericRecordAvroTypeInfo(
-                                sinkConfig.getSchemaProvider().getAvroSchema()))
-                .sinkTo(BigQuerySink.get(sinkConfig, env));
+        DataStreamSink unboundedStreamSink =
+                env.fromSource(
+                                source,
+                                WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
+                                                Duration.ofMinutes(MAX_OUT_OF_ORDER))
+                                        .withTimestampAssigner(
+                                                (event, timestamp) ->
+                                                        (Long)
+                                                                event.get(
+                                                                        recordPropertyForTimestamps))
+                                        .withIdleness(Duration.ofMinutes(MAX_IDLENESS)),
+                                "BigQueryStreamingSource",
+                                typeInfo)
+                        .returns(
+                                new GenericRecordAvroTypeInfo(
+                                        sinkConfig.getSchemaProvider().getAvroSchema()))
+                        .sinkTo(BigQuerySink.get(sinkConfig, env));
+
+        if (sinkParallelism != null) {
+            unboundedStreamSink.setParallelism(sinkParallelism);
+        }
 
         String jobName = "Flink BigQuery Unbounded Read-Write Integration Test";
 

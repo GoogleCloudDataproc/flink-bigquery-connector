@@ -25,6 +25,7 @@ DESTINATION_TABLE_NAME=$7
 IS_EXACTLY_ONCE_ENABLED=$8
 MODE=$9
 PROPERTIES=${10}
+BOUNDED_JOB_SINK_PARALLELISM=${11}
 set -euxo pipefail
 gcloud config set project "$PROJECT_ID"
 
@@ -41,7 +42,7 @@ then
   echo "Bounded Mode!"
   # Modify the destination table name.
   DESTINATION_TABLE_NAME="$SOURCE_TABLE_NAME"-"$timestamp"
-  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES"
+  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$BOUNDED_JOB_SINK_PARALLELISM"
 elif [ "$MODE" == "unbounded" ]
 then
   echo "Unbounded Mode!"
