@@ -3,16 +3,17 @@
 [![CodeQL](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml)
 [![codecov](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector)
 
-The connector supports streaming data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink. 
+The connector supports streaming data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink, 
+and writing results back to BigQuery tables.
 This is done by using the [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.18/docs/dev/datastream/overview/) 
 to communicate with BigQuery.
 
 ## Public Preview
 
 This connector is a work in progress, and here we’re providing the first preview of its capabilities. It currently offers 
-the feature to read data from a BigQuery table into a Flink application, while the ability to write results of Flink jobs 
-to BigQuery tables will be offered in the near future. Users should note this is an experimental instrument, and we 
-guarantee no SLOs at this stage.
+the feature to read data from a BigQuery table into a Flink application, and the ability to write results of Flink jobs 
+to BigQuery tables with at-least-once write consistency. Exactly-once consistency will be offered in the near future. Users 
+should note this is an experimental instrument, and we guarantee no SLOs at this stage.
 
 ## Apache Flink
 
@@ -28,7 +29,8 @@ Following are some benefits of using the Storage API:
 
 ### Direct Streaming
 
-Rows are read directly from BigQuery servers using the Avro wire format.
+It does not leave any temporary files in Google Cloud Storage. Rows are read directly from BigQuery servers using the 
+Avro wire format.
 
 ### Filtering
 
@@ -62,19 +64,21 @@ Being an experimental preview, this connector has not been published to maven ce
 * Unix-like environment (we use Linux, Mac OS X)
 * Git
 * Maven (we recommend version 3.8.6)
-* Java 11
+* Java 8
 
 #### Steps
 
 ```shell
 git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
 cd flink-bigquery-connector
-git checkout tags/v0.1.0-preview
-mvn clean install -DskipTests
+git checkout tags/v0.2.0-preview
+mvn clean install -DskipTests -Pflink_1.17
 ```
 
-Resulting jars can be found in the target directory of respective modules, i.e. `flink-bigquery-connector/flink-connector-bigquery/target` 
-for the connector, and `flink-bigquery-connector/flink-connector-bigquery-examples/target` for a sample application.
+Resulting jars can be found in the target directory of respective modules, i.e. 
+`flink-bigquery-connector/flink-1.17-connector-bigquery/flink-connector-bigquery/target` for the connector, 
+and `flink-bigquery-connector/flink-1.17-connector-bigquery/flink-connector-bigquery-examples/target` for a sample 
+application.
 
 Maven artifacts are installed under `.m2/repository`.
 
@@ -82,9 +86,10 @@ If only the jars are needed, then execute maven `package` instead of `install`.
 
 #### Connector to Flink Compatibility
 
-| Connector tag \ Flink version | 1.15.4 | 1.17.1 |
+| Connector tag \ Flink version | 1.15.x | 1.17.x |
 |-------------------------------|--------|--------|
 | 0.1.0-preview                 | ✓      | ✓      |
+| 0.2.0-preview                 | ✓      | ✓      |
 
 ### Create a Google Cloud Dataproc cluster (Optional)
 
@@ -103,7 +108,8 @@ Follow [this document](https://cloud.google.com/dataproc/docs/concepts/component
 
 | Connector tag \ Dataproc Image | 2.1 |
 |--------------------------------|-----|
-| 0.1.0-preview                  | ✓   | 
+| 0.1.0-preview                  | ✓   |
+| 0.2.0-preview                  | ✓   |
 
 ## Usage
 
@@ -117,13 +123,15 @@ modes, bounded and unbounded.
 ```xml
 <dependency>
   <groupId>com.google.cloud.flink</groupId>
-  <artifactId>flink-connector-bigquery</artifactId>
-  <version>0.1.0-preview</version>
+  <artifactId>flink-1.17-connector-bigquery</artifactId>
+  <version>0.2.0-preview</version>
 </dependency>
 ```
 
 #### Relevant Files
 
+* Sink factory methods are defined at `com.google.cloud.flink.bigquery.sink.BigQuerySink`.
+* Sink configs are defined at `com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig`.
 * Source factory methods are defined at `com.google.cloud.flink.bigquery.source.BigQuerySource`.
 * Source configs are defined at `com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions`.
 * BigQuery connection config is defined at `com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions`.
@@ -209,7 +217,7 @@ addressed in future releases.
 [manage these views](https://cloud.google.com/bigquery/docs/managing-views) on their own, until future releases expose a 
 configuration in the connector to delete them or assign a time-to-live.
 
-### Connector Configurations
+### Connector Source Configurations
 
 The connector supports a number of options to configure the source.
 
@@ -256,9 +264,9 @@ All the current BigQuery datatypes are being handled when transforming data from
 
 ## Example Application
 
-The `flink-connector-bigquery-examples` module offers a sample Flink application powered by the connector. It can be found 
-at `com.google.cloud.flink.bigquery.examples.BigQueryExample`. It offers an intuitive hands-on application with elaborate 
-guidance to test out the connector and its various configurations across different source read modes.
+The `flink-1.17-connector-bigquery-examples` module offers a sample Flink application powered by the connector. It can be 
+found at `com.google.cloud.flink.bigquery.examples.BigQueryExample`. It offers an intuitive hands-on application with 
+elaborate guidance to test out the connector and its various configurations across different source read modes.
 
 ## FAQ
 
