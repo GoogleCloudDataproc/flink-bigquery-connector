@@ -103,8 +103,8 @@ run_test_delete_cluster(){
 case $STEP in
   # Download maven and all the dependencies
   init)
-    $MVN clean install -DskipTests
-    gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
+#    $MVN clean install -DskipTests
+#    gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
     exit
     ;;
 
