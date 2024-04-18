@@ -19,72 +19,11 @@ package com.google.cloud.flink.bigquery.sink.exceptions;
 /** This class wraps errors found while connecting to BigQuery storage. */
 public class BigQueryConnectorException extends RuntimeException {
 
-<<<<<<<< HEAD:flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/BigQueryBaseSink.java
-import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
-import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-/** Base class for developing a BigQuery sink. */
-abstract class BigQueryBaseSink implements Sink {
-
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
-
-    // BigQuery write streams can offer over 10 MBps throughput, and per project throughput quotas
-    // are in the order of single digit GBps. With each sink writer maintaining a single and unique
-    // write connection to BigQuery, maximum parallelism for sink is intentionally restricted to
-    // 100 for initial releases of this connector.
-    // Based on performance observations and user feedback, this number can be increased in the
-    // future.
-    public static final int MAX_SINK_PARALLELISM = 100;
-
-    final BigQueryConnectOptions connectOptions;
-    final BigQuerySchemaProvider schemaProvider;
-    final BigQueryProtoSerializer serializer;
-    final String tablePath;
-
-    BigQueryBaseSink(BigQuerySinkConfig sinkConfig) {
-        validateSinkConfig(sinkConfig);
-        this.connectOptions = sinkConfig.getConnectOptions();
-        this.schemaProvider = sinkConfig.getSchemaProvider();
-        this.serializer = sinkConfig.getSerializer();
-        this.tablePath =
-                String.format(
-                        "projects/%s/datasets/%s/tables/%s",
-                        connectOptions.getProjectId(),
-                        connectOptions.getDataset(),
-                        connectOptions.getTable());
-    }
-
-    private void validateSinkConfig(BigQuerySinkConfig sinkConfig) {
-        if (sinkConfig.getConnectOptions() == null) {
-            throw new IllegalArgumentException("BigQuery connect options cannot be null");
-        }
-        if (sinkConfig.getSerializer() == null) {
-            throw new IllegalArgumentException("BigQuery serializer cannot be null");
-        }
-        if (sinkConfig.getSchemaProvider() == null) {
-            throw new IllegalArgumentException("BigQuery schema provider cannot be null");
-        }
-    }
-
-    /** Ensures Sink's parallelism does not exceed the allowed maximum when scaling Flink job. */
-    void checkParallelism(int numberOfParallelSubtasks) {
-        if (numberOfParallelSubtasks > MAX_SINK_PARALLELISM) {
-            logger.error(
-                    "Maximum allowed parallelism for Sink is {}, but attempting to create Writer number {}",
-                    MAX_SINK_PARALLELISM,
-                    numberOfParallelSubtasks);
-            throw new IllegalStateException("Attempting to create more Sink Writers than allowed");
-        }
-========
     public BigQueryConnectorException(String message) {
         super(message);
     }
 
     public BigQueryConnectorException(String message, Throwable error) {
         super(message, error);
->>>>>>>> dataproc/main:flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/exceptions/BigQueryConnectorException.java
     }
 }
