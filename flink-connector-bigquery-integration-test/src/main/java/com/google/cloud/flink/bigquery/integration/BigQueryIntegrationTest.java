@@ -311,7 +311,7 @@ public class BigQueryIntegrationTest {
                                     public GenericRecord map(GenericRecord genericRecord)
                                             throws Exception {
                                         genericRecord.put(
-                                                "number", (int) genericRecord.get("number") + 1);
+                                                "number", (long) genericRecord.get("number") + 1);
                                         return genericRecord;
                                     }
                                 })
