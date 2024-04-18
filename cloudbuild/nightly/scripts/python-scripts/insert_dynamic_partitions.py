@@ -1,4 +1,4 @@
-"""Python script to dynamically partitions to a BigQuery partitioned table."""
+"""Python script to dynamically insert partitions to a BigQuery-partitioned table."""
 
 import argparse
 from collections.abc import Sequence
@@ -8,6 +8,11 @@ import threading
 import time
 from absl import app
 import utils
+
+
+class GlobalClass:
+    def __init__(self):
+        self.global_var = 60000
 
 
 def sleep_for_seconds(duration):
@@ -59,6 +64,15 @@ def main(argv: Sequence[str]) -> None:
         required=False,
         default=30000,
     )
+    # Flag that is set when the file is run for write IT.
+    parser.add_argument(
+        '--is_write_test',
+        dest='is_write_test',
+        help='Set the flag if the file would be run for write test.',
+        action='store_true',
+        default=False,
+        required=False,
+    )
 
     args = parser.parse_args(argv[1:])
 
@@ -67,6 +81,7 @@ def main(argv: Sequence[str]) -> None:
     dataset_name = args.dataset_name
     table_name = args.table_name
     number_of_rows_per_partition = args.number_of_rows_per_partition
+    is_write_test = args.is_write_test
 
     execution_timestamp = datetime.datetime.now(tz=datetime.timezone.utc).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -77,12 +92,23 @@ def main(argv: Sequence[str]) -> None:
     table_id = f'{project_name}.{dataset_name}.{table_name}'
 
     # Now add the partitions to the table.
-    # Hardcoded schema. Needs to be same as that in the pre-created table.
+    # Hardcoded schema.
+    # It Needs to be the same as that in the pre-created table.
     simple_avro_schema_fields_string = (
         '"fields": [{"name": "name", "type": "string"},{"name": "number",'
         '"type": "long"},{"name" : "ts", "type" : {"type" :'
         '"long","logicalType": "timestamp-micros"}}]'
     )
+    # Write test relies on matching the count of unique_key which is <row_number>_<name>.
+    # Hence, create partitions accordingly.
+    if is_write_test:
+        simple_avro_schema_fields_string = (
+            '"fields": [{"name": "unique_key", "type": "string"},'
+            ' {"name": "name", "type": "string"},'
+            '{"name": "number", "type": "long"},{"name" : "ts", "type" : {"type" :'
+            '"long","logicalType": "timestamp-micros"}}]'
+        )
+
     simple_avro_schema_string = (
         '{"namespace": "project.dataset","type": "record","name":'
         ' "table","doc": "Avro Schema for project.dataset.table",'
@@ -104,7 +130,11 @@ def main(argv: Sequence[str]) -> None:
         table_id,
     )
 
-    # Insert iteratively.
+    # Global variable to keep the row_count for unique_key (write test)
+    global_var = GlobalClass()
+    timestamp_for_avro_file = datetime.datetime.now(tz=datetime.timezone.utc)
+
+# Insert iteratively.
     prev_partitions_offset = 0
     for number_of_partitions in partitions:
         start_time = time.time()
@@ -117,7 +147,8 @@ def main(argv: Sequence[str]) -> None:
             # Insert via concurrent threads.
             for thread_number in range(number_of_threads):
                 avro_file_local_identifier = avro_file_local.replace(
-                    '.', '_' + str(thread_number) + '.'
+                    '.', '_' + str(thread_number) + '_' +
+                         str(timestamp_for_avro_file) + "_" + str(is_write_test) + '.'
                 )
                 thread = threading.Thread(
                     target=table_creation_utils.avro_to_bq_with_cleanup,
@@ -125,6 +156,8 @@ def main(argv: Sequence[str]) -> None:
                         'avro_file_local_identifier': avro_file_local_identifier,
                         'partition_number': partition_number + prev_partitions_offset,
                         'current_timestamp': execution_timestamp,
+                        'is_write_test': is_write_test,  # Data would be generated accordingly.
+                        'global_row_counter': global_var # Global Counter Clas for unique row count
                     },
                 )
                 threads.append(thread)

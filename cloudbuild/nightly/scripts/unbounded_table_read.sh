@@ -28,7 +28,7 @@ TABLE_NAME="$TABLE_NAME"_"$timestamp"
 bq update --expiration 3600 "$DATASET_NAME"."$TABLE_NAME"
 
 # Running this job async to make sure it exits so that dynamic data can be added
-gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" --async -- --gcp-project "$PROJECT_NAME" --bq-dataset "$DATASET_NAME" --bq-table "$TABLE_NAME" --mode unbounded --agg-prop "$AGG_PROP_NAME" --ts-prop "$TS_PROP_NAME" --partition-discovery-interval "$PARTITION_DISCOVERY_INTERVAL"
+gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" --async -- --gcp-source-project "$PROJECT_NAME" --bq-source-dataset "$DATASET_NAME" --bq-source-table "$TABLE_NAME" --mode unbounded --agg-prop "$AGG_PROP_NAME" --ts-prop "$TS_PROP_NAME" --partition-discovery-interval "$PARTITION_DISCOVERY_INTERVAL"
 
 # Dynamically adding the data. This is timed 2.5 min wait for read and 5 min refresh time.
 python3 cloudbuild/nightly/scripts/python-scripts/insert_dynamic_partitions.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --refresh_interval "$PARTITION_DISCOVERY_INTERVAL"

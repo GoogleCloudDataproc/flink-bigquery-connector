@@ -92,6 +92,8 @@ under the License.
                                     <include>io.grpc:*</include>
                                     <include>io.opencensus:*</include>
                                     <include>io.perfmark:*</include>
+                                    <include>joda-time:joda-time</include>
+                                    <include>org.json:json</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
