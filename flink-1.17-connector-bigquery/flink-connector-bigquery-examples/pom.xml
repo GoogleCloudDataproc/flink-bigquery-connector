@@ -106,10 +106,9 @@ under the License.
                                     </excludes>
                                 </relocation>
                             </relocations>
-
                             <filters>
                                 <filter>
-                                    <artifact>org.apache.flink:flink-connector-bigquery-example*</artifact>
+                                    <artifact>com.google.cloud.flink:flink-1.17-connector-bigquery-example*</artifact>
                                     <includes>
                                         <include>com/google/cloud/flink/bigquery/examples/**</include>
                                     </includes>

@@ -93,7 +93,7 @@ There are two ways to access the connector.
 
 #### Maven Central
 
-The connector is also available from the [Maven Central](https://repo1.maven.org/maven2/com/google/cloud/flink/)
+The connector is available on the [Maven Central](https://repo1.maven.org/maven2/com/google/cloud/flink/)
 repository.
 
 | Flink version | Connector Artifact                                                       |
@@ -102,7 +102,7 @@ repository.
 
 #### GitHub
 
-Users can also obtain the connector artifact from our [GitHub repository](https://github.com/GoogleCloudDataproc/flink-bigquery-connector).
+Users can obtain the connector artifact from our [GitHub repository](https://github.com/GoogleCloudDataproc/flink-bigquery-connector).
 
 ##### Steps to Build Locally
 
@@ -205,6 +205,7 @@ Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig, env);
 ```
 
 * BigQuery sinks require that checkpoint is enabled for at-least-once consistency.
+* Delivery guarantee must be [at-least-once](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
 * [BigQueryConnectOptions](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-connector-bigquery-common/src/main/java/com/google/cloud/flink/bigquery/common/config/BigQueryConnectOptions.java) 
 stores information needed to connect to a BigQuery table.
 * [AvroToProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/AvroToProtoSerializer.java) 
@@ -215,7 +216,6 @@ for other data formats.
 * [BigQuerySchemaProvider](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQuerySchemaProvider.java) 
 exposes schema related information about the BigQuery table. This is needed by the sink to write data to BigQuery tables. It 
 can also be used by the serializer if needed (for instance, the AvroToProtoSerializer uses BigQuery table's schema).
-* Delivery guarantee must be [at-least-once](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
 * Flink cannot automatically serialize avro's GenericRecord, hence users must explicitly specify type information 
 when using the AvroToProtoSerializer. Check Flink's [blog on non-trivial serialization](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE). 
 Note that the avro schema needed here can be obtained from BigQuerySchemaProvider.
@@ -363,7 +363,7 @@ All the current BigQuery datatypes are being handled when transforming data from
 
 The `flink-1.17-connector-bigquery-examples` module offers a sample Flink application powered by the connector. It can be 
 found at `com.google.cloud.flink.bigquery.examples.BigQueryExample`. It offers an intuitive hands-on application with 
-elaborate guidance to test out the connector and its various configurations across different source read modes.
+elaborate guidance to test out the connector and its various configurations.
 
 ## FAQ
 
