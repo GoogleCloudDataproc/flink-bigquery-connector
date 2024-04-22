@@ -20,6 +20,7 @@ package com.google.cloud.flink.bigquery.integration;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.state.ValueState;
@@ -56,14 +57,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * The Integration Test <b>is for internal use only</b>. It sets up a pipeline which will try to
- * read the specified BigQuery table according to the command line arguments, returning {@link
- * GenericRecord} representing the rows, perform certain operations and then log the total number of
- * records read. <br>
- * This module checks the following cases of BigQuery Table read.
+ * The Integration Test <b>is for internal use only</b>.
+ *
+ * <p>It sets up a pipeline which will try to read from the specified BigQuery table and write to
+ * another according to the command line arguments. The read returns {@link GenericRecord}
+ * representing the rows, which are then written (sink) to specified BigQuery Table.<br>
+ * This module tests the following cases:
  *
  * <ol>
- *   <li>Bounded Jobs: Involve reading a BigQuery Table in the <i> bounded </i> mode.<br>
+ *   <li>Bounded Jobs: Involve reading from and writing to a BigQuery Table in the <i>bounded</i>
+ *       mode.<br>
  *       The arguments given in this case would be:
  *       <ul>
  *         <li>--gcp-source-project {required; project ID which contains the Source BigQuery table}
@@ -80,16 +83,24 @@ import java.util.concurrent.TimeoutException;
  *         <li>--sink-parallelism {optional; parallelism for sink job}
  *         <li>--exactly-once {optional; set flag to enable exactly once approach}
  *       </ul>
- *       The sequence of operations in the read pipeline is: <i>source > flatMap > keyBy > sum </i>
+ *       The sequence of operations in the read and write pipeline is: <i>source > map > sink</i>.
  *       <br>
- *       A counter counts the total number of records read (the number of records observed by keyBy
- *       operation) and logs this count at the end. <br>
+ *       The records read are passed to a map which increments the "number" field in the BQ table by
+ *       1, and writes this modified record back to another (specified) BigQuery Table. <br>
+ *       If a query is set, it is executed first and records obtained are streamed via a map which
+ *       counts the total number of records read (the number of records observed by map operation)
+ *       and logs this count at the end. It also logs the "HOUR" and "DAY" value of the obtained
+ *       rows in order to verify the query correctness. <br>
  *       Command to run bounded tests on Dataproc Cluster is: <br>
  *       {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION}
- *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-project {GCP_PROJECT_ID} --bq-dataset
- *       {BigQuery Dataset Name} --bq-table {BigQuery Table Name} --agg-prop
- *       {PROPERTY_TO_AGGREGATE_ON} --query {QUERY} } <br>
- *   <li>Unbounded Source Job: Involve reading a BigQuery Table in the <i> unbounded </i> mode.<br>
+ *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-source-project {GCP_SOURCE_PROJECT_ID}
+ *       --bq-source-dataset {BigQuery Source Dataset Name} --bq-source-table {BigQuery Source Table
+ *       Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON} --query {QUERY} --gcp-dest-project
+ *       {GCP_DESTINATION_PROJECT_ID} --bq-dest-dataset {BigQuery Destination Dataset Name}
+ *       --bq-dest-table {BigQuery Destination Table Name} --sink-parallelism {Parallelism to be
+ *       followed by the sink} --exactly-once {set flag to enable exactly once approach}} <br>
+ *   <li>Unbounded Job: Involve reading from and writing to a partitioned BigQuery Table in the <i>
+ *       unbounded </i> mode.<br>
  *       This test requires some additional arguments besides the ones mentioned in the bounded
  *       mode.
  *       <ul>
@@ -102,15 +113,19 @@ import java.util.concurrent.TimeoutException;
  *         <li>--timeout {optional; Time Interval (in minutes) after which the job is terminated.
  *             Default Value: 18}.
  *       </ul>
- *       The sequence of operations in this pipeline is the same as bounded one. This job is run
- *       asynchronously. The test appends newer partitions to check the read correctness. Hence,
- *       after the job is created new partitions are added. <br>
+ *       The sequence of operations in this pipeline is simply <i>source > sink</i>. <br>
+ *       This job is run asynchronously. The test appends newer partitions to check the read
+ *       correctness. Hence, after the job is created new partitions are added. <br>
  *       Command to run unbounded tests on Dataproc Cluster is: <br>
  *       {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION}
- *       --cluster={CLUSTER_NAME} --region={REGION} --async -- --gcp-project {GCP_PROJECT_ID}
- *       --bq-dataset {BigQuery Dataset Name} --bq-table {BigQuery Table Name} --agg-prop
- *       {PROPERTY_TO_AGGREGATE_ON} --mode unbounded --ts-prop {TIMESTAMP_PROPERTY}
- *       --partition-discovery-interval {PARTITION_DISCOVERY_INTERVAL} }
+ *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-source-project {GCP_SOURCE_PROJECT_ID}
+ *       --bq-source-dataset {BigQuery Source Dataset Name} --bq-source-table {BigQuery Source Table
+ *       Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON} --query {QUERY} --gcp-dest-project
+ *       {GCP_DESTINATION_PROJECT_ID} --bq-dest-dataset {BigQuery Destination Dataset Name}
+ *       --bq-dest-table {BigQuery Destination Table Name} --sink-parallelism {Parallelism to be
+ *       followed by the sink} --exactly-once {set flag to enable exactly once approach} --mode
+ *       unbounded --ts-prop {TIMESTAMP_PROPERTY} --partition-discovery-interval
+ *       {PARTITION_DISCOVERY_INTERVAL} }
  * </ol>
  */
 public class BigQueryIntegrationTest {
@@ -305,10 +320,14 @@ public class BigQueryIntegrationTest {
                                 "BigQueryBoundedSource",
                                 source.getProducedType())
                         .map(
-                                (GenericRecord genericRecord) -> {
-                                    genericRecord.put(
-                                            "number", (long) genericRecord.get("number") + 1);
-                                    return genericRecord;
+                                new MapFunction<GenericRecord, GenericRecord>() {
+                                    @Override
+                                    public GenericRecord map(GenericRecord genericRecord)
+                                            throws Exception {
+                                        genericRecord.put(
+                                                "number", (long) genericRecord.get("number") + 1);
+                                        return genericRecord;
+                                    }
                                 })
                         .returns(
                                 new GenericRecordAvroTypeInfo(
