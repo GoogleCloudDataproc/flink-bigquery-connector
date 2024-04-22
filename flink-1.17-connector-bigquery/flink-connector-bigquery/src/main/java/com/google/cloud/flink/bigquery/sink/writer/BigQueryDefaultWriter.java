@@ -44,7 +44,7 @@ import java.util.concurrent.ExecutionException;
  * consistency guarantee.
  * <li>{@link CheckpointingMode#EXACTLY_ONCE}: at-least-once write consistency.
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
- * <li>{@link CheckpointingMode#NONE}: at-most-once write consistency.
+ * <li>{Checkpointing disabled}: no write consistency.
  *
  * @param <IN> Type of records to be written to BigQuery.
  */

@@ -20,7 +20,6 @@ package com.google.cloud.flink.bigquery.integration;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.state.ValueState;
@@ -306,14 +305,10 @@ public class BigQueryIntegrationTest {
                                 "BigQueryBoundedSource",
                                 source.getProducedType())
                         .map(
-                                new MapFunction<GenericRecord, GenericRecord>() {
-                                    @Override
-                                    public GenericRecord map(GenericRecord genericRecord)
-                                            throws Exception {
-                                        genericRecord.put(
-                                                "number", (long) genericRecord.get("number") + 1);
-                                        return genericRecord;
-                                    }
+                                (GenericRecord genericRecord) -> {
+                                    genericRecord.put(
+                                            "number", (long) genericRecord.get("number") + 1);
+                                    return genericRecord;
                                 })
                         .returns(
                                 new GenericRecordAvroTypeInfo(

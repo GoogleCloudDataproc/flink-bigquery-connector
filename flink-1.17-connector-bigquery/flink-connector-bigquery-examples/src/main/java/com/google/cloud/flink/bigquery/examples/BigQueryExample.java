@@ -19,10 +19,12 @@ package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.base.source.hybrid.HybridSource;
+import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -41,7 +43,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import org.apache.flink.api.connector.sink2.Sink;
 
 /**
  * A simple BigQuery table read example with Flink's DataStream API.
@@ -61,7 +62,7 @@ import org.apache.flink.api.connector.sink2.Sink;
  *       sources. <br>
  *       The sequence of operations in bounded and hybrid pipelines are: <i>source > flatMap > keyBy
  *       > sum > print</i> <br>
- *       The sequence of operations in the unbounded pipeline is: <i>source > sink</i> <br>
+ *       The sequence of operations in the unbounded pipeline is: <i>source > map > sink</i> <br>
  *       Flink command line format is: <br>
  *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
  *       --gcp-source-project {required; project ID containing the source table} <br>
@@ -72,7 +73,7 @@ import org.apache.flink.api.connector.sink2.Sink;
  *       --bq-sink-table {required; name of table to write to} <br>
  *       --mode {optional; source read type. Allowed values are bounded (default) or unbounded or
  *       hybrid} <br>
- *       --agg-prop {required; record property to aggregate in Flink job} <br>
+ *       --agg-prop {required; record property to aggregate in Flink job. Value must be string} <br>
  *       --ts-prop {required for unbounded/hybrid mode; property record for timestamp} <br>
  *       --oldest-partition-id {optional; oldest partition id to read. Used in unbounded/hybrid
  *       mode} <br>
@@ -122,7 +123,7 @@ public class BigQueryExample {
                             + " --gcp-sink-project <gcp project id for sink table>"
                             + " --bq-sink-dataset <dataset name for sink table>"
                             + " --bq-sink-table <sink table name>"
-                            + " --agg-prop <record property to aggregate>"
+                            + " --agg-prop <record property to aggregate (value must be string!)>"
                             + " --mode <source type>"
                             + " --restriction <row filter predicate>"
                             + " --limit <limit on records returned>"
@@ -332,7 +333,19 @@ public class BigQueryExample {
                         "BigQueryStreamingSource",
                         source.getProducedType())
                 .keyBy(record -> record.get(recordPropertyToAggregate).hashCode() % 10000)
-                // add map and returns
+                .map(
+                        (GenericRecord genericRecord) -> {
+                            genericRecord.put(
+                                    recordPropertyToAggregate,
+                                    genericRecord.get(recordPropertyToAggregate).toString()
+                                            + "_modified");
+                            return genericRecord;
+                        })
+                // Type hinting is required for Avro's GenericRecord to be serialized/deserialized
+                // when flowing through the job graph.
+                .returns(
+                        new GenericRecordAvroTypeInfo(
+                                sinkConfig.getSchemaProvider().getAvroSchema()))
                 .sinkTo(sink);
 
         env.execute("Flink BigQuery Unbounded Source And Sink Example");
@@ -419,7 +432,7 @@ public class BigQueryExample {
         @Override
         public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
                 throws Exception {
-            out.collect(Tuple2.of((String) record.get(recordPropertyToAggregate).toString(), 1));
+            out.collect(Tuple2.of(record.get(recordPropertyToAggregate).toString(), 1));
         }
     }
 }

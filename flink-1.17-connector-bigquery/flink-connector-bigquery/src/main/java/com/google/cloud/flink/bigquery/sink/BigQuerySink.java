@@ -27,11 +27,14 @@ import org.slf4j.LoggerFactory;
  * Class wrapping BigQuery sinks with appropriate configurations.
  *
  * <p>With {@link DeliveryGuarantee#AT_LEAST_ONCE}, the Sink added to Flink job will be {@link
- * BigQueryDefaultSink}. Eventual data consistency at destination is also dependent on checkpointing
- * mode.
- * <li>With checkpointing disabled, any BigQuery Sink will offer at-most-once consistency.
- * <li>With {@link CheckpointingMode#AT_LEAST_ONCE} or {@link CheckpointingMode#EXACTLY_ONCE}, the
- *     {@link BigQueryDefaultSink} will offer at-least-once consistency.
+ * BigQueryDefaultSink}.
+ *
+ * <p>Eventual data consistency at destination is also dependent on checkpointing mode. With 
+ * {@link CheckpointingMode#AT_LEAST_ONCE} or {@link CheckpointingMode#EXACTLY_ONCE}, the 
+ * {@link BigQueryDefaultSink} will offer at-least-once consistency. We recommend enabling 
+ * checkpointing to avoid any unexpected behavior.
+ *
+ * <p>Support for exactly-once consistency in BigQuerySink will be offered soon!
  */
 public class BigQuerySink {
 
