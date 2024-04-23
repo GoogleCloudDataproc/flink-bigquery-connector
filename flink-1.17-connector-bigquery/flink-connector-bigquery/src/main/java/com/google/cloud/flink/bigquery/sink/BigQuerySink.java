@@ -29,12 +29,13 @@ import org.slf4j.LoggerFactory;
  * <p>With {@link DeliveryGuarantee#AT_LEAST_ONCE}, the Sink added to Flink job will be {@link
  * BigQueryDefaultSink}.
  *
- * <p>Eventual data consistency at destination is also dependent on checkpointing mode. With {@link
- * CheckpointingMode#AT_LEAST_ONCE} or {@link CheckpointingMode#EXACTLY_ONCE}, the {@link
- * BigQueryDefaultSink} will offer at-least-once consistency. We recommend enabling checkpointing to
- * avoid any unexpected behavior.
+ * <p>With {@link DeliveryGuarantee#EXACTLY_ONCE}, the Sink added to Flink job will be {@link
+ * BigQueryExactlyOnceSink}.
  *
- * <p>Support for exactly-once consistency in BigQuerySink will be offered soon!
+ * <p>Eventual data consistency at destination is also dependent on checkpointing mode. Look at
+ * {@link BigQueryDefaultSink} and {@link BigQueryExactlyOnceSink} for write consistencies offered
+ * across combinations of {@link CheckpointingMode} and sink's {@link DeliveryGuarantee}. It is
+ * recommended that checkpointing is enabled to avoid unexpected behavior.
  */
 public class BigQuerySink {
 
@@ -44,8 +45,11 @@ public class BigQuerySink {
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
             return new BigQueryDefaultSink(sinkConfig);
         }
+        if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.EXACTLY_ONCE) {
+            return new BigQueryExactlyOnceSink(sinkConfig);
+        }
         LOG.error(
-                "Only at-least-once write consistency is supported in BigQuery sink. Found {}",
+                "BigQuery sink does not support {} delivery guarantee. Use AT_LEAST_ONCE or EXACTLY_ONCE.",
                 sinkConfig.getDeliveryGuarantee());
         throw new UnsupportedOperationException(
                 String.format("%s is not supported", sinkConfig.getDeliveryGuarantee()));

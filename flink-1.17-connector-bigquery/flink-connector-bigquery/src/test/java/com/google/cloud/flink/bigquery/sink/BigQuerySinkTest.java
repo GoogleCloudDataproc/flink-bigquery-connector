@@ -55,7 +55,6 @@ public class BigQuerySinkTest {
         assertNotNull(BigQuerySink.get(sinkConfig, null));
     }
 
-    @Test(expected = UnsupportedOperationException.class)
     public void testExactlyOnceNotSupported() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
