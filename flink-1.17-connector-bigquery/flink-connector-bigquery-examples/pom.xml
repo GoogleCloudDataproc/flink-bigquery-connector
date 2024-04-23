@@ -93,6 +93,8 @@ under the License.
                                     <include>io.grpc:*</include>
                                     <include>io.opencensus:*</include>
                                     <include>io.perfmark:*</include>
+                                    <include>joda-time:joda-time</include>
+                                    <include>org.json:json</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
@@ -104,10 +106,9 @@ under the License.
                                     </excludes>
                                 </relocation>
                             </relocations>
-
                             <filters>
                                 <filter>
-                                    <artifact>org.apache.flink:flink-connector-bigquery-example*</artifact>
+                                    <artifact>com.google.cloud.flink:flink-1.17-connector-bigquery-example*</artifact>
                                     <includes>
                                         <include>com/google/cloud/flink/bigquery/examples/**</include>
                                     </includes>
