@@ -40,8 +40,7 @@ import java.util.concurrent.ExecutionException;
  *
  * <p>Records are grouped to maximally utilize the BigQuery append request's payload.
  *
- * <p>Depending on the checkpointing mode, this writer offers either at-least-once or at-most-once
- * consistency guarantee.
+ * <p>Depending on the checkpointing mode, this writer offers following consistency guarantees:
  * <li>{@link CheckpointingMode#EXACTLY_ONCE}: at-least-once write consistency.
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
  * <li>{Checkpointing disabled}: no write consistency.

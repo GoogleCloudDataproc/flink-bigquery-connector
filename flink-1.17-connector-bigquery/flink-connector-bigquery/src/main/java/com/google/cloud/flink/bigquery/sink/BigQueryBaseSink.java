@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Base class for developing a BigQuery sink. */
-abstract class BigQueryBaseSink implements Sink {
+abstract class BigQueryBaseSink<IN> implements Sink<IN> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
