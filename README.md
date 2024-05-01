@@ -89,6 +89,17 @@ granted.
 
 ### Downloading the Connector
 
+There are two ways to access the connector.
+
+#### Maven Central
+
+The connector is available on the [Maven Central](https://repo1.maven.org/maven2/com/google/cloud/flink/)
+repository.
+
+| Flink version | Connector Artifact                                                       |
+|---------------|--------------------------------------------------------------------------|
+| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.2.0`             |
+
 #### GitHub
 
 Users can obtain the connector artifact from our [GitHub repository](https://github.com/GoogleCloudDataproc/flink-bigquery-connector).
@@ -98,7 +109,7 @@ Users can obtain the connector artifact from our [GitHub repository](https://git
 ```shell
 git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
 cd flink-bigquery-connector
-git checkout tags/v0.2.0-preview
+git checkout tags/0.2.0
 mvn clean install -DskipTests -Pflink_1.17
 ```
 
@@ -117,6 +128,7 @@ If only the jars are needed, then execute maven `package` instead of `install`.
 |-------------------------------|--------|--------|
 | 0.1.0-preview                 | ✓      | ✓      |
 | 0.2.0-preview                 | ✓      | ✓      |
+| 0.2.0                         | ✓      | ✓      |
 
 ### Create a Google Cloud Dataproc cluster (Optional)
 
@@ -137,6 +149,7 @@ Follow [this document](https://cloud.google.com/dataproc/docs/concepts/component
 |--------------------------------|-----|-----|
 | 0.1.0-preview                  | ✓   | ✓   |
 | 0.2.0-preview                  | ✓   | ✓   |
+| 0.2.0                          | ✓   | ✓   |
 
 ## Usage
 
@@ -151,7 +164,7 @@ modes, bounded and unbounded.
 <dependency>
   <groupId>com.google.cloud.flink</groupId>
   <artifactId>flink-1.17-connector-bigquery</artifactId>
-  <version>0.2.0-preview</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
