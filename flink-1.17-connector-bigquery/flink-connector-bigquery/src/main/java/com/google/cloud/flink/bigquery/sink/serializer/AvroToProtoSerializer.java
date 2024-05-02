@@ -269,33 +269,26 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          */
         public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema)
                 throws IllegalArgumentException {
-            Schema elementType = schema;
-            boolean isNullable = true;
-            List<Schema> types = elementType.getTypes();
-            // don't need recursion because nested unions aren't supported in AVRO
-            // Extract all the nonNull Datatypes.
-            List<Schema> nonNullSchemaTypes =
-                    types.stream()
-                            .filter(schemaType -> schemaType.getType() != Schema.Type.NULL)
-                            .collect(Collectors.toList());
 
-            int nonNullSchemaTypesSize = nonNullSchemaTypes.size();
+            List<Schema> types = schema.getTypes();
 
-            if (nonNullSchemaTypesSize == 1) {
-                elementType = nonNullSchemaTypes.get(0);
-                if (nonNullSchemaTypesSize == types.size()) {
-                    // Case, when there is only a single type in UNION.
-                    // Then it is essentially the same as not having a UNION.
-                    isNullable = false;
-                }
-                return new ImmutablePair<>(elementType, isNullable);
+            // Early exit: If there aren't exactly two types, it's invalid.
+            if (types.size() != 2) {
+                LOG.error(getLogErrorMessage("['datatype'] or ['null', 'datatype']",
+                        "UNION", "Invalid number of types: " + types.size()));
+                throw new IllegalArgumentException("Only ['datatype'] or ['null', 'datatype'] unions are supported.");
             }
-            LOG.error(
-                    getLogErrorMessage(
-                            "['datatype'] or ['null', 'datatype']",
-                            "UNION",
-                            "Multiple not-null types: " + types));
-            throw new IllegalArgumentException("Multiple non-null union types are not supported.");
+
+            Schema nonNullType = types.stream()
+                    .filter(type -> type.getType() != Schema.Type.NULL)
+                    .findFirst()  // Since we expect only one non-null type, find the first.
+                    .orElseThrow(() -> new IllegalArgumentException("No non-null type found in union.")); // Throw an exception if no non-null type exists.
+
+            // Determine if it's nullable by checking if the other type is null.
+            boolean isNullable = types.get(0).getType() == Schema.Type.NULL ||
+                    types.get(1).getType() == Schema.Type.NULL;
+
+            return new ImmutablePair<>(nonNullType, isNullable);
         }
 
         /**
