@@ -56,7 +56,7 @@ under the License.
     </distributionManagement>
 
     <properties>
-        <revision>0.1.0-preview</revision>
+        <revision>0.2.0-preview</revision>
         <flink.version>1.17.1</flink.version>
         <google-lib-bom.version>26.33.0</google-lib-bom.version>
 

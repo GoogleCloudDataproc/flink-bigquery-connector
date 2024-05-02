@@ -89,17 +89,6 @@ granted.
 
 ### Downloading the Connector
 
-There are two ways to access the connector.
-
-#### Maven Central
-
-The connector is available on the [Maven Central](https://repo1.maven.org/maven2/com/google/cloud/flink/)
-repository.
-
-| Flink version | Connector Artifact                                                       |
-|---------------|--------------------------------------------------------------------------|
-| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.2.0-preview`     |
-
 #### GitHub
 
 Users can obtain the connector artifact from our [GitHub repository](https://github.com/GoogleCloudDataproc/flink-bigquery-connector).
