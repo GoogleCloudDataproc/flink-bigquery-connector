@@ -269,26 +269,26 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          */
         public static ImmutablePair<Schema, Boolean> handleUnionSchema(Schema schema)
                 throws IllegalArgumentException {
-            Schema elementType = schema;
-            boolean isNullable = true;
-            List<Schema> types = elementType.getTypes();
-            // don't need recursion because nested unions aren't supported in AVRO
-            // Extract all the nonNull Datatypes.
-            List<Schema> nonNullSchemaTypes =
-                    types.stream()
-                            .filter(schemaType -> schemaType.getType() != Schema.Type.NULL)
-                            .collect(Collectors.toList());
-
-            int nonNullSchemaTypesSize = nonNullSchemaTypes.size();
-
-            if (nonNullSchemaTypesSize == 1) {
-                elementType = nonNullSchemaTypes.get(0);
-                if (nonNullSchemaTypesSize == types.size()) {
+            List<Schema> types = schema.getTypes();
+            if (types.size() == 1) {
+                // Can be ['null'] - ERROR
+                // [Valid-Datatype] - Not Nullable, element type
+                if (types.get(0).getType() != Schema.Type.NULL) {
                     // Case, when there is only a single type in UNION.
                     // Then it is essentially the same as not having a UNION.
-                    isNullable = false;
+                    return new ImmutablePair<>(types.get(0), false);
                 }
-                return new ImmutablePair<>(elementType, isNullable);
+            } else if (types.size() == 2) {
+                // don't need recursion because nested unions aren't supported in AVRO
+                // Extract all the nonNull Datatypes.
+                // ['datatype, 'null'] and ['null', datatype] are only valid cases.
+                if (types.get(0).getType() != Schema.Type.NULL
+                        && types.get(1).getType() == Schema.Type.NULL) {
+                    return new ImmutablePair<>(types.get(0), true);
+                } else if (types.get(0).getType() == Schema.Type.NULL
+                        && types.get(1).getType() != Schema.Type.NULL) {
+                    return new ImmutablePair<>(types.get(1), true);
+                }
             }
             LOG.error(
                     getLogErrorMessage(
