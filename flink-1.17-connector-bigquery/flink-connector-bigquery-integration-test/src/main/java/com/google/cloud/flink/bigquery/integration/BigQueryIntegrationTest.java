@@ -31,14 +31,27 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
+import org.apache.flink.table.annotation.DataTypeHint;
+import org.apache.flink.table.annotation.FunctionHint;
+import org.apache.flink.table.api.Schema;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TableDescriptor;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
@@ -46,15 +59,24 @@ import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.table.api.Expressions.$;
+import static org.apache.flink.table.api.Expressions.call;
 
 /**
  * The Integration Test <b>is for internal use only</b>.
@@ -216,6 +238,17 @@ public class BigQueryIntegrationTest {
                             partitionDiscoveryInterval,
                             timeoutTimePeriod);
                     break;
+                case "sql":
+                    runSqlFlinkJob(
+                            sourceGcpProjectName,
+                            sourceDatasetName,
+                            sourceTableName,
+                            destGcpProjectName,
+                            destDatasetName,
+                            destTableName,
+                            isExactlyOnceEnabled,
+                            sinkParallelism);
+                    break;
                 default:
                     throw new IllegalArgumentException(
                             "Allowed values for mode are bounded, unbounded or hybrid. Found "
@@ -262,6 +295,149 @@ public class BigQueryIntegrationTest {
                 .print();
 
         env.execute("Flink BigQuery Query Integration Test");
+    }
+
+    private static TableDescriptor tableDescriptorFromOptions(Map<String, String> options)
+            throws IOException {
+
+        System.out.println(options);
+        for (Map.Entry<String, String> entry : options.entrySet()) {
+            System.out.println(entry.getKey() + " -- " + entry.getValue());
+        }
+        BigQueryConnectOptions connectOptions =
+                BigQueryConnectOptions.builder()
+                        .setTable(options.get(BigQueryConnectorOptions.TABLE.key()))
+                        .setProjectId(options.get(BigQueryConnectorOptions.PROJECT.key()))
+                        .setDataset(options.get(BigQueryConnectorOptions.DATASET.key()))
+                        .build();
+        BigQueryServicesFactory bq = BigQueryServicesFactory.instance(connectOptions);
+        String avroSchemaString =
+                SchemaTransform.toGenericAvroSchema(
+                                "root",
+                                bq.queryClient()
+                                        .getTableSchema(
+                                                connectOptions.getProjectId(),
+                                                connectOptions.getDataset(),
+                                                connectOptions.getTable())
+                                        .getFields())
+                        .toString();
+        DataType dataTypeSchema = AvroSchemaConverter.convertToDataType(avroSchemaString);
+        Schema tableApiSchema = Schema.newBuilder().fromRowDataType(dataTypeSchema).build();
+
+        System.out.println("tableApiSchema " + tableApiSchema);
+        TableDescriptor.Builder tableDescriptorBuilder =
+                TableDescriptor.forConnector("bigquery").schema(tableApiSchema);
+
+        for (Map.Entry<String, String> entry : options.entrySet()) {
+            tableDescriptorBuilder.option(entry.getKey(), entry.getValue());
+        }
+        return tableDescriptorBuilder.build();
+    }
+
+    private static void runSqlFlinkJob(
+            String sourceGcpProjectName,
+            String sourceDatasetName,
+            String sourceTableName,
+            String destGcpProjectName,
+            String destDatasetName,
+            String destTableName,
+            boolean exactlyOnce,
+            Integer sinkParallelism)
+            throws Exception {
+
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
+        // Declare Read Options.
+        Map<String, String> readOptions = new HashMap<>();
+        readOptions.put(BigQueryConnectorOptions.PROJECT.key(), sourceGcpProjectName);
+        readOptions.put(BigQueryConnectorOptions.DATASET.key(), sourceDatasetName);
+        readOptions.put(BigQueryConnectorOptions.TABLE.key(), sourceTableName);
+        readOptions.put(BigQueryConnectorOptions.TEST_MODE.key(), "false");
+
+        // Register the Source Table
+        tEnv.createTable("bigQuerySourceTable", tableDescriptorFromOptions(readOptions));
+        Table sourceTable = tEnv.from("bigQuerySourceTable");
+        System.out.println("Source Table Created: " + sourceTable);
+
+        // Fetch entries in this sourceTable
+        sourceTable = sourceTable.select($("*"));
+        System.out.println("Table Fetched: " + sourceTable);
+
+        // Declare Write Options.
+        Map<String, String> sinkOptions = new HashMap<>();
+        sinkOptions.put(BigQueryConnectorOptions.PROJECT.key(), destGcpProjectName);
+        sinkOptions.put(BigQueryConnectorOptions.DATASET.key(), destDatasetName);
+        sinkOptions.put(BigQueryConnectorOptions.TABLE.key(), destTableName);
+        sinkOptions.put(BigQueryConnectorOptions.TEST_MODE.key(), "false");
+
+        // Register the Sink Table
+        tEnv.createTable("bigQuerySinkTable", tableDescriptorFromOptions(sinkOptions));
+        Table sinkTable = tEnv.from("bigQuerySinkTable");
+        System.out.println("Table Created: " + sinkTable);
+
+        // Insert the table sourceTable to the registered sinkTable
+        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
+
+        sourceTable =
+                sourceTable
+                        .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
+                        .as($("name"), $("number"), $("ts"));
+
+        System.out.println("sourceTable: " + sourceTable);
+        sourceTable.executeInsert("bigQuerySinkTable");
+
+        //        tEnv.executeSql("insert into bigQuerySinkTable values (1234,5678)");
+        //        System.out.println("testSink()");
+        //        String createDDL = createSimpleTestDDl(null);
+        //        System.out.println("createDDL:\n" + createDDL);
+        //        Iterator<Row> collected = tEnv.executeSql(createDDL).collect();
+        //        while (collected.hasNext()) {
+        //            System.out.println(collected.next());
+        //        }
+        //        System.out.println("tEnv.executeSql(createDDL) DONE!");
+        //        tEnv.executeSql("insert into table_test values (select * from table_test);");
+        //        env.execute("Flink BigQuery SQL Integration Test");
+    }
+
+    /** Function to flatmap the Table API source Catalog Table. */
+    @FunctionHint(
+            input = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"),
+            output = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"))
+    public static class MyFlatMapFunction extends TableFunction<Row> {
+
+        public void eval(Row row) {
+            String str = (String) row.getField("name");
+            collect(Row.of(str + "_write_test", row.getField("number"), row.getField("ts")));
+        }
+    }
+
+    private static String createSimpleTestDDl(Map<String, String> extraOptions) {
+        Map<String, String> options = new HashMap<>();
+        options.put(FactoryUtil.CONNECTOR.key(), "bigquery");
+        options.put(BigQueryConnectorOptions.PROJECT.key(), "bqrampupprashasti");
+        options.put(BigQueryConnectorOptions.DATASET.key(), "testing_dataset");
+        options.put(BigQueryConnectorOptions.TABLE.key(), "table_test");
+        options.put(BigQueryConnectorOptions.TEST_MODE.key(), "false");
+        if (extraOptions != null) {
+            options.putAll(extraOptions);
+        }
+
+        String optionString =
+                options.entrySet().stream()
+                        .map(e -> String.format("'%s' = '%s'", e.getKey(), e.getValue()))
+                        .collect(Collectors.joining(",\n"));
+
+        return String.join(
+                "\n",
+                Arrays.asList(
+                        "CREATE TABLE table_test",
+                        "(",
+                        "  name BIGINT",
+                        ") WITH (",
+                        optionString,
+                        ")"));
     }
 
     private static void runBoundedFlinkJobWithSink(

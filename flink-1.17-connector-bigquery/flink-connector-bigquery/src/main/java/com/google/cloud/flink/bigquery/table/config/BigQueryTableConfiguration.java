@@ -18,17 +18,25 @@ package com.google.cloud.flink.bigquery.table.config;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
+import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
+
+import static com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions.DELIVERY_GUARANTEE;
 
 /**
  * A BigQuery Configuration class which can easily be used to transform to the option objects the
@@ -91,5 +99,26 @@ public class BigQueryTableConfiguration {
                                         config.get(BigQueryConnectorOptions.CREDENTIALS_KEY))
                                 .build())
                 .build();
+    }
+
+    public BigQuerySinkConfig toSinkConfig() {
+        try {
+            DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE;
+            if (Objects.equals(config.get(DELIVERY_GUARANTEE), "EXACTLY_ONCE")) {
+                deliveryGuarantee = DeliveryGuarantee.EXACTLY_ONCE;
+            }
+            BigQueryConnectOptions sinkConnectOptions = translateBigQueryConnectOptions();
+            BigQuerySchemaProvider destSchemaProvider =
+                    new BigQuerySchemaProviderImpl(sinkConnectOptions);
+            return BigQuerySinkConfig.newBuilder()
+                    .connectOptions(sinkConnectOptions)
+                    .deliveryGuarantee(deliveryGuarantee)
+                    .schemaProvider(destSchemaProvider)
+                    .serializer(new RowDataToProtoSerializer())
+                    .build();
+        } catch (Exception ex) {
+            throw new RuntimeException(
+                    "Problems while trying to translate table configuration.", ex);
+        }
     }
 }

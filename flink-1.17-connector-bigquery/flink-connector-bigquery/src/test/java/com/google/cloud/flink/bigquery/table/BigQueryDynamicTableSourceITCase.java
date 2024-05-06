@@ -150,7 +150,16 @@ public class BigQueryDynamicTableSourceITCase {
                         };
 
         // init the testing services and inject them into the table factory
-        BigQueryDynamicTableFactory.setTestingServices(
+        BigQueryDynamicTableSourceFactory.setTestingServices(
+                StorageClientFaker.createReadOptions(
+                                TOTAL_ROW_COUNT_PER_STREAM,
+                                STREAM_COUNT,
+                                AVRO_SCHEMA.toString(),
+                                dataGenerator)
+                        .getBigQueryConnectOptions()
+                        .getTestingBigQueryServices());
+
+        BigQueryDynamicTableSinkFactory.setTestingServices(
                 StorageClientFaker.createReadOptions(
                                 TOTAL_ROW_COUNT_PER_STREAM,
                                 STREAM_COUNT,
@@ -182,6 +191,35 @@ public class BigQueryDynamicTableSourceITCase {
 
         // we check the data count correlates with the generated total
         Assertions.assertThat(result).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
+    }
+
+    @Test
+    public void testSink() throws Exception {
+        //        Map<String, String> options = new HashMap<>();
+        //        options.put(FactoryUtil.CONNECTOR.key(), "bigquery");
+        //        options.put(BigQueryConnectorOptions.PROJECT.key(), "bqrampupprashasti");
+        //        options.put(BigQueryConnectorOptions.DATASET.key(), "testing_dataset");
+        //        options.put(BigQueryConnectorOptions.TABLE.key(), "array_table");
+        //        options.put(BigQueryConnectorOptions.TEST_MODE.key(), "false");
+        System.out.println("testSink()");
+        String createDDL = createSimpleTestDDl(null);
+        System.out.println("createDDL:\n" + createDDL);
+        Iterator<Row> collected = tEnv.executeSql(createDDL).collect();
+        while (collected.hasNext()) {
+            System.out.println(collected.next());
+        }
+        System.out.println("tEnv.executeSql(createDDL) DONE!");
+        tEnv.executeSql("insert into table_test values (select * from table_test);");
+
+        //        Iterator<Row> collected = tEnv.executeSql("insert into bigquery_source values
+        // (Select * from bigquery_source)").collect();
+
+        //        List<String> result =
+        //                CollectionUtil.iteratorToList(collected).stream()
+        //                        .map(Row::toString)
+        //                        .sorted()
+        //                        .collect(Collectors.toList());
+        //        Assertions.assertThat(result).hasSize(1);
     }
 
     @Test
@@ -289,6 +327,33 @@ public class BigQueryDynamicTableSourceITCase {
                         "  reqSubRecord ROW<reqBoolean BOOLEAN, reqTs TIMESTAMP>,",
                         "  optArraySubRecords ARRAY<ROW<reqLong BIGINT, optBytes BINARY>>",
                         ") PARTITIONED BY (ts) WITH (",
+                        optionString,
+                        ")"));
+    }
+
+    private static String createSimpleTestDDl(Map<String, String> extraOptions) {
+        Map<String, String> options = new HashMap<>();
+        options.put(FactoryUtil.CONNECTOR.key(), "bigquery");
+        options.put(BigQueryConnectorOptions.PROJECT.key(), "bqrampupprashasti");
+        options.put(BigQueryConnectorOptions.DATASET.key(), "testing_dataset");
+        options.put(BigQueryConnectorOptions.TABLE.key(), "table_test");
+        options.put(BigQueryConnectorOptions.TEST_MODE.key(), "false");
+        if (extraOptions != null) {
+            options.putAll(extraOptions);
+        }
+
+        String optionString =
+                options.entrySet().stream()
+                        .map(e -> String.format("'%s' = '%s'", e.getKey(), e.getValue()))
+                        .collect(Collectors.joining(",\n"));
+
+        return String.join(
+                "\n",
+                Arrays.asList(
+                        "CREATE TABLE table_test",
+                        "(",
+                        "  name BIGINT",
+                        ") WITH (",
                         optionString,
                         ")"));
     }

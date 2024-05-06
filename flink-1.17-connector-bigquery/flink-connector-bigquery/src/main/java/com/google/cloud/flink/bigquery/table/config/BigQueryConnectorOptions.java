@@ -49,6 +49,12 @@ public class BigQueryConnectorOptions {
                     .intType()
                     .defaultValue(-1)
                     .withDescription("Specifies the limit number of rows retrieved.");
+
+    public static final ConfigOption<String> MODE =
+            ConfigOptions.key("read.mode")
+                    .stringType()
+                    .defaultValue("BOUNDED")
+                    .withDescription("Specifies the read mode - BOUNDED or UNBOUNDED");
     public static final ConfigOption<String> ROW_RESTRICTION =
             ConfigOptions.key("read.row.restriction")
                     .stringType()
@@ -93,4 +99,9 @@ public class BigQueryConnectorOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Specifies if the connector should run in test mode.");
+    public static final ConfigOption<String> DELIVERY_GUARANTEE =
+            ConfigOptions.key("write.delivery.guarantee")
+                    .stringType()
+                    .defaultValue("AT_LEAST_ONCE")
+                    .withDescription("Delivery Guarantee.");
 }
