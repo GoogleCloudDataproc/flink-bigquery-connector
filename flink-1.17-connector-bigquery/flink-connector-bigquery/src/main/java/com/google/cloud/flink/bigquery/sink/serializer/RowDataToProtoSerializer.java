@@ -3,13 +3,15 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.DecimalType;
+import org.apache.flink.table.types.logical.LocalZonedTimestampType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.TimeType;
 import org.apache.flink.table.types.logical.TimestampType;
-import org.apache.flink.table.types.logical.ZonedTimestampType;
 
 import com.google.api.client.util.Preconditions;
+import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -18,6 +20,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.generic.GenericRecord;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -26,7 +29,6 @@ import java.util.stream.Stream;
 public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
 
     private Descriptor descriptor;
-
     private LogicalType type;
 
     public RowDataToProtoSerializer() {}
@@ -79,7 +81,13 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 case VARBINARY:
                     return ByteString.copyFrom(element.getBinary(fieldNumber));
                 case DECIMAL:
-                    return element.getDecimal(fieldNumber, 38, 9);
+                    // Get the scale and precision.
+                    DecimalType decimalType = (DecimalType) fieldType;
+                    int precision = decimalType.getPrecision();
+                    int scale = decimalType.getScale();
+                    BigDecimal decimalValue =
+                            element.getDecimal(fieldNumber, precision, scale).toBigDecimal();
+                    return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
                 case SMALLINT:
                     return Short.toUnsignedInt(element.getShort(fieldNumber));
@@ -107,10 +115,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTime(
                                 element.getLong(fieldNumber), true);
                     }
-                case TIMESTAMP_WITH_TIME_ZONE:
+                case TIMESTAMP_WITHOUT_TIME_ZONE:
                     // TIMESTAMP in BQ.
                     // microseconds since epoch
-                    if (((ZonedTimestampType) fieldType).getPrecision() == 3) {
+                    if (((TimestampType) fieldType).getPrecision() == 3) {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTimestamp(
                                 element.getTimestamp(fieldNumber, 3).getMillisecond(),
                                 false,
@@ -121,9 +129,9 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                 true,
                                 "Timestamp(micros)");
                     }
-                case TIMESTAMP_WITHOUT_TIME_ZONE:
+                case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     // microseconds since epoch
-                    if (((TimestampType) fieldType).getPrecision() == 3) {
+                    if (((LocalZonedTimestampType) fieldType).getPrecision() == 3) {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertDateTime(
                                 element.getTimestamp(fieldNumber, 3).getMillisecond(), false);
                     } else {
@@ -157,7 +165,9 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 case RAW:
                 case DISTINCT_TYPE:
                 case STRUCTURED_TYPE:
-                case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                case TIMESTAMP_WITH_TIME_ZONE:
+                    // Since it is only a logical type and not supported in flink SQL
+                    // (https://issues.apache.org/jira/browse/FLINK-20869)
                 case UNRESOLVED:
                     throw new UnsupportedOperationException("Not supported yet!");
             }

@@ -30,7 +30,7 @@ public class RowDataToProtoSerializerTest {
      * BigQuery.
      *
      * <ul>
-     *   <li>BQ Type - Converted Avro Type
+     *   <li>BQ Type - Converted Table API Schema Type
      *   <li>"INTEGER" - LONG
      *   <li>"FLOAT" - FLOAT
      *   <li>"STRING" - STRING
@@ -131,8 +131,8 @@ public class RowDataToProtoSerializerTest {
      *
      * <ul>
      *   <li>DOUBLE
-     *   <li>ENUM
-     *   <li>FIXED
+     *   <li>ENUM - STRING
+     *   <li>FIXED - VARBINARY(size)
      *   <li>INT
      * </ul>
      */

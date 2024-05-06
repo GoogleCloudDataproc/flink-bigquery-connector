@@ -7,6 +7,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.TypeInformationRawType;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
@@ -48,15 +49,8 @@ public class AvroSchemaConvertor {
                     fields[i] = DataTypes.FIELD(field.name(), convertToDataType(field.schema()));
                 }
                 return DataTypes.ROW(fields).notNull();
-            case ENUM:
-                return DataTypes.STRING().notNull();
             case ARRAY:
                 return DataTypes.ARRAY(convertToDataType(schema.getElementType())).notNull();
-            case MAP:
-                return DataTypes.MAP(
-                                DataTypes.STRING().notNull(),
-                                convertToDataType(schema.getValueType()))
-                        .notNull();
             case UNION:
                 final Schema actualSchema;
                 final boolean nullable;
@@ -78,51 +72,46 @@ public class AvroSchemaConvertor {
                 }
                 DataType converted = convertToDataType(actualSchema);
                 return nullable ? converted.nullable() : converted;
+            case MAP:
+                return DataTypes.MAP(
+                                DataTypes.STRING().notNull(),
+                                convertToDataType(schema.getValueType()))
+                        .notNull();
+            case STRING:
+                DataType logicalDataType = handleLogicalTypeSchema(schema);
+                if (logicalDataType != null) {
+                    return logicalDataType;
+                }
+                return DataTypes.STRING().notNull();
+            case ENUM:
+                return DataTypes.STRING().notNull();
             case FIXED:
                 // logical decimal type
-                if (schema.getLogicalType() instanceof LogicalTypes.Decimal) {
-                    final LogicalTypes.Decimal decimalType =
-                            (LogicalTypes.Decimal) schema.getLogicalType();
-                    return DataTypes.DECIMAL(decimalType.getPrecision(), decimalType.getScale())
-                            .notNull();
+                logicalDataType = handleLogicalTypeSchema(schema);
+                if (logicalDataType != null) {
+                    return logicalDataType;
                 }
                 // convert fixed size binary data to primitive byte arrays
                 return DataTypes.VARBINARY(schema.getFixedSize()).notNull();
-            case STRING:
-                // convert Avro's Utf8/CharSequence to String
-                return DataTypes.STRING().notNull();
             case BYTES:
                 // logical decimal type
-                if (schema.getLogicalType() instanceof LogicalTypes.Decimal) {
-                    final LogicalTypes.Decimal decimalType =
-                            (LogicalTypes.Decimal) schema.getLogicalType();
-                    return DataTypes.DECIMAL(decimalType.getPrecision(), decimalType.getScale())
-                            .notNull();
+                logicalDataType = handleLogicalTypeSchema(schema);
+                if (logicalDataType != null) {
+                    return logicalDataType;
                 }
                 return DataTypes.BYTES().notNull();
             case INT:
                 // logical date and time type
-                final org.apache.avro.LogicalType logicalType = schema.getLogicalType();
-                if (logicalType == LogicalTypes.date()) {
-                    return DataTypes.DATE().notNull();
-                } else if (logicalType == LogicalTypes.timeMillis()) {
-                    return DataTypes.TIME(3).notNull();
+                logicalDataType = handleLogicalTypeSchema(schema);
+                if (logicalDataType != null) {
+                    return logicalDataType;
                 }
                 return DataTypes.INT().notNull();
             case LONG:
                 // logical timestamp type
-                if (schema.getLogicalType() == LogicalTypes.timestampMillis()) {
-                    return DataTypes.TIMESTAMP_WITH_TIME_ZONE(3).notNull();
-                } else if (schema.getLogicalType() == LogicalTypes.timestampMicros()) {
-                    return DataTypes.TIMESTAMP_WITH_TIME_ZONE(6).notNull();
-                } else if (schema.getLogicalType() == LogicalTypes.timeMillis()) {
-                    return DataTypes.TIME(3).notNull();
-                } else if (schema.getLogicalType() == LogicalTypes.timeMicros()) {
-                    return DataTypes.TIME(6).notNull();
-                } else if (schema.getLogicalType() == LogicalTypes.localTimestampMillis()) {
-                    return DataTypes.TIMESTAMP(3).notNull();
-                } else if (schema.getLogicalType() == LogicalTypes.localTimestampMicros()) {
-                    return DataTypes.TIMESTAMP(6).notNull();
+                logicalDataType = handleLogicalTypeSchema(schema);
+                if (logicalDataType != null) {
+                    return logicalDataType;
                 }
                 return DataTypes.BIGINT().notNull();
             case FLOAT:
@@ -135,5 +124,45 @@ public class AvroSchemaConvertor {
                 return DataTypes.NULL();
         }
         throw new IllegalArgumentException("Unsupported Avro type '" + schema.getType() + "'.");
+    }
+
+    /**
+     * Function to convert Avro Schema Field value to Data Type (Tale API Schema).
+     *
+     * @param fieldSchema Avro Schema describing the schema for the value.
+     * @return Converted {@link DataType} value if supported logical type exists, NULL Otherwise.
+     */
+    private static DataType handleLogicalTypeSchema(Schema fieldSchema) {
+        String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
+        if (logicalTypeString != null) {
+            // 1. In case, the Schema has a Logical Type.
+            if (logicalTypeString.equals(LogicalTypes.date().getName())) {
+                return DataTypes.DATE().notNull();
+            } else if (logicalTypeString.equals(LogicalTypes.decimal(1).getName())) {
+                final LogicalTypes.Decimal decimalType =
+                        (LogicalTypes.Decimal) fieldSchema.getLogicalType();
+                int precision = decimalType.getPrecision();
+                return DataTypes.DECIMAL(precision, decimalType.getScale()).notNull();
+            } else if (logicalTypeString.equals(LogicalTypes.timestampMicros().getName())) {
+                return DataTypes.TIMESTAMP(6).notNull();
+            } else if (logicalTypeString.equals(LogicalTypes.timestampMillis().getName())) {
+                return DataTypes.TIMESTAMP(3).notNull();
+            } else if (logicalTypeString.equals(LogicalTypes.uuid().getName())) {
+                return DataTypes.STRING().notNull();
+            } else if (logicalTypeString.equals(LogicalTypes.timeMillis().getName())) {
+                return DataTypes.TIME(3).notNull();
+            } else if (logicalTypeString.equals((LogicalTypes.timeMicros().getName()))) {
+                return DataTypes.TIME(6).notNull();
+            } else if (logicalTypeString.equals(LogicalTypes.localTimestampMillis().getName())) {
+                return DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE(3).notNull();
+            } else if (logicalTypeString.equals(LogicalTypes.localTimestampMicros().getName())) {
+                /// TIMESTAMP_LTZ() => has precision 6 by default.
+                return DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE().notNull();
+            } else if (logicalTypeString.equals("geography_wkt")
+                    || logicalTypeString.equals("Json")) {
+                return DataTypes.STRING().notNull();
+            }
+        }
+        return null;
     }
 }
