@@ -1,5 +1,7 @@
 # Release Notes
 
+## Next
+
 ## 0.2.0 - 2024-05-13
 
 * Release BigQuery sink with at-least-once support.
