@@ -387,18 +387,6 @@ public class BigQueryIntegrationTest {
 
         System.out.println("sourceTable: " + sourceTable);
         sourceTable.executeInsert("bigQuerySinkTable");
-
-        //        tEnv.executeSql("insert into bigQuerySinkTable values (1234,5678)");
-        //        System.out.println("testSink()");
-        //        String createDDL = createSimpleTestDDl(null);
-        //        System.out.println("createDDL:\n" + createDDL);
-        //        Iterator<Row> collected = tEnv.executeSql(createDDL).collect();
-        //        while (collected.hasNext()) {
-        //            System.out.println(collected.next());
-        //        }
-        //        System.out.println("tEnv.executeSql(createDDL) DONE!");
-        //        tEnv.executeSql("insert into table_test values (select * from table_test);");
-        //        env.execute("Flink BigQuery SQL Integration Test");
     }
 
     /** Function to flatmap the Table API source Catalog Table. */
