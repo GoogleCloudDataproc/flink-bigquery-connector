@@ -18,7 +18,6 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -86,7 +85,6 @@ public class BigQueryDynamicTableSource
         BigQuerySource<RowData> bqSource =
                 BigQuerySource.<RowData>builder()
                         .setReadOptions(readOptions)
-                        .setSourceBoundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                         .setDeserializationSchema(
                                 new AvroToRowDataDeserializationSchema(rowType, typeInfo))
                         .build();
