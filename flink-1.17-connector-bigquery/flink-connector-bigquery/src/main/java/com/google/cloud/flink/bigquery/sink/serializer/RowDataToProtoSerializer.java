@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/** Javadoc. */
+/** Serializer for converting Flink's {@link RowData} to BigQuery proto. */
 public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
 
     private Descriptor descriptor;

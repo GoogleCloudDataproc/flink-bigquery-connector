@@ -65,7 +65,7 @@ public class BigQuerySchemaProviderTableImpl implements BigQuerySchemaProvider {
             throw new RuntimeException(
                     "Avro Schema Not initialized before obtaining Table API schema");
         }
-        return getTableApiSchemaFromAvroSchema(this.getAvroSchema());
+        return getTableApiSchemaFromAvroSchema(avroSchema);
     }
 
     public BigQuerySchemaProviderTableImpl(Map<String, String> options) throws IOException {

@@ -11,6 +11,8 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -19,6 +21,8 @@ import java.util.List;
  * Schema.
  */
 public class AvroSchemaConvertor {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AvroSchemaConvertor.class);
 
     /**
      * Converts an Avro schema string into a nested row structure with deterministic field order and
@@ -123,6 +127,12 @@ public class AvroSchemaConvertor {
             case NULL:
                 return DataTypes.NULL();
         }
+        LOG.info(
+                "Unsupported Avro type '"
+                        + schema.getType()
+                        + "'. \nSupported types are NULL,"
+                        + " BOOLEAN, DOUBLE, FLOAT, LONG, INT, BYTES, FIXED,"
+                        + " ENUM,, STRING, ENUM, MAP, UNION, ARRAY, RECORD ");
         throw new IllegalArgumentException("Unsupported Avro type '" + schema.getType() + "'.");
     }
 
