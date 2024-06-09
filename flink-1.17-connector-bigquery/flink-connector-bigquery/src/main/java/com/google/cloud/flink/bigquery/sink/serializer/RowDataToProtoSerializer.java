@@ -3,6 +3,7 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LocalZonedTimestampType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -22,6 +23,7 @@ import org.apache.avro.generic.GenericRecord;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -135,27 +137,31 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertDateTime(
                                 element.getTimestamp(fieldNumber, 3).getMillisecond(), false);
                     } else {
+                        TimestampData timestampData = element.getTimestamp(fieldNumber, 6);
+                        long nanos = timestampData.getNanoOfMillisecond();
+                        long milli = timestampData.getMillisecond();
+                        long micros =
+                                TimeUnit.MILLISECONDS.toMicros(milli)
+                                        + TimeUnit.NANOSECONDS.toMicros(nanos);
                         return AvroToProtoSerializer.AvroSchemaHandler.convertDateTime(
-                                element.getTimestamp(fieldNumber, 6).getMillisecond(), true);
+                                micros, true);
                     }
                 case ARRAY:
                     LogicalType arrayElementType = getArrayElementType(fieldType);
                     ArrayData.ElementGetter elementGetter =
                             ArrayData.createElementGetter(arrayElementType);
-                    List<Object> ans =
-                            Stream.iterate(0, pos -> pos + 1)
-                                    .limit(element.getArray(fieldNumber).size())
-                                    .map(
-                                            pos ->
-                                                    convertArrayElement(
-                                                            elementGetter,
-                                                            element,
-                                                            fieldNumber,
-                                                            pos,
-                                                            arrayElementType,
-                                                            fieldDescriptor))
-                                    .collect(Collectors.toList());
-                    return ans;
+                    return Stream.iterate(0, pos -> pos + 1)
+                            .limit(element.getArray(fieldNumber).size())
+                            .map(
+                                    pos ->
+                                            convertArrayElement(
+                                                    elementGetter,
+                                                    element,
+                                                    fieldNumber,
+                                                    pos,
+                                                    arrayElementType,
+                                                    fieldDescriptor))
+                            .collect(Collectors.toList());
                 case INTERVAL_YEAR_MONTH:
                 case INTERVAL_DAY_TIME:
                 case MAP:
