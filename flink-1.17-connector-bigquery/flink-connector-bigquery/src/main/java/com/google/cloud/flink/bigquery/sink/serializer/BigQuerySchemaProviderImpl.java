@@ -148,7 +148,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
      * @param connectOptions {@link BigQueryConnectOptions}
      * @return {@link TableSchema} obtained for the table.
      */
-    private static TableSchema getTableSchemaFromOptions(BigQueryConnectOptions connectOptions) {
+    static TableSchema getTableSchemaFromOptions(BigQueryConnectOptions connectOptions) {
         QueryDataClient queryDataClient =
                 BigQueryServicesFactory.instance(connectOptions).queryClient();
         return queryDataClient.getTableSchema(
@@ -164,7 +164,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
      * @param tableSchema A {@link TableSchema} object to cast to {@link Schema}.
      * @return Converted Avro Schema
      */
-    private static Schema getAvroSchema(TableSchema tableSchema) {
+    static Schema getAvroSchema(TableSchema tableSchema) {
         return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
     }
 

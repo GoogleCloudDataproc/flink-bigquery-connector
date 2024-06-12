@@ -47,7 +47,7 @@ public class RowDataToProtoSerializerTest {
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         Descriptors.Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(avroSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -101,7 +101,7 @@ public class RowDataToProtoSerializerTest {
                 TestBigQuerySchemas.getSchemaWithNullablePrimitiveTypes().getAvroSchema();
 
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(avroSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -146,7 +146,7 @@ public class RowDataToProtoSerializerTest {
         byte[] byteArray = "Any String you want".getBytes();
 
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(avroSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -186,7 +186,7 @@ public class RowDataToProtoSerializerTest {
         Schema avroSchema =
                 TestBigQuerySchemas.getSchemaWithUnionOfRemainingPrimitiveTypes().getAvroSchema();
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(avroSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -221,7 +221,7 @@ public class RowDataToProtoSerializerTest {
                 TestBigQuerySchemas.getSchemaWithNullablePrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(avroSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -255,7 +255,7 @@ public class RowDataToProtoSerializerTest {
                 TestBigQuerySchemas.getSchemaWithUnionOfRemainingPrimitiveTypes();
         Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(avroSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -305,7 +305,7 @@ public class RowDataToProtoSerializerTest {
 
         // Form the Dynamic Message via the serializer.
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(nonNullSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(nonNullSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -347,7 +347,7 @@ public class RowDataToProtoSerializerTest {
 
         // Form the Dynamic Message via the serializer.
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(nonNullSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(nonNullSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
@@ -377,7 +377,7 @@ public class RowDataToProtoSerializerTest {
                 TestBigQuerySchemas.getSchemaWithRemainingLogicalTypes();
 
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
@@ -414,7 +414,7 @@ public class RowDataToProtoSerializerTest {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithUnionOfLogicalTypes();
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
@@ -442,7 +442,7 @@ public class RowDataToProtoSerializerTest {
                 TestBigQuerySchemas.getSchemaWithRecordOfArray();
         Descriptors.Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
@@ -497,8 +497,7 @@ public class RowDataToProtoSerializerTest {
 
         // Try to serialize, Form the Dynamic Message via the serializer.
         LogicalType logicalType =
-                BigQuerySchemaProviderTableImpl.getDataTypeSchemaFromAvroSchema(
-                                nullableRecordSchema)
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(nullableRecordSchema)
                         .getLogicalType();
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);

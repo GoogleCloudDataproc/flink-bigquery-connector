@@ -31,8 +31,6 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     private Descriptor descriptor;
     private LogicalType type;
 
-    public RowDataToProtoSerializer() {}
-
     /**
      * Prepares the serializer before its serialize method can be called. It allows contextual
      * preprocessing after constructor and before serialize. The Sink will internally call this
@@ -59,7 +57,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     public ByteString serialize(RowData record) throws BigQuerySerializationException {
         try {
             return getDynamicMessageFromRowData(record, this.descriptor, this.type).toByteString();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new BigQuerySerializationException(e.getMessage());
         }
     }
@@ -90,7 +88,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
                 case SMALLINT:
-                    return Short.toUnsignedInt(element.getShort(fieldNumber));
+                    return (int) element.getShort(fieldNumber);
                 case INTEGER:
                 case DATE:
                     // read in the form of - number of days since EPOCH (Integer)
@@ -171,10 +169,14 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 case UNRESOLVED:
                     throw new UnsupportedOperationException("Not supported yet!");
             }
-        } catch (Exception e) {
-            throw new RuntimeException(
+        } catch (RuntimeException e) {
+            // Takes care of UnsupportedOperationException,IllegalArgumentException,
+            // NullPointerException,
+            // ClassCastException, IllegalStateException, IndexOutOfBoundsException, DateTime
+            // Exception, InvalidEncodingException
+            throw new IllegalArgumentException(
                     String.format(
-                            "Expected Type: %s at Field Number %d for Logical Type: %s.\nError: %s",
+                            "Expected Type: %s at Field Number %d for Logical Type: %s.%nError: %s",
                             fieldDescriptor.getType().name(),
                             fieldNumber,
                             fieldType.getTypeRoot().name(),

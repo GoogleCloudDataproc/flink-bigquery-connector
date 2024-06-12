@@ -17,8 +17,11 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 
 /**
- * Class to convert Avro Schema to Data Type Schema which could be further converted to Table API
- * Schema.
+ * Source: <a href =
+ * "https://github.com/apache/flink/blob/master/flink-formats/flink-avro/src/main/java/org/apache/flink/formats/avro/typeutils/AvroSchemaConverter.java">Source</a>
+ * <br>
+ * Modified for special BigQuery Types. Class to convert Avro{@link Schema} to {@link DataType}
+ * Schema which could be further converted to Table API {@link org.apache.flink.table.api.Schema}.
  */
 public class AvroSchemaConvertor {
 
@@ -58,13 +61,14 @@ public class AvroSchemaConvertor {
             case UNION:
                 final Schema actualSchema;
                 final boolean nullable;
-                if (schema.getTypes().size() == 2
-                        && schema.getTypes().get(0).getType() == Schema.Type.NULL) {
-                    actualSchema = schema.getTypes().get(1);
-                    nullable = true;
-                } else if (schema.getTypes().size() == 2
-                        && schema.getTypes().get(1).getType() == Schema.Type.NULL) {
-                    actualSchema = schema.getTypes().get(0);
+                if (schema.getTypes().size() == 2) {
+                    // UNION (Size 2) is of the type [datatype, `NULL`] or [`NULL`, datatype],
+                    // actual datatype is derived from index 0 or 1 depending on the
+                    // placement of `NULL`.
+                    actualSchema =
+                            schema.getTypes().get(0).getType() == Schema.Type.NULL
+                                    ? schema.getTypes().get(1)
+                                    : schema.getTypes().get(0);
                     nullable = true;
                 } else if (schema.getTypes().size() == 1) {
                     actualSchema = schema.getTypes().get(0);
@@ -132,7 +136,7 @@ public class AvroSchemaConvertor {
                         + schema.getType()
                         + "'. \nSupported types are NULL,"
                         + " BOOLEAN, DOUBLE, FLOAT, LONG, INT, BYTES, FIXED,"
-                        + " ENUM,, STRING, ENUM, MAP, UNION, ARRAY, RECORD ");
+                        + " ENUM, STRING, ENUM, MAP, UNION, ARRAY, RECORD ");
         throw new IllegalArgumentException("Unsupported Avro type '" + schema.getType() + "'.");
     }
 
