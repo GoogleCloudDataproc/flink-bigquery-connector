@@ -7,7 +7,7 @@ import org.apache.flink.table.api.TableDescriptor;
  *
  * <p>Uses static inner builder to initialize new instances.
  */
-public class BigQueryTableConfig {
+public abstract class BigQueryTableConfig {
 
     private final String project;
     private final String dataset;
@@ -16,10 +16,6 @@ public class BigQueryTableConfig {
     private final String credentialFile;
     private final String credentialKey;
     private final Boolean testMode;
-
-    public static BigQueryTableConfig.Builder newBuilder() {
-        return new BigQueryTableConfig.Builder();
-    }
 
     BigQueryTableConfig(
             String project,
@@ -80,7 +76,7 @@ public class BigQueryTableConfig {
     }
 
     /** Builder for BigQueryTableConfig. */
-    public static class Builder {
+    public abstract static class Builder {
 
         String project;
         String dataset;
@@ -94,63 +90,32 @@ public class BigQueryTableConfig {
          * [REQUIRED] The GCP BigQuery Project ID which contains the desired connector (source or
          * sink) table.
          */
-        public BigQueryTableConfig.Builder project(String project) {
-            this.project = project;
-            return this;
-        }
+        public abstract BigQueryTableConfig.Builder project(String project);
 
         /**
          * [REQUIRED] The GCP BigQuery Dataset Name which contains the desired connector(source or
          * sink) table.
          */
-        public BigQueryTableConfig.Builder dataset(String dataset) {
-            this.dataset = dataset;
-            return this;
-        }
+        public abstract BigQueryTableConfig.Builder dataset(String dataset);
 
         /** [REQUIRED] Name of the table to connect to in BigQuery. */
-        public BigQueryTableConfig.Builder table(String table) {
-            this.table = table;
-            return this;
-        }
+        public abstract BigQueryTableConfig.Builder table(String table);
 
         /** [OPTIONAL] Specifies the GCP access token to use as credentials. */
-        public BigQueryTableConfig.Builder credentialAccessToken(String credentialAccessToken) {
-            this.credentialAccessToken = credentialAccessToken;
-            return this;
-        }
+        public abstract BigQueryTableConfig.Builder credentialAccessToken(
+                String credentialAccessToken);
 
         /** [OPTIONAL] Specifies the GCP credentials file to use as credentials. */
-        public BigQueryTableConfig.Builder credentialKey(String credentialKey) {
-            this.credentialKey = credentialKey;
-            return this;
-        }
+        public abstract BigQueryTableConfig.Builder credentialKey(String credentialKey);
 
         /** [OPTIONAL] Specifies the GCP credentials file to use as credentials. */
-        public BigQueryTableConfig.Builder credentialFile(String credentialFile) {
-            this.credentialFile = credentialFile;
-            return this;
-        }
+        public abstract BigQueryTableConfig.Builder credentialFile(String credentialFile);
 
         /**
          * [OPTIONAL] Boolean value indicating if the connector is run in test mode. In Test Mode,
          * BigQuery Tables are not modified, mock sources and sinks are used instead. <br>
          * Default: false
          */
-        public BigQueryTableConfig.Builder testMode(Boolean testMode) {
-            this.testMode = testMode;
-            return this;
-        }
-
-        public BigQueryTableConfig build() {
-            return new BigQueryTableConfig(
-                    project,
-                    dataset,
-                    table,
-                    credentialAccessToken,
-                    credentialFile,
-                    credentialKey,
-                    testMode);
-        }
+        public abstract BigQueryTableConfig.Builder testMode(Boolean testMode);
     }
 }

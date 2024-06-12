@@ -26,7 +26,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             String credentialAccessToken,
             String credentialFile,
             String credentialKey,
-            boolean testMode,
+            Boolean testMode,
             String columnProjection,
             Integer maxStreamCount,
             String rowRestriction,
@@ -79,7 +79,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         return tableDescriptorBuilder.build();
     }
 
-    /** Builder for BigQueryTableConfig. */
+    /** Builder for BigQueryReadTableConfig. */
     public static class Builder extends BigQueryTableConfig.Builder {
 
         private Integer limit;
@@ -88,6 +88,48 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         private String columnProjection;
         private Integer maxStreamCount;
         private Long snapshotTimestamp;
+
+        @Override
+        public BigQueryReadTableConfig.Builder project(String project) {
+            super.project = project;
+            return this;
+        }
+
+        @Override
+        public BigQueryReadTableConfig.Builder dataset(String dataset) {
+            super.dataset = dataset;
+            return this;
+        }
+
+        @Override
+        public BigQueryReadTableConfig.Builder table(String table) {
+            super.table = table;
+            return this;
+        }
+
+        @Override
+        public BigQueryReadTableConfig.Builder credentialAccessToken(String credentialAccessToken) {
+            super.credentialAccessToken = credentialAccessToken;
+            return this;
+        }
+
+        @Override
+        public BigQueryReadTableConfig.Builder credentialKey(String credentialKey) {
+            super.credentialKey = credentialKey;
+            return this;
+        }
+
+        @Override
+        public BigQueryReadTableConfig.Builder credentialFile(String credentialFile) {
+            super.credentialFile = credentialFile;
+            return this;
+        }
+
+        @Override
+        public BigQueryReadTableConfig.Builder testMode(Boolean testMode) {
+            super.testMode = this.testMode;
+            return this;
+        }
 
         /**
          * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of
@@ -134,7 +176,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
          * snapshot. Connector would read records from this snapshot instance table. <br>
          * Default: latest snapshot is read.
          */
-        public BigQueryTableConfig.Builder snapshotTimestamp(Long snapshotTimestamp) {
+        public BigQueryReadTableConfig.Builder snapshotTimestamp(Long snapshotTimestamp) {
             this.snapshotTimestamp = snapshotTimestamp;
             return this;
         }
