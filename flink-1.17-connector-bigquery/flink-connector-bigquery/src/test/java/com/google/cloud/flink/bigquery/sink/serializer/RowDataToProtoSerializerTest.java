@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2024 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import org.apache.flink.table.data.GenericArrayData;
@@ -6,6 +22,8 @@ import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.LogicalType;
 
+import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -14,8 +32,10 @@ import org.apache.avro.Schema;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getRecordSchema;
@@ -317,6 +337,97 @@ public class RowDataToProtoSerializerTest {
     }
 
     /**
+     * Test to check <code>getDynamicMessageFromRowData()</code> for Logical types supported
+     * BigQuery.
+     *
+     * <ul>
+     *   <li>BQ Type - Converted Avro Type {Logical Type}
+     *   <li>"TIMESTAMP" - LONG (microseconds since EPOCH) {timestamp-micros}
+     *   <li>"TIME" - LONG (microseconds since MIDNIGHT) {time-micros}
+     *   <li>"DATETIME" - INTEGER/LONG (microseconds since MIDNIGHT) {local-timestamp-micros}
+     *   <li>"DATE" - INTEGER (number of days since EPOCH) {date}
+     *   <li>"NUMERIC" - BYTES {decimal, isNumeric}
+     *   <li>"BIGNUMERIC" - BYTES {decimal}
+     *   <li>"GEOGRAPHY" - STRING {geography_wkt}
+     *   <li>"JSON" - STRING {Json}
+     * </ul>
+     */
+    @Test
+    public void testAllBigQueryAvroSupportedLogicalTypesConversionToDynamicMessageCorrectly() {
+        // Delete BIGNUMERIC AS IT IS NOT SUPPORTED YET.
+        String mode = "REQUIRED";
+        List<TableFieldSchema> fields =
+                Arrays.asList(
+                        new TableFieldSchema()
+                                .setName("timestamp")
+                                .setType("TIMESTAMP")
+                                .setMode(mode),
+                        new TableFieldSchema().setName("time").setType("TIME").setMode(mode),
+                        new TableFieldSchema()
+                                .setName("datetime")
+                                .setType("DATETIME")
+                                .setMode(mode),
+                        new TableFieldSchema().setName("date").setType("DATE").setMode(mode),
+                        new TableFieldSchema()
+                                .setName("numeric_field")
+                                .setType("NUMERIC")
+                                .setMode(mode),
+                        new TableFieldSchema()
+                                .setName("geography")
+                                .setType("GEOGRAPHY")
+                                .setMode(mode),
+                        new TableFieldSchema().setName("Json").setType("JSON").setMode(mode));
+
+        TableSchema tableSchema = new TableSchema().setFields(fields);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(tableSchema);
+        Descriptors.Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+
+        // CONTINUE WITH THE TEST.
+        Schema avroSchema = bigQuerySchemaProvider.getAvroSchema();
+        LogicalType logicalType =
+                BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
+                        .getLogicalType();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        rowDataSerializer.init(bigQuerySchemaProvider);
+        rowDataSerializer.setLogicalType(logicalType);
+        GenericRowData row = new GenericRowData(7);
+        byte[] bytes = "hello".getBytes();
+        TimestampData myData = TimestampData.fromInstant(Instant.parse("2024-03-20T07:20:50.269Z"));
+        row.setField(0, myData);
+        row.setField(1, 50546554456L);
+
+        long micros = 1710943144787424L;
+        long millis = TimeUnit.MICROSECONDS.toMillis(micros);
+        int nanos = (int) TimeUnit.MICROSECONDS.toNanos(1710943144787424L % 1000);
+
+        row.setField(2, TimestampData.fromEpochMillis(millis, nanos));
+        row.setField(3, 19802);
+        row.setField(4, bytes);
+        row.setField(
+                5,
+                StringData.fromString("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))"));
+        row.setField(6, StringData.fromString("{\"FirstName\": \"John\", \"LastName\": \"Doe\"}"));
+
+        System.out.println(row);
+        System.out.println(logicalType);
+        // Check the expected value.
+        DynamicMessage message =
+                rowDataSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
+        assertEquals(1710919250269000L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals("14:02:26.554456", message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(
+                "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
+        // TODO: Check the ByteString.
+        assertEquals(
+                "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))",
+                message.getField(descriptor.findFieldByNumber(6)));
+        assertEquals(
+                "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}",
+                message.getField(descriptor.findFieldByNumber(7)));
+    }
+
+    /**
      * Test to check <code>serialize()</code> for NULLABLE ARRAY of Type RECORD. <br>
      * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
      * type RECORD. <br>
@@ -510,7 +621,6 @@ public class RowDataToProtoSerializerTest {
 
         // Check for the desired results.
         Assertions.assertThat(exception)
-                .hasMessageContaining(
-                        "Received null value for non-nullable field record_field_union");
+                .hasMessageContaining("Error while serialising Row Data record: +I(null)");
     }
 }

@@ -1,8 +1,25 @@
+/*
+ * Copyright (C) 2024 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LocalZonedTimestampType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -19,14 +36,20 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.generic.GenericRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** Serializer for converting Flink's {@link RowData} to BigQuery proto. */
 public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(RowDataToProtoSerializer.class);
 
     private Descriptor descriptor;
     private LogicalType type;
@@ -57,8 +80,9 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     public ByteString serialize(RowData record) throws BigQuerySerializationException {
         try {
             return getDynamicMessageFromRowData(record, this.descriptor, this.type).toByteString();
-        } catch (RuntimeException e) {
-            throw new BigQuerySerializationException(e.getMessage());
+        } catch (Exception e) {
+            throw new BigQuerySerializationException(
+                    String.format("Error while serialising Row Data record: %s", record), e);
         }
     }
 
@@ -122,10 +146,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                 false,
                                 "Timestamp(millis)");
                     } else {
+                        TimestampData timestampData = element.getTimestamp(fieldNumber, 6);
+                        long micros = getMicrosFromTsData(timestampData);
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTimestamp(
-                                element.getTimestamp(fieldNumber, 6).getMillisecond(),
-                                true,
-                                "Timestamp(micros)");
+                                micros, true, "Timestamp(micros)");
                     }
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     // microseconds since epoch
@@ -133,8 +157,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertDateTime(
                                 element.getTimestamp(fieldNumber, 3).getMillisecond(), false);
                     } else {
+                        TimestampData timestampData = element.getTimestamp(fieldNumber, 6);
+                        long micros = getMicrosFromTsData(timestampData);
                         return AvroToProtoSerializer.AvroSchemaHandler.convertDateTime(
-                                element.getTimestamp(fieldNumber, 6).getMillisecond(), true);
+                                micros, true);
                     }
                 case ARRAY:
                     LogicalType arrayElementType = getArrayElementType(fieldType);
@@ -169,18 +195,22 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 case UNRESOLVED:
                     throw new UnsupportedOperationException("Not supported yet!");
             }
-        } catch (RuntimeException e) {
-            // Takes care of UnsupportedOperationException,IllegalArgumentException,
-            // NullPointerException,
-            // ClassCastException, IllegalStateException, IndexOutOfBoundsException, DateTime
-            // Exception, InvalidEncodingException
-            throw new IllegalArgumentException(
+        } catch (UnsupportedOperationException
+                | ClassCastException
+                | IllegalArgumentException
+                | NullPointerException
+                | IllegalStateException
+                | IndexOutOfBoundsException
+                | DateTimeException e) {
+            LOG.info(
                     String.format(
                             "Expected Type: %s at Field Number %d for Logical Type: %s.%nError: %s",
                             fieldDescriptor.getType().name(),
                             fieldNumber,
                             fieldType.getTypeRoot().name(),
-                            e.getMessage()));
+                            e));
+            throw new IllegalArgumentException(
+                    String.format("Error while converting value. %nErrors: %s to proto value", e));
         }
         return null;
     }
@@ -207,6 +237,14 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
             throw new UnsupportedOperationException("ARRAY of type NULL is not supported.");
         }
         return arrayElementType;
+    }
+
+    private long getMicrosFromTsData(TimestampData timestampData) {
+
+        long millis = timestampData.getMillisecond();
+        long nanos = timestampData.getNanoOfMillisecond();
+
+        return TimeUnit.MILLISECONDS.toMicros(millis) + TimeUnit.NANOSECONDS.toMicros(nanos);
     }
 
     private Object convertArrayElement(

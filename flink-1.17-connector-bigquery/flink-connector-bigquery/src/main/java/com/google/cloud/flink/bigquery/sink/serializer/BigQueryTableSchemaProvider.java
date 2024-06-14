@@ -20,10 +20,13 @@ import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.api.client.util.Preconditions;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.Schema;
 
@@ -37,12 +40,25 @@ public class BigQueryTableSchemaProvider {
     // To ensure no instantiation
     private BigQueryTableSchemaProvider() {}
 
-    private BigQueryConnectOptions getConnectOptionsFromTableConfig(BigQueryTableConfig tableConfig)
-            throws IOException {
+    private static SerializableSupplier<BigQueryServices> testingServices = null;
+
+    static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {
+        BigQueryTableSchemaProvider.testingServices = testingServices;
+    }
+
+    private static BigQueryConnectOptions getConnectOptionsFromTableConfig(
+            BigQueryTableConfig tableConfig) throws IOException {
         return BigQueryConnectOptions.builder()
                 .setTable(tableConfig.getTable())
                 .setProjectId(tableConfig.getProject())
                 .setDataset(tableConfig.getDataset())
+                .setTestingBigQueryServices(testingServices)
+                .setCredentialsOptions(
+                        CredentialsOptions.builder()
+                                .setAccessToken(tableConfig.getCredentialAccessToken())
+                                .setCredentialsFile(tableConfig.getCredentialFile())
+                                .setCredentialsKey(tableConfig.getCredentialKey())
+                                .build())
                 .build();
     }
 
@@ -54,7 +70,8 @@ public class BigQueryTableSchemaProvider {
         return AvroSchemaConverter.convertToSchema(logicalType);
     }
 
-    private org.apache.flink.table.api.Schema getTableApiSchemaFromAvroSchema(Schema avroSchema) {
+    private static org.apache.flink.table.api.Schema getTableApiSchemaFromAvroSchema(
+            Schema avroSchema) {
         Preconditions.checkNotNull(
                 avroSchema, "Avro Schema not initialized before obtaining Table API Schema.");
         DataType dataTypeSchema = getDataTypeSchemaFromAvroSchema(avroSchema);
@@ -63,9 +80,10 @@ public class BigQueryTableSchemaProvider {
                 .build();
     }
 
-    public TableDescriptor getTableDescriptor(BigQueryTableConfig tableConfig) throws IOException {
+    public static TableDescriptor getTableDescriptor(BigQueryTableConfig tableConfig)
+            throws IOException {
         // Translate to connect Options
-        BigQueryConnectOptions connectOptions = this.getConnectOptionsFromTableConfig(tableConfig);
+        BigQueryConnectOptions connectOptions = getConnectOptionsFromTableConfig(tableConfig);
         // Obtain the desired BigQuery Table Schema
         TableSchema bigQueryTableSchema =
                 BigQuerySchemaProviderImpl.getTableSchemaFromOptions(connectOptions);
