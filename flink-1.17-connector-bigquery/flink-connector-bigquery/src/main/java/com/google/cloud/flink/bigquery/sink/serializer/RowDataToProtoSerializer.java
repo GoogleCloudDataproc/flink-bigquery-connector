@@ -82,7 +82,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
             return getDynamicMessageFromRowData(record, this.descriptor, this.type).toByteString();
         } catch (Exception e) {
             throw new BigQuerySerializationException(
-                    String.format("Error while serialising Row Data record: %s", record), e);
+                    String.format(
+                            "Error while serialising Row Data record: %s%nError: %s",
+                            record, e.getMessage()),
+                    e);
         }
     }
 
@@ -135,7 +138,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                 element.getInt(fieldNumber), false);
                     } else {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTime(
-                                element.getLong(fieldNumber), true);
+                                ((long) element.getLong(fieldNumber)), true);
                     }
                 case TIMESTAMP_WITHOUT_TIME_ZONE:
                     // TIMESTAMP in BQ.
@@ -147,9 +150,8 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                 "Timestamp(millis)");
                     } else {
                         TimestampData timestampData = element.getTimestamp(fieldNumber, 6);
-                        long micros = getMicrosFromTsData(timestampData);
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTimestamp(
-                                micros, true, "Timestamp(micros)");
+                                timestampData.getMillisecond(), true, "Timestamp(micros)");
                     }
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     // microseconds since epoch
@@ -166,20 +168,18 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     LogicalType arrayElementType = getArrayElementType(fieldType);
                     ArrayData.ElementGetter elementGetter =
                             ArrayData.createElementGetter(arrayElementType);
-                    List<Object> ans =
-                            Stream.iterate(0, pos -> pos + 1)
-                                    .limit(element.getArray(fieldNumber).size())
-                                    .map(
-                                            pos ->
-                                                    convertArrayElement(
-                                                            elementGetter,
-                                                            element,
-                                                            fieldNumber,
-                                                            pos,
-                                                            arrayElementType,
-                                                            fieldDescriptor))
-                                    .collect(Collectors.toList());
-                    return ans;
+                    return Stream.iterate(0, pos -> pos + 1)
+                            .limit(element.getArray(fieldNumber).size())
+                            .map(
+                                    pos ->
+                                            convertArrayElement(
+                                                    elementGetter,
+                                                    element,
+                                                    fieldNumber,
+                                                    pos,
+                                                    arrayElementType,
+                                                    fieldDescriptor))
+                            .collect(Collectors.toList());
                 case INTERVAL_YEAR_MONTH:
                 case INTERVAL_DAY_TIME:
                 case MAP:
@@ -240,10 +240,8 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     }
 
     private long getMicrosFromTsData(TimestampData timestampData) {
-
         long millis = timestampData.getMillisecond();
         long nanos = timestampData.getNanoOfMillisecond();
-
         return TimeUnit.MILLISECONDS.toMicros(millis) + TimeUnit.NANOSECONDS.toMicros(nanos);
     }
 

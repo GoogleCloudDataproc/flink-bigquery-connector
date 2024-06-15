@@ -18,15 +18,19 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.function.SerializableFunction;
+import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
-import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
+import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
+import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -38,12 +42,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +64,7 @@ public class BigQueryDynamicTableSourceITCase {
     private static final Schema AVRO_SCHEMA =
             SchemaBuilder.record("testRecord")
                     .fields()
-                    .requiredInt("id")
+                    .requiredLong("id")
                     .optionalDouble("optDouble")
                     .optionalString("optString")
                     .name("ts")
@@ -112,7 +116,7 @@ public class BigQueryDynamicTableSourceITCase {
                                             i -> {
                                                 GenericRecord record =
                                                         new GenericData.Record(schema);
-                                                record.put("id", i);
+                                                record.put("id", (long) i);
                                                 record.put("optDouble", (double) i * 2);
                                                 record.put("optString", "s" + i);
                                                 record.put("ts", Instant.now().toEpochMilli());
@@ -149,15 +153,18 @@ public class BigQueryDynamicTableSourceITCase {
                                     .collect(Collectors.toList());
                         };
 
-        // init the testing services and inject them into the table factory
-        BigQueryDynamicTableFactory.setTestingServices(
-                StorageClientFaker.createReadOptions(
+        SerializableSupplier<BigQueryServices> testingServices =
+                StorageClientFaker.createTableReadOptions(
                                 TOTAL_ROW_COUNT_PER_STREAM,
                                 STREAM_COUNT,
                                 AVRO_SCHEMA.toString(),
                                 dataGenerator)
                         .getBigQueryConnectOptions()
-                        .getTestingBigQueryServices());
+                        .getTestingBigQueryServices();
+
+        // init the testing services and inject them into the table factory
+        BigQueryDynamicTableFactory.setTestingServices(testingServices);
+        BigQueryTableSchemaProvider.setTestingServices(testingServices);
     }
 
     public static StreamExecutionEnvironment env;
@@ -170,8 +177,8 @@ public class BigQueryDynamicTableSourceITCase {
     }
 
     @Test
-    public void testSource() {
-        tEnv.executeSql(createTestDDl(null));
+    public void testSource() throws IOException {
+        tEnv.createTable("bigquery_source", createTestDDl(null));
 
         Iterator<Row> collected = tEnv.executeSql("SELECT * FROM bigquery_source").collect();
         List<String> result =
@@ -185,8 +192,8 @@ public class BigQueryDynamicTableSourceITCase {
     }
 
     @Test
-    public void testLimit() {
-        tEnv.executeSql(createTestDDl(null));
+    public void testLimit() throws IOException {
+        tEnv.createTable("bigquery_source", createTestDDl(null));
 
         Iterator<Row> collected =
                 tEnv.executeSql("SELECT * FROM bigquery_source LIMIT 1").collect();
@@ -200,8 +207,8 @@ public class BigQueryDynamicTableSourceITCase {
     }
 
     @Test
-    public void testProject() {
-        tEnv.executeSql(createTestDDl(null));
+    public void testProject() throws IOException {
+        tEnv.createTable("bigquery_source", createTestDDl(null));
 
         Iterator<Row> collected =
                 tEnv.executeSql("SELECT id, optDouble, optString FROM bigquery_source LIMIT 1")
@@ -218,7 +225,7 @@ public class BigQueryDynamicTableSourceITCase {
     }
 
     @Test
-    public void testRestriction() {
+    public void testRestriction() throws IOException {
         String anHourFromNow =
                 Instant.now()
                         .atOffset(ZoneOffset.UTC)
@@ -240,7 +247,7 @@ public class BigQueryDynamicTableSourceITCase {
                         + "' AND '"
                         + anHourFromNow
                         + "' ";
-        tEnv.executeSql(createTestDDl(null));
+        tEnv.createTable("bigquery_source", createTestDDl(null));
 
         Iterator<Row> collected =
                 tEnv.executeSql(
@@ -261,35 +268,15 @@ public class BigQueryDynamicTableSourceITCase {
         Assertions.assertThat(result).isEqualTo(expected);
     }
 
-    private static String createTestDDl(Map<String, String> extraOptions) {
-        Map<String, String> options = new HashMap<>();
-        options.put(FactoryUtil.CONNECTOR.key(), "bigquery");
-        options.put(BigQueryConnectorOptions.PROJECT.key(), "project");
-        options.put(BigQueryConnectorOptions.DATASET.key(), "dataset");
-        options.put(BigQueryConnectorOptions.TABLE.key(), "table");
-        options.put(BigQueryConnectorOptions.TEST_MODE.key(), "true");
-        if (extraOptions != null) {
-            options.putAll(extraOptions);
-        }
-
-        String optionString =
-                options.entrySet().stream()
-                        .map(e -> String.format("'%s' = '%s'", e.getKey(), e.getValue()))
-                        .collect(Collectors.joining(",\n"));
-
-        return String.join(
-                "\n",
-                Arrays.asList(
-                        "CREATE TABLE bigquery_source",
-                        "(",
-                        "  id INTEGER,",
-                        "  optDouble DOUBLE,",
-                        "  optString VARCHAR,",
-                        "  ts TIMESTAMP,",
-                        "  reqSubRecord ROW<reqBoolean BOOLEAN, reqTs TIMESTAMP>,",
-                        "  optArraySubRecords ARRAY<ROW<reqLong BIGINT, optBytes BINARY>>",
-                        ") PARTITIONED BY (ts) WITH (",
-                        optionString,
-                        ")"));
+    private static TableDescriptor createTestDDl(Map<String, String> extraOptions)
+            throws IOException {
+        BigQueryTableConfig tableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .project("project")
+                        .dataset("dataset")
+                        .table("table")
+                        .testMode(true)
+                        .build();
+        return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
     }
 }
