@@ -41,7 +41,7 @@ import java.util.Map;
 import static com.google.common.truth.Truth.assertThat;
 
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
-public class BigQueryDynamicTableFactoryTest {
+public class BigQueryDynamicTableSourceFactoryTest {
 
     private static final ResolvedSchema SCHEMA =
             new ResolvedSchema(

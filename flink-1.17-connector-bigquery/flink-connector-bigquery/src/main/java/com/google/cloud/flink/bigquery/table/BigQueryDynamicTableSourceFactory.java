@@ -32,7 +32,7 @@ import java.util.Set;
 
 /** Factory class to create configured instances of {@link BigQueryDynamicTableSource}. */
 @Internal
-public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
+public class BigQueryDynamicTableSourceFactory implements DynamicTableSourceFactory {
 
     public static final String IDENTIFIER = "bigquery";
 
@@ -67,7 +67,7 @@ public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_FILE);
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
         additionalOptions.add(BigQueryConnectorOptions.TEST_MODE);
-
+        additionalOptions.add(BigQueryConnectorOptions.MODE);
         return additionalOptions;
     }
 
@@ -79,6 +79,7 @@ public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
         forwardOptions.add(BigQueryConnectorOptions.DATASET);
         forwardOptions.add(BigQueryConnectorOptions.TABLE);
         forwardOptions.add(BigQueryConnectorOptions.LIMIT);
+        forwardOptions.add(BigQueryConnectorOptions.MODE);
         forwardOptions.add(BigQueryConnectorOptions.ROW_RESTRICTION);
         forwardOptions.add(BigQueryConnectorOptions.COLUMNS_PROJECTION);
         forwardOptions.add(BigQueryConnectorOptions.MAX_STREAM_COUNT);
@@ -107,6 +108,6 @@ public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
     }
 
     static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {
-        BigQueryDynamicTableFactory.testingServices = testingServices;
+        BigQueryDynamicTableSourceFactory.testingServices = testingServices;
     }
 }

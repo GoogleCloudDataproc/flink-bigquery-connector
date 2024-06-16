@@ -150,7 +150,7 @@ public class BigQueryDynamicTableSourceITCase {
                         };
 
         // init the testing services and inject them into the table factory
-        BigQueryDynamicTableFactory.setTestingServices(
+        BigQueryDynamicTableSourceFactory.setTestingServices(
                 StorageClientFaker.createReadOptions(
                                 TOTAL_ROW_COUNT_PER_STREAM,
                                 STREAM_COUNT,

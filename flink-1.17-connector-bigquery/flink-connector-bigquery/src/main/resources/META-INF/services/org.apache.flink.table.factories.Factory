@@ -13,4 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-com.google.cloud.flink.bigquery.table.BigQueryDynamicTableFactory
+com.google.cloud.flink.bigquery.table.BigQueryDynamicTableSourceFactory
+com.google.cloud.flink.bigquery.table.BigQueryDynamicTableSinkFactory
