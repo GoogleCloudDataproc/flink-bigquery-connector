@@ -792,113 +792,20 @@ public class StorageClientFaker {
 
         @Override
         public QueryDataClient createQueryDataClient(CredentialsOptions readOptions) {
-            return FakeQueryDataClient.getInstance();
+            return FakeQueryTableDataClient.getInstance();
         }
 
-        static class FakeQueryDataClient implements QueryDataClient {
+        static class FakeQueryTableDataClient extends FakeBigQueryServices.FakeQueryDataClient {
 
-            static FakeQueryDataClient instance = Mockito.spy(new FakeQueryDataClient());
+            static FakeQueryTableDataClient instance = Mockito.spy(new FakeQueryTableDataClient());
 
             static QueryDataClient getInstance() {
                 return instance;
             }
 
             @Override
-            public List<String> retrieveTablePartitions(
-                    String project, String dataset, String table) {
-                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");
-
-                return Arrays.asList(
-                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(5).format(dtf),
-                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(4).format(dtf),
-                        Instant.now().atOffset(ZoneOffset.UTC).minusHours(3).format(dtf),
-                        Instant.now().atOffset(ZoneOffset.UTC).format(dtf));
-            }
-
-            @Override
-            public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
-                    String project, String dataset, String table) {
-                return Optional.of(
-                        new TablePartitionInfo(
-                                "ts",
-                                BigQueryPartitionUtils.PartitionType.HOUR,
-                                StandardSQLTypeName.TIMESTAMP,
-                                Instant.now()));
-            }
-
-            @Override
             public TableSchema getTableSchema(String project, String dataset, String table) {
                 return SIMPLE_BQ_TABLE_SCHEMA_TABLE;
-            }
-
-            @Override
-            public Optional<QueryResultInfo> runQuery(String projectId, String query) {
-                return Optional.of(
-                        QueryResultInfo.succeed("some-project", "some-dataset", "some-table"));
-            }
-
-            @Override
-            public Job dryRunQuery(String projectId, String query) {
-                return new Job()
-                        .setStatistics(
-                                new JobStatistics()
-                                        .setQuery(
-                                                new JobStatistics2()
-                                                        .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
-            }
-
-            @Override
-            public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
-                    String project, String dataset, String table) {
-                return retrieveTablePartitions(project, dataset, table).stream()
-                        .map(
-                                pId ->
-                                        new PartitionIdWithInfoAndStatus(
-                                                pId,
-                                                retrievePartitionColumnInfo(project, dataset, table)
-                                                        .get(),
-                                                BigQueryPartitionUtils.PartitionStatus.COMPLETED))
-                        .collect(Collectors.toList());
-            }
-        }
-
-        static class FaultyIterator<T> implements Iterator<T> {
-
-            private final Iterator<T> realIterator;
-            private final Double errorPercentage;
-            private final Random random = new Random(42);
-
-            public FaultyIterator(Iterator<T> realIterator, Double errorPercentage) {
-                this.realIterator = realIterator;
-                Preconditions.checkState(
-                        0 <= errorPercentage && errorPercentage <= 100,
-                        "The error percentage should be between 0 and 100");
-                this.errorPercentage = errorPercentage;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return realIterator.hasNext();
-            }
-
-            @Override
-            public T next() {
-                if (random.nextDouble() * 100 < errorPercentage) {
-                    throw new RuntimeException(
-                            "Faulty iterator has failed, it will happen with a chance of: "
-                                    + errorPercentage);
-                }
-                return realIterator.next();
-            }
-
-            @Override
-            public void remove() {
-                realIterator.remove();
-            }
-
-            @Override
-            public void forEachRemaining(Consumer<? super T> action) {
-                realIterator.forEachRemaining(action);
             }
         }
 
@@ -931,7 +838,8 @@ public class StorageClientFaker {
 
             @Override
             public Iterator<ReadRowsResponse> iterator() {
-                return new FaultyIterator<>(toReturn.iterator(), errorPercentage);
+                return new FakeBigQueryServices.FaultyIterator<>(
+                        toReturn.iterator(), errorPercentage);
             }
 
             @Override
