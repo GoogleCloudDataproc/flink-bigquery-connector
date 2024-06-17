@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.StringData;
@@ -32,10 +33,10 @@ import org.apache.avro.Schema;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getRecordSchema;
@@ -395,21 +396,14 @@ public class RowDataToProtoSerializerTest {
         TimestampData myData = TimestampData.fromInstant(Instant.parse("2024-03-20T07:20:50.269Z"));
         row.setField(0, myData);
         row.setField(1, 50546554456L);
-
-        long micros = 1710943144787424L;
-        long millis = TimeUnit.MICROSECONDS.toMillis(micros);
-        int nanos = (int) TimeUnit.MICROSECONDS.toNanos(1710943144787424L % 1000);
-
-        row.setField(2, TimestampData.fromEpochMillis(millis, nanos));
+        row.setField(2, TimestampData.fromInstant(Instant.parse("2024-03-20T13:59:04.787424Z")));
         row.setField(3, 19802);
-        row.setField(4, bytes);
+        row.setField(4, DecimalData.fromBigDecimal(new BigDecimal("12345.678910"), 11, 6));
         row.setField(
                 5,
                 StringData.fromString("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))"));
         row.setField(6, StringData.fromString("{\"FirstName\": \"John\", \"LastName\": \"Doe\"}"));
 
-        System.out.println(row);
-        System.out.println(logicalType);
         // Check the expected value.
         DynamicMessage message =
                 rowDataSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
