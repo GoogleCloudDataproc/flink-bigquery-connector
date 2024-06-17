@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.table.config;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 
@@ -29,31 +30,71 @@ public class BigQueryConnectorOptions {
 
     private BigQueryConnectorOptions() {}
 
+    /**
+     * [REQUIRED] The GCP BigQuery Project ID which contains the desired connector (source or sink)
+     * table.
+     */
     public static final ConfigOption<String> PROJECT =
             ConfigOptions.key("project")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the GCP project for BigQuery.");
+
+    /**
+     * [REQUIRED] The GCP BigQuery Dataset Name which contains the desired connector(source or sink)
+     * table.
+     */
     public static final ConfigOption<String> DATASET =
             ConfigOptions.key("dataset")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the BigQuery dataset name.");
+
+    /** [REQUIRED] Name of the table to connect to in BigQuery. */
     public static final ConfigOption<String> TABLE =
             ConfigOptions.key("table")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the BigQuery table name.");
+
+    /**
+     * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of rows/records to
+     * be read from source. <br>
+     * Default: -1 - Reads all rows from the source table.
+     */
     public static final ConfigOption<Integer> LIMIT =
             ConfigOptions.key("read.limit")
                     .intType()
                     .defaultValue(-1)
                     .withDescription("Specifies the limit number of rows retrieved.");
+
+    /**
+     * [OPTIONAL, Read Configuration] Enum value indicating the "BOUNDEDNESS" of the read job. Can
+     * be <code>Boundedness.BOUNDED </code> or <code>Boundedness.CONTINUOUS_UNBOUNDED</code> <br>
+     * Default: <code>Boundedness.BOUNDED </code> - Bounded mode.
+     */
+    public static final ConfigOption<Boundedness> MODE =
+            ConfigOptions.key("read.mode")
+                    .enumType(Boundedness.class)
+                    .defaultValue(Boundedness.BOUNDED)
+                    .withDescription("Specifies the read mode - BOUNDED or CONTINUOUS_UNBOUNDED");
+
+    /**
+     * [OPTIONAL, Read Configuration] String value indicating any filter or restriction on the rows
+     * to be read from the source. <br>
+     * Default: None - No filter/restriction on the rows read.
+     */
     public static final ConfigOption<String> ROW_RESTRICTION =
             ConfigOptions.key("read.row.restriction")
                     .stringType()
                     .defaultValue("")
                     .withDescription("Specifies the row restriction for data retrieval.");
+
+    /**
+     * [OPTIONAL, Read Configuration] String value indicating any the columns to be included as part
+     * of the data retrieved from the source. <br>
+     * Default: None - All columns are included.
+     */
     public static final ConfigOption<String> COLUMNS_PROJECTION =
             ConfigOptions.key("read.columns.projection")
                     .stringType()
@@ -61,6 +102,12 @@ public class BigQueryConnectorOptions {
                     .withDescription(
                             "Specifies, as a comma separated list of values, "
                                     + "the columns to be included as part of the data retrieved.");
+
+    /**
+     * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of streams used to
+     * read from the underlying source table.<br>
+     * Default: 0 - BigQuery decides the optimal amount.
+     */
     public static final ConfigOption<Integer> MAX_STREAM_COUNT =
             ConfigOptions.key("read.streams.maxcount")
                     .intType()
@@ -68,29 +115,58 @@ public class BigQueryConnectorOptions {
                     .withDescription(
                             "The max number of streams used to read from the underlying table,"
                                     + " BigQuery can decide for less than this number.");
+
+    /**
+     * Read Configuration: Long value indicating the millis since epoch for the underlying table
+     * snapshot. Connector would read records from this snapshot instance table. <br>
+     * Default: latest snapshot is read.
+     */
     public static final ConfigOption<Long> SNAPSHOT_TIMESTAMP =
             ConfigOptions.key("read.snapshot.timestamp")
                     .longType()
                     .noDefaultValue()
                     .withDescription("The millis since epoch for the underlying table snapshot.");
+
+    /** [OPTIONAL] Specifies the GCP access token to use as credentials. */
     public static final ConfigOption<String> CREDENTIALS_ACCESS_TOKEN =
             ConfigOptions.key("credentials.accesstoken")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the GCP access token to use as credentials.");
+
+    /** [OPTIONAL] Specifies the GCP credentials file to use as credentials. */
     public static final ConfigOption<String> CREDENTIALS_FILE =
             ConfigOptions.key("credentials.file")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the GCP credentials file to use.");
+
+    /** [OPTIONAL] Specifies the GCP credentials file to use as credentials. */
     public static final ConfigOption<String> CREDENTIALS_KEY =
             ConfigOptions.key("credentials.key")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the GCP credentials key to use.");
+
+    /**
+     * [OPTIONAL] Boolean value indicating if the connector is run in test mode. In Test Mode,
+     * BigQuery Tables are not modified, mock sources and sinks are used instead. <br>
+     * Default: false
+     */
     public static final ConfigOption<Boolean> TEST_MODE =
             ConfigOptions.key("test.enabled")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Specifies if the connector should run in test mode.");
+
+    /**
+     * [OPTIONAL, Read Configuration] Integer value indicating periodicity (in minutes) of partition
+     * discovery in table. This config is used in unbounded source.<br>
+     * Default: 10 minutes
+     */
+    public static final ConfigOption<Integer> PARTITION_DISCOVERY_INTERVAL =
+            ConfigOptions.key("read.discoveryinterval")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Partition Discovery interval(in minutes)");
 }
