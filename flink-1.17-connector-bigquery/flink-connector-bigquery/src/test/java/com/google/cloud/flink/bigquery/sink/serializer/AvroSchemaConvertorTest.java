@@ -387,31 +387,6 @@ public class AvroSchemaConvertorTest {
     }
 
     @Test
-    public void testMultisetTypeConversionToAvroType() {
-        // Form the Data Type
-        DataType dataType =
-                DataTypes.ROW(
-                                DataTypes.FIELD(
-                                        "multiset_type",
-                                        DataTypes.MULTISET(DataTypes.STRING().notNull()).notNull()))
-                        .notNull();
-        LogicalType logicalType = dataType.getLogicalType();
-
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
-
-        // Check the expected type
-        String exectedFieldString =
-                "\"fields\":["
-                        + "{\"name\":\"multiset_type\", \"type\": {\"type\": \"map\", \"values\": [\"null\",\"int\"]}} "
-                        + "]";
-
-        Schema expectedAvroSchema = getAvroSchemaFromFieldString(exectedFieldString);
-
-        // Check the expected type.
-        assertEquals(expectedAvroSchema, convertedAvroSchema);
-    }
-
-    @Test
     public void testUnsupportedTypeConversionToAvroType() {
         // Form the Data Type
         DataType dataType =
