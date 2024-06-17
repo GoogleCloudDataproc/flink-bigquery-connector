@@ -308,6 +308,7 @@ public class RowDataToProtoSerializerTest {
         assertEquals("", byteString.toStringUtf8());
     }
 
+    // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
     /**
      * Test to check <code>serialize()</code> for NULLABLE ARRAY type. <br>
      * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
