@@ -1348,21 +1348,33 @@ public class RowDataToProtoSerializerTest {
         assertEquals("8e25e7e5-0dc5-4292-b59b-3665b0ab8280", arrayResult.get(0));
     }
 
+    @Test
     public void testSmallIntConversionToByteStringCorrectly() {
 
-        DataType dataType = DataTypes.TINYINT().notNull();
+        // Form the Schema.
+        DataType dataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("tinyint_type", DataTypes.TINYINT().notNull()),
+                                DataTypes.FIELD("int_type", DataTypes.INT().notNull()))
+                        .notNull();
         LogicalType logicalType = dataType.getLogicalType();
         Schema avroSchema = BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(logicalType);
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-        GenericRowData row = new GenericRowData(1);
-        row.setField(0, 123);
+
+        // Initialize the record.
+        GenericRowData row = new GenericRowData(2);
+        row.setField(0, (short) 123);
+        row.setField(1, 123);
 
         RowDataToProtoSerializer rowDataToProtoSerializer = new RowDataToProtoSerializer();
         rowDataToProtoSerializer.init(bigQuerySchemaProvider);
         rowDataToProtoSerializer.setLogicalType(logicalType);
 
+        // Check for the desired results.
         DynamicMessage message =
                 rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
+        assertEquals(123, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(123, message.getField(descriptor.findFieldByNumber(2)));
     }
 }
