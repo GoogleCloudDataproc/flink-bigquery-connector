@@ -20,6 +20,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.connector.base.DeliveryGuarantee;
 
 /**
  * Base options for the BigQuery connector. Needs to be public so that the {@link
@@ -169,4 +170,16 @@ public class BigQueryConnectorOptions {
                     .intType()
                     .defaultValue(10)
                     .withDescription("Partition Discovery interval(in minutes)");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink job.
+     * Can be <code>DeliveryGuarantee.AT_LEAST_ONCE</code> or <code>DeliveryGuarantee.EXACTLY_ONCE
+     * </code><br>
+     * Default: <code>DeliveryGuarantee.AT_LEAST_ONCE</code> - At-least Once Mode.
+     */
+    public static final ConfigOption<DeliveryGuarantee> DELIVERY_GUARANTEE =
+            ConfigOptions.key("write.deliveryguarantee")
+                    .enumType(DeliveryGuarantee.class)
+                    .defaultValue(DeliveryGuarantee.AT_LEAST_ONCE)
+                    .withDescription("Delivery Guarantee (AT_LEAST_ONCE or EXACTLY_ONCE");
 }
