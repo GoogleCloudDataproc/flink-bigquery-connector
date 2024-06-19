@@ -387,7 +387,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         // BigQuery inputs timestamp as microseconds since EPOCH,
         // So if we have TIMESTAMP in micros - we convert as it is.
         // If the TIMESTAMP is in millis - we convert to Micros and then add.
-        @VisibleForTesting
         static Long convertTimestamp(Object value, boolean micros, String type) {
             long timestamp;
             if (value instanceof ReadableInstant) {
@@ -444,7 +443,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             return date;
         }
 
-        @VisibleForTesting
         static String convertDateTime(Object value, boolean micros) {
             if (value instanceof Long) {
                 // Convert to Microseconds if provided in millisecond precision.
