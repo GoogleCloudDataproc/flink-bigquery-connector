@@ -24,6 +24,7 @@ import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LocalZonedTimestampType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.MultisetType;
@@ -33,7 +34,6 @@ import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.TypeInformationRawType;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -58,7 +58,11 @@ public class AvroSchemaConvertor {
 
     private static final Logger LOG = LoggerFactory.getLogger(AvroSchemaConvertor.class);
 
-    private static final ConcurrentMap<Schema, DataType> map = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<Schema, DataType> avroToDataTypeConversionMemorizationMap =
+            new ConcurrentHashMap<>();
+
+    private static final ConcurrentMap<LogicalType, Schema>
+            logicalToAvroTypeConversionMemorizationMap = new ConcurrentHashMap<>();
 
     /**
      * Converts an Avro schema string into a nested row structure with deterministic field order and
@@ -79,8 +83,8 @@ public class AvroSchemaConvertor {
     }
 
     private static DataType convertToDataType(Schema schema) {
-        if (map.containsKey(schema)) {
-            return map.get(schema);
+        if (avroToDataTypeConversionMemorizationMap.containsKey(schema)) {
+            return avroToDataTypeConversionMemorizationMap.get(schema);
         }
         DataType dataType;
         switch (schema.getType()) {
@@ -191,7 +195,7 @@ public class AvroSchemaConvertor {
                 throw new IllegalArgumentException(
                         "Unsupported Avro type '" + schema.getType() + "'.");
         }
-        map.putIfAbsent(schema, dataType);
+        avroToDataTypeConversionMemorizationMap.putIfAbsent(schema, dataType);
         return dataType;
     }
 
@@ -202,7 +206,8 @@ public class AvroSchemaConvertor {
      * @return Converted {@link DataType} value if supported logical type exists, NULL Otherwise.
      */
     private static DataType handleLogicalTypeSchema(Schema fieldSchema) {
-        String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
+        String logicalTypeString =
+                fieldSchema.getProp(org.apache.avro.LogicalType.LOGICAL_TYPE_PROP);
         if (logicalTypeString != null) {
             // 1. In case, the Schema has a Logical Type.
             if (logicalTypeString.equals(LogicalTypes.date().getName())) {
@@ -243,8 +248,7 @@ public class AvroSchemaConvertor {
     }
 
     /**
-     * Converts Flink SQL {@link org.apache.flink.table.types.logical.LogicalType} (can be nested)
-     * into an Avro schema.
+     * Converts Flink SQL {@link LogicalType} (can be nested) into an Avro schema.
      *
      * <p>Use "org.apache.flink.avro.generated.record" as the type name.
      *
@@ -252,13 +256,12 @@ public class AvroSchemaConvertor {
      *     nested type
      * @return Avro's {@link Schema} matching this logical type.
      */
-    public static Schema convertToSchema(org.apache.flink.table.types.logical.LogicalType schema) {
+    public static Schema convertToSchema(LogicalType schema) {
         return convertToSchema(schema, "org.apache.flink.avro.generated.record");
     }
 
     /**
-     * Converts Flink SQL {@link org.apache.flink.table.types.logical.LogicalType} (can be nested)
-     * into an Avro schema.
+     * Converts Flink SQL {@link LogicalType} (can be nested) into an Avro schema.
      *
      * <p>The "{rowName}_" is used as the nested row type name prefix in order to generate the right
      * schema. Nested record type that only differs with type name is still compatible.
@@ -267,38 +270,49 @@ public class AvroSchemaConvertor {
      * @param rowName the record name
      * @return Avro's {@link Schema} matching this logical type.
      */
-    public static Schema convertToSchema(
-            org.apache.flink.table.types.logical.LogicalType logicalType, String rowName) {
+    public static Schema convertToSchema(LogicalType logicalType, String rowName) {
+        if (logicalToAvroTypeConversionMemorizationMap.containsKey(logicalType)) {
+            return logicalToAvroTypeConversionMemorizationMap.get(logicalType);
+        }
+        Schema avroSchema;
         int precision;
         boolean nullable = logicalType.isNullable();
         switch (logicalType.getTypeRoot()) {
             case NULL:
-                return SchemaBuilder.builder().nullType();
+                avroSchema = SchemaBuilder.builder().nullType();
+                break;
             case BOOLEAN:
-                Schema bool = SchemaBuilder.builder().booleanType();
-                return nullable ? nullableSchema(bool) : bool;
+                Schema booleanType = SchemaBuilder.builder().booleanType();
+                avroSchema = nullable ? nullableSchema(booleanType) : booleanType;
+                break;
             case TINYINT:
             case SMALLINT:
             case INTEGER:
-                Schema integer = SchemaBuilder.builder().intType();
-                return nullable ? nullableSchema(integer) : integer;
+                Schema intType = SchemaBuilder.builder().intType();
+                avroSchema = nullable ? nullableSchema(intType) : intType;
+                break;
             case BIGINT:
-                Schema bigint = SchemaBuilder.builder().longType();
-                return nullable ? nullableSchema(bigint) : bigint;
+                Schema longType = SchemaBuilder.builder().longType();
+                avroSchema = nullable ? nullableSchema(longType) : longType;
+                break;
             case FLOAT:
-                Schema f = SchemaBuilder.builder().floatType();
-                return nullable ? nullableSchema(f) : f;
+                Schema floatType = SchemaBuilder.builder().floatType();
+                avroSchema = nullable ? nullableSchema(floatType) : floatType;
+                break;
             case DOUBLE:
-                Schema d = SchemaBuilder.builder().doubleType();
-                return nullable ? nullableSchema(d) : d;
+                Schema doubleType = SchemaBuilder.builder().doubleType();
+                avroSchema = nullable ? nullableSchema(doubleType) : doubleType;
+                break;
             case CHAR:
             case VARCHAR:
-                Schema str = SchemaBuilder.builder().stringType();
-                return nullable ? nullableSchema(str) : str;
+                Schema stringType = SchemaBuilder.builder().stringType();
+                avroSchema = nullable ? nullableSchema(stringType) : stringType;
+                break;
             case BINARY:
             case VARBINARY:
-                Schema binary = SchemaBuilder.builder().bytesType();
-                return nullable ? nullableSchema(binary) : binary;
+                Schema binaryType = SchemaBuilder.builder().bytesType();
+                avroSchema = nullable ? nullableSchema(binaryType) : binaryType;
+                break;
             case TIMESTAMP_WITHOUT_TIME_ZONE:
                 // use long to represents Timestamp
                 final TimestampType timestampType = (TimestampType) logicalType;
@@ -316,11 +330,14 @@ public class AvroSchemaConvertor {
                                     + ", it only supports precision less than equal to 6.");
                 }
                 Schema timestamp = avroLogicalType.addToSchema(SchemaBuilder.builder().longType());
-                return nullable ? nullableSchema(timestamp) : timestamp;
+                avroSchema = nullable ? nullableSchema(timestamp) : timestamp;
+                break;
             case DATE:
                 // use int to represents Date
-                Schema date = LogicalTypes.date().addToSchema(SchemaBuilder.builder().intType());
-                return nullable ? nullableSchema(date) : date;
+                Schema dateType =
+                        LogicalTypes.date().addToSchema(SchemaBuilder.builder().intType());
+                avroSchema = nullable ? nullableSchema(dateType) : dateType;
+                break;
             case TIME_WITHOUT_TIME_ZONE:
                 precision = ((TimeType) logicalType).getPrecision();
                 org.apache.avro.LogicalType avroLogicalTimeType;
@@ -341,7 +358,8 @@ public class AvroSchemaConvertor {
                 // use int to represents Time, we only support millisecond/microsecond when
                 // deserialization
                 Schema time = avroLogicalTimeType.addToSchema(avroSchemaTimeType);
-                return nullable ? nullableSchema(time) : time;
+                avroSchema = nullable ? nullableSchema(time) : time;
+                break;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 precision = ((LocalZonedTimestampType) logicalType).getPrecision();
                 org.apache.avro.LogicalType avroLogicalDateTimeType;
@@ -360,7 +378,8 @@ public class AvroSchemaConvertor {
                 // use int to represents Datetime, we only support millisecond/microsecond when
                 // deserialization
                 Schema datetime = avroLogicalDateTimeType.addToSchema(avroDateTimeType);
-                return nullable ? nullableSchema(datetime) : datetime;
+                avroSchema = nullable ? nullableSchema(datetime) : datetime;
+                break;
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) logicalType;
                 precision = decimalType.getPrecision();
@@ -371,7 +390,8 @@ public class AvroSchemaConvertor {
                 if (precision <= 38 && precision > 0) {
                     decimal.addProp("isNumeric", true);
                 }
-                return nullable ? nullableSchema(decimal) : decimal;
+                avroSchema = nullable ? nullableSchema(decimal) : decimal;
+                break;
             case ROW:
                 RowType rowType = (RowType) logicalType;
                 List<String> fieldNames = rowType.getFieldNames();
@@ -380,43 +400,44 @@ public class AvroSchemaConvertor {
                         SchemaBuilder.builder().record(rowName).fields();
                 for (int i = 0; i < rowType.getFieldCount(); i++) {
                     String fieldName = fieldNames.get(i);
-                    org.apache.flink.table.types.logical.LogicalType fieldType =
-                            rowType.getTypeAt(i);
+                    LogicalType fieldType = rowType.getTypeAt(i);
                     SchemaBuilder.GenericDefault<Schema> fieldBuilder =
                             builder.name(fieldName)
                                     .type(convertToSchema(fieldType, rowName + "_" + fieldName));
                     builder = fieldBuilder.noDefault();
                 }
                 Schema record = builder.endRecord();
-                return nullable ? nullableSchema(record) : record;
+                avroSchema = nullable ? nullableSchema(record) : record;
+                break;
             case MULTISET:
             case MAP:
-                Schema map =
+                Schema mapType =
                         SchemaBuilder.builder()
                                 .map()
                                 .values(
                                         convertToSchema(
                                                 extractValueTypeToAvroMap(logicalType), rowName));
-                return nullable ? nullableSchema(map) : map;
+                avroSchema = nullable ? nullableSchema(mapType) : mapType;
+                break;
             case ARRAY:
                 ArrayType arrayType = (ArrayType) logicalType;
                 Schema array =
                         SchemaBuilder.builder()
                                 .array()
                                 .items(convertToSchema(arrayType.getElementType(), rowName));
-                return nullable ? nullableSchema(array) : array;
-            case RAW:
-
+                avroSchema = nullable ? nullableSchema(array) : array;
+                break;
             default:
                 throw new UnsupportedOperationException(
                         "Unsupported to derive Schema for type: " + logicalType);
         }
+        logicalToAvroTypeConversionMemorizationMap.putIfAbsent(logicalType, avroSchema);
+        return avroSchema;
     }
 
-    public static org.apache.flink.table.types.logical.LogicalType extractValueTypeToAvroMap(
-            org.apache.flink.table.types.logical.LogicalType type) {
-        org.apache.flink.table.types.logical.LogicalType keyType;
-        org.apache.flink.table.types.logical.LogicalType valueType;
+    public static LogicalType extractValueTypeToAvroMap(LogicalType type) {
+        LogicalType keyType;
+        LogicalType valueType;
         if (type instanceof MapType) {
             MapType mapType = (MapType) type;
             keyType = mapType.getKeyType();
