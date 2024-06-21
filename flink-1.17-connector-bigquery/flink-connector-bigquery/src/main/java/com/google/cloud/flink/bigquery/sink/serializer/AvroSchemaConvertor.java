@@ -275,7 +275,6 @@ public class AvroSchemaConvertor {
             return logicalToAvroTypeConversionMemorizationMap.get(logicalType);
         }
         Schema avroSchema;
-        int precision;
         boolean nullable = logicalType.isNullable();
         switch (logicalType.getTypeRoot()) {
             case NULL:
@@ -313,101 +312,25 @@ public class AvroSchemaConvertor {
                 Schema binaryType = SchemaBuilder.builder().bytesType();
                 avroSchema = nullable ? nullableSchema(binaryType) : binaryType;
                 break;
-            case TIMESTAMP_WITHOUT_TIME_ZONE:
-                // use long to represents Timestamp
-                final TimestampType timestampType = (TimestampType) logicalType;
-                precision = timestampType.getPrecision();
-                org.apache.avro.LogicalType avroLogicalType;
-                if (precision <= 3) {
-                    avroLogicalType = LogicalTypes.timestampMillis();
-                } else if (precision <= 6) {
-                    avroLogicalType = LogicalTypes.timestampMicros();
-                } else {
-                    throw new IllegalArgumentException(
-                            "Avro does not support TIMESTAMP type "
-                                    + "with precision: "
-                                    + precision
-                                    + ", it only supports precision less than equal to 6.");
-                }
-                Schema timestamp = avroLogicalType.addToSchema(SchemaBuilder.builder().longType());
-                avroSchema = nullable ? nullableSchema(timestamp) : timestamp;
-                break;
             case DATE:
-                // use int to represents Date
+                // use int to represent Date
                 Schema dateType =
                         LogicalTypes.date().addToSchema(SchemaBuilder.builder().intType());
                 avroSchema = nullable ? nullableSchema(dateType) : dateType;
                 break;
-            case TIME_WITHOUT_TIME_ZONE:
-                precision = ((TimeType) logicalType).getPrecision();
-                org.apache.avro.LogicalType avroLogicalTimeType;
-                Schema avroSchemaTimeType;
-                if (precision <= 3) {
-                    avroLogicalTimeType = LogicalTypes.timeMillis();
-                    avroSchemaTimeType = SchemaBuilder.builder().intType();
-                } else if (precision <= 6) {
-                    avroLogicalTimeType = LogicalTypes.timeMicros();
-                    avroSchemaTimeType = SchemaBuilder.builder().longType();
-                } else {
-                    throw new IllegalArgumentException(
-                            "Avro does not support TIME type with precision: "
-                                    + precision
-                                    + ", it only supports precision less than equal to 6.");
-                }
-
-                // use int to represents Time, we only support millisecond/microsecond when
-                // deserialization
-                Schema time = avroLogicalTimeType.addToSchema(avroSchemaTimeType);
-                avroSchema = nullable ? nullableSchema(time) : time;
-                break;
+            case TIMESTAMP_WITHOUT_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                precision = ((LocalZonedTimestampType) logicalType).getPrecision();
-                org.apache.avro.LogicalType avroLogicalDateTimeType;
-                Schema avroDateTimeType = SchemaBuilder.builder().longType();
-                if (precision <= 3) {
-                    avroLogicalDateTimeType = LogicalTypes.localTimestampMillis();
-                } else if (precision <= 6) {
-                    avroLogicalDateTimeType = LogicalTypes.localTimestampMicros();
-                } else {
-                    throw new IllegalArgumentException(
-                            "Avro does not support DATETIME type with precision: "
-                                    + precision
-                                    + ", it only supports precision less than equal to 6.");
-                }
-
-                // use int to represents Datetime, we only support millisecond/microsecond when
-                // deserialization
-                Schema datetime = avroLogicalDateTimeType.addToSchema(avroDateTimeType);
-                avroSchema = nullable ? nullableSchema(datetime) : datetime;
+            case TIME_WITHOUT_TIME_ZONE:
+                Schema schema = getAvroLogicalType(logicalType);
+                avroSchema = nullable ? nullableSchema(schema) : schema;
                 break;
             case DECIMAL:
-                DecimalType decimalType = (DecimalType) logicalType;
-                precision = decimalType.getPrecision();
-                // store BigDecimal as byte[]
-                Schema decimal =
-                        LogicalTypes.decimal(precision, decimalType.getScale())
-                                .addToSchema(SchemaBuilder.builder().bytesType());
-                if (precision <= 38 && precision > 0) {
-                    decimal.addProp("isNumeric", true);
-                }
-                avroSchema = nullable ? nullableSchema(decimal) : decimal;
+                Schema decimalSchema = getDecimalSchema(logicalType);
+                avroSchema = nullable ? nullableSchema(decimalSchema) : decimalSchema;
                 break;
             case ROW:
-                RowType rowType = (RowType) logicalType;
-                List<String> fieldNames = rowType.getFieldNames();
-                // we have to make sure the record name is different in a Schema
-                SchemaBuilder.FieldAssembler<Schema> builder =
-                        SchemaBuilder.builder().record(rowName).fields();
-                for (int i = 0; i < rowType.getFieldCount(); i++) {
-                    String fieldName = fieldNames.get(i);
-                    LogicalType fieldType = rowType.getTypeAt(i);
-                    SchemaBuilder.GenericDefault<Schema> fieldBuilder =
-                            builder.name(fieldName)
-                                    .type(convertToSchema(fieldType, rowName + "_" + fieldName));
-                    builder = fieldBuilder.noDefault();
-                }
-                Schema record = builder.endRecord();
-                avroSchema = nullable ? nullableSchema(record) : record;
+                Schema rowSchema = getRowSchema(logicalType, rowName);
+                avroSchema = nullable ? nullableSchema(rowSchema) : rowSchema;
                 break;
             case MULTISET:
             case MAP:
@@ -433,6 +356,145 @@ public class AvroSchemaConvertor {
         }
         logicalToAvroTypeConversionMemorizationMap.putIfAbsent(logicalType, avroSchema);
         return avroSchema;
+    }
+
+    // -------------------- Helper Methods to handle various schema types --------------------------
+
+    /**
+     * Method to convert {@link RowType} Schema to {@link Schema}.
+     *
+     * @param logicalType {@link LogicalType} Schema to be converted.
+     * @return {@link Schema} of the converted avro Type.
+     */
+    private static Schema getRowSchema(LogicalType logicalType, String rowName) {
+        RowType rowType = (RowType) logicalType;
+        List<String> fieldNames = rowType.getFieldNames();
+        // we have to make sure the record name is different in a Schema
+        SchemaBuilder.FieldAssembler<Schema> builder =
+                SchemaBuilder.builder().record(rowName).fields();
+        for (int i = 0; i < rowType.getFieldCount(); i++) {
+            String fieldName = fieldNames.get(i);
+            LogicalType fieldType = rowType.getTypeAt(i);
+            SchemaBuilder.GenericDefault<Schema> fieldBuilder =
+                    builder.name(fieldName)
+                            .type(convertToSchema(fieldType, rowName + "_" + fieldName));
+            builder = fieldBuilder.noDefault();
+        }
+        return builder.endRecord();
+    }
+
+    /**
+     * Method to convert {@link DecimalType} Schema to {@link Schema}.
+     *
+     * @param logicalType {@link LogicalType} Schema to be converted.
+     * @return {@link Schema} of the converted avro Type.
+     */
+    private static Schema getDecimalSchema(LogicalType logicalType) {
+        DecimalType decimalType = (DecimalType) logicalType;
+        int precision = decimalType.getPrecision();
+        // store BigDecimal as byte[]
+        Schema decimal =
+                LogicalTypes.decimal(precision, decimalType.getScale())
+                        .addToSchema(SchemaBuilder.builder().bytesType());
+        if (precision <= 38 && precision > 0) {
+            decimal.addProp("isNumeric", true);
+        }
+        return decimal;
+    }
+
+    /**
+     * Method to convert Time, Local Timestamp and Timestamp Datatypes to Avro schema. It checks the
+     * underlying type and invokes their respective handling methods.
+     *
+     * @param logicalType {@link LogicalType} Schema to be converted.
+     * @return {@link Schema} of the converted avro Type.
+     */
+    private static Schema getAvroLogicalType(LogicalType logicalType) {
+        if (logicalType instanceof TimestampType) {
+            // use long to represent Timestamp
+            int precision = ((TimestampType) logicalType).getPrecision();
+            org.apache.avro.LogicalType avroLogicalType = getAvroLogicalTimestampType(precision);
+            return avroLogicalType.addToSchema(SchemaBuilder.builder().longType());
+        } else if (logicalType instanceof TimeType) {
+            int precision = ((TimeType) logicalType).getPrecision();
+            return getTimeType(precision);
+        } else if (logicalType instanceof LocalZonedTimestampType) {
+            int precision = ((LocalZonedTimestampType) logicalType).getPrecision();
+            org.apache.avro.LogicalType avroLogicalDateTimeType =
+                    getAvroLogicalDateTimeType(precision);
+            // use int to represent Datetime, we only support millisecond/microsecond when
+            // deserialization
+            return avroLogicalDateTimeType.addToSchema(SchemaBuilder.builder().longType());
+        } else {
+            throw new IllegalArgumentException("Invalid logical type obtained!. Cannot convert.");
+        }
+    }
+
+    /**
+     * Method to convert {@link LocalZonedTimestampType} Schema to {@link Schema}.
+     *
+     * @param precision Precision of the passed Datetime(Local Timestamp) Type.
+     * @return {@link Schema} of the converted avro Type.
+     */
+    private static org.apache.avro.LogicalType getAvroLogicalDateTimeType(int precision) {
+        org.apache.avro.LogicalType avroLogicalDateTimeType;
+        if (precision <= 3) {
+            avroLogicalDateTimeType = LogicalTypes.localTimestampMillis();
+        } else if (precision <= 6) {
+            avroLogicalDateTimeType = LogicalTypes.localTimestampMicros();
+        } else {
+            throw new IllegalArgumentException(
+                    "Avro does not support DATETIME type with precision: "
+                            + precision
+                            + ", it only supports precision less than equal to 6.");
+        }
+        return avroLogicalDateTimeType;
+    }
+
+    /**
+     * Method to convert {@link TimestampType} Schema to {@link Schema}.
+     *
+     * @param precision Precision of the passed Timestamp Type.
+     * @return {@link Schema} of the converted avro Type.
+     */
+    private static org.apache.avro.LogicalType getAvroLogicalTimestampType(int precision) {
+        org.apache.avro.LogicalType avroLogicalType;
+        if (precision <= 3) {
+            avroLogicalType = LogicalTypes.timestampMillis();
+        } else if (precision <= 6) {
+            avroLogicalType = LogicalTypes.timestampMicros();
+        } else {
+            throw new IllegalArgumentException(
+                    "Avro does not support TIMESTAMP type "
+                            + "with precision: "
+                            + precision
+                            + ", it only supports precision less than equal to 6.");
+        }
+        return avroLogicalType;
+    }
+
+    /**
+     * Method to convert {@link TimeType} Schema to {@link Schema}.
+     *
+     * @param precision Precision of the passed Time Type.
+     * @return {@link Schema} of the converted avro Type.
+     */
+    private static Schema getTimeType(int precision) {
+        org.apache.avro.LogicalType avroLogicalTimeType;
+        Schema avroSchemaTimeType;
+        if (precision <= 3) {
+            avroLogicalTimeType = LogicalTypes.timeMillis();
+            avroSchemaTimeType = SchemaBuilder.builder().intType();
+        } else if (precision <= 6) {
+            avroLogicalTimeType = LogicalTypes.timeMicros();
+            avroSchemaTimeType = SchemaBuilder.builder().longType();
+        } else {
+            throw new IllegalArgumentException(
+                    "Avro does not support TIME type with precision: "
+                            + precision
+                            + ", it only supports precision less than equal to 6.");
+        }
+        return avroLogicalTimeType.addToSchema(avroSchemaTimeType);
     }
 
     public static LogicalType extractValueTypeToAvroMap(LogicalType type) {
