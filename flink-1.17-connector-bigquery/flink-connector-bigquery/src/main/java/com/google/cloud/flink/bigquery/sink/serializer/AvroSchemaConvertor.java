@@ -41,6 +41,8 @@ import org.apache.avro.SchemaParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -83,8 +85,9 @@ public class AvroSchemaConvertor {
     }
 
     private static DataType convertToDataType(Schema schema) {
-        if (avroToDataTypeConversionMemorizationMap.containsKey(schema)) {
-            return avroToDataTypeConversionMemorizationMap.get(schema);
+        DataType convertedDataType = getFromAvroToDataTypeConversionMap(schema);
+        if (convertedDataType != null) {
+            return convertedDataType;
         }
         DataType dataType;
         switch (schema.getType()) {
@@ -144,6 +147,7 @@ public class AvroSchemaConvertor {
                 // logical decimal type
                 logicalDataType = handleLogicalTypeSchema(schema);
                 if (logicalDataType != null) {
+                    addToAvroToDataTypeConversionMap(schema, logicalDataType);
                     return logicalDataType;
                 }
                 // convert fixed size binary data to primitive byte arrays
@@ -153,6 +157,7 @@ public class AvroSchemaConvertor {
                 // logical decimal type
                 logicalDataType = handleLogicalTypeSchema(schema);
                 if (logicalDataType != null) {
+                    addToAvroToDataTypeConversionMap(schema, logicalDataType);
                     return logicalDataType;
                 }
                 dataType = DataTypes.BYTES().notNull();
@@ -161,6 +166,7 @@ public class AvroSchemaConvertor {
                 // logical date and time type
                 logicalDataType = handleLogicalTypeSchema(schema);
                 if (logicalDataType != null) {
+                    addToAvroToDataTypeConversionMap(schema, logicalDataType);
                     return logicalDataType;
                 }
                 dataType = DataTypes.INT().notNull();
@@ -169,6 +175,7 @@ public class AvroSchemaConvertor {
                 // logical timestamp type
                 logicalDataType = handleLogicalTypeSchema(schema);
                 if (logicalDataType != null) {
+                    addToAvroToDataTypeConversionMap(schema, logicalDataType);
                     return logicalDataType;
                 }
                 dataType = DataTypes.BIGINT().notNull();
@@ -195,8 +202,29 @@ public class AvroSchemaConvertor {
                 throw new IllegalArgumentException(
                         "Unsupported Avro type '" + schema.getType() + "'.");
         }
-        avroToDataTypeConversionMemorizationMap.putIfAbsent(schema, dataType);
+        addToAvroToDataTypeConversionMap(schema, dataType);
         return dataType;
+    }
+
+    /**
+     * Wrapper to add to map. Converted to a function to enable cache efficiency testing.
+     *
+     * @param schema {@link Schema} object being converted.
+     * @param dataType Converted {@link DataType} object.
+     */
+    private static void addToAvroToDataTypeConversionMap(Schema schema, DataType dataType) {
+        avroToDataTypeConversionMemorizationMap.putIfAbsent(schema, dataType);
+    }
+
+    /**
+     * Wrapper to get from a map. Converted to a function to enable cache efficiency testing.
+     *
+     * @param schema {@link Schema} object being converted.
+     * @return Converted {@link DataType} object.
+     */
+    @Nullable
+    private static DataType getFromAvroToDataTypeConversionMap(Schema schema) {
+        return avroToDataTypeConversionMemorizationMap.getOrDefault(schema, null);
     }
 
     /**
@@ -271,8 +299,9 @@ public class AvroSchemaConvertor {
      * @return Avro's {@link Schema} matching this logical type.
      */
     public static Schema convertToSchema(LogicalType logicalType, String rowName) {
-        if (logicalToAvroTypeConversionMemorizationMap.containsKey(logicalType)) {
-            return logicalToAvroTypeConversionMemorizationMap.get(logicalType);
+        Schema convertedSchema = getFromLogicalToAvroTypeConversionMap(logicalType);
+        if (convertedSchema != null) {
+            return convertedSchema;
         }
         Schema avroSchema;
         boolean nullable = logicalType.isNullable();
@@ -354,7 +383,7 @@ public class AvroSchemaConvertor {
                 throw new UnsupportedOperationException(
                         "Unsupported to derive Schema for type: " + logicalType);
         }
-        logicalToAvroTypeConversionMemorizationMap.putIfAbsent(logicalType, avroSchema);
+        addToLogicalToAvroTypeConversionMap(logicalType, avroSchema);
         return avroSchema;
     }
 
@@ -516,6 +545,28 @@ public class AvroSchemaConvertor {
                             + keyType.asSummaryString());
         }
         return valueType;
+    }
+
+    /**
+     * Wrapper to get from a map. Converted to a function to enable cache efficiency testing.
+     *
+     * @param logicalType {@link LogicalType} object being converted.
+     * @return Converted {@link Schema} object.
+     */
+    @Nullable
+    private static Schema getFromLogicalToAvroTypeConversionMap(LogicalType logicalType) {
+        return logicalToAvroTypeConversionMemorizationMap.getOrDefault(logicalType, null);
+    }
+
+    /**
+     * Wrapper to add to map. Converted to a function to enable cache efficiency testing.
+     *
+     * @param logicalType {@link LogicalType} object being converted.
+     * @param schema Converted {@link Schema} object.
+     */
+    private static void addToLogicalToAvroTypeConversionMap(
+            LogicalType logicalType, Schema schema) {
+        logicalToAvroTypeConversionMemorizationMap.putIfAbsent(logicalType, schema);
     }
 
     /** Returns schema with nullable true. */

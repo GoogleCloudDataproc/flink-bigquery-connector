@@ -30,6 +30,7 @@ import static org.junit.Assert.assertThrows;
 /** Test for {@link AvroSchemaConvertor}. */
 public class AvroSchemaConvertorTest {
 
+    // ------ Test conversion from Avro Schema to Data Type --------------------------
     @Test
     public void testInvalidAvroSchemaStringConversion() {
         // Get the avro schema
@@ -41,6 +42,16 @@ public class AvroSchemaConvertorTest {
                         IllegalArgumentException.class,
                         () -> AvroSchemaConvertor.convertToDataType(avroSchemaString));
         Assertions.assertThat(exception).hasMessageContaining("Could not parse Avro schema string");
+    }
+
+    @Test
+    public void testNullAvroSchemaConversion() {
+        // Check for the desired error.
+        NullPointerException exception =
+                assertThrows(
+                        NullPointerException.class,
+                        () -> AvroSchemaConvertor.convertToDataType(null));
+        Assertions.assertThat(exception).hasMessageContaining("Avro schema must not be null.");
     }
 
     @Test
@@ -92,7 +103,7 @@ public class AvroSchemaConvertorTest {
         assertEquals(dataTypeExpected, dataType);
     }
 
-    // ------ Test conversion from Avro Schema to Logical Type Schema. -----------------------
+    // ------ Test conversion from Logical Type Schema to Avro Schema --------------------------
     @Test
     public void testStringDataTypeConversionToAvroType() {
         // Form the Data Type
@@ -109,6 +120,22 @@ public class AvroSchemaConvertorTest {
 
         // Check expected type.
         assertEquals(convertedAvroSchema, expectedAvroSchema);
+    }
+
+    @Test
+    public void testNullDataTypeConversionToAvroType() {
+        // Form the Data Type
+        DataType dataType = DataTypes.ROW(DataTypes.FIELD("null_type", DataTypes.NULL())).notNull();
+        LogicalType logicalType = dataType.getLogicalType();
+
+        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+
+        // Check the expected type
+        String exectedFieldString = "\"fields\":[{\"name\":\"null_type\",\"type\":\"null\"}]";
+        Schema expectedAvroSchema = getAvroSchemaFromFieldString(exectedFieldString);
+
+        // Check expected type.
+        assertEquals(expectedAvroSchema, convertedAvroSchema);
     }
 
     @Test
@@ -409,6 +436,29 @@ public class AvroSchemaConvertorTest {
 
         // Check the expected type.
         assertEquals(expectedAvroSchema, convertedAvroSchema);
+    }
+
+    @Test
+    public void testInvalidMapTypeConversionToAvroType() {
+        // Form the Data Type
+        DataType dataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "invalid_map_type",
+                                        DataTypes.MAP(
+                                                        DataTypes.BIGINT().notNull(),
+                                                        DataTypes.STRING().notNull())
+                                                .notNull()))
+                        .notNull();
+        LogicalType logicalType = dataType.getLogicalType();
+
+        // Check for the desired error.
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> AvroSchemaConvertor.convertToSchema(logicalType));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("Avro format doesn't support non-string as key type of map.");
     }
 
     @Test
