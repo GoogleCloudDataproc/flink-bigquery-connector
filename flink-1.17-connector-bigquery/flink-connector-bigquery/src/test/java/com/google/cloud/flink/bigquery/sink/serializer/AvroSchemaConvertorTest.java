@@ -55,6 +55,24 @@ public class AvroSchemaConvertorTest {
     }
 
     @Test
+    public void testNullTypeSchemaConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"null_type\", \"type\": \"null\"}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(DataTypes.FIELD("null_type", DataTypes.NULL())).notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
     public void testSingleDatatypeInUnionConversion() {
         // Get the avro schema
         String avroSchemaString =
@@ -74,6 +92,308 @@ public class AvroSchemaConvertorTest {
                                         "union_with_one_datatype", DataTypes.STRING().notNull()))
                         .notNull();
         assertEquals(dataTypeExpected, dataType);
+    }
+
+    @Test
+    public void testRecordTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        "\"fields\": "
+                                + "["
+                                + "{\"name\": \"value\", \"type\": \"long\"},"
+                                + "{\"name\": \"another_value\",\"type\": \"string\"}"
+                                + "]");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("value", DataTypes.BIGINT().notNull()),
+                                DataTypes.FIELD("another_value", DataTypes.STRING().notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testArrayTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"map_of_array\", \"type\": {\"type\": \"map\","
+                                + " \"values\": {\"type\": \"array\", \"items\": \"long\","
+                                + " \"name\": \"array_in_map\"}}}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "map_of_array",
+                                        DataTypes.MAP(
+                                                        DataTypes.STRING().notNull(),
+                                                        DataTypes.ARRAY(
+                                                                        DataTypes.BIGINT()
+                                                                                .notNull())
+                                                                .notNull())
+                                                .notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testUnionTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"union_type_1\", \"type\": [\"null\", \"string\"]},\n"
+                                + "   {\"name\": \"union_type_2\", \"type\": [\"string\", \"null\"]},\n"
+                                + "   {\"name\": \"union_type_3\", \"type\": [\"string\"]}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("union_type_1", DataTypes.STRING()),
+                                DataTypes.FIELD("union_type_2", DataTypes.STRING()),
+                                DataTypes.FIELD("union_type_3", DataTypes.STRING().notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testEnumTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"enum_type\", \"type\": {\n"
+                                + "  \"type\": \"enum\",\n"
+                                + "  \"name\": \"Suit\",\n"
+                                + "  \"symbols\" : [\"SPADES\", \"HEARTS\", \"DIAMONDS\", \"CLUBS\"]\n"
+                                + "}}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(DataTypes.FIELD("enum_type", DataTypes.STRING().notNull())).notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testFixedAndBytesTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"fixed_type\", \"type\": {\"type\": \"fixed\",  \"size\": 16, \"name\" : \"md5\"}},\n"
+                                + "   {\"name\": \"bytes_type\", \"type\": \"bytes\"}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("fixed_type", DataTypes.VARBINARY(16).notNull()),
+                                DataTypes.FIELD("bytes_type", DataTypes.BYTES().notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testFixedTypeCachingCheckConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"fixed_type\", \"type\": {\"type\": \"fixed\",  \"size\": 16, \"name\" : \"md5\"}}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(DataTypes.FIELD("fixed_type", DataTypes.VARBINARY(16).notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testIntFloatDoubleBooleanTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"int_type\", \"type\": \"int\"},\n"
+                                + "   {\"name\": \"float_type\", \"type\": \"float\"},\n"
+                                + "   {\"name\": \"double_type\", \"type\": \"double\"},\n"
+                                + "   {\"name\": \"boolean_type\", \"type\": \"boolean\"}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("int_type", DataTypes.INT().notNull()),
+                                DataTypes.FIELD("float_type", DataTypes.FLOAT().notNull()),
+                                DataTypes.FIELD("double_type", DataTypes.DOUBLE().notNull()),
+                                DataTypes.FIELD("boolean_type", DataTypes.BOOLEAN().notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testTimestampTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"timestamp_millis_type\", \"type\": { \"type\": \"int\", \"logicalType\": \"timestamp-millis\"}},\n"
+                                + "   {\"name\": \"timestamp_micros_type\", \"type\": { \"type\": \"long\", \"logicalType\": \"timestamp-micros\"}}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "timestamp_millis_type", DataTypes.TIMESTAMP(3).notNull()),
+                                DataTypes.FIELD(
+                                        "timestamp_micros_type", DataTypes.TIMESTAMP(6).notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testTimeTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"time_millis_type\", \"type\": { \"type\": \"int\", \"logicalType\": \"time-millis\"}},\n"
+                                + "   {\"name\": \"time_micros_type\", \"type\": { \"type\": \"long\", \"logicalType\": \"time-micros\"}}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("time_millis_type", DataTypes.TIME(3).notNull()),
+                                DataTypes.FIELD("time_micros_type", DataTypes.TIME(6).notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testDateTimeTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"local_timestamp_millis_type\", \"type\": { \"type\": \"int\", \"logicalType\": \"local-timestamp-millis\"}},\n"
+                                + "   {\"name\": \"local_timestamp_micros_type\", \"type\": { \"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "local_timestamp_millis_type",
+                                        DataTypes.TIMESTAMP_LTZ(3).notNull()),
+                                DataTypes.FIELD(
+                                        "local_timestamp_micros_type",
+                                        DataTypes.TIMESTAMP_LTZ(6).notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testUuidGeographyJsonTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"uuid_type\", \"type\": { \"type\": \"string\", \"logicalType\": \"uuid\"}},\n"
+                                + "   {\"name\": \"geography_type\", \"type\": { \"type\": \"string\", \"logicalType\": \"geography_wkt\"}},\n"
+                                + "   {\"name\": \"json_type\", \"type\": { \"type\": \"string\", \"logicalType\": \"Json\"}}\n"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("uuid_type", DataTypes.STRING().notNull()),
+                                DataTypes.FIELD("geography_type", DataTypes.STRING().notNull()),
+                                DataTypes.FIELD("json_type", DataTypes.STRING().notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testDecimalTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"numeric_type\", \"type\": { \"type\": \"bytes\", \"logicalType\": \"decimal\", \"scale\": 9, \"precision\" : 38, \"isNumeric\": true}},"
+                                + "   {\"name\": \"bignumeric_type\", \"type\": { \"type\": \"bytes\", \"logicalType\": \"decimal\", \"scale\": 38, \"precision\" : 72}}"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD("numeric_type", DataTypes.DECIMAL(38, 9).notNull()),
+                                DataTypes.FIELD("bignumeric_type", DataTypes.BYTES().notNull()))
+                        .notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
+    }
+
+    @Test
+    public void testDateTypeConversion() {
+        // Get the avro schema
+        Schema avroSchema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [\n"
+                                + "   {\"name\": \"date_type\", \"type\": { \"type\": \"int\", \"logicalType\": \"date\"}}"
+                                + " ]\n");
+
+        // Form the Data Type
+        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType expectedDataType =
+                DataTypes.ROW(DataTypes.FIELD("date_type", DataTypes.DATE().notNull())).notNull();
+
+        // Check the expected type
+        assertEquals(expectedDataType, dataType);
     }
 
     @Test
