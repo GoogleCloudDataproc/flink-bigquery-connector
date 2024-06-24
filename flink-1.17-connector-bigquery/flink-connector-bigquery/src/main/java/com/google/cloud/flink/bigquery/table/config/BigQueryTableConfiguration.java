@@ -74,6 +74,8 @@ public class BigQueryTableConfiguration {
                                     .orElse(new ArrayList<>()))
                     .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                     .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
+                    .setPartitionDiscoveryRefreshIntervalInMinutes(
+                            config.get(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL))
                     .build();
         } catch (Exception ex) {
             throw new RuntimeException(
