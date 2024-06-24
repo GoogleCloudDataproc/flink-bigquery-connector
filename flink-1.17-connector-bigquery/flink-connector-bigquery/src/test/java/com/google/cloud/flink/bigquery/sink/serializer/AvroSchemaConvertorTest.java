@@ -30,6 +30,8 @@ import static org.junit.Assert.assertThrows;
 /** Test for {@link AvroSchemaConvertor}. */
 public class AvroSchemaConvertorTest {
 
+    AvroSchemaConvertor avroSchemaConvertor = new AvroSchemaConvertor();
+
     // ------ Test conversion from Avro Schema to Data Type --------------------------
     @Test
     public void testInvalidAvroSchemaStringConversion() {
@@ -40,7 +42,7 @@ public class AvroSchemaConvertorTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroSchemaConvertor.convertToDataType(avroSchemaString));
+                        () -> avroSchemaConvertor.convertToDataType(avroSchemaString));
         Assertions.assertThat(exception).hasMessageContaining("Could not parse Avro schema string");
     }
 
@@ -50,7 +52,7 @@ public class AvroSchemaConvertorTest {
         NullPointerException exception =
                 assertThrows(
                         NullPointerException.class,
-                        () -> AvroSchemaConvertor.convertToDataType(null));
+                        () -> avroSchemaConvertor.convertToDataType(null));
         Assertions.assertThat(exception).hasMessageContaining("Avro schema must not be null.");
     }
 
@@ -64,7 +66,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(DataTypes.FIELD("null_type", DataTypes.NULL())).notNull();
 
@@ -83,7 +85,7 @@ public class AvroSchemaConvertorTest {
                         .toString();
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchemaString);
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchemaString);
 
         // Check the expected type
         DataType dataTypeExpected =
@@ -106,7 +108,7 @@ public class AvroSchemaConvertorTest {
                                 + "]");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD("value", DataTypes.BIGINT().notNull()),
@@ -129,7 +131,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD(
@@ -159,7 +161,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD("union_type_1", DataTypes.STRING()),
@@ -185,7 +187,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(DataTypes.FIELD("enum_type", DataTypes.STRING().notNull())).notNull();
 
@@ -204,7 +206,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD("fixed_type", DataTypes.VARBINARY(16).notNull()),
@@ -225,7 +227,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(DataTypes.FIELD("fixed_type", DataTypes.VARBINARY(16).notNull()))
                         .notNull();
@@ -247,7 +249,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD("int_type", DataTypes.INT().notNull()),
@@ -271,7 +273,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD(
@@ -295,7 +297,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD("time_millis_type", DataTypes.TIME(3).notNull()),
@@ -317,7 +319,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD(
@@ -344,7 +346,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD("uuid_type", DataTypes.STRING().notNull()),
@@ -367,7 +369,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(
                                 DataTypes.FIELD("numeric_type", DataTypes.DECIMAL(38, 9).notNull()),
@@ -388,7 +390,7 @@ public class AvroSchemaConvertorTest {
                                 + " ]\n");
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
         DataType expectedDataType =
                 DataTypes.ROW(DataTypes.FIELD("date_type", DataTypes.DATE().notNull())).notNull();
 
@@ -404,7 +406,7 @@ public class AvroSchemaConvertorTest {
                         TestBigQuerySchemas.getSchemaWithArrayOfMap());
 
         // Form the Data Type
-        DataType dataType = AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        DataType dataType = avroSchemaConvertor.convertToDataType(avroSchema.toString());
 
         // Check the expected type
         DataType dataTypeExpected =
@@ -431,7 +433,7 @@ public class AvroSchemaConvertorTest {
                 DataTypes.ROW(DataTypes.FIELD("string_type", DataTypes.STRING())).notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -448,7 +450,7 @@ public class AvroSchemaConvertorTest {
         DataType dataType = DataTypes.ROW(DataTypes.FIELD("null_type", DataTypes.NULL())).notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString = "\"fields\":[{\"name\":\"null_type\",\"type\":\"null\"}]";
@@ -465,7 +467,7 @@ public class AvroSchemaConvertorTest {
                 DataTypes.ROW(DataTypes.FIELD("bigint_type", DataTypes.BIGINT())).notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -483,7 +485,7 @@ public class AvroSchemaConvertorTest {
                 DataTypes.ROW(DataTypes.FIELD("boolean_type", DataTypes.BOOLEAN())).notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -501,7 +503,7 @@ public class AvroSchemaConvertorTest {
                 DataTypes.ROW(DataTypes.FIELD("bytes_type", DataTypes.BYTES())).notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -523,7 +525,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -548,7 +550,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -574,7 +576,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -595,7 +597,7 @@ public class AvroSchemaConvertorTest {
                 DataTypes.ROW(DataTypes.FIELD("date_type", DataTypes.DATE().notNull())).notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -618,7 +620,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -646,7 +648,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -668,7 +670,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -691,7 +693,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -719,7 +721,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -744,7 +746,7 @@ public class AvroSchemaConvertorTest {
                         .notNull();
         LogicalType logicalType = dataType.getLogicalType();
 
-        Schema convertedAvroSchema = AvroSchemaConvertor.convertToSchema(logicalType);
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
 
         // Check the expected type
         String exectedFieldString =
@@ -776,7 +778,7 @@ public class AvroSchemaConvertorTest {
         UnsupportedOperationException exception =
                 assertThrows(
                         UnsupportedOperationException.class,
-                        () -> AvroSchemaConvertor.convertToSchema(logicalType));
+                        () -> avroSchemaConvertor.convertToSchema(logicalType));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Avro format doesn't support non-string as key type of map.");
     }
@@ -795,7 +797,7 @@ public class AvroSchemaConvertorTest {
         UnsupportedOperationException exception =
                 assertThrows(
                         UnsupportedOperationException.class,
-                        () -> AvroSchemaConvertor.convertToSchema(logicalType));
+                        () -> avroSchemaConvertor.convertToSchema(logicalType));
         Assertions.assertThat(exception)
                 .hasMessageContaining("Unsupported to derive Schema for type");
     }
@@ -814,7 +816,7 @@ public class AvroSchemaConvertorTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroSchemaConvertor.convertToSchema(logicalType));
+                        () -> avroSchemaConvertor.convertToSchema(logicalType));
         Assertions.assertThat(exception)
                 .hasMessageContaining("it only supports precision less than equal to 6.");
     }
@@ -831,7 +833,7 @@ public class AvroSchemaConvertorTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroSchemaConvertor.convertToSchema(logicalType));
+                        () -> avroSchemaConvertor.convertToSchema(logicalType));
         Assertions.assertThat(exception)
                 .hasMessageContaining("it only supports precision less than equal to 6.");
     }
@@ -848,7 +850,7 @@ public class AvroSchemaConvertorTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> AvroSchemaConvertor.convertToSchema(logicalType));
+                        () -> avroSchemaConvertor.convertToSchema(logicalType));
         Assertions.assertThat(exception)
                 .hasMessageContaining("it only supports precision less than equal to 6.");
     }

@@ -56,15 +56,13 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class AvroSchemaConvertor {
 
-    private AvroSchemaConvertor() {}
-
     private static final Logger LOG = LoggerFactory.getLogger(AvroSchemaConvertor.class);
 
-    private static final ConcurrentMap<Schema, DataType> avroToDataTypeConversionMemorizationMap =
+    private final ConcurrentMap<Schema, DataType> avroToDataTypeConversionMemorizationMap =
             new ConcurrentHashMap<>();
 
-    private static final ConcurrentMap<LogicalType, Schema>
-            logicalToAvroTypeConversionMemorizationMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<LogicalType, Schema> logicalToAvroTypeConversionMemorizationMap =
+            new ConcurrentHashMap<>();
 
     /**
      * Converts an Avro schema string into a nested row structure with deterministic field order and
@@ -73,7 +71,7 @@ public class AvroSchemaConvertor {
      * @param avroSchemaString Avro schema definition string
      * @return data type matching the schema
      */
-    public static DataType convertToDataType(String avroSchemaString) {
+    public DataType convertToDataType(String avroSchemaString) {
         Preconditions.checkNotNull(avroSchemaString, "Avro schema must not be null.");
         final Schema schema;
         try {
@@ -81,11 +79,11 @@ public class AvroSchemaConvertor {
         } catch (SchemaParseException e) {
             throw new IllegalArgumentException("Could not parse Avro schema string.", e);
         }
-        return convertToDataType(schema);
+        return this.convertToDataType(schema);
     }
 
-    private static DataType convertToDataType(Schema schema) {
-        DataType convertedDataType = getFromAvroToDataTypeConversionMap(schema);
+    private DataType convertToDataType(Schema schema) {
+        DataType convertedDataType = this.getFromAvroToDataTypeConversionMap(schema);
         if (convertedDataType != null) {
             return convertedDataType;
         }
@@ -202,7 +200,7 @@ public class AvroSchemaConvertor {
                 throw new IllegalArgumentException(
                         "Unsupported Avro type '" + schema.getType() + "'.");
         }
-        addToAvroToDataTypeConversionMap(schema, dataType);
+        this.addToAvroToDataTypeConversionMap(schema, dataType);
         return dataType;
     }
 
@@ -212,8 +210,8 @@ public class AvroSchemaConvertor {
      * @param schema {@link Schema} object being converted.
      * @param dataType Converted {@link DataType} object.
      */
-    private static void addToAvroToDataTypeConversionMap(Schema schema, DataType dataType) {
-        avroToDataTypeConversionMemorizationMap.putIfAbsent(schema, dataType);
+    private void addToAvroToDataTypeConversionMap(Schema schema, DataType dataType) {
+        this.avroToDataTypeConversionMemorizationMap.putIfAbsent(schema, dataType);
     }
 
     /**
@@ -223,8 +221,8 @@ public class AvroSchemaConvertor {
      * @return Converted {@link DataType} object.
      */
     @Nullable
-    private static DataType getFromAvroToDataTypeConversionMap(Schema schema) {
-        return avroToDataTypeConversionMemorizationMap.getOrDefault(schema, null);
+    private DataType getFromAvroToDataTypeConversionMap(Schema schema) {
+        return this.avroToDataTypeConversionMemorizationMap.getOrDefault(schema, null);
     }
 
     /**
@@ -284,7 +282,7 @@ public class AvroSchemaConvertor {
      *     nested type
      * @return Avro's {@link Schema} matching this logical type.
      */
-    public static Schema convertToSchema(LogicalType schema) {
+    public Schema convertToSchema(LogicalType schema) {
         return convertToSchema(schema, "org.apache.flink.avro.generated.record");
     }
 
@@ -298,7 +296,7 @@ public class AvroSchemaConvertor {
      * @param rowName the record name
      * @return Avro's {@link Schema} matching this logical type.
      */
-    public static Schema convertToSchema(LogicalType logicalType, String rowName) {
+    public Schema convertToSchema(LogicalType logicalType, String rowName) {
         Schema convertedSchema = getFromLogicalToAvroTypeConversionMap(logicalType);
         if (convertedSchema != null) {
             return convertedSchema;
@@ -395,7 +393,7 @@ public class AvroSchemaConvertor {
      * @param logicalType {@link LogicalType} Schema to be converted.
      * @return {@link Schema} of the converted avro Type.
      */
-    private static Schema getRowSchema(LogicalType logicalType, String rowName) {
+    private Schema getRowSchema(LogicalType logicalType, String rowName) {
         RowType rowType = (RowType) logicalType;
         List<String> fieldNames = rowType.getFieldNames();
         // we have to make sure the record name is different in a Schema
@@ -406,7 +404,7 @@ public class AvroSchemaConvertor {
             LogicalType fieldType = rowType.getTypeAt(i);
             SchemaBuilder.GenericDefault<Schema> fieldBuilder =
                     builder.name(fieldName)
-                            .type(convertToSchema(fieldType, rowName + "_" + fieldName));
+                            .type(this.convertToSchema(fieldType, rowName + "_" + fieldName));
             builder = fieldBuilder.noDefault();
         }
         return builder.endRecord();
@@ -554,8 +552,8 @@ public class AvroSchemaConvertor {
      * @return Converted {@link Schema} object.
      */
     @Nullable
-    private static Schema getFromLogicalToAvroTypeConversionMap(LogicalType logicalType) {
-        return logicalToAvroTypeConversionMemorizationMap.getOrDefault(logicalType, null);
+    private Schema getFromLogicalToAvroTypeConversionMap(LogicalType logicalType) {
+        return this.logicalToAvroTypeConversionMemorizationMap.getOrDefault(logicalType, null);
     }
 
     /**
@@ -564,9 +562,8 @@ public class AvroSchemaConvertor {
      * @param logicalType {@link LogicalType} object being converted.
      * @param schema Converted {@link Schema} object.
      */
-    private static void addToLogicalToAvroTypeConversionMap(
-            LogicalType logicalType, Schema schema) {
-        logicalToAvroTypeConversionMemorizationMap.putIfAbsent(logicalType, schema);
+    private void addToLogicalToAvroTypeConversionMap(LogicalType logicalType, Schema schema) {
+        this.logicalToAvroTypeConversionMemorizationMap.putIfAbsent(logicalType, schema);
     }
 
     /** Returns schema with nullable true. */
