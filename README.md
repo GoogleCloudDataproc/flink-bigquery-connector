@@ -221,11 +221,11 @@ can also be used by the serializer if needed (for instance, the AvroToProtoSeria
 * Flink cannot automatically serialize avro's GenericRecord, hence users must explicitly specify type information 
 when using the AvroToProtoSerializer. Check Flink's [blog on non-trivial serialization](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE). 
 Note that the avro schema needed here can be obtained from BigQuerySchemaProvider.
-* The maximum parallelism of BigQuery sinks has been capped at 100. This is to respect BigQuery storage 
+* The maximum parallelism of BigQuery sinks has been capped at 128. This is to respect BigQuery storage 
 [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while adhering to 
 [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices). Users should either set 
 [sink level parallelism](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/execution/parallel/#operator-level) 
-explicitly, or ensure that default job level parallelism is under 100.
+explicitly, or ensure that default job level parallelism is under 128.
 * Users are recommended to choose their application's [restart strategy](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/ops/state/task_failure_recovery/) 
 wisely, so as to avoid incessant retries which can potentially disrupt the BigQuery Storage API backend. Regardless of which 
 strategy is adopted, the restarts must be finite and graciously spaced.
