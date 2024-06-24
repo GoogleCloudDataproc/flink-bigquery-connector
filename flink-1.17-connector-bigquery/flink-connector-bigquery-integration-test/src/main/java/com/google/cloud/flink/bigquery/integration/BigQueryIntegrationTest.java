@@ -26,6 +26,7 @@ import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -36,6 +37,12 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
+import org.apache.flink.table.annotation.DataTypeHint;
+import org.apache.flink.table.annotation.FunctionHint;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -44,8 +51,12 @@ import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
+import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
+import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
+import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +66,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import static org.apache.flink.table.api.Expressions.$;
+import static org.apache.flink.table.api.Expressions.call;
 
 /**
  * The Integration Test <b>is for internal use only</b>.
@@ -174,6 +188,7 @@ public class BigQueryIntegrationTest {
         String destDatasetName = parameterTool.get("bq-dest-dataset");
         String destTableName = parameterTool.get("bq-dest-table");
         Integer sinkParallelism = parameterTool.getInt("sink-parallelism");
+        boolean isSqlEnabled = parameterTool.getBoolean("is-sql", false);
         boolean isExactlyOnceEnabled = parameterTool.getBoolean("exactly-once", false);
 
         // Ignored for bounded run and can be set for unbounded mode (not required).
@@ -185,66 +200,133 @@ public class BigQueryIntegrationTest {
 
         String recordPropertyToAggregate;
         String recordPropertyForTimestamps;
-        if ((destGcpProjectName != null && !destGcpProjectName.isEmpty())
-                && (destDatasetName != null && !destDatasetName.isEmpty())
-                && (destTableName != null && !destTableName.isEmpty())) {
-            // Sink Parameters have been provided.
-            switch (mode) {
-                case "bounded":
-                    runBoundedFlinkJobWithSink(
-                            sourceGcpProjectName,
-                            sourceDatasetName,
-                            sourceTableName,
-                            destGcpProjectName,
-                            destDatasetName,
-                            destTableName,
-                            isExactlyOnceEnabled,
-                            sinkParallelism);
-                    break;
-                case "unbounded":
-                    recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                    runStreamingFlinkJobWithSink(
-                            sourceGcpProjectName,
-                            sourceDatasetName,
-                            sourceTableName,
-                            destGcpProjectName,
-                            destDatasetName,
-                            destTableName,
-                            isExactlyOnceEnabled,
-                            sinkParallelism,
-                            recordPropertyForTimestamps,
-                            partitionDiscoveryInterval,
-                            timeoutTimePeriod);
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Allowed values for mode are bounded, unbounded or hybrid. Found "
-                                    + mode);
+        boolean sinkToBigQuery =
+                (destGcpProjectName != null && !destGcpProjectName.isEmpty())
+                        && (destDatasetName != null && !destDatasetName.isEmpty())
+                        && (destTableName != null && !destTableName.isEmpty());
+        if (isSqlEnabled) {
+            if (sinkToBigQuery) {
+                // Sink Parameters have been provided.
+                switch (mode) {
+                    case "bounded":
+                        runBoundedSQLJobWithSink(
+                                sourceGcpProjectName,
+                                sourceDatasetName,
+                                sourceTableName,
+                                destGcpProjectName,
+                                destDatasetName,
+                                destTableName,
+                                isExactlyOnceEnabled,
+                                sinkParallelism);
+                        break;
+                    case "unbounded":
+                        recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                        runStreamingSQLJobWithSink(
+                                sourceGcpProjectName,
+                                sourceDatasetName,
+                                sourceTableName,
+                                destGcpProjectName,
+                                destDatasetName,
+                                destTableName,
+                                isExactlyOnceEnabled,
+                                sinkParallelism,
+                                recordPropertyForTimestamps,
+                                partitionDiscoveryInterval,
+                                timeoutTimePeriod);
+                        break;
+                    default:
+                        throw new IllegalArgumentException(
+                                "Allowed values for mode are bounded, unbounded or hybrid. Found "
+                                        + mode);
+                }
+            } else {
+                //                switch (mode) {
+                //                    case "bounded":
+                //                        recordPropertyToAggregate =
+                // parameterTool.getRequired("agg-prop");
+                //                        runBoundedSQLJob(
+                //                                sourceGcpProjectName,
+                //                                sourceDatasetName,
+                //                                sourceTableName,
+                //                                recordPropertyToAggregate);
+                //                        break;
+                //                    case "unbounded":
+                //                        recordPropertyForTimestamps =
+                // parameterTool.getRequired("ts-prop");
+                //                        runStreamingSQLJob(
+                //                                sourceGcpProjectName,
+                //                                sourceDatasetName,
+                //                                sourceTableName,
+                //                                recordPropertyForTimestamps,
+                //                                partitionDiscoveryInterval,
+                //                                expectedNumberOfRecords,
+                //                                timeoutTimePeriod);
+                //                        break;
+                //                    default:
+                throw new IllegalArgumentException(
+                        "Allowed values for mode are bounded, unbounded. Found " + mode);
+                //                }
             }
         } else {
-            switch (mode) {
-                case "bounded":
-                    recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
-                    runBoundedFlinkJob(
-                            sourceGcpProjectName,
-                            sourceDatasetName,
-                            sourceTableName,
-                            recordPropertyToAggregate);
-                    break;
-                case "unbounded":
-                    recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                    runStreamingFlinkJob(
-                            sourceGcpProjectName,
-                            sourceDatasetName,
-                            sourceTableName,
-                            recordPropertyForTimestamps,
-                            partitionDiscoveryInterval,
-                            expectedNumberOfRecords,
-                            timeoutTimePeriod);
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Allowed values for mode are bounded, unbounded. Found " + mode);
+            if (sinkToBigQuery) {
+                // Sink Parameters have been provided.
+                switch (mode) {
+                    case "bounded":
+                        runBoundedFlinkJobWithSink(
+                                sourceGcpProjectName,
+                                sourceDatasetName,
+                                sourceTableName,
+                                destGcpProjectName,
+                                destDatasetName,
+                                destTableName,
+                                isExactlyOnceEnabled,
+                                sinkParallelism);
+                        break;
+                    case "unbounded":
+                        recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                        runStreamingFlinkJobWithSink(
+                                sourceGcpProjectName,
+                                sourceDatasetName,
+                                sourceTableName,
+                                destGcpProjectName,
+                                destDatasetName,
+                                destTableName,
+                                isExactlyOnceEnabled,
+                                sinkParallelism,
+                                recordPropertyForTimestamps,
+                                partitionDiscoveryInterval,
+                                timeoutTimePeriod);
+                        break;
+                    default:
+                        throw new IllegalArgumentException(
+                                "Allowed values for mode are bounded, unbounded or hybrid. Found "
+                                        + mode);
+                }
+            } else {
+                switch (mode) {
+                    case "bounded":
+                        recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
+                        runBoundedFlinkJob(
+                                sourceGcpProjectName,
+                                sourceDatasetName,
+                                sourceTableName,
+                                recordPropertyToAggregate);
+                        break;
+                    case "unbounded":
+                        recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
+                        runStreamingFlinkJob(
+                                sourceGcpProjectName,
+                                sourceDatasetName,
+                                sourceTableName,
+                                recordPropertyForTimestamps,
+                                partitionDiscoveryInterval,
+                                expectedNumberOfRecords,
+                                timeoutTimePeriod);
+                        break;
+                    default:
+                        throw new IllegalArgumentException(
+                                "Allowed values for mode are bounded, unbounded. Found " + mode);
+                }
             }
         }
     }
@@ -262,6 +344,156 @@ public class BigQueryIntegrationTest {
                 .print();
 
         env.execute("Flink BigQuery Query Integration Test");
+    }
+
+    private static void runBoundedSQLJobWithSink(
+            String sourceGcpProjectName,
+            String sourceDatasetName,
+            String sourceTableName,
+            String destGcpProjectName,
+            String destDatasetName,
+            String destTableName,
+            boolean exactlyOnce,
+            Integer sinkParallelism)
+            throws Exception {
+
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
+        // Declare Read Options.
+        BigQueryTableConfig readTableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .table(sourceTableName)
+                        .project(sourceGcpProjectName)
+                        .dataset(sourceDatasetName)
+                        .testMode(false)
+                        .boundedness(Boundedness.BOUNDED)
+                        .build();
+
+        // Register the Source Table
+        tEnv.createTable(
+                "bigQuerySourceTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
+        Table sourceTable = tEnv.from("bigQuerySourceTable");
+
+        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
+
+        sourceTable = sourceTable.select($("*"));
+
+        BigQueryTableConfig sinkTableConfig =
+                BigQuerySinkTableConfig.newBuilder()
+                        .table(destTableName)
+                        .project(destGcpProjectName)
+                        .dataset(destDatasetName)
+                        .testMode(false)
+                        .build();
+
+        if (exactlyOnce) {
+            sinkTableConfig =
+                    BigQuerySinkTableConfig.newBuilder()
+                            .table(destTableName)
+                            .project(destGcpProjectName)
+                            .dataset(destDatasetName)
+                            .testMode(false)
+                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                            .build();
+        }
+
+        // Register the Sink Table
+        tEnv.createTable(
+                "bigQuerySinkTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+
+        // Insert the table sourceTable to the registered sinkTable
+        sourceTable.executeInsert("bigQuerySinkTable");
+    }
+
+    private static void runStreamingSQLJobWithSink(
+            String sourceGcpProjectName,
+            String sourceDatasetName,
+            String sourceTableName,
+            String destGcpProjectName,
+            String destDatasetName,
+            String destTableName,
+            boolean isExactlyOnceEnabled,
+            Integer sinkParallelism,
+            String recordPropertyForTimestamps,
+            Integer partitionDiscoveryInterval,
+            Integer timeoutTimePeriod)
+            throws Exception {
+
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
+        // Declare Read Options.
+        BigQueryTableConfig readTableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .table(sourceTableName)
+                        .project(sourceGcpProjectName)
+                        .dataset(sourceDatasetName)
+                        .testMode(false)
+                        .partitionDiscoveryInterval(partitionDiscoveryInterval)
+                        .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
+                        .build();
+
+        // Register the Source Table
+        tEnv.createTable(
+                "bigQuerySourceTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
+        Table sourceTable = tEnv.from("bigQuerySourceTable");
+
+        // Fetch entries in this sourceTable
+        sourceTable = sourceTable.select($("*"));
+
+        // Declare Write Options.
+        BigQueryTableConfig sinkTableConfig =
+                BigQuerySinkTableConfig.newBuilder()
+                        .table(destTableName)
+                        .project(destGcpProjectName)
+                        .dataset(destDatasetName)
+                        .testMode(false)
+                        .build();
+
+        if (isExactlyOnceEnabled) {
+            sinkTableConfig =
+                    BigQuerySinkTableConfig.newBuilder()
+                            .table(destTableName)
+                            .project(destGcpProjectName)
+                            .dataset(destDatasetName)
+                            .testMode(false)
+                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                            .build();
+        }
+
+        // Register the Sink Table
+        tEnv.createTable(
+                "bigQuerySinkTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+        Table sinkTable = tEnv.from("bigQuerySinkTable");
+
+        // Insert the table sourceTable to the registered sinkTable
+        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
+
+        sourceTable =
+                sourceTable
+                        .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
+                        .as($("name"), $("number"), $("ts"));
+
+        sourceTable.executeInsert("bigQuerySinkTable");
+    }
+
+    /** Function to flatmap the Table API source Catalog Table. */
+    @FunctionHint(
+            input = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"),
+            output = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"))
+    public static class MyFlatMapFunction extends TableFunction<Row> {
+
+        public void eval(Row row) {
+            String str = (String) row.getField("name");
+            collect(Row.of(str + "_write_test", row.getField("number"), row.getField("ts")));
+        }
     }
 
     private static void runBoundedFlinkJobWithSink(
