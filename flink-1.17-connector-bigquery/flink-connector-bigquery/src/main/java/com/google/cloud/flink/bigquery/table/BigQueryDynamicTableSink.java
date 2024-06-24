@@ -17,10 +17,10 @@
 package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
-import org.apache.flink.table.connector.sink.abilities.SupportsPartitioning;
 import org.apache.flink.table.types.logical.LogicalType;
 
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
@@ -29,15 +29,12 @@ import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImp
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.apache.avro.Schema;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.Map;
 import java.util.Objects;
 
 /** A {@link org.apache.flink.table.connector.sink.DynamicTableSink} for Google BigQuery. Tho */
 @Internal
-public class BigQueryDynamicTableSink implements DynamicTableSink, SupportsPartitioning {
+public class BigQueryDynamicTableSink implements DynamicTableSink {
 
     private final BigQuerySinkConfig sinkConfig;
     private final LogicalType logicalType;
@@ -56,8 +53,25 @@ public class BigQueryDynamicTableSink implements DynamicTableSink, SupportsParti
     }
 
     @Override
+    public String toString() {
+        String sinkConfigString =
+                String.format(
+                        "Sink Config: %n"
+                                + "\tSchema Provider: %s%n"
+                                + "\tSerializer: %s%n"
+                                + "\tConnect Options: %s %n"
+                                + "\tDELIVERY GUARANTEE: %s%n",
+                        this.sinkConfig.getSchemaProvider(),
+                        this.sinkConfig.getSerializer(),
+                        this.sinkConfig.getConnectOptions(),
+                        this.sinkConfig.getDeliveryGuarantee());
+
+        return String.format("Logical Type: %s%n" + "%s", this.logicalType, sinkConfigString);
+    }
+
+    @Override
     public int hashCode() {
-        return Objects.hash(this.sinkConfig);
+        return Objects.hash(this.sinkConfig, this.logicalType);
     }
 
     @Override
@@ -85,6 +99,7 @@ public class BigQueryDynamicTableSink implements DynamicTableSink, SupportsParti
         // init() should be called itself.
         // Set the logical type.
         ((RowDataToProtoSerializer) sinkConfig.getSerializer()).setLogicalType(this.logicalType);
+        // Get the Datastream-API Sink.
         return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null));
     }
 
@@ -98,11 +113,13 @@ public class BigQueryDynamicTableSink implements DynamicTableSink, SupportsParti
         return "BigQuery";
     }
 
-    @Override
-    public void applyStaticPartition(Map<String, String> partition) {}
+    @VisibleForTesting
+    LogicalType getLogicalType() {
+        return this.logicalType;
+    }
 
-    @Override
-    public boolean requiresPartitionGrouping(boolean supportsGrouping) {
-        return SupportsPartitioning.super.requiresPartitionGrouping(supportsGrouping);
+    @VisibleForTesting
+    BigQuerySinkConfig getSinkConfig() {
+        return this.sinkConfig;
     }
 }
