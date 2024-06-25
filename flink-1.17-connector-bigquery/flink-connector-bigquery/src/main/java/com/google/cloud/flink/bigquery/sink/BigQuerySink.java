@@ -42,6 +42,7 @@ public class BigQuerySink {
 
     public static Sink get(BigQuerySinkConfig sinkConfig, StreamExecutionEnvironment env) {
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
+            System.out.println(".get() called");
             return new BigQueryDefaultSink(sinkConfig);
         }
         LOG.error(

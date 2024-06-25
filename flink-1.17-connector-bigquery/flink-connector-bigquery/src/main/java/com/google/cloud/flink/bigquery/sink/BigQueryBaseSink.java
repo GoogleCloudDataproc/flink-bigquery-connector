@@ -44,6 +44,7 @@ abstract class BigQueryBaseSink implements Sink {
     final String tablePath;
 
     BigQueryBaseSink(BigQuerySinkConfig sinkConfig) {
+        System.out.println("BigQueryBaseSink called");
         validateSinkConfig(sinkConfig);
         this.connectOptions = sinkConfig.getConnectOptions();
         this.schemaProvider = sinkConfig.getSchemaProvider();
@@ -57,6 +58,10 @@ abstract class BigQueryBaseSink implements Sink {
     }
 
     private void validateSinkConfig(BigQuerySinkConfig sinkConfig) {
+        System.out.println("validateSinkConfig called");
+        System.out.println("sinkConfig.getConnectOptions(): " + sinkConfig.getConnectOptions());
+        System.out.println("sinkConfig.getSerializer(): " + sinkConfig.getSerializer());
+        System.out.println("sinkConfig.getSchemaProvider(): " + sinkConfig.getSchemaProvider());
         if (sinkConfig.getConnectOptions() == null) {
             throw new IllegalArgumentException("BigQuery connect options cannot be null");
         }
@@ -70,6 +75,8 @@ abstract class BigQueryBaseSink implements Sink {
 
     /** Ensures Sink's parallelism does not exceed the allowed maximum when scaling Flink job. */
     void checkParallelism(int numberOfParallelSubtasks) {
+        System.out.println("checkParallelism() called.");
+        System.out.println("numberOfParallelSubtasks: " + numberOfParallelSubtasks);
         if (numberOfParallelSubtasks > MAX_SINK_PARALLELISM) {
             logger.error(
                     "Maximum allowed parallelism for Sink is {}, but attempting to create Writer number {}",

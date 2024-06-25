@@ -323,6 +323,7 @@ public class StorageClientFaker {
             private final StreamWriter mockedWriter;
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
+                System.out.println("FakeBigQueryStorageWriteClient");
                 mockedWriter = Mockito.mock(StreamWriter.class);
                 Mockito.when(mockedWriter.append(Mockito.any()))
                         .thenReturn(ApiFutures.immediateFuture(appendResponse));
@@ -331,6 +332,8 @@ public class StorageClientFaker {
             @Override
             public StreamWriter createStreamWriter(
                     String streamName, ProtoSchema protoSchema, boolean enableConnectionPool) {
+                System.out.println("streamName: " + streamName);
+                System.out.println("protoSchema: " + protoSchema);
                 return mockedWriter;
             }
 

@@ -16,21 +16,30 @@
 
 package com.google.cloud.flink.bigquery.table;
 
+
+import com.google.cloud.flink.bigquery.sink.BigQuerySink;
+
+import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedSchema;
+import org.apache.flink.table.factories.utils.FactoryMocks;
 import org.apache.flink.test.junit5.MiniClusterExtension;
+import org.apache.flink.types.Row;
+import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.function.SerializableFunction;
 import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
+import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.Schema;
@@ -41,13 +50,17 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import static org.junit.Assert.assertThrows;
 
 /** An integration test for the SQL interface of the BigQuery connector. */
 public class BigQueryDynamicTableSinkITCase {
@@ -109,7 +122,7 @@ public class BigQueryDynamicTableSinkITCase {
 
     @Test
     public void testSchemaResolution() throws IOException {
-        tEnv.createTable("bigquery_sink", createTestDDl(null));
+        tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.AT_LEAST_ONCE));
         // Resolved Schema is obtained after resolution and validation.
         ResolvedSchema resolvedSchema = tEnv.from("bigquery_sink").getResolvedSchema();
         ResolvedSchema expectedResolvedSchema =
@@ -120,7 +133,70 @@ public class BigQueryDynamicTableSinkITCase {
         Assertions.assertEquals(expectedResolvedSchema, resolvedSchema);
     }
 
-    private static TableDescriptor createTestDDl(Map<String, String> extraOptions)
+    @Test
+    public void testSink() throws IOException {
+        tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.AT_LEAST_ONCE));
+        Iterator<Row> tableResult =
+                tEnv.executeSql(
+                                "Insert into bigquery_sink (name, number, ts) "
+                                        + "values ('test_name', 12345, TIMESTAMP '2023-01-01 00:00:00.000000');")
+                        .collect();
+
+        List<String> result =
+                CollectionUtil.iteratorToList(tableResult).stream()
+                        .map(Row::toString)
+                        .sorted()
+                        .collect(Collectors.toList());
+        // Flink does not support getting the real affected row count now.
+        // So the affected row count is always -1 (unknown) for every sink.
+        List<String> expected = Stream.of("+I[-1]").collect(Collectors.toList());
+
+        Assertions.assertEquals(expected, result);
+    }
+
+
+
+    @Test
+    public void testSinkExcessParallelismError() throws IOException {
+        tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.AT_LEAST_ONCE));
+
+        Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
+//        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
+        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
+
+        BigQuerySink bigQuerySink = Mockito.mock(BigQuerySink.class);
+//        Mockito.when(BigQuerySink.get(Mockito.any(), null)).thenReturn(FakeSink)
+        Iterator<Row> tableResult =
+                tEnv.executeSql(
+                                "Insert into bigquery_sink (name, number, ts) "
+                                        + "values ('test_name', 12345, TIMESTAMP '2023-01-01 00:00:00.000000');")
+                        .collect();
+
+        List<String> result =
+                CollectionUtil.iteratorToList(tableResult).stream()
+                        .map(Row::toString)
+                        .sorted()
+                        .collect(Collectors.toList());
+        // Flink does not support getting the real affected row count now.
+        // So the affected row count is always -1 (unknown) for every sink.
+        List<String> expected = Stream.of("+I[-1]").collect(Collectors.toList());
+        Assertions.assertEquals(expected, result);
+    }
+
+    @Test
+    public void testErrorInOptionResolution() throws IOException {
+        tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.EXACTLY_ONCE));
+        tEnv.createTable("bigquery_source", createReadTestDDl());
+        // Resolved Schema is obtained after resolution and validation.
+        Table table = tEnv.from("bigquery_source");
+
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> table.executeInsert("bigquery_sink"));
+    }
+
+    private static TableDescriptor createTestDDl(DeliveryGuarantee deliveryGuarantee)
             throws IOException {
         BigQueryTableConfig tableConfig =
                 BigQuerySinkTableConfig.newBuilder()
@@ -128,7 +204,18 @@ public class BigQueryDynamicTableSinkITCase {
                         .dataset("dataset")
                         .table("table")
                         .testMode(true)
-                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .deliveryGuarantee(deliveryGuarantee)
+                        .build();
+        return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
+    }
+
+    private static TableDescriptor createReadTestDDl() throws IOException {
+        BigQueryTableConfig tableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .project("project")
+                        .dataset("dataset")
+                        .table("table")
+                        .testMode(true)
                         .build();
         return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
     }

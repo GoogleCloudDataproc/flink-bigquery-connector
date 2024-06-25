@@ -86,6 +86,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer) {
+        System.out.println("In BaseWriter()");
         this.subtaskId = subtaskId;
         this.connectOptions = connectOptions;
         this.protoSchema = getProtoSchema(schemaProvider);
@@ -99,7 +100,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Append pending records and validate all remaining append responses. */
     @Override
     public void flush(boolean endOfInput) {
+        System.out.println("In flush()");
         if (appendRequestSizeBytes > 0) {
+            System.out.println("appendRequestSizeBytes: "+ appendRequestSizeBytes);
             append();
         }
         logger.debug("Validating all pending append responses in subtask {}", subtaskId);
@@ -138,6 +141,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     /** Send append request to BigQuery storage and prepare for next append request. */
     void append() {
+        System.out.println("In append()");
         ApiFuture responseFuture = sendAppendRequest(protoRowsBuilder.build());
         appendResponseFuturesQueue.add(responseFuture);
         protoRowsBuilder.clear();
@@ -146,6 +150,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     /** Creates a StreamWriter for appending to BigQuery table. */
     StreamWriter createStreamWriter(boolean enableConnectionPool) {
+        System.out.println("In createStreamWriter()");
         logger.debug("Creating BigQuery StreamWriter in subtask {}", subtaskId);
         try {
             writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
