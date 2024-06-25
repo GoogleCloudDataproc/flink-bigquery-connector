@@ -105,8 +105,10 @@ public class AvroSchemaConvertor {
             case UNION:
                 final Schema actualSchema;
                 final boolean nullable;
-                if (schema.getTypes().size() == 2) {
-                    // UNION (Size 2) is of the type [datatype, `NULL`] or [`NULL`, datatype],
+                if (schema.getTypes().size() == 2
+                        && (schema.getTypes().get(0).getType() == Schema.Type.NULL
+                                || schema.getTypes().get(1).getType() == Schema.Type.NULL)) {
+                    // UNION (Size 2) - of the type [datatype, `NULL`] or [`NULL`, datatype],
                     // actual datatype is derived from index 0 or 1 depending on the
                     // placement of `NULL`.
                     actualSchema =
