@@ -138,7 +138,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                 element.getInt(fieldNumber), false);
                     } else {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTime(
-                                ((long) element.getLong(fieldNumber)), true);
+                                element.getLong(fieldNumber), true);
                     }
                 case TIMESTAMP_WITHOUT_TIME_ZONE:
                     // TIMESTAMP in BQ.
@@ -150,8 +150,9 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                 "Timestamp(millis)");
                     } else {
                         TimestampData timestampData = element.getTimestamp(fieldNumber, 6);
+                        long micros = getMicrosFromTsData(timestampData);
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTimestamp(
-                                timestampData.getMillisecond(), true, "Timestamp(micros)");
+                                micros, true, "Timestamp(micros)");
                     }
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     // microseconds since epoch
@@ -217,15 +218,20 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 | IllegalStateException
                 | IndexOutOfBoundsException
                 | DateTimeException e) {
+            String invalidError =
+                    String.format(
+                            "Error while converting RowData value to BQ proto "
+                                    + "equivalent.%nError: %s",
+                            e);
             LOG.error(
                     String.format(
-                            "Expected Type: %s at Field Number %d for Logical Type: %s.%nError: %s",
+                            "%s%nExpected Type: %s at Field Number %d for Logical Type: %s.%nError: %s",
+                            invalidError,
                             fieldDescriptor.getType().name(),
                             fieldNumber,
                             fieldType.getTypeRoot().name(),
                             e));
-            throw new IllegalArgumentException(
-                    String.format("Error while converting value. %nErrors: %s", e));
+            throw new IllegalArgumentException(invalidError);
         }
     }
 

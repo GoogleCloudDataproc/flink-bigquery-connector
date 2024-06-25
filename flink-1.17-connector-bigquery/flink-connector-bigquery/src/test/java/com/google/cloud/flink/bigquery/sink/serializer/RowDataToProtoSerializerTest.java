@@ -401,7 +401,7 @@ public class RowDataToProtoSerializerTest {
 
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
         GenericRowData row = new GenericRowData(7);
-        row.setField(0, TimestampData.fromEpochMillis(1710919250269000L));
+        row.setField(0, TimestampData.fromEpochMillis(1710919250269L));
         row.setField(1, 50546554456L);
         row.setField(2, TimestampData.fromInstant(Instant.parse("2024-03-20T13:59:04.787424Z")));
         row.setField(3, 19802);
