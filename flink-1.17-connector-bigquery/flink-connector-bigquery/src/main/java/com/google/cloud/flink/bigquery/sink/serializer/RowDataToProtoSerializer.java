@@ -180,6 +180,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                                     arrayElementType,
                                                     fieldDescriptor))
                             .collect(Collectors.toList());
+                    // all the below types are not supported yet.
                 case INTERVAL_YEAR_MONTH:
                 case INTERVAL_DAY_TIME:
                 case MAP:
@@ -193,7 +194,21 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     // Since it is only a logical type and not supported in flink SQL
                     // (https://issues.apache.org/jira/browse/FLINK-20869)
                 case UNRESOLVED:
-                    throw new UnsupportedOperationException("Not supported yet!");
+                default:
+                    String notSupportedError =
+                            String.format(
+                                    "Serialization to ByteString for the passed RowData type: '%s' is not "
+                                            + "supported yet!",
+                                    fieldType.getTypeRoot().toString());
+                    LOG.error(
+                            String.format(
+                                    "%s%nSupported types are: %s.",
+                                    notSupportedError,
+                                    "CHAR, VARCHAR, BOOLEAN, BINARY, VARBINARY,"
+                                            + " DECIMAL, TINYINT, SMALLINT, INTEGER,"
+                                            + " DATE, BIGINT, FLOAT, DOUBLE, ROW, TIME_WITHOUT_TIME_ZONE, TIMESTAMP_WITHOUT_TIME_ZONE,"
+                                            + " TIMESTAMP_WITH_LOCAL_TIME_ZONE, and ARRAY."));
+                    throw new UnsupportedOperationException(notSupportedError);
             }
         } catch (UnsupportedOperationException
                 | ClassCastException
@@ -202,7 +217,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 | IllegalStateException
                 | IndexOutOfBoundsException
                 | DateTimeException e) {
-            LOG.info(
+            LOG.error(
                     String.format(
                             "Expected Type: %s at Field Number %d for Logical Type: %s.%nError: %s",
                             fieldDescriptor.getType().name(),
@@ -210,9 +225,8 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                             fieldType.getTypeRoot().name(),
                             e));
             throw new IllegalArgumentException(
-                    String.format("Error while converting value. %nErrors: %s to proto value", e));
+                    String.format("Error while converting value. %nErrors: %s", e));
         }
-        return null;
     }
 
     /**
@@ -228,6 +242,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
         if (fieldType.isNullable()) {
             throw new UnsupportedOperationException("NULLABLE ARRAY is not supported.");
         }
+        // Will never be the case since LogicalType does not support ARRAY having multiple types.
         if (arrayElementTypes.size() > 1) {
             throw new UnsupportedOperationException(
                     "Multiple Datatypes not supported in ARRAY type");
