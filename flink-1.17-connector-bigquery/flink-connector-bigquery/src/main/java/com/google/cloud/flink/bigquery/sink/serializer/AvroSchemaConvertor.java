@@ -29,6 +29,7 @@ import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.MultisetType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.table.types.logical.TimeType;
 import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.TypeInformationRawType;
@@ -386,7 +387,6 @@ public class AvroSchemaConvertor {
     }
 
     // -------------------- Helper Methods to handle various schema types --------------------------
-
     /**
      * Method to convert {@link RowType} Schema to {@link Schema}.
      *
@@ -395,13 +395,13 @@ public class AvroSchemaConvertor {
      */
     private Schema getRowSchema(LogicalType logicalType, String rowName) {
         RowType rowType = (RowType) logicalType;
-        List<String> fieldNames = rowType.getFieldNames();
         // we have to make sure the record name is different in a Schema
         SchemaBuilder.FieldAssembler<Schema> builder =
                 SchemaBuilder.builder().record(rowName).fields();
-        for (int i = 0; i < rowType.getFieldCount(); i++) {
-            String fieldName = fieldNames.get(i);
-            LogicalType fieldType = rowType.getTypeAt(i);
+
+        for (RowField field : rowType.getFields()) {
+            String fieldName = field.getName();
+            LogicalType fieldType = field.getType();
             SchemaBuilder.GenericDefault<Schema> fieldBuilder =
                     builder.name(fieldName)
                             .type(this.convertToSchema(fieldType, rowName + "_" + fieldName));
