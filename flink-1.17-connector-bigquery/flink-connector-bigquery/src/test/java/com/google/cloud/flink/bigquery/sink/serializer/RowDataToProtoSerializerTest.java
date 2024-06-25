@@ -42,6 +42,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getRecordSchema;
@@ -401,11 +402,13 @@ public class RowDataToProtoSerializerTest {
 
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
         GenericRowData row = new GenericRowData(7);
-        row.setField(0, TimestampData.fromEpochMillis(1710919250269000L));
+        byte[] bytes = "hello".getBytes();
+        TimestampData myData = TimestampData.fromInstant(Instant.parse("2024-03-20T07:20:50.269Z"));
+        row.setField(0, myData);
         row.setField(1, 50546554456L);
         row.setField(2, TimestampData.fromInstant(Instant.parse("2024-03-20T13:59:04.787424Z")));
         row.setField(3, 19802);
-        row.setField(4, DecimalData.fromBigDecimal(bigDecimal, 13, 7));
+        row.setField(4, DecimalData.fromBigDecimal(new BigDecimal("12345.678910"), 11, 6));
         row.setField(
                 5,
                 StringData.fromString("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))"));
