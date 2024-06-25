@@ -62,7 +62,8 @@ public class BigQueryTableSchemaProvider {
     }
 
     public static DataType getDataTypeSchemaFromAvroSchema(Schema avroSchema) {
-        return AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        AvroSchemaConvertor avroSchemaConvertor = new AvroSchemaConvertor();
+        return avroSchemaConvertor.convertToDataType(avroSchema.toString());
     }
 
     public static Schema getAvroSchemaFromLogicalSchema(LogicalType logicalType) {

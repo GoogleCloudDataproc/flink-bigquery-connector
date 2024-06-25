@@ -32,10 +32,11 @@ abstract class BigQueryBaseSink implements Sink {
     // BigQuery write streams can offer over 10 MBps throughput, and per project throughput quotas
     // are in the order of single digit GBps. With each sink writer maintaining a single and unique
     // write connection to BigQuery, maximum parallelism for sink is intentionally restricted to
-    // 100 for initial releases of this connector.
+    // 128 for initial releases of this connector. This is also the default max parallelism of
+    // Flink applications.
     // Based on performance observations and user feedback, this number can be increased in the
     // future.
-    public static final int MAX_SINK_PARALLELISM = 100;
+    public static final int MAX_SINK_PARALLELISM = 128;
 
     final BigQueryConnectOptions connectOptions;
     final BigQuerySchemaProvider schemaProvider;
