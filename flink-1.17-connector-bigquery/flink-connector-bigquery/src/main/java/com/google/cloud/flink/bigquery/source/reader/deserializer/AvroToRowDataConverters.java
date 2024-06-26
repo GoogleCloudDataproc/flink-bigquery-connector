@@ -29,14 +29,20 @@ import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.DecimalType;
+import org.apache.flink.table.types.logical.LocalZonedTimestampType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.TimeType;
+import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
+import com.google.api.client.util.Preconditions;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.util.Utf8;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
@@ -51,12 +57,15 @@ import java.time.temporal.ChronoField;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.formats.avro.typeutils.AvroSchemaConverter.extractValueTypeToAvroMap;
 
 /** Tool class used to convert from Avro {@link GenericRecord} to {@link RowData}. * */
 @Internal
 public class AvroToRowDataConverters {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AvroToRowDataConverters.class);
 
     /**
      * Runtime converter that converts Avro data structures into objects of Flink Table & SQL
@@ -71,13 +80,12 @@ public class AvroToRowDataConverters {
     // Runtime Converters
     // -------------------------------------------------------------------------------------
 
-    public static AvroToRowDataConverters.AvroToRowDataConverter createRowConverter(
-            RowType rowType) {
-        final AvroToRowDataConverters.AvroToRowDataConverter[] fieldConverters =
+    public static AvroToRowDataConverter createRowConverter(RowType rowType) {
+        final AvroToRowDataConverter[] fieldConverters =
                 rowType.getFields().stream()
                         .map(RowType.RowField::getType)
                         .map(AvroToRowDataConverters::createNullableConverter)
-                        .toArray(AvroToRowDataConverters.AvroToRowDataConverter[]::new);
+                        .toArray(AvroToRowDataConverter[]::new);
         final int arity = rowType.getFieldCount();
 
         return avroObject -> {
@@ -94,7 +102,7 @@ public class AvroToRowDataConverters {
 
     /** Creates a runtime converter which is null safe. */
     private static AvroToRowDataConverter createNullableConverter(LogicalType type) {
-        final AvroToRowDataConverters.AvroToRowDataConverter converter = createConverter(type);
+        final AvroToRowDataConverter converter = createConverter(type);
         return avroObject -> {
             if (avroObject == null) {
                 return null;
@@ -123,11 +131,21 @@ public class AvroToRowDataConverters {
             case DATE:
                 return AvroToRowDataConverters::convertToDate;
             case TIME_WITHOUT_TIME_ZONE:
-                return AvroToRowDataConverters::convertToTime;
-            case TIMESTAMP_WITHOUT_TIME_ZONE:
-                return AvroToRowDataConverters::convertToTimestamp;
+                int timePrecision = ((TimeType) type).getPrecision();
+                if (timePrecision <= 3) {
+                    return avroObject -> convertToMillisTime(avroObject, 3);
+                } else if (timePrecision <= 6) {
+                    return avroObject -> convertToMicrosTime(avroObject, 6);
+                } else {
+                    throw new UnsupportedOperationException(
+                            "TIME type with Precision > 6 is not supported!");
+                }
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return AvroToRowDataConverters::convertToTimestamp;
+                int localTsPrecision = ((LocalZonedTimestampType) type).getPrecision();
+                return createTimeDatetimeConvertor(localTsPrecision);
+            case TIMESTAMP_WITHOUT_TIME_ZONE:
+                int tsPrecision = ((TimestampType) type).getPrecision();
+                return createTimeDatetimeConvertor(tsPrecision);
             case CHAR:
             case VARCHAR:
                 return avroObject -> StringData.fromString(avroObject.toString());
@@ -149,8 +167,18 @@ public class AvroToRowDataConverters {
         }
     }
 
-    private static AvroToRowDataConverters.AvroToRowDataConverter createDecimalConverter(
-            DecimalType decimalType) {
+    private static AvroToRowDataConverter createTimeDatetimeConvertor(int precision) {
+        if (precision <= 3) {
+            return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 3);
+        } else if (precision <= 6) {
+            return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 6);
+        } else {
+            throw new UnsupportedOperationException(
+                    "TIMESTAMP/DATETIME TYPE of Precision > 6 is not supported!");
+        }
+    }
+
+    private static AvroToRowDataConverter createDecimalConverter(DecimalType decimalType) {
         final int precision = decimalType.getPrecision();
         final int scale = decimalType.getScale();
         return avroObject -> {
@@ -168,9 +196,8 @@ public class AvroToRowDataConverters {
         };
     }
 
-    private static AvroToRowDataConverters.AvroToRowDataConverter createArrayConverter(
-            ArrayType arrayType) {
-        final AvroToRowDataConverters.AvroToRowDataConverter elementConverter =
+    private static AvroToRowDataConverter createArrayConverter(ArrayType arrayType) {
+        final AvroToRowDataConverter elementConverter =
                 createNullableConverter(arrayType.getElementType());
         final Class<?> elementClass =
                 LogicalTypeUtils.toInternalConversionClass(arrayType.getElementType());
@@ -186,11 +213,10 @@ public class AvroToRowDataConverters {
         };
     }
 
-    private static AvroToRowDataConverters.AvroToRowDataConverter createMapConverter(
-            LogicalType type) {
-        final AvroToRowDataConverters.AvroToRowDataConverter keyConverter =
+    private static AvroToRowDataConverter createMapConverter(LogicalType type) {
+        final AvroToRowDataConverter keyConverter =
                 createConverter(DataTypes.STRING().getLogicalType());
-        final AvroToRowDataConverters.AvroToRowDataConverter valueConverter =
+        final AvroToRowDataConverter valueConverter =
                 createNullableConverter(extractValueTypeToAvroMap(type));
 
         return avroObject -> {
@@ -205,13 +231,20 @@ public class AvroToRowDataConverters {
         };
     }
 
-    private static TimestampData convertToTimestamp(Object object) {
-        final long millis;
+    private static TimestampData convertToTimestamp(Object object, int precision) {
+        final long micros;
+        long tempMicros;
         if (object instanceof Long) {
-            millis = (Long) object;
+            tempMicros = (Long) object;
+            if (precision == 3) {
+                // If millisecond precision.
+                return TimestampData.fromEpochMillis(tempMicros);
+            }
         } else if (object instanceof Instant) {
-            millis = ((Instant) object).toEpochMilli();
+            // Precision is automatically transferred.
+            return TimestampData.fromInstant(((Instant) object));
         } else if (object instanceof String || object instanceof Utf8) {
+            // ---- DATETIME TYPE Conversion ----
             // LocalDateTime.parse is also responsible for validating the string passed.
             // If the text cannot be parsed DateTimeParseException is thrown.
             // Formatting,
@@ -224,6 +257,7 @@ public class AvroToRowDataConverters {
                 tsValue = ((Utf8) object).toString();
             }
             try {
+                // LocalDateTime will handle the precision.
                 return TimestampData.fromLocalDateTime(
                         LocalDateTime.parse(
                                 tsValue,
@@ -235,15 +269,21 @@ public class AvroToRowDataConverters {
                                 "The datetime string obtained %s, is of invalid format.", object));
             }
         } else {
+            //  com.google.cloud.Timestamp Instant.
             JodaConverter jodaConverter = JodaConverter.getConverter();
             if (jodaConverter != null) {
-                millis = jodaConverter.convertTimestamp(object);
+                tempMicros = jodaConverter.convertTimestamp(object);
             } else {
                 throw new IllegalArgumentException(
                         "Unexpected object type for TIMESTAMP logical type. Received: " + object);
             }
         }
-        return TimestampData.fromEpochMillis(millis);
+        // All values are in Micros, millis have been returned.
+        micros = tempMicros;
+        long millis = TimeUnit.MICROSECONDS.toMillis(micros);
+        long nanos = micros % 1000;
+        nanos = TimeUnit.MICROSECONDS.toNanos(nanos);
+        return TimestampData.fromEpochMillis(millis, (int) nanos);
     }
 
     private static int convertToDate(Object object) {
@@ -262,25 +302,50 @@ public class AvroToRowDataConverters {
         }
     }
 
-    private static long convertToTime(Object object) {
-        final long millis;
+    private static int convertToMillisTime(Object object, int precision) {
+        // if precision is 3. Otherwise, Error.
+        Preconditions.checkArgument(
+                precision == 3,
+                String.format(
+                        "Invalid precision '%d' obtained for Millisecond Conversion", precision));
         if (object instanceof Integer) {
-            millis = (long) object;
-        } else if (object instanceof Long) {
-            // loose precision.
-            millis = (Long) object;
+            return (int) object;
         } else if (object instanceof LocalTime) {
-            millis = ((LocalTime) object).get(ChronoField.MICRO_OF_DAY);
+            return ((LocalTime) object).get(ChronoField.MILLI_OF_DAY);
         } else {
-            JodaConverter jodaConverter = JodaConverter.getConverter();
-            if (jodaConverter != null) {
-                millis = jodaConverter.convertTime(object);
-            } else {
-                throw new IllegalArgumentException(
-                        "Unexpected object type for TIME logical type. Received: " + object);
-            }
+            String invalidFormatError =
+                    String.format(
+                            "Unexpected object '%s' of type '%s' obtained for TIME logical type.",
+                            object, object.getClass());
+            LOG.error(
+                    String.format(
+                            "%s%nSupported Types are 'INT' and 'java.time.LocalTime'",
+                            invalidFormatError));
+            throw new IllegalArgumentException(invalidFormatError);
         }
-        return millis;
+    }
+
+    private static long convertToMicrosTime(Object object, int precision) {
+        // if precision is 6. Otherwise, Error.
+        Preconditions.checkArgument(
+                precision == 6,
+                String.format(
+                        "Invalid precision '%d' obtained for Millisecond Conversion", precision));
+        if (object instanceof Long) {
+            return ((Long) object);
+        } else if (object instanceof LocalTime) {
+            return TimeUnit.NANOSECONDS.toMicros(((LocalTime) object).toNanoOfDay());
+        } else {
+            String invalidFormatError =
+                    String.format(
+                            "Unexpected object '%s' of type '%s' obtained for TIME logical type.",
+                            object, object.getClass());
+            LOG.error(
+                    String.format(
+                            "%s%nSupported Types are 'LONG' and java.time.LocalTime'",
+                            invalidFormatError));
+            throw new IllegalArgumentException(invalidFormatError);
+        }
     }
 
     private static byte[] convertToBytes(Object object) {

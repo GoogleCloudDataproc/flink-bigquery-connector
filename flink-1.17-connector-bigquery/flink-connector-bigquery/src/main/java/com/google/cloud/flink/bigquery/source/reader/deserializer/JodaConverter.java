@@ -2,7 +2,6 @@ package com.google.cloud.flink.bigquery.source.reader.deserializer;
 
 import com.google.cloud.Timestamp;
 
-import java.time.LocalTime;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,12 +37,6 @@ class JodaConverter {
     public long convertDate(Object object) {
         final org.joda.time.LocalDate value = (org.joda.time.LocalDate) object;
         return value.toDate().getTime();
-    }
-
-    public long convertTime(Object object) {
-        final LocalTime value = (LocalTime) object;
-        return TimeUnit.SECONDS.toMicros(value.toSecondOfDay())
-                + TimeUnit.NANOSECONDS.toMicros(value.toNanoOfDay());
     }
 
     public long convertTimestamp(Object object) {
