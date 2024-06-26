@@ -107,7 +107,7 @@ public class BigQueryDefaultSinkTest {
     public void testCreateMoreWritersThanAllowed() throws IOException {
         InitContext mockedContext = Mockito.mock(InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
-        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(101);
+        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))

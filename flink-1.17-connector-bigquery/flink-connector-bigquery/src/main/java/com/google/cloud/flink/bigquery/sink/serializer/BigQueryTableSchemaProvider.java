@@ -62,11 +62,13 @@ public class BigQueryTableSchemaProvider {
     }
 
     public static DataType getDataTypeSchemaFromAvroSchema(Schema avroSchema) {
-        return AvroSchemaConvertor.convertToDataType(avroSchema.toString());
+        AvroSchemaConvertor avroSchemaConvertor = new AvroSchemaConvertor();
+        return avroSchemaConvertor.convertToDataType(avroSchema.toString());
     }
 
     public static Schema getAvroSchemaFromLogicalSchema(LogicalType logicalType) {
-        return AvroSchemaConvertor.convertToSchema(logicalType);
+        AvroSchemaConvertor avroSchemaConvertor = new AvroSchemaConvertor();
+        return avroSchemaConvertor.convertToSchema(logicalType);
     }
 
     private static org.apache.flink.table.api.Schema getTableApiSchemaFromAvroSchema(

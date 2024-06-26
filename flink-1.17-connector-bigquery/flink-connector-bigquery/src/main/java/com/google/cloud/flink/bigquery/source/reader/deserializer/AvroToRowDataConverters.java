@@ -31,6 +31,7 @@ import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
 import org.apache.avro.generic.GenericFixed;
@@ -48,9 +49,11 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalField;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.formats.avro.typeutils.AvroSchemaConverter.extractValueTypeToAvroMap;
 
@@ -124,10 +127,14 @@ public class AvroToRowDataConverters {
                 return AvroToRowDataConverters::convertToDate;
             case TIME_WITHOUT_TIME_ZONE:
                 return AvroToRowDataConverters::convertToTime;
-            case TIMESTAMP_WITHOUT_TIME_ZONE:
-                return AvroToRowDataConverters::convertToTimestamp;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return AvroToRowDataConverters::convertToTimestamp;
+            case TIMESTAMP_WITHOUT_TIME_ZONE:
+                int precision = ((TimestampType)type).getPrecision();
+                if(precision<=3){
+                    return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 3);
+                }else if(precision <= 6){
+                    return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 6);
+                }
             case CHAR:
             case VARCHAR:
                 return avroObject -> StringData.fromString(avroObject.toString());
@@ -205,13 +212,21 @@ public class AvroToRowDataConverters {
         };
     }
 
-    private static TimestampData convertToTimestamp(Object object) {
-        final long millis;
+    private static TimestampData convertToTimestamp(Object object, int precision) {
+        final long micros;
+        long tempMicros;
         if (object instanceof Long) {
-            millis = (Long) object;
+            tempMicros = (Long) object;
+            if(precision == 3){
+                // If millisecond precision.
+                return TimestampData.fromEpochMillis(tempMicros);
+            }
+
         } else if (object instanceof Instant) {
-            millis = ((Instant) object).toEpochMilli();
+            // Precision is automatically transferred.
+            return TimestampData.fromInstant(((Instant) object));
         } else if (object instanceof String || object instanceof Utf8) {
+            // ---- DATETIME TYPE Conversion ----
             // LocalDateTime.parse is also responsible for validating the string passed.
             // If the text cannot be parsed DateTimeParseException is thrown.
             // Formatting,
@@ -224,6 +239,7 @@ public class AvroToRowDataConverters {
                 tsValue = ((Utf8) object).toString();
             }
             try {
+                // LocalDateTime will handle the precision.
                 return TimestampData.fromLocalDateTime(
                         LocalDateTime.parse(
                                 tsValue,
@@ -235,15 +251,21 @@ public class AvroToRowDataConverters {
                                 "The datetime string obtained %s, is of invalid format.", object));
             }
         } else {
+            //  com.google.cloud.Timestamp Instant.
             JodaConverter jodaConverter = JodaConverter.getConverter();
             if (jodaConverter != null) {
-                millis = jodaConverter.convertTimestamp(object);
+                tempMicros = jodaConverter.convertTimestamp(object);
             } else {
                 throw new IllegalArgumentException(
                         "Unexpected object type for TIMESTAMP logical type. Received: " + object);
             }
         }
-        return TimestampData.fromEpochMillis(millis);
+        // All values are in Micros, millis have been returned.
+        micros = tempMicros;
+        long millis = TimeUnit.MICROSECONDS.toMillis(micros);
+        long nanos = micros%1000;
+        nanos = TimeUnit.MICROSECONDS.toNanos(nanos);
+        return TimestampData.fromEpochMillis(millis, (int)nanos);
     }
 
     private static int convertToDate(Object object) {
