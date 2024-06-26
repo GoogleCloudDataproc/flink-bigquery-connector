@@ -57,7 +57,6 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             BigQueryProtoSerializer serializer,
             String tablePath) {
         super(subtaskId, connectOptions, schemaProvider, serializer);
-        System.out.println("BigQueryDefaultWriter called");
         streamName = String.format("%s/streams/_default", tablePath);
     }
 
@@ -65,15 +64,12 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     @Override
     public void write(IN element, Context context) {
         try {
-            System.out.println("write() called");
             ByteString protoRow = getProtoRow(element);
-            System.out.println("protoRow: " + protoRow);
             if (!fitsInAppendRequest(protoRow)) {
-                System.out.println("!fitsInAppendRequest(protoRow)");
                 validateAppendResponses(false);
                 append();
             }
-            System.out.println("addToAppendRequest(protoRow);");
+            addToAppendRequest(protoRow);
         } catch (BigQuerySerializationException e) {
             logger.error(String.format("Unable to serialize record %s. Dropping it!", element), e);
         }
@@ -82,7 +78,6 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     /** Asynchronously append to BigQuery table's default stream. */
     @Override
     ApiFuture sendAppendRequest(ProtoRows protoRows) {
-        System.out.println("sendAppendRequest(protoRow);");
         if (streamWriter == null) {
             streamWriter = createStreamWriter(true);
         }
@@ -92,7 +87,6 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     /** Throws a RuntimeException if an error is found with append response. */
     @Override
     void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture) {
-        System.out.println("validateAppendResponse();");
         AppendRowsResponse response;
         try {
             response = appendResponseFuture.get();
