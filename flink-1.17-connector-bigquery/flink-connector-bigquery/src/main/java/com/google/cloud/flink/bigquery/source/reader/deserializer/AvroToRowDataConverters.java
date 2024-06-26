@@ -124,10 +124,14 @@ public class AvroToRowDataConverters {
                 return AvroToRowDataConverters::convertToDate;
             case TIME_WITHOUT_TIME_ZONE:
                 return AvroToRowDataConverters::convertToTime;
-            case TIMESTAMP_WITHOUT_TIME_ZONE:
-                return AvroToRowDataConverters::convertToTimestamp;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return AvroToRowDataConverters::convertToTimestamp;
+            case TIMESTAMP_WITHOUT_TIME_ZONE:
+                int precision = ((TimestampType)type).getPrecision();
+                if(precision<=3){
+                    return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 3);
+                }else if(precision <= 6){
+                    return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 6);
+                }
             case CHAR:
             case VARCHAR:
                 return avroObject -> StringData.fromString(avroObject.toString());
@@ -224,6 +228,7 @@ public class AvroToRowDataConverters {
                 tsValue = ((Utf8) object).toString();
             }
             try {
+                // LocalDateTime will handle the precision.
                 return TimestampData.fromLocalDateTime(
                         LocalDateTime.parse(
                                 tsValue,
