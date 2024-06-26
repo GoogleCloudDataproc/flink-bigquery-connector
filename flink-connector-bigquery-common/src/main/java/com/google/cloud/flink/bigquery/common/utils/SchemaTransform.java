@@ -181,7 +181,14 @@ public class SchemaTransform {
         }
         Schema fieldSchema;
         if (bigQueryField.getMode() == null || bigQueryField.getMode().equals("NULLABLE")) {
-            fieldSchema = Schema.createUnion(Schema.create(Schema.Type.NULL), elementSchema);
+            // DSP: If we use union[Null, Record] for records, we run into issues cause the JSON data returned by BQ
+            // is not formatted as a union, but simply as Record if it exists or Null.
+            // When Null is returned, the field does not get evaluated at all, so it's fine to not use Union here.
+            if (avroType != Schema.Type.RECORD) {
+                fieldSchema = Schema.createUnion(Schema.create(Schema.Type.NULL), elementSchema);
+            } else {
+                fieldSchema = elementSchema;
+            }
         } else if (Objects.equals(bigQueryField.getMode(), "REQUIRED")) {
             fieldSchema = elementSchema;
         } else if (bigQueryField.getMode().equals("REPEATED")) {

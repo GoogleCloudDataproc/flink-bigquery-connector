@@ -1,5 +1,15 @@
 # Apache Flink Google BigQuery Connector (Under Development)
 
+## DSP
+
+We've forked the original repository to make some changes to the connector. The changes are as follows:
+* Change [SchemaTranform](./flink-connector-bigquery-common/src/main/java/com/google/cloud/flink/bigquery/common/utils/SchemaTransform.java) to support nested records
+* Change [BigQueryPartitionUtils](./flink-connector-bigquery-common/src/main/java/com/google/cloud/flink/bigquery/common/utils/BigQueryPartitionUtils.java) to support other Partition Date Formats
+
+Let's try and keep changes minimal so we can easily stay in sync with upstream
+
+---
+
 [![CodeQL](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml)
 [![codecov](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector)
 

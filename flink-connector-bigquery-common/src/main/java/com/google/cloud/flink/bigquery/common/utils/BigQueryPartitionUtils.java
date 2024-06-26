@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -248,12 +249,26 @@ public class BigQueryPartitionUtils {
 
     static String timestampRestrictionFromPartitionType(
             PartitionType partitionType, String columnName, String valueFromSQL) {
-        ZonedDateTime parsedDateTime =
-                LocalDateTime.parse(
-                                valueFromSQL,
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                                        .withZone(UTC_ZONE))
-                        .atZone(UTC_ZONE);
+        // DSP: value returned does not always match the first pattern, adding a second
+        // pattern if the returned format is a yyyy-MM-dd
+        ZonedDateTime parsedDateTime;
+        try {
+            parsedDateTime =
+                    LocalDateTime.parse(
+                                    valueFromSQL,
+                                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                                            .withZone(UTC_ZONE))
+                            .atZone(UTC_ZONE);
+        } catch (Exception ex) {
+            try {
+                parsedDateTime =
+                        LocalDate.parse(valueFromSQL, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                                .atStartOfDay(ZoneOffset.UTC);
+            } catch (Exception ex2) {
+                throw new IllegalArgumentException(
+                        "Error while parsing partition timestamp: " + valueFromSQL, ex2);
+            }
+        }
         String temporalFormat = "%s BETWEEN '%s' AND '%s'";
         switch (partitionType) {
             case HOUR:
