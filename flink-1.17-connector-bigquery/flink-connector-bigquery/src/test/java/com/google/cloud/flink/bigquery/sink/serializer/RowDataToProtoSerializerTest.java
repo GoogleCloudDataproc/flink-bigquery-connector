@@ -72,8 +72,7 @@ public class RowDataToProtoSerializerTest {
      * </ul>
      */
     @Test
-    public void testAllBigQuerySupportedPrimitiveTypesConversionToDynamicMessageCorrectly()
-            throws BigQuerySerializationException {
+    public void testAllBigQuerySupportedPrimitiveTypesConversionToDynamicMessageCorrectly() {
         // Obtaining the Schema Provider and the Row Data Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRequiredPrimitiveTypes();
@@ -498,8 +497,7 @@ public class RowDataToProtoSerializerTest {
      * </ul>
      */
     @Test
-    public void testAllRemainingAvroSupportedLogicalTypesConversionToDynamicMessageCorrectly()
-            throws BigQuerySerializationException {
+    public void testAllRemainingAvroSupportedLogicalTypesConversionToDynamicMessageCorrectly() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRemainingLogicalTypes();
 
@@ -946,8 +944,7 @@ public class RowDataToProtoSerializerTest {
      * </ol>
      */
     @Test
-    public void testArrayOfUnionConversionToByteStringIncorrectly()
-            throws BigQuerySerializationException {
+    public void testArrayOfUnionConversionToByteStringIncorrectly() {
         // Obtaining the Schema Provider and the Row Data Record.
         String notNullString =
                 " \"fields\": [\n"
@@ -1348,6 +1345,80 @@ public class RowDataToProtoSerializerTest {
         assertEquals("8e25e7e5-0dc5-4292-b59b-3665b0ab8280", arrayResult.get(0));
     }
 
+    /**
+     * Test to check <code>serialize()</code> for ARRAY type schema having a following types: <br>
+     * Note: To ensure that the descriptor is formed without any errors (since BigQuery does not
+     * allow <code>NULLABLE</code> ARRAYS and ARRAYS of type <code>NULL</code>), an ARRAY of Type
+     * "LONG"/"BIGINT" is passed for descriptor formation. For serialization, below-described
+     * invalid schemas are passed.
+     *
+     * <ol>
+     *   <li>Nullable Array:<br>
+     *       These are the arrays that con be NULL. However BigQuery Does not allow such an array.
+     *       Hence an error is expected.
+     *   <li>ARRAY of Type NULL:<br>
+     *       This ARRAY contains "NULL" as an element type. BigQuery REPEATED fields are not
+     *       NULLABLE. Hence an error is expected.
+     * </ol>
+     */
+    @Test
+    public void testArrayOfInvalidTypesConversionToByteStringIncorrectly() {
+        // Obtaining the Schema Provider and the Row Data Record.
+        // The schema is for a valid ARRAY to ensure correct descriptor formation.
+        LogicalType nonNulllogicalType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "array_field_multiple_types",
+                                        DataTypes.ARRAY(DataTypes.BIGINT().notNull()).notNull()))
+                        .notNull()
+                        .getLogicalType();
+        AvroSchemaConvertor avroSchemaConvertor = new AvroSchemaConvertor();
+        Schema nonNullSchema = avroSchemaConvertor.convertToSchema(nonNulllogicalType);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(nonNullSchema);
+        GenericRowData genericRowData = new GenericRowData(1);
+        genericRowData.setField(
+                0, new GenericArrayData(Collections.singletonList(1234567L).toArray()));
+        // The Same schema provider so that descriptor is formed without error.
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        rowDataSerializer.init(bigQuerySchemaProvider);
+
+        // Now set the logical Type as NULLABLE ARRAY.
+        LogicalType logicalTypeWithNullableArray =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "array_field_multiple_types",
+                                        DataTypes.ARRAY(DataTypes.BIGINT().notNull()).nullable()))
+                        .notNull()
+                        .getLogicalType();
+        rowDataSerializer.setLogicalType(logicalTypeWithNullableArray);
+
+        BigQuerySerializationException exceptionForNullableArray =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataSerializer.serialize(genericRowData));
+        Assertions.assertThat(exceptionForNullableArray)
+                .hasMessageContaining("NULLABLE ARRAY is not supported.");
+
+        // Now set the logical Type as NULL type in ARRAY.
+        LogicalType logicalTypeWithNullInArray =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "array_field_multiple_types",
+                                        DataTypes.ARRAY(DataTypes.NULL()).notNull()))
+                        .notNull()
+                        .getLogicalType();
+        rowDataSerializer.setLogicalType(logicalTypeWithNullInArray);
+
+        BigQuerySerializationException exceptionForNullInArray =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataSerializer.serialize(genericRowData));
+
+        Assertions.assertThat(exceptionForNullInArray)
+                .hasMessageContaining("ARRAY of type NULL is not supported.");
+    }
+
     @Test
     public void testSmallIntConversionToByteStringCorrectly() {
 
@@ -1376,5 +1447,49 @@ public class RowDataToProtoSerializerTest {
                 rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
         assertEquals(123, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(123, message.getField(descriptor.findFieldByNumber(2)));
+    }
+
+    /**
+     * Test to check the conversion of an Unsupported Data Type to BigQuery Proto. <br>
+     * A generic Logical type (NULLABLE String Type) has been provided for the purpose of descriptor
+     * formation as MAP and other types that are unsupported here are unsupported in the descriptor
+     * formation as well. <br>
+     * Expects to get a <code>BigQuerySerializationException</code>
+     */
+    @Test
+    public void testInvalidLogicalTypeToByteStringIncorrectly() {
+        // Form the Schema.
+        DataType dataType =
+                DataTypes.ROW(DataTypes.FIELD("generic_type", DataTypes.STRING())).notNull();
+        LogicalType genericType = dataType.getLogicalType();
+        Schema avroSchema = BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(genericType);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+
+        // Initialize the record.
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, "hello");
+        RowDataToProtoSerializer rowDataToProtoSerializer = new RowDataToProtoSerializer();
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        LogicalType logicalType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "generic_type",
+                                        DataTypes.MAP(
+                                                DataTypes.STRING().notNull(),
+                                                DataTypes.STRING().notNull())))
+                        .notNull()
+                        .getLogicalType();
+        rowDataToProtoSerializer.setLogicalType(logicalType);
+
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataToProtoSerializer.serialize(row));
+
+        Assertions.assertThat(exception)
+                .hasMessageContaining(
+                        "Serialization to ByteString for the passed "
+                                + "RowData type: 'MAP' is not supported yet!");
     }
 }
