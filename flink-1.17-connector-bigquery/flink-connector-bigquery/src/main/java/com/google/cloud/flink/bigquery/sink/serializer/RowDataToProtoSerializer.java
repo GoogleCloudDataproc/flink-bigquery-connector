@@ -208,7 +208,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                     "CHAR, VARCHAR, BOOLEAN, BINARY, VARBINARY,"
                                             + " DECIMAL, TINYINT, SMALLINT, INTEGER,"
                                             + " DATE, BIGINT, FLOAT, DOUBLE, ROW, TIME_WITHOUT_TIME_ZONE, TIMESTAMP_WITHOUT_TIME_ZONE,"
-                                            + " TIMESTAMP_WITH_LOCAL_TIME_ZONE, and ARRAY."));
+                                            + " TIMESTAMP_WITH_LOCAL_TIME_ZONE, and ARRAY"));
                     throw new UnsupportedOperationException(notSupportedError);
             }
         } catch (UnsupportedOperationException
@@ -220,12 +220,12 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 | DateTimeException e) {
             String invalidError =
                     String.format(
-                            "Error while converting RowData value to BQ proto "
+                            "Error while converting RowData value '%s' to BQ proto "
                                     + "equivalent.%nError: %s",
-                            e);
+                            element, e);
             LOG.error(
                     String.format(
-                            "%s%nExpected Type: %s at Field Number %d for Logical Type: %s.%nError: %s",
+                            "%s%nExpected Type: '%s' at Field Number '%d' for Logical Type: '%s'.%nError: %s",
                             invalidError,
                             fieldDescriptor.getType().name(),
                             fieldNumber,

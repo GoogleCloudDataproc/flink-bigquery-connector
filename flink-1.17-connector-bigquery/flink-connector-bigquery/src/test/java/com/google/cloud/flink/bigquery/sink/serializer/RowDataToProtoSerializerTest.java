@@ -66,8 +66,7 @@ public class RowDataToProtoSerializerTest {
      * </ul>
      */
     @Test
-    public void testAllBigQuerySupportedPrimitiveTypesConversionToDynamicMessageCorrectly()
-            throws BigQuerySerializationException {
+    public void testAllBigQuerySupportedPrimitiveTypesConversionToDynamicMessageCorrectly() {
         // Obtaining the Schema Provider and the Row Data Record.
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRequiredPrimitiveTypes();
@@ -482,8 +481,7 @@ public class RowDataToProtoSerializerTest {
      * </ul>
      */
     @Test
-    public void testAllRemainingAvroSupportedLogicalTypesConversionToDynamicMessageCorrectly()
-            throws BigQuerySerializationException {
+    public void testAllRemainingAvroSupportedLogicalTypesConversionToDynamicMessageCorrectly() {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 TestBigQuerySchemas.getSchemaWithRemainingLogicalTypes();
 
@@ -930,8 +928,7 @@ public class RowDataToProtoSerializerTest {
      * </ol>
      */
     @Test
-    public void testArrayOfUnionConversionToByteStringIncorrectly()
-            throws BigQuerySerializationException {
+    public void testArrayOfUnionConversionToByteStringIncorrectly() {
         // Obtaining the Schema Provider and the Row Data Record.
         String notNullString =
                 " \"fields\": [\n"
@@ -1364,8 +1361,9 @@ public class RowDataToProtoSerializerTest {
         BigQuerySchemaProvider bigQuerySchemaProvider =
                 new BigQuerySchemaProviderImpl(nonNullSchema);
         GenericRowData genericRowData = new GenericRowData(1);
-        genericRowData.setField(0, new GenericArrayData(Arrays.asList(1234567L).toArray()));
-        // Same schema provider so that descriptor is formed without error.
+        genericRowData.setField(
+                0, new GenericArrayData(Collections.singletonList(1234567L).toArray()));
+        // The Same schema provider so that descriptor is formed without error.
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
         rowDataSerializer.init(bigQuerySchemaProvider);
 
@@ -1383,6 +1381,8 @@ public class RowDataToProtoSerializerTest {
                 assertThrows(
                         BigQuerySerializationException.class,
                         () -> rowDataSerializer.serialize(genericRowData));
+        Assertions.assertThat(exceptionForNullableArray)
+                .hasMessageContaining("NULLABLE ARRAY is not supported.");
 
         // Now set the logical Type as NULL type in ARRAY.
         LogicalType logicalTypeWithNullInArray =
@@ -1441,15 +1441,13 @@ public class RowDataToProtoSerializerTest {
      * Expects to get a <code>BigQuerySerializationException</code>
      */
     @Test
-    public void testInvalidLogicalTypenToByteStringIncorrectly()
-            throws BigQuerySerializationException {
+    public void testInvalidLogicalTypeToByteStringIncorrectly() {
         // Form the Schema.
         DataType dataType =
                 DataTypes.ROW(DataTypes.FIELD("generic_type", DataTypes.STRING())).notNull();
         LogicalType genericType = dataType.getLogicalType();
         Schema avroSchema = BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(genericType);
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
-        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         // Initialize the record.
         GenericRowData row = new GenericRowData(1);
