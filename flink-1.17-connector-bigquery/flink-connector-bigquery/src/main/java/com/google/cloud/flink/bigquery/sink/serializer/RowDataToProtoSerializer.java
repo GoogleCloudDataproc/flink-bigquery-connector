@@ -138,7 +138,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                 element.getInt(fieldNumber), false);
                     } else {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTime(
-                                element.getInt(fieldNumber), false);
+                                element.getLong(fieldNumber), true);
                     }
                 case TIMESTAMP_WITHOUT_TIME_ZONE:
                     // TIMESTAMP in BQ.

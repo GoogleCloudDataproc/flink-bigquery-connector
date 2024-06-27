@@ -325,16 +325,41 @@ public class AvroToRowDataConverters {
         }
     }
 
-    private static int convertToMicrosTime(Object object, int precision) {
+//        private static int convertToMicrosTime(Object object, int precision) {
+//            // if precision is 6. Otherwise, Error.
+//            Preconditions.checkArgument(
+//                    precision == 6,
+//                    String.format(
+//                            "Invalid precision '%d' obtained for Millisecond Conversion",
+//     precision));
+//            if (object instanceof Long) {
+//                return (int) TimeUnit.MICROSECONDS.toMillis((Long) object);
+//            } else if (object instanceof LocalTime) {
+//                return (int) TimeUnit.NANOSECONDS.toMillis(((LocalTime) object).toNanoOfDay());
+//            } else {
+//                String invalidFormatError =
+//                        String.format(
+//                                "Unexpected object '%s' of type '%s' obtained for TIME logical
+//     type.",
+//                                object, object.getClass());
+//                LOG.error(
+//                        String.format(
+//                                "%s%nSupported Types are 'LONG' and 'java.time.LocalTime'",
+//                                invalidFormatError));
+//                throw new IllegalArgumentException(invalidFormatError);
+//            }
+//        }
+
+    private static long convertToMicrosTime(Object object, int precision) {
         // if precision is 6. Otherwise, Error.
         Preconditions.checkArgument(
                 precision == 6,
                 String.format(
                         "Invalid precision '%d' obtained for Millisecond Conversion", precision));
         if (object instanceof Long) {
-            return (int) TimeUnit.MICROSECONDS.toMillis((Long) object);
+            return ((Long) object);
         } else if (object instanceof LocalTime) {
-            return (int) TimeUnit.NANOSECONDS.toMillis(((LocalTime) object).toNanoOfDay());
+            return TimeUnit.NANOSECONDS.toMicros(((LocalTime) object).toNanoOfDay());
         } else {
             String invalidFormatError =
                     String.format(
@@ -342,29 +367,11 @@ public class AvroToRowDataConverters {
                             object, object.getClass());
             LOG.error(
                     String.format(
-                            "%s%nSupported Types are 'LONG' and 'java.time.LocalTime'",
+                            "%s%nSupported Types are 'LONG' and java.time.LocalTime'",
                             invalidFormatError));
             throw new IllegalArgumentException(invalidFormatError);
         }
     }
-
-    //    private static long convertToMicrosTime(Object object, int precision){
-    //        // if precision is 6. Otherwise, Error.
-    //        Preconditions.checkArgument(precision == 6, String.format(
-    //                "Invalid precision '%d' obtained for Millisecond Conversion", precision));
-    //        if (object instanceof Long) {
-    //            return ((Long) object);
-    //        } else if (object instanceof LocalTime) {
-    //            return TimeUnit.NANOSECONDS.toMicros(((LocalTime) object).toNanoOfDay());
-    //        } else {
-    //            String invalidFormatError = String.format(
-    //                    "Unexpected object '%s' of type '%s' obtained for TIME logical type."
-    //                    , object, object.getClass());
-    //            LOG.error(String.format("%s%nSupported Types are 'LONG' and
-    // 'java.time.LocalTime'", invalidFormatError));
-    //            throw new IllegalArgumentException(invalidFormatError);
-    //        }
-    //    }
 
     private static byte[] convertToBytes(Object object) {
         if (object instanceof GenericFixed) {
