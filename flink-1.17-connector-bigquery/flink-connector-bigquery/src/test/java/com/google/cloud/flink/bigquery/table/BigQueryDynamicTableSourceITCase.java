@@ -51,7 +51,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -120,20 +119,15 @@ public class BigQueryDynamicTableSourceITCase {
                                                 record.put("id", (long) i);
                                                 record.put("optDouble", (double) i * 2);
                                                 record.put("optString", "s" + i);
-                                                Instant now = Instant.now();
-                                                long timeMicros =
-                                                        TimeUnit.SECONDS.toMicros(
-                                                                        now.getEpochSecond())
-                                                                + TimeUnit.NANOSECONDS.toMicros(
-                                                                        (long) now.getNano());
-                                                record.put("ts", timeMicros);
+                                                record.put("ts", Instant.now().toEpochMilli());
 
                                                 GenericData.Record reqSubRecord =
                                                         new GenericData.Record(
                                                                 schema.getField("reqSubRecord")
                                                                         .schema());
                                                 reqSubRecord.put("reqBoolean", false);
-                                                reqSubRecord.put("reqTs", timeMicros);
+                                                reqSubRecord.put(
+                                                        "reqTs", Instant.now().toEpochMilli());
                                                 record.put("reqSubRecord", reqSubRecord);
 
                                                 GenericData.Record optArraySubRecords =
