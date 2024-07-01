@@ -220,8 +220,8 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 | DateTimeException e) {
             String invalidError =
                     String.format(
-                            "Error while converting RowData value '%s' to BQ proto "
-                                    + "equivalent.%nError: %s",
+                            "Error while converting RowData value '%s' to BigQuery Proto "
+                                    + "Rows.%nError: %s",
                             element, e);
             LOG.error(
                     String.format(
