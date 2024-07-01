@@ -591,6 +591,62 @@ public class StorageClientFaker {
                 .build();
     }
 
+    public static BigQueryReadOptions createReadAndWriteOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            AppendRowsResponse appendRowsResponse)
+            throws IOException {
+        return createReadAndWriteOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                dataGenerator,
+                appendRowsResponse,
+                0D,
+                -1);
+    }
+
+    public static BigQueryReadOptions createReadAndWriteOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            AppendRowsResponse appendRowsResponse,
+            Double errorPercentage,
+            Integer readLimit)
+            throws IOException {
+        return BigQueryReadOptions.builder()
+                .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
+                .setLimit(readLimit)
+                .setQuery("SELECT 1")
+                .setQueryExecutionProject("some-gcp-project")
+                .setBigQueryConnectOptions(
+                        BigQueryConnectOptions.builder()
+                                .setDataset("dataset")
+                                .setProjectId("project")
+                                .setTable("table")
+                                .setCredentialsOptions(null)
+                                .setTestingBigQueryServices(
+                                        () -> {
+                                            return FakeBigQueryServices.getInstance(
+                                                    new StorageClientFaker.FakeBigQueryServices
+                                                            .FakeBigQueryStorageReadClient(
+                                                            StorageClientFaker.fakeReadSession(
+                                                                    expectedRowCount,
+                                                                    expectedReadStreamCount,
+                                                                    avroSchemaString),
+                                                            dataGenerator,
+                                                            errorPercentage),
+                                                    new FakeBigQueryServices
+                                                            .FakeBigQueryStorageWriteClient(
+                                                            appendRowsResponse));
+                                        })
+                                .build())
+                .build();
+    }
+
     public static BigQueryReadOptions createTableReadOptions(
             Integer expectedRowCount,
             Integer expectedReadStreamCount,

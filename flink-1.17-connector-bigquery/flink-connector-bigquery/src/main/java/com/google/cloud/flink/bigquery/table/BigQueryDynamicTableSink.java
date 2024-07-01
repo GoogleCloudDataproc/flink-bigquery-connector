@@ -60,7 +60,7 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                                 + "\tSchema Provider: %s%n"
                                 + "\tSerializer: %s%n"
                                 + "\tConnect Options: %s %n"
-                                + "\tDELIVERY GUARANTEE: %s%n",
+                                + "\tDelivery Guarantee: %s%n",
                         this.sinkConfig.getSchemaProvider(),
                         this.sinkConfig.getSerializer(),
                         this.sinkConfig.getConnectOptions(),

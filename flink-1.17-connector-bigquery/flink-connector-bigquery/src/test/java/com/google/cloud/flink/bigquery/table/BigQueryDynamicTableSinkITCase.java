@@ -28,9 +28,13 @@ import org.apache.flink.test.junit5.MiniClusterExtension;
 import org.apache.flink.util.function.SerializableFunction;
 import org.apache.flink.util.function.SerializableSupplier;
 
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
@@ -49,6 +53,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.cloud.flink.bigquery.fakes.StorageClientFaker.createConnectOptionsForWrite;
+
 /** An integration test for the SQL interface of the BigQuery connector. */
 public class BigQueryDynamicTableSinkITCase {
 
@@ -56,6 +62,8 @@ public class BigQueryDynamicTableSinkITCase {
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;
     private static final Integer STREAM_COUNT = 2;
     private static final Schema AVRO_SCHEMA = StorageClientFaker.SIMPLE_AVRO_SCHEMA;
+
+    static BigQuerySinkConfig bigQuerySinkConfig;
 
     @RegisterExtension
     static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
@@ -83,19 +91,30 @@ public class BigQueryDynamicTableSinkITCase {
                                             })
                                     .collect(Collectors.toList());
                         };
+        AppendRowsResponse appendRowsResponse = AppendRowsResponse.newBuilder().build();
 
         SerializableSupplier<BigQueryServices> testingServices =
-                StorageClientFaker.createReadOptions(
+                StorageClientFaker.createReadAndWriteOptions(
                                 TOTAL_ROW_COUNT_PER_STREAM,
                                 STREAM_COUNT,
                                 AVRO_SCHEMA.toString(),
-                                dataGenerator)
+                                dataGenerator,
+                                appendRowsResponse)
                         .getBigQueryConnectOptions()
                         .getTestingBigQueryServices();
+
+        bigQuerySinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(createConnectOptionsForWrite(appendRowsResponse))
+                        .serializer(new RowDataToProtoSerializer())
+                        .schemaProvider(new BigQuerySchemaProviderImpl(AVRO_SCHEMA))
+                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .build();
 
         // init the testing services and inject them into the table factory
         BigQueryDynamicTableFactory.setTestingServices(testingServices);
         BigQueryTableSchemaProvider.setTestingServices(testingServices);
+        //        BigQuerySink.setTestingServices(testingServices);
     }
 
     public static StreamExecutionEnvironment env;
@@ -106,63 +125,6 @@ public class BigQueryDynamicTableSinkITCase {
         env = StreamExecutionEnvironment.getExecutionEnvironment();
         tEnv = StreamTableEnvironment.create(env);
     }
-    //
-    //    @Test
-    //    public void testActualTable() throws IOException {
-    //        BigQueryDynamicTableFactory.setTestingServices(null);
-    //        BigQueryTableSchemaProvider.setTestingServices(null);
-    //
-    //        String project = "bqrampupprashasti";
-    //        String dataset = "testing_dataset";
-    //        String table = "time";
-    //
-    //        BigQueryTableConfig readTableConfig =
-    //                BigQueryReadTableConfig.newBuilder()
-    //                        .project(project)
-    //                        .dataset(dataset)
-    //                        .table(table)
-    //                        .build();
-    //        TableDescriptor readTableDescriptor =
-    //                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig);
-    //        System.out.println("readTableDescriptor: " + readTableDescriptor);
-    //        tEnv.createTable("bigquery_source", readTableDescriptor);
-    //        Table readTable = tEnv.from("bigquery_source");
-    //        readTable = readTable.select($("*"));
-    //        Iterator<Row> readRows = readTable.execute().collect();
-    //
-    //        List<String> result =
-    //                CollectionUtil.iteratorToList(readRows).stream()
-    //                        .map(Row::toString)
-    //                        .sorted()
-    //                        .collect(Collectors.toList());
-    //
-    //        System.out.println("Number of Rows read: " + result.size());
-    //        for (String row : result) {
-    //            System.out.println(row);
-    //        }
-    //
-    //        // ------------ Sink Start  -------------
-    //        BigQueryTableConfig sinkTableConfig =
-    //                BigQuerySinkTableConfig.newBuilder()
-    //                        .project(project)
-    //                        .dataset(dataset + "_copy")
-    //                        .table(table)
-    //                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
-    //                        .build();
-    //        TableDescriptor sinkTableDescriptor =
-    //                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig);
-    //        System.out.println("sinkTableDescriptor: " + sinkTableDescriptor);
-    //        tEnv.createTable("bigquery_sink", sinkTableDescriptor);
-    //        Iterator<Row> sinkRows = readTable.executeInsert("bigquery_sink").collect();
-    //
-    //        List<String> sinkResult =
-    //                CollectionUtil.iteratorToList(sinkRows).stream()
-    //                        .map(Row::toString)
-    //                        .sorted()
-    //                        .collect(Collectors.toList());
-    //
-    //        System.out.println("Number of Rows Sink: " + sinkResult.size());
-    //    }
 
     @Test
     public void testSchemaResolution() throws IOException {
@@ -176,28 +138,6 @@ public class BigQueryDynamicTableSinkITCase {
                         Column.physical("ts", DataTypes.TIMESTAMP(6).notNull()));
         Assertions.assertEquals(expectedResolvedSchema, resolvedSchema);
     }
-
-    //    @Test
-    //    public void testSink() throws IOException {
-    //        tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.AT_LEAST_ONCE));
-    //        Iterator<Row> tableResult =
-    //                tEnv.executeSql(
-    //                                "Insert into bigquery_sink (name, number, ts) "
-    //                                        + "values ('test_name', 12345, TIMESTAMP '2023-01-01
-    // 00:00:00.000000');")
-    //                        .collect();
-    //
-    //        List<String> result =
-    //                CollectionUtil.iteratorToList(tableResult).stream()
-    //                        .map(Row::toString)
-    //                        .sorted()
-    //                        .collect(Collectors.toList());
-    //        // Flink does not support getting the real affected row count now.
-    //        // So the affected row count is always -1 (unknown) for every sink.
-    //        List<String> expected = Stream.of("+I[-1]").collect(Collectors.toList());
-    //
-    //        Assertions.assertEquals(expected, result);
-    //    }
 
     private static TableDescriptor createTestDDl(DeliveryGuarantee deliveryGuarantee)
             throws IOException {
