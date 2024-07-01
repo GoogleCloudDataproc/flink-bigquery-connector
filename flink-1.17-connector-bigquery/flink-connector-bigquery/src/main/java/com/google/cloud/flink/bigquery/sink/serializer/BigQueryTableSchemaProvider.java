@@ -16,7 +16,6 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -42,7 +41,7 @@ public class BigQueryTableSchemaProvider {
 
     private static SerializableSupplier<BigQueryServices> testingServices = null;
 
-    static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {
+    public static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {
         BigQueryTableSchemaProvider.testingServices = testingServices;
     }
 
@@ -68,7 +67,8 @@ public class BigQueryTableSchemaProvider {
     }
 
     public static Schema getAvroSchemaFromLogicalSchema(LogicalType logicalType) {
-        return AvroSchemaConverter.convertToSchema(logicalType);
+        AvroSchemaConvertor avroSchemaConvertor = new AvroSchemaConvertor();
+        return avroSchemaConvertor.convertToSchema(logicalType);
     }
 
     private static org.apache.flink.table.api.Schema getTableApiSchemaFromAvroSchema(

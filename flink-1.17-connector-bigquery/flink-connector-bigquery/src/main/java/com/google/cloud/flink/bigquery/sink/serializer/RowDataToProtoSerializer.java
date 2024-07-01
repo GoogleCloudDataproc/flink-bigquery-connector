@@ -82,7 +82,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
             return getDynamicMessageFromRowData(record, this.descriptor, this.type).toByteString();
         } catch (Exception e) {
             throw new BigQuerySerializationException(
-                    String.format("Error while serialising Row Data record: %s", record), e);
+                    String.format(
+                            "Error while serialising Row Data record: %s%nError: %s",
+                            record, e.getMessage()),
+                    e);
         }
     }
 
@@ -166,20 +169,19 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     LogicalType arrayElementType = getArrayElementType(fieldType);
                     ArrayData.ElementGetter elementGetter =
                             ArrayData.createElementGetter(arrayElementType);
-                    List<Object> ans =
-                            Stream.iterate(0, pos -> pos + 1)
-                                    .limit(element.getArray(fieldNumber).size())
-                                    .map(
-                                            pos ->
-                                                    convertArrayElement(
-                                                            elementGetter,
-                                                            element,
-                                                            fieldNumber,
-                                                            pos,
-                                                            arrayElementType,
-                                                            fieldDescriptor))
-                                    .collect(Collectors.toList());
-                    return ans;
+                    return Stream.iterate(0, pos -> pos + 1)
+                            .limit(element.getArray(fieldNumber).size())
+                            .map(
+                                    pos ->
+                                            convertArrayElement(
+                                                    elementGetter,
+                                                    element,
+                                                    fieldNumber,
+                                                    pos,
+                                                    arrayElementType,
+                                                    fieldDescriptor))
+                            .collect(Collectors.toList());
+                    // all the below types are not supported yet.
                 case INTERVAL_YEAR_MONTH:
                 case INTERVAL_DAY_TIME:
                 case MAP:
@@ -193,7 +195,21 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     // Since it is only a logical type and not supported in flink SQL
                     // (https://issues.apache.org/jira/browse/FLINK-20869)
                 case UNRESOLVED:
-                    throw new UnsupportedOperationException("Not supported yet!");
+                default:
+                    String notSupportedError =
+                            String.format(
+                                    "Serialization to ByteString for the passed RowData type: '%s' is not "
+                                            + "supported yet!",
+                                    fieldType.getTypeRoot().toString());
+                    LOG.error(
+                            String.format(
+                                    "%s%nSupported types are: %s.",
+                                    notSupportedError,
+                                    "CHAR, VARCHAR, BOOLEAN, BINARY, VARBINARY,"
+                                            + " DECIMAL, TINYINT, SMALLINT, INTEGER,"
+                                            + " DATE, BIGINT, FLOAT, DOUBLE, ROW, TIME_WITHOUT_TIME_ZONE, TIMESTAMP_WITHOUT_TIME_ZONE,"
+                                            + " TIMESTAMP_WITH_LOCAL_TIME_ZONE, and ARRAY"));
+                    throw new UnsupportedOperationException(notSupportedError);
             }
         } catch (UnsupportedOperationException
                 | ClassCastException
@@ -202,17 +218,21 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 | IllegalStateException
                 | IndexOutOfBoundsException
                 | DateTimeException e) {
-            LOG.info(
+            String invalidError =
                     String.format(
-                            "Expected Type: %s at Field Number %d for Logical Type: %s.%nError: %s",
+                            "Error while converting RowData value '%s' to BigQuery Proto "
+                                    + "Rows.%nError: %s",
+                            element, e);
+            LOG.error(
+                    String.format(
+                            "%s%nExpected Type: '%s' at Field Number '%d' for Logical Type: '%s'.%nError: %s",
+                            invalidError,
                             fieldDescriptor.getType().name(),
                             fieldNumber,
                             fieldType.getTypeRoot().name(),
                             e));
-            throw new IllegalArgumentException(
-                    String.format("Error while converting value. %nErrors: %s to proto value", e));
+            throw new IllegalArgumentException(invalidError);
         }
-        return null;
     }
 
     /**
@@ -228,6 +248,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
         if (fieldType.isNullable()) {
             throw new UnsupportedOperationException("NULLABLE ARRAY is not supported.");
         }
+        // Will never be the case since LogicalType does not support ARRAY having multiple types.
         if (arrayElementTypes.size() > 1) {
             throw new UnsupportedOperationException(
                     "Multiple Datatypes not supported in ARRAY type");
@@ -240,10 +261,8 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     }
 
     private long getMicrosFromTsData(TimestampData timestampData) {
-
         long millis = timestampData.getMillisecond();
         long nanos = timestampData.getNanoOfMillisecond();
-
         return TimeUnit.MILLISECONDS.toMicros(millis) + TimeUnit.NANOSECONDS.toMicros(nanos);
     }
 
