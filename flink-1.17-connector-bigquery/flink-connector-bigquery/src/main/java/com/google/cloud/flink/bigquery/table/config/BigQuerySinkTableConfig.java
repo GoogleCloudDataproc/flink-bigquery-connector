@@ -16,14 +16,19 @@
 
 package com.google.cloud.flink.bigquery.table.config;
 
+import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.table.api.TableDescriptor;
+
 /**
  * Configurations for a BigQuery Table API Write.
  *
- * <p>Inherits {@link BigQueryTableConfig} for general options and defines sink specific options.
+ * <p>Inherits {@link BigQueryTableConfig} for general options and defines sink-specific options.
  *
  * <p>Uses static inner builder to initialize new instances.
  */
 public class BigQuerySinkTableConfig extends BigQueryTableConfig {
+
+    private final DeliveryGuarantee deliveryGuarantee;
 
     BigQuerySinkTableConfig(
             String project,
@@ -32,7 +37,8 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             String credentialAccessToken,
             String credentialFile,
             String credentialKey,
-            boolean testMode) {
+            boolean testMode,
+            DeliveryGuarantee deliveryGuarantee) {
         super(
                 project,
                 dataset,
@@ -41,5 +47,100 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                 credentialFile,
                 credentialKey,
                 testMode);
+        this.deliveryGuarantee = deliveryGuarantee;
+    }
+
+    public static BigQuerySinkTableConfig.Builder newBuilder() {
+        return new BigQuerySinkTableConfig.Builder();
+    }
+
+    /**
+     * Method to update the table descriptor with {@link DeliveryGuarantee} for the sink.
+     *
+     * @param tableDescriptor The initial Table Descriptor
+     * @return The updated {@link TableDescriptor}
+     */
+    @Override
+    public TableDescriptor updateTableDescriptor(TableDescriptor tableDescriptor) {
+        tableDescriptor = super.updateTableDescriptor(tableDescriptor);
+        TableDescriptor.Builder tableDescriptorBuilder = tableDescriptor.toBuilder();
+        if (this.deliveryGuarantee != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.DELIVERY_GUARANTEE, this.deliveryGuarantee);
+        }
+        return tableDescriptorBuilder.build();
+    }
+
+    /** Builder for BigQueryReadTableConfig. */
+    public static class Builder extends BigQueryTableConfig.Builder {
+
+        private DeliveryGuarantee deliveryGuarantee;
+
+        @Override
+        public BigQuerySinkTableConfig.Builder project(String project) {
+            super.project = project;
+            return this;
+        }
+
+        @Override
+        public BigQuerySinkTableConfig.Builder dataset(String dataset) {
+            super.dataset = dataset;
+            return this;
+        }
+
+        @Override
+        public BigQuerySinkTableConfig.Builder table(String table) {
+            super.table = table;
+            return this;
+        }
+
+        @Override
+        public BigQuerySinkTableConfig.Builder credentialAccessToken(String credentialAccessToken) {
+            super.credentialAccessToken = credentialAccessToken;
+            return this;
+        }
+
+        @Override
+        public BigQuerySinkTableConfig.Builder credentialKey(String credentialKey) {
+            super.credentialKey = credentialKey;
+            return this;
+        }
+
+        @Override
+        public BigQuerySinkTableConfig.Builder credentialFile(String credentialFile) {
+            super.credentialFile = credentialFile;
+            return this;
+        }
+
+        @Override
+        public BigQuerySinkTableConfig.Builder testMode(Boolean testMode) {
+            super.testMode = testMode;
+            return this;
+        }
+
+        /**
+         * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink
+         * job. Can be <code>DeliveryGuarantee.AT_LEAST_ONCE</code> or <code>
+         * DeliveryGuarantee.EXACTLY_ONCE
+         * </code><br>
+         * Default: <code>DeliveryGuarantee.AT_LEAST_ONCE</code> - At-least Once Mode.
+         */
+        public BigQuerySinkTableConfig.Builder deliveryGuarantee(
+                DeliveryGuarantee deliveryGuarantee) {
+            this.deliveryGuarantee = deliveryGuarantee;
+            return this;
+        }
+
+        public BigQuerySinkTableConfig build() {
+            return new BigQuerySinkTableConfig(
+                    project,
+                    dataset,
+                    table,
+                    credentialAccessToken,
+                    credentialFile,
+                    credentialKey,
+                    testMode,
+                    deliveryGuarantee);
+        }
     }
 }

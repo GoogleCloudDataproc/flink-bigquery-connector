@@ -17,22 +17,28 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import org.apache.flink.table.api.DataTypes;
-import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericArrayData;
 import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.RowType;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.Timestamp;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
+import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataConverters;
+import com.google.common.primitives.Bytes;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.avro.generic.IndexedRecord;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
@@ -399,16 +405,23 @@ public class RowDataToProtoSerializerTest {
         rowDataSerializer.setLogicalType(logicalType);
 
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
-        GenericRowData row = new GenericRowData(7);
-        row.setField(0, TimestampData.fromEpochMillis(1710919250269L));
-        row.setField(1, 50546554456L);
-        row.setField(2, TimestampData.fromInstant(Instant.parse("2024-03-20T13:59:04.787424Z")));
-        row.setField(3, 19802);
-        row.setField(4, DecimalData.fromBigDecimal(bigDecimal, 13, 7));
-        row.setField(
-                5,
-                StringData.fromString("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))"));
-        row.setField(6, StringData.fromString("{\"FirstName\": \"John\", \"LastName\": \"Doe\"}"));
+        byte[] bytes = bigDecimal.unscaledValue().toByteArray();
+
+        IndexedRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("timestamp", Timestamp.parseTimestamp("2024-03-20T07:20:50.269000"))
+                        .set("time", 50546554456L)
+                        .set("datetime", "2024-03-20T13:59:04.787424")
+                        .set("date", 19802)
+                        .set("numeric_field", ByteBuffer.wrap(bytes))
+                        //                        .set("bignumeric_field", ByteBuffer.wrap(bytes))
+                        .set("geography", "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))")
+                        .set("Json", "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}")
+                        .build();
+
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter((RowType) logicalType);
+        RowData row = (RowData) converter.convert(record);
 
         // Check the expected value.
         DynamicMessage message =
@@ -418,6 +431,9 @@ public class RowDataToProtoSerializerTest {
         assertEquals(
                 "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
+        bytes = bigDecimal.unscaledValue().toByteArray();
+        Bytes.reverse(bytes);
+        assertEquals(ByteString.copyFrom(bytes), message.getField(descriptor.findFieldByNumber(5)));
         assertEquals(
                 "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))",
                 message.getField(descriptor.findFieldByNumber(6)));

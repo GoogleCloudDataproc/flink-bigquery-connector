@@ -17,12 +17,15 @@
 package com.google.cloud.flink.bigquery.table.config;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 
 import java.io.IOException;
@@ -53,6 +56,10 @@ public class BigQueryTableConfiguration {
         return config.get(BigQueryConnectorOptions.TEST_MODE);
     }
 
+    public Boolean isUnboundedEnabled() {
+        return config.get(BigQueryConnectorOptions.MODE) == Boundedness.CONTINUOUS_UNBOUNDED;
+    }
+
     public BigQueryReadOptions toBigQueryReadOptions() {
         try {
             return BigQueryReadOptions.builder()
@@ -67,6 +74,8 @@ public class BigQueryTableConfiguration {
                                     .orElse(new ArrayList<>()))
                     .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                     .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
+                    .setPartitionDiscoveryRefreshIntervalInMinutes(
+                            config.get(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL))
                     .build();
         } catch (Exception ex) {
             throw new RuntimeException(
@@ -91,5 +100,20 @@ public class BigQueryTableConfiguration {
                                         config.get(BigQueryConnectorOptions.CREDENTIALS_KEY))
                                 .build())
                 .build();
+    }
+
+    public BigQuerySinkConfig toSinkConfig() {
+        try {
+            // BigQuerySchemaProvider will be set in BigQueryDynamicTableSink.
+            // Since avro schema (produced type schema) is used for obtaining the schema provider.
+            BigQueryConnectOptions sinkConnectOptions = translateBigQueryConnectOptions();
+            return BigQuerySinkConfig.newBuilder()
+                    .connectOptions(sinkConnectOptions)
+                    .deliveryGuarantee(config.get(BigQueryConnectorOptions.DELIVERY_GUARANTEE))
+                    .serializer(new RowDataToProtoSerializer())
+                    .build();
+        } catch (Exception ex) {
+            throw new RuntimeException("Problems while trying to obtain sinkConfig.", ex);
+        }
     }
 }

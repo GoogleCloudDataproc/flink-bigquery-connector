@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -65,10 +66,18 @@ public class BigQueryDynamicTableSource
 
     private BigQueryReadOptions readOptions;
     private DataType producedDataType;
+    private final Boundedness boundedness;
 
     public BigQueryDynamicTableSource(BigQueryReadOptions readOptions, DataType producedDataType) {
+        // make default as BOUNDED if nothing is specified.
+        this(readOptions, producedDataType, Boundedness.BOUNDED);
+    }
+
+    public BigQueryDynamicTableSource(
+            BigQueryReadOptions readOptions, DataType producedDataType, Boundedness boundedness) {
         this.readOptions = readOptions;
         this.producedDataType = producedDataType;
+        this.boundedness = boundedness;
     }
 
     @Override
@@ -85,6 +94,7 @@ public class BigQueryDynamicTableSource
         BigQuerySource<RowData> bqSource =
                 BigQuerySource.<RowData>builder()
                         .setReadOptions(readOptions)
+                        .setSourceBoundedness(this.boundedness)
                         .setDeserializationSchema(
                                 new AvroToRowDataDeserializationSchema(rowType, typeInfo))
                         .build();
@@ -94,7 +104,7 @@ public class BigQueryDynamicTableSource
 
     @Override
     public DynamicTableSource copy() {
-        return new BigQueryDynamicTableSource(readOptions, producedDataType);
+        return new BigQueryDynamicTableSource(readOptions, producedDataType, boundedness);
     }
 
     @Override
