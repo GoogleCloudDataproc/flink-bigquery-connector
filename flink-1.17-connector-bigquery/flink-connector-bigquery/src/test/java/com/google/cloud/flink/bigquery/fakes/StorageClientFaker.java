@@ -591,6 +591,95 @@ public class StorageClientFaker {
                 .build();
     }
 
+    public static BigQueryReadOptions createTableReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            Integer readLimit)
+            throws IOException {
+        return createTableReadOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                params -> StorageClientFaker.createRecordList(params),
+                0D,
+                readLimit);
+    }
+
+    public static BigQueryReadOptions createTableReadOptions(
+            Integer expectedRowCount, Integer expectedReadStreamCount, String avroSchemaString)
+            throws IOException {
+        return createTableReadOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                params -> StorageClientFaker.createRecordList(params),
+                0D,
+                -1);
+    }
+
+    public static BigQueryReadOptions createTableReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator)
+            throws IOException {
+        return createTableReadOptions(
+                expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D, -1);
+    }
+
+    public static BigQueryReadOptions createTableReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            Double errorPercentage)
+            throws IOException {
+        return createTableReadOptions(
+                expectedRowCount,
+                expectedReadStreamCount,
+                avroSchemaString,
+                dataGenerator,
+                errorPercentage,
+                -1);
+    }
+
+    public static BigQueryReadOptions createTableReadOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            Double errorPercentage,
+            Integer readLimit)
+            throws IOException {
+        return BigQueryReadOptions.builder()
+                .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
+                .setLimit(readLimit)
+                .setQuery("SELECT 1")
+                .setQueryExecutionProject("some-gcp-project")
+                .setBigQueryConnectOptions(
+                        BigQueryConnectOptions.builder()
+                                .setDataset("dataset")
+                                .setProjectId("project")
+                                .setTable("table")
+                                .setCredentialsOptions(null)
+                                .setTestingBigQueryServices(
+                                        () -> {
+                                            return FakeBigQueryTableServices.getInstance(
+                                                    new StorageClientFaker.FakeBigQueryServices
+                                                            .FakeBigQueryStorageReadClient(
+                                                            StorageClientFaker.fakeReadSession(
+                                                                    expectedRowCount,
+                                                                    expectedReadStreamCount,
+                                                                    avroSchemaString),
+                                                            dataGenerator,
+                                                            errorPercentage),
+                                                    null);
+                                        })
+                                .build())
+                .build();
+    }
+
     public static BigQueryConnectOptions createConnectOptionsForWrite(
             AppendRowsResponse appendResponse) throws IOException {
         return BigQueryConnectOptions.builder()
@@ -606,5 +695,118 @@ public class StorageClientFaker {
                                             .FakeBigQueryStorageWriteClient(appendResponse));
                         })
                 .build();
+    }
+
+    public static final TableSchema SIMPLE_BQ_TABLE_SCHEMA_TABLE =
+            new TableSchema()
+                    .setFields(
+                            Arrays.asList(
+                                    new TableFieldSchema()
+                                            .setName("id")
+                                            .setType("INTEGER")
+                                            .setMode("REQUIRED"),
+                                    new TableFieldSchema()
+                                            .setName("optDouble")
+                                            .setType("FLOAT")
+                                            .setMode("NULLABLE"),
+                                    new TableFieldSchema()
+                                            .setName("optString")
+                                            .setType("STRING")
+                                            .setMode("NULLABLE"),
+                                    new TableFieldSchema()
+                                            .setName("ts")
+                                            .setType("TIMESTAMP")
+                                            .setMode("REQUIRED"),
+                                    new TableFieldSchema()
+                                            .setName("reqSubRecord")
+                                            .setType("RECORD")
+                                            .setMode("REQUIRED")
+                                            .setFields(
+                                                    Arrays.asList(
+                                                            new TableFieldSchema()
+                                                                    .setName("reqBoolean")
+                                                                    .setMode("REQUIRED")
+                                                                    .setType("BOOLEAN"),
+                                                            new TableFieldSchema()
+                                                                    .setName("reqTs")
+                                                                    .setType("TIMESTAMP")
+                                                                    .setMode("REQUIRED"))),
+                                    new TableFieldSchema()
+                                            .setName("optArraySubRecords")
+                                            .setType("RECORD")
+                                            .setMode("REPEATED")
+                                            .setFields(
+                                                    Arrays.asList(
+                                                            new TableFieldSchema()
+                                                                    .setName("reqLong")
+                                                                    .setMode("REQUIRED")
+                                                                    .setType("INTEGER"),
+                                                            new TableFieldSchema()
+                                                                    .setName("optBytes")
+                                                                    .setType("BYTES")
+                                                                    .setMode("NULLABLE")))));
+
+    /** Implementation of {@link BigQueryServices} for testing Table API. */
+    public static class FakeBigQueryTableServices implements BigQueryServices {
+
+        static volatile FakeBigQueryTableServices instance = null;
+        static final Object LOCK = new Object();
+
+        private final FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient;
+        private final FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient;
+
+        private FakeBigQueryTableServices(
+                FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
+                FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient) {
+            this.storageReadClient = storageReadClient;
+            this.storageWriteClient = storageWriteClient;
+        }
+
+        static FakeBigQueryTableServices getInstance(
+                FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
+                FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient) {
+            if (instance == null) {
+                synchronized (LOCK) {
+                    if (instance == null) {
+                        instance =
+                                Mockito.spy(
+                                        new FakeBigQueryTableServices(
+                                                storageReadClient, storageWriteClient));
+                    }
+                }
+            }
+            return instance;
+        }
+
+        @Override
+        public StorageReadClient createStorageReadClient(CredentialsOptions readOptions)
+                throws IOException {
+            return storageReadClient;
+        }
+
+        @Override
+        public StorageWriteClient createStorageWriteClient(CredentialsOptions readOptions)
+                throws IOException {
+            return storageWriteClient;
+        }
+
+        @Override
+        public QueryDataClient createQueryDataClient(CredentialsOptions readOptions) {
+            return FakeQueryTableDataClient.getInstance();
+        }
+
+        static class FakeQueryTableDataClient extends FakeBigQueryServices.FakeQueryDataClient {
+
+            static FakeQueryTableDataClient instance = Mockito.spy(new FakeQueryTableDataClient());
+
+            static QueryDataClient getInstance() {
+                return instance;
+            }
+
+            @Override
+            public TableSchema getTableSchema(String project, String dataset, String table) {
+                return SIMPLE_BQ_TABLE_SCHEMA_TABLE;
+            }
+        }
     }
 }
