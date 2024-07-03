@@ -66,6 +66,8 @@ import static org.apache.flink.formats.avro.typeutils.AvroSchemaConverter.extrac
 public class AvroToRowDataConverters {
 
     private static final Logger LOG = LoggerFactory.getLogger(AvroToRowDataConverters.class);
+    private static final int millisPrecision = 3;
+    private static final int microsPrecision = 6;
 
     /**
      * Runtime converter that converts Avro data structures into objects of Flink Table & SQL
@@ -132,13 +134,15 @@ public class AvroToRowDataConverters {
                 return AvroToRowDataConverters::convertToDate;
             case TIME_WITHOUT_TIME_ZONE:
                 int timePrecision = ((TimeType) type).getPrecision();
-                if (timePrecision <= 3) {
-                    return avroObject -> convertToMillisTime(avroObject, 3);
-                } else if (timePrecision <= 6) {
-                    return avroObject -> convertToMicrosTime(avroObject, 6);
+                if (timePrecision <= millisPrecision) {
+                    return avroObject -> convertToMillisTime(avroObject, millisPrecision);
+                } else if (timePrecision <= microsPrecision) {
+                    return avroObject -> convertToMicrosTime(avroObject, microsPrecision);
                 } else {
                     throw new UnsupportedOperationException(
-                            "TIME type with Precision > 6 is not supported!");
+                            String.format(
+                                    "TIME type with Precision > %d is not supported!",
+                                    microsPrecision));
                 }
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 int localTsPrecision = ((LocalZonedTimestampType) type).getPrecision();
@@ -168,13 +172,19 @@ public class AvroToRowDataConverters {
     }
 
     private static AvroToRowDataConverter createTimeDatetimeConvertor(int precision) {
-        if (precision <= 3) {
-            return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 3);
-        } else if (precision <= 6) {
-            return avroObject -> AvroToRowDataConverters.convertToTimestamp(avroObject, 6);
+        if (precision <= millisPrecision) {
+            return avroObject ->
+                    AvroToRowDataConverters.convertToTimestamp(avroObject, millisPrecision);
+        } else if (precision <= microsPrecision) {
+            return avroObject ->
+                    AvroToRowDataConverters.convertToTimestamp(avroObject, microsPrecision);
         } else {
-            throw new UnsupportedOperationException(
-                    "TIMESTAMP/DATETIME TYPE of Precision > 6 is not supported!");
+            String invalidPrecisionError =
+                    String.format(
+                            "Obtained TIMESTAMP/DATETIME value with precision ''. "
+                                    + "Precision > %d is not supported.",
+                            precision, microsPrecision);
+            throw new UnsupportedOperationException(invalidPrecisionError);
         }
     }
 
@@ -231,12 +241,12 @@ public class AvroToRowDataConverters {
         };
     }
 
-    private static TimestampData convertToTimestamp(Object object, int precision) {
+    static TimestampData convertToTimestamp(Object object, int precision) {
         final long micros;
         long tempMicros;
         if (object instanceof Long) {
             tempMicros = (Long) object;
-            if (precision == 3) {
+            if (precision == millisPrecision) {
                 // If millisecond precision.
                 return TimestampData.fromEpochMillis(tempMicros);
             }
@@ -264,18 +274,44 @@ public class AvroToRowDataConverters {
                                 DateTimeFormatter.ofPattern(
                                         "yyyy-M[M]-d[d][[' ']['T']['t']H[H]':'m[m]':'s[s]['.'SSSSSS]['.'SSSSS]['.'SSSS]['.'SSS]['.'SS]['.'S]]")));
             } catch (DateTimeParseException e) {
-                throw new IllegalArgumentException(
+                String invalidFormatError =
                         String.format(
-                                "The datetime string obtained %s, is of invalid format.", object));
+                                "The datetime string obtained %s, is of invalid format.", object);
+                // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#datetime_type for more details.
+                String supportedFormat =
+                        "civil_date_part[time_part]\n"
+                                + "civil_date_part: YYYY-[M]M-[D]D\n"
+                                + "time_part: { |T|t}[H]H:[M]M:[S]S[.F]\n"
+                                + "YYYY: Four-digit year.\n"
+                                + "[M]M: One or two digit month.\n"
+                                + "[D]D: One or two digit day.\n"
+                                + "{ |T|t}: A space or a T or t separator. The T and t separators are flags for time.\n"
+                                + "[H]H: One or two digit hour (valid values from 00 to 23).\n"
+                                + "[M]M: One or two digit minutes (valid values from 00 to 59).\n"
+                                + "[S]S: One or two digit seconds (valid values from 00 to 60).\n"
+                                + "[.F]: Up to six fractional digits (microsecond precision).";
+                LOG.error(
+                        String.format(
+                                "%s%nSupported Format:%n%s", invalidFormatError, supportedFormat));
+                throw new IllegalArgumentException(invalidFormatError);
             }
         } else {
-            //  com.google.cloud.Timestamp Instant.
+            //  com.google.cloud.Timestamp Instance.
             JodaConverter jodaConverter = JodaConverter.getConverter();
             if (jodaConverter != null) {
                 tempMicros = jodaConverter.convertTimestamp(object);
             } else {
-                throw new IllegalArgumentException(
-                        "Unexpected object type for TIMESTAMP logical type. Received: " + object);
+                String invalidFormatError =
+                        String.format(
+                                "Unexpected object %s of type '%s' for "
+                                        + "TIMESTAMP/DATETIME logical type.",
+                                object, object.getClass());
+                LOG.error(
+                        String.format(
+                                "%s%nSupported Types are 'Long', 'STRING/UTF-8',"
+                                        + " 'com.google.cloud.Timestamp' and 'java.time.Instant'.",
+                                invalidFormatError));
+                throw new IllegalArgumentException(invalidFormatError);
             }
         }
         // All values are in Micros, millis have been returned.
@@ -296,8 +332,15 @@ public class AvroToRowDataConverters {
             if (jodaConverter != null) {
                 return (int) jodaConverter.convertDate(object);
             } else {
-                throw new IllegalArgumentException(
-                        "Unexpected object type for DATE logical type. Received: " + object);
+                String invalidFormatError =
+                        String.format(
+                                "Unexpected object %s of type '%s' for DATE logical type.",
+                                object, object.getClass());
+                LOG.error(
+                        String.format(
+                                "%s%nSupported Types are 'INT', 'org.joda.time.LocalDate' and 'java.time.LocalDate'.",
+                                invalidFormatError));
+                throw new IllegalArgumentException(invalidFormatError);
             }
         }
     }
@@ -305,7 +348,7 @@ public class AvroToRowDataConverters {
     private static int convertToMillisTime(Object object, int precision) {
         // if precision is 3. Otherwise, Error.
         Preconditions.checkArgument(
-                precision == 3,
+                precision == millisPrecision,
                 String.format(
                         "Invalid precision '%d' obtained for Millisecond Conversion", precision));
         if (object instanceof Integer) {
@@ -319,7 +362,7 @@ public class AvroToRowDataConverters {
                             object, object.getClass());
             LOG.error(
                     String.format(
-                            "%s%nSupported Types are 'INT' and 'java.time.LocalTime'",
+                            "%s%nSupported Types are 'INT' and 'java.time.LocalTime'.",
                             invalidFormatError));
             throw new IllegalArgumentException(invalidFormatError);
         }
@@ -328,7 +371,7 @@ public class AvroToRowDataConverters {
     private static long convertToMicrosTime(Object object, int precision) {
         // if precision is 6. Otherwise, Error.
         Preconditions.checkArgument(
-                precision == 6,
+                precision == microsPrecision,
                 String.format(
                         "Invalid precision '%d' obtained for Millisecond Conversion", precision));
         if (object instanceof Long) {
@@ -342,7 +385,7 @@ public class AvroToRowDataConverters {
                             object, object.getClass());
             LOG.error(
                     String.format(
-                            "%s%nSupported Types are 'LONG' and java.time.LocalTime'",
+                            "%s%nSupported Types are 'LONG' and java.time.LocalTime'.",
                             invalidFormatError));
             throw new IllegalArgumentException(invalidFormatError);
         }
