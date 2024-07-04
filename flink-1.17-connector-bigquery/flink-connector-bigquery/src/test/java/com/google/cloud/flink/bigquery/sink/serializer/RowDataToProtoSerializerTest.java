@@ -414,7 +414,6 @@ public class RowDataToProtoSerializerTest {
                         .set("datetime", "2024-03-20T13:59:04.787424")
                         .set("date", 19802)
                         .set("numeric_field", ByteBuffer.wrap(bytes))
-                        //                        .set("bignumeric_field", ByteBuffer.wrap(bytes))
                         .set("geography", "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))")
                         .set("Json", "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}")
                         .build();
