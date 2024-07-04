@@ -37,6 +37,8 @@ import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
 import com.google.api.client.util.Preconditions;
+import com.google.cloud.Timestamp;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
@@ -59,15 +61,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.formats.avro.typeutils.AvroSchemaConverter.extractValueTypeToAvroMap;
-
-/** Tool class used to convert from Avro {@link GenericRecord} to {@link RowData}. * */
+/**
+ * Tool class used to convert from Avro {@link GenericRecord} to {@link RowData}. <br>
+ * <a
+ * href="https://github.com/apache/flink/blob/master/flink-formats/flink-avro/src/main/java/org/apache/flink/formats/avro/AvroToRowDataConverters.java">AvroToRowDataConvertors</a>
+ * is a pre-existing implementation, However, it does not take into account microsecond precision
+ * for TIMESTAMP and DATETIME (TIMESTAMP_WITH_LOCAL_TIMEZONE in Flink's LogicalType) which is
+ * required for reading TIMESTAMP and DATETIME BigQuery fields.
+ */
 @Internal
 public class AvroToRowDataConverters {
 
     private static final Logger LOG = LoggerFactory.getLogger(AvroToRowDataConverters.class);
-    private static final int millisPrecision = 3;
-    private static final int microsPrecision = 6;
+    private static final int MILLIS_PRECISION = 3;
+    private static final int MICROS_PRECISION = 6;
 
     /**
      * Runtime converter that converts Avro data structures into objects of Flink Table & SQL
@@ -134,15 +141,17 @@ public class AvroToRowDataConverters {
                 return AvroToRowDataConverters::convertToDate;
             case TIME_WITHOUT_TIME_ZONE:
                 int timePrecision = ((TimeType) type).getPrecision();
-                if (timePrecision <= millisPrecision) {
-                    return avroObject -> convertToMillisTime(avroObject, millisPrecision);
-                } else if (timePrecision <= microsPrecision) {
-                    return avroObject -> convertToMicrosTime(avroObject, microsPrecision);
+                if (timePrecision <= MILLIS_PRECISION) {
+                    return avroObject -> convertToMillisTime(avroObject, MILLIS_PRECISION);
+                } else if (timePrecision <= MICROS_PRECISION) {
+                    return avroObject -> convertToMicrosTime(avroObject, MICROS_PRECISION);
                 } else {
                     throw new UnsupportedOperationException(
                             String.format(
-                                    "TIME type with Precision > %d is not supported!",
-                                    microsPrecision));
+                                    "Avro to RowData Conversion Error:%n"
+                                            + "The TIME type within the Avro schema uses a precision of '%d',"
+                                            + " which is higher than the maximum supported TIME precision %d.",
+                                    timePrecision, MICROS_PRECISION));
                 }
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 int localTsPrecision = ((LocalZonedTimestampType) type).getPrecision();
@@ -167,23 +176,28 @@ public class AvroToRowDataConverters {
                 return createMapConverter(type);
             case RAW:
             default:
-                throw new UnsupportedOperationException("Unsupported type: " + type);
+                throw new UnsupportedOperationException(
+                        String.format(
+                                "Avro to RowData Conversion Error:%n"
+                                        + "Input Logical Type %s is not supported.",
+                                type.asSummaryString()));
         }
     }
 
     private static AvroToRowDataConverter createTimeDatetimeConvertor(int precision) {
-        if (precision <= millisPrecision) {
+        if (precision <= MILLIS_PRECISION) {
             return avroObject ->
-                    AvroToRowDataConverters.convertToTimestamp(avroObject, millisPrecision);
-        } else if (precision <= microsPrecision) {
+                    AvroToRowDataConverters.convertToTimestamp(avroObject, MILLIS_PRECISION);
+        } else if (precision <= MICROS_PRECISION) {
             return avroObject ->
-                    AvroToRowDataConverters.convertToTimestamp(avroObject, microsPrecision);
+                    AvroToRowDataConverters.convertToTimestamp(avroObject, MICROS_PRECISION);
         } else {
             String invalidPrecisionError =
                     String.format(
-                            "Obtained TIMESTAMP/DATETIME value with precision ''. "
-                                    + "Precision > %d is not supported.",
-                            precision, microsPrecision);
+                            "Avro to RowData Conversion Error:%n"
+                                    + "The TIMESTAMP/DATETIME type within the Avro schema uses a precision of '%d',"
+                                    + " which is higher than the maximum supported TIMESTAMP/DATETIME precision %d.",
+                            precision, MICROS_PRECISION);
             throw new UnsupportedOperationException(invalidPrecisionError);
         }
     }
@@ -199,11 +213,27 @@ public class AvroToRowDataConverters {
                 ByteBuffer byteBuffer = (ByteBuffer) avroObject;
                 bytes = new byte[byteBuffer.remaining()];
                 byteBuffer.get(bytes);
-            } else {
+            } else if (avroObject instanceof byte[]) {
                 bytes = (byte[]) avroObject;
+            } else {
+                String invalidFormatError =
+                        getErrorMessage(
+                                avroObject,
+                                "GenericFixed, byte[] and java.nio.ByteBuffer",
+                                "DECIMAL");
+                throw new IllegalArgumentException(invalidFormatError);
             }
             return DecimalData.fromUnscaledBytes(bytes, precision, scale);
         };
+    }
+
+    private static String getErrorMessage(
+            Object avroObject, String expectedType, String convertingType) {
+        return String.format(
+                "Avro to RowData Conversion Error:%n"
+                        + "Unexpected Avro object %s of type '%s' input for "
+                        + "conversion to Flink's '%s' logical type. Supported type(s): '%s'",
+                avroObject, avroObject.getClass(), convertingType, expectedType);
     }
 
     private static AvroToRowDataConverter createArrayConverter(ArrayType arrayType) {
@@ -213,6 +243,8 @@ public class AvroToRowDataConverters {
                 LogicalTypeUtils.toInternalConversionClass(arrayType.getElementType());
 
         return avroObject -> {
+            Preconditions.checkArgument(
+                    avroObject instanceof List<?>, getErrorMessage(avroObject, "LIST", "ARRAY"));
             final List<?> list = (List<?>) avroObject;
             final int length = list.size();
             final Object[] array = (Object[]) Array.newInstance(elementClass, length);
@@ -227,9 +259,11 @@ public class AvroToRowDataConverters {
         final AvroToRowDataConverter keyConverter =
                 createConverter(DataTypes.STRING().getLogicalType());
         final AvroToRowDataConverter valueConverter =
-                createNullableConverter(extractValueTypeToAvroMap(type));
+                createNullableConverter(AvroSchemaConvertor.extractValueTypeToAvroMap(type));
 
         return avroObject -> {
+            Preconditions.checkArgument(
+                    avroObject instanceof Map<?, ?>, getErrorMessage(avroObject, "MAP", "MAP"));
             final Map<?, ?> map = (Map<?, ?>) avroObject;
             Map<Object, Object> result = new HashMap<>();
             for (Map.Entry<?, ?> entry : map.entrySet()) {
@@ -246,7 +280,7 @@ public class AvroToRowDataConverters {
         long tempMicros;
         if (object instanceof Long) {
             tempMicros = (Long) object;
-            if (precision == millisPrecision) {
+            if (precision == MILLIS_PRECISION) {
                 // If millisecond precision.
                 return TimestampData.fromEpochMillis(tempMicros);
             }
@@ -276,7 +310,10 @@ public class AvroToRowDataConverters {
             } catch (DateTimeParseException e) {
                 String invalidFormatError =
                         String.format(
-                                "The datetime string obtained %s, is of invalid format.", object);
+                                "Avro to RowData Conversion Error:%n"
+                                        + "The Avro datetime string input for conversion to Flink's 'TIMESTAMP_LTZ' Logical Type "
+                                        + "%s, is of invalid format.",
+                                object);
                 // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#datetime_type for more details.
                 String supportedFormat =
                         "civil_date_part[time_part]\n"
@@ -295,25 +332,22 @@ public class AvroToRowDataConverters {
                                 "%s%nSupported Format:%n%s", invalidFormatError, supportedFormat));
                 throw new IllegalArgumentException(invalidFormatError);
             }
-        } else {
+        } else if (object instanceof Timestamp) {
             //  com.google.cloud.Timestamp Instance.
-            JodaConverter jodaConverter = JodaConverter.getConverter();
-            if (jodaConverter != null) {
-                tempMicros = jodaConverter.convertTimestamp(object);
-            } else {
-                String invalidFormatError =
-                        String.format(
-                                "Unexpected object %s of type '%s' for "
-                                        + "TIMESTAMP/DATETIME logical type.",
-                                object, object.getClass());
-                LOG.error(
-                        String.format(
-                                "%s%nSupported Types are 'Long', 'STRING/UTF-8',"
-                                        + " 'com.google.cloud.Timestamp' and 'java.time.Instant'.",
-                                invalidFormatError));
-                throw new IllegalArgumentException(invalidFormatError);
-            }
+            final Timestamp localDateTime = (Timestamp) object;
+            tempMicros =
+                    TimeUnit.SECONDS.toMicros(localDateTime.getSeconds())
+                            + TimeUnit.NANOSECONDS.toMicros(localDateTime.getNanos());
+        } else {
+            String invalidFormatError =
+                    getErrorMessage(
+                            object,
+                            "LONG, STRING/UTF-8,"
+                                    + " com.google.cloud.Timestamp and java.time.Instant",
+                            "TIMESTAMP/DATETIME");
+            throw new IllegalArgumentException(invalidFormatError);
         }
+
         // All values are in Micros, millis have been returned.
         micros = tempMicros;
         long millis = TimeUnit.MICROSECONDS.toMillis(micros);
@@ -327,43 +361,33 @@ public class AvroToRowDataConverters {
             return (Integer) object;
         } else if (object instanceof LocalDate) {
             return (int) ((LocalDate) object).toEpochDay();
+        } else if (object instanceof org.joda.time.LocalDate) {
+            final org.joda.time.LocalDate value = (org.joda.time.LocalDate) object;
+            return (int) value.toDate().getTime();
         } else {
-            JodaConverter jodaConverter = JodaConverter.getConverter();
-            if (jodaConverter != null) {
-                return (int) jodaConverter.convertDate(object);
-            } else {
-                String invalidFormatError =
-                        String.format(
-                                "Unexpected object %s of type '%s' for DATE logical type.",
-                                object, object.getClass());
-                LOG.error(
-                        String.format(
-                                "%s%nSupported Types are 'INT', 'org.joda.time.LocalDate' and 'java.time.LocalDate'.",
-                                invalidFormatError));
-                throw new IllegalArgumentException(invalidFormatError);
-            }
+            String invalidFormatError =
+                    getErrorMessage(
+                            object, "INT, org.joda.time.LocalDate and java.time.LocalDate", "DATE");
+            throw new IllegalArgumentException(invalidFormatError);
         }
     }
 
     private static int convertToMillisTime(Object object, int precision) {
         // if precision is 3. Otherwise, Error.
         Preconditions.checkArgument(
-                precision == millisPrecision,
+                precision == MILLIS_PRECISION,
                 String.format(
-                        "Invalid precision '%d' obtained for Millisecond Conversion", precision));
+                        "Avro to RowData Conversion Error:%n"
+                                + "The millisecond-precision TIME type within the Avro schema uses a precision of '%d',"
+                                + "Supported '%d'",
+                        precision, MILLIS_PRECISION));
         if (object instanceof Integer) {
             return (int) object;
         } else if (object instanceof LocalTime) {
             return ((LocalTime) object).get(ChronoField.MILLI_OF_DAY);
         } else {
             String invalidFormatError =
-                    String.format(
-                            "Unexpected object '%s' of type '%s' obtained for TIME logical type.",
-                            object, object.getClass());
-            LOG.error(
-                    String.format(
-                            "%s%nSupported Types are 'INT' and 'java.time.LocalTime'.",
-                            invalidFormatError));
+                    getErrorMessage(object, "INT and java.time.LocalTime", "MILLIS-TIME");
             throw new IllegalArgumentException(invalidFormatError);
         }
     }
@@ -371,22 +395,19 @@ public class AvroToRowDataConverters {
     private static long convertToMicrosTime(Object object, int precision) {
         // if precision is 6. Otherwise, Error.
         Preconditions.checkArgument(
-                precision == microsPrecision,
+                precision == MICROS_PRECISION,
                 String.format(
-                        "Invalid precision '%d' obtained for Millisecond Conversion", precision));
+                        "Avro to RowData Conversion Error:%n"
+                                + "The microsecond-precision TIME type within the Avro schema uses a precision of '%d',"
+                                + "Supported '%d'",
+                        precision, MICROS_PRECISION));
         if (object instanceof Long) {
             return ((Long) object);
         } else if (object instanceof LocalTime) {
             return TimeUnit.NANOSECONDS.toMicros(((LocalTime) object).toNanoOfDay());
         } else {
             String invalidFormatError =
-                    String.format(
-                            "Unexpected object '%s' of type '%s' obtained for TIME logical type.",
-                            object, object.getClass());
-            LOG.error(
-                    String.format(
-                            "%s%nSupported Types are 'LONG' and java.time.LocalTime'.",
-                            invalidFormatError));
+                    getErrorMessage(object, "LONG and java.time.LocalTime", "MICROS-TIME");
             throw new IllegalArgumentException(invalidFormatError);
         }
     }
@@ -399,8 +420,12 @@ public class AvroToRowDataConverters {
             byte[] bytes = new byte[byteBuffer.remaining()];
             byteBuffer.get(bytes);
             return bytes;
-        } else {
+        } else if (object instanceof byte[]) {
             return (byte[]) object;
+        } else {
+            String invalidFormatError =
+                    getErrorMessage(object, "GenericFixed, byte[] and java.nio.ByteBuffer", "BYTE");
+            throw new IllegalArgumentException(invalidFormatError);
         }
     }
 }
