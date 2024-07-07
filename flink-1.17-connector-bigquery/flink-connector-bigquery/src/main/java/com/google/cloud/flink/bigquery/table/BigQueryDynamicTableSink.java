@@ -25,6 +25,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
@@ -53,27 +54,16 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
     }
 
     @Override
-    public String toString() {
-        String sinkConfigString =
-                String.format(
-                        "Sink Config: %n"
-                                + "\tSchema Provider: %s%n"
-                                + "\tSerializer: %s%n"
-                                + "\tConnect Options: %s %n"
-                                + "\tDelivery Guarantee: %s%n",
-                        this.sinkConfig.getSchemaProvider(),
-                        this.sinkConfig.getSerializer(),
-                        this.sinkConfig.getConnectOptions(),
-                        this.sinkConfig.getDeliveryGuarantee());
-
-        return String.format("Logical Type: %s%n" + "%s", this.logicalType, sinkConfigString);
-    }
-
-    @Override
     public int hashCode() {
         return Objects.hash(this.sinkConfig, this.logicalType);
     }
 
+    /**
+     * Method overwritten to check equality, required for testing.
+     *
+     * @param obj Target Object to check equality.
+     * @return True if {@link Object} is equal to current object.
+     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -85,8 +75,17 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        final BigQueryDynamicTableSink other = (BigQueryDynamicTableSink) obj;
-        return Objects.equals(this.sinkConfig, other.sinkConfig);
+        BigQueryDynamicTableSink object = (BigQueryDynamicTableSink) obj;
+        if ((this.logicalType == object.logicalType)
+                && (this.sinkConfig.getConnectOptions() == object.sinkConfig.getConnectOptions())
+                && (this.sinkConfig.getSerializer() == object.sinkConfig.getSerializer())
+                && (this.sinkConfig.getDeliveryGuarantee()
+                        == object.sinkConfig.getDeliveryGuarantee())) {
+            BigQuerySchemaProvider thisSchemaProvider = this.sinkConfig.getSchemaProvider();
+            BigQuerySchemaProvider objSchemaProvider = object.sinkConfig.getSchemaProvider();
+            return thisSchemaProvider.getAvroSchema().equals(objSchemaProvider.getAvroSchema());
+        }
+        return false;
     }
 
     @Override
