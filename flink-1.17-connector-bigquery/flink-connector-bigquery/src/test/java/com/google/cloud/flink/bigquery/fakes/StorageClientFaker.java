@@ -651,53 +651,10 @@ public class StorageClientFaker {
             Integer expectedRowCount,
             Integer expectedReadStreamCount,
             String avroSchemaString,
-            Integer readLimit)
-            throws IOException {
-        return createTableReadOptions(
-                expectedRowCount,
-                expectedReadStreamCount,
-                avroSchemaString,
-                params -> StorageClientFaker.createRecordList(params),
-                0D,
-                readLimit);
-    }
-
-    public static BigQueryReadOptions createTableReadOptions(
-            Integer expectedRowCount, Integer expectedReadStreamCount, String avroSchemaString)
-            throws IOException {
-        return createTableReadOptions(
-                expectedRowCount,
-                expectedReadStreamCount,
-                avroSchemaString,
-                params -> StorageClientFaker.createRecordList(params),
-                0D,
-                -1);
-    }
-
-    public static BigQueryReadOptions createTableReadOptions(
-            Integer expectedRowCount,
-            Integer expectedReadStreamCount,
-            String avroSchemaString,
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator)
             throws IOException {
         return createTableReadOptions(
                 expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D, -1);
-    }
-
-    public static BigQueryReadOptions createTableReadOptions(
-            Integer expectedRowCount,
-            Integer expectedReadStreamCount,
-            String avroSchemaString,
-            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
-            Double errorPercentage)
-            throws IOException {
-        return createTableReadOptions(
-                expectedRowCount,
-                expectedReadStreamCount,
-                avroSchemaString,
-                dataGenerator,
-                errorPercentage,
-                -1);
     }
 
     public static BigQueryReadOptions createTableReadOptions(
