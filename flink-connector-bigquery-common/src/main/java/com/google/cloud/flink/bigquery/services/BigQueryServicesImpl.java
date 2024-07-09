@@ -43,6 +43,11 @@ import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
+import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
+import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamRequest;
+import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
+import com.google.cloud.bigquery.storage.v1.FlushRowsRequest;
+import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -50,9 +55,11 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamRequest;
 import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
+import com.google.protobuf.Int64Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.threeten.bp.Duration;
@@ -194,6 +201,35 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                                             .build());
 
+            UnaryCallSettings.Builder<CreateWriteStreamRequest, WriteStream>
+                    createWriteStreamSettings =
+                            settingsBuilder.getStubSettingsBuilder().createWriteStreamSettings();
+            createWriteStreamSettings.setRetrySettings(
+                    createWriteStreamSettings
+                            .getRetrySettings()
+                            .toBuilder()
+                            .setMaxAttempts(10)
+                            .build());
+
+            UnaryCallSettings.Builder<FlushRowsRequest, FlushRowsResponse> flushRowsSettings =
+                    settingsBuilder.getStubSettingsBuilder().flushRowsSettings();
+            flushRowsSettings.setRetrySettings(
+                    createWriteStreamSettings
+                            .getRetrySettings()
+                            .toBuilder()
+                            .setMaxAttempts(10)
+                            .build());
+
+            UnaryCallSettings.Builder<FinalizeWriteStreamRequest, FinalizeWriteStreamResponse>
+                    finalizeWriteStreamSettings =
+                            settingsBuilder.getStubSettingsBuilder().finalizeWriteStreamSettings();
+            finalizeWriteStreamSettings.setRetrySettings(
+                    createWriteStreamSettings
+                            .getRetrySettings()
+                            .toBuilder()
+                            .setMaxAttempts(10)
+                            .build());
+
             this.client = BigQueryWriteClient.create(settingsBuilder.build());
         }
 
@@ -228,6 +264,29 @@ public class BigQueryServicesImpl implements BigQueryServices {
                     .setRetrySettings(retrySettings)
                     .setWriterSchema(protoSchema)
                     .build();
+        }
+
+        @Override
+        public WriteStream createWriteStream(String tablePath, WriteStream.Type streamType) {
+            return this.client.createWriteStream(
+                    CreateWriteStreamRequest.newBuilder()
+                            .setParent(tablePath)
+                            .setWriteStream(WriteStream.newBuilder().setType(streamType).build())
+                            .build());
+        }
+
+        @Override
+        public FlushRowsResponse flushRows(String streamName, long offset) {
+            return this.client.flushRows(
+                    FlushRowsRequest.newBuilder()
+                            .setWriteStream(streamName)
+                            .setOffset(Int64Value.of(offset))
+                            .build());
+        }
+
+        @Override
+        public FinalizeWriteStreamResponse finalizeWriteStream(String streamName) {
+            return client.finalizeWriteStream(streamName);
         }
 
         @Override

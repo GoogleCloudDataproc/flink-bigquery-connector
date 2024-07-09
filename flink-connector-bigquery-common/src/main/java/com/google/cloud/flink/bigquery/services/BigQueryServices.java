@@ -21,11 +21,14 @@ import org.apache.flink.annotation.Internal;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
+import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
+import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 
 import java.io.IOException;
@@ -125,6 +128,32 @@ public interface BigQueryServices extends Serializable {
         StreamWriter createStreamWriter(
                 String streamName, ProtoSchema protoSchema, boolean enableConnectionPool)
                 throws IOException;
+
+        /**
+         * Create a StreamWriter for writing to a BigQuery table.
+         *
+         * @param tablePath the table to which the stream belongs.
+         * @param streamType the type of the stream.
+         * @return A WriteStream.
+         */
+        WriteStream createWriteStream(String tablePath, WriteStream.Type streamType);
+
+        /**
+         * Flush data in buffered stream to BigQuery table.
+         *
+         * @param streamName the write stream to be flushed.
+         * @param offset the offset to which write stream must be flushed.
+         * @return A FlushRowsResponse.
+         */
+        FlushRowsResponse flushRows(String streamName, long offset);
+
+        /**
+         * Finalize a BigQuery write stream so that no new data can be appended to the stream.
+         *
+         * @param streamName the write stream to be finalized.
+         * @return A FinalizeWriteStreamResponse.
+         */
+        FinalizeWriteStreamResponse finalizeWriteStream(String streamName);
 
         /**
          * Close the client object.
