@@ -73,7 +73,7 @@ under the License.
     </distributionManagement>
 
     <properties>
-        <revision>0.2-SNAPSHOT</revision>
+        <revision>0.3-SNAPSHOT</revision>
         <flink.version>1.17.1</flink.version>
         <google-lib-bom.version>26.33.0</google-lib-bom.version>
 
