@@ -22,7 +22,7 @@ import org.apache.flink.table.api.TableDescriptor;
 /**
  * Configurations for a BigQuery Table API Write.
  *
- * <p>Inherits {@link BigQueryTableConfig} for general options and defines sink-specific options.
+ * <p>Inherits {@link BigQueryTableConfig} for general options and defines sink specific options.
  *
  * <p>Uses static inner builder to initialize new instances.
  */
