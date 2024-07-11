@@ -18,8 +18,16 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.util.function.SerializableSupplier;
 
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.ProtoRows;
+import com.google.cloud.bigquery.storage.v1.ProtoSchema;
+import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -67,5 +75,95 @@ public class BigQueryServicesTest {
 
         assertThat(original.getIsTestingEnabled()).isFalse();
         assertThat(original.getTestingServices()).isNull();
+    }
+
+    @Test
+    public void testWriteApi() throws IOException {
+        BigQueryConnectOptions connectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId("testproject-398714")
+                        .setDataset("sink_test_data")
+                        .setTable("string_table_1")
+                        .build();
+        BigQueryServices.StorageWriteClient writeClient =
+                BigQueryServicesFactory.instance(connectOptions).storageWrite();
+        String tablePath =
+                String.format(
+                        "projects/%s/datasets/%s/tables/%s",
+                        connectOptions.getProjectId(),
+                        connectOptions.getDataset(),
+                        connectOptions.getTable());
+        String streamName =
+                writeClient.createWriteStream(tablePath, WriteStream.Type.BUFFERED).getName();
+        ProtoSchema protoSchema =
+                ProtoSchema.newBuilder().setProtoDescriptor(ProtobufUtils.DESCRIPTOR_PROTO).build();
+        StreamWriter streamWriter = writeClient.createStreamWriter(streamName, protoSchema, false);
+        try {
+            AppendRowsResponse res1 =
+                    streamWriter
+                            .append(
+                                    ProtoRows.newBuilder()
+                                            .addSerializedRows(
+                                                    ProtobufUtils.createMessage("LukaModric")
+                                                            .toByteString())
+                                            .build(),
+                                    0)
+                            .get();
+            System.out.println(res1);
+            AppendRowsResponse res2 =
+                    streamWriter
+                            .append(
+                                    ProtoRows.newBuilder()
+                                            .addSerializedRows(
+                                                    ProtobufUtils.createMessage("ToniKross")
+                                                            .toByteString())
+                                            .build(),
+                                    1)
+                            .get();
+            System.out.println(res2);
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+        streamWriter.close();
+        writeClient.finalizeWriteStream(streamName);
+    }
+
+    static class ProtobufUtils {
+        public static final DescriptorProtos.DescriptorProto DESCRIPTOR_PROTO;
+        public static final Descriptors.Descriptor DESCRIPTOR;
+
+        static {
+            DescriptorProtos.DescriptorProto.Builder descriptorProtoBuilder =
+                    DescriptorProtos.DescriptorProto.newBuilder();
+            descriptorProtoBuilder.setName("Schema");
+            descriptorProtoBuilder.addField(
+                    DescriptorProtos.FieldDescriptorProto.newBuilder()
+                            .setName("name")
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED)
+                            .setNumber(1)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING));
+            DESCRIPTOR_PROTO = descriptorProtoBuilder.build();
+
+            DescriptorProtos.FileDescriptorProto fileDescriptorProto =
+                    DescriptorProtos.FileDescriptorProto.newBuilder()
+                            .addMessageType(DESCRIPTOR_PROTO)
+                            .build();
+
+            try {
+                DESCRIPTOR =
+                        Descriptors.FileDescriptor.buildFrom(
+                                        fileDescriptorProto, new Descriptors.FileDescriptor[] {})
+                                .getMessageTypes()
+                                .get(0);
+            } catch (Exception e) {
+                throw new RuntimeException("Could not create proto descriptor", e);
+            }
+        }
+
+        public static DynamicMessage createMessage(String value) {
+            return DynamicMessage.newBuilder(DESCRIPTOR)
+                    .setField(DESCRIPTOR.findFieldByNumber(1), value)
+                    .build();
+        }
     }
 }

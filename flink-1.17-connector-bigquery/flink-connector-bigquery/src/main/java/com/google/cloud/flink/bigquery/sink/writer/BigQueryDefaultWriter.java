@@ -25,6 +25,7 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.concurrent.ExecutionException;
 
@@ -51,15 +52,20 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
     public BigQueryDefaultWriter(
             int subtaskId,
+            String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer,
-            String tablePath) {
-        super(subtaskId, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer) {
+        super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
         streamName = String.format("%s/streams/_default", tablePath);
     }
 
-    /** Accept record for writing to BigQuery table. */
+    /**
+     * Accept record for writing to BigQuery table.
+     *
+     * @param element Record to write
+     * @param context {@link Context} for input record
+     */
     @Override
     public void write(IN element, Context context) {
         try {
@@ -76,16 +82,18 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
     /** Asynchronously append to BigQuery table's default stream. */
     @Override
-    ApiFuture sendAppendRequest(ProtoRows protoRows) {
+    void sendAppendRequest(ProtoRows protoRows) {
         if (streamWriter == null) {
             streamWriter = createStreamWriter(true);
         }
-        return streamWriter.append(protoRows);
+        ApiFuture<AppendRowsResponse> response = streamWriter.append(protoRows);
+        appendResponseFuturesQueue.add(Pair.of(response, -1L));
     }
 
     /** Throws a RuntimeException if an error is found with append response. */
     @Override
-    void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture) {
+    void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture, long offset) {
+        // Offset has no relevance when appending to the default write stream.
         AppendRowsResponse response;
         try {
             response = appendResponseFuture.get();

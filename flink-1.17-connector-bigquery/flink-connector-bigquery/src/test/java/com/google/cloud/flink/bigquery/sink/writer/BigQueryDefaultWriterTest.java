@@ -212,7 +212,8 @@ public class BigQueryDefaultWriterTest {
                 ApiFutures.immediateFuture(
                         AppendRowsResponse.newBuilder()
                                 .setError(Status.newBuilder().setCode(4).build())
-                                .build()));
+                                .build()),
+                -1L);
     }
 
     private BigQueryDefaultWriter createDefaultWriter(
@@ -220,9 +221,9 @@ public class BigQueryDefaultWriterTest {
             throws IOException {
         return new BigQueryDefaultWriter(
                 0,
+                "/projects/project/datasets/dataset/tables/table",
                 StorageClientFaker.createConnectOptionsForWrite(appendResponse),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
-                mockSerializer,
-                "/projects/project/datasets/dataset/tables/table");
+                mockSerializer);
     }
 }
