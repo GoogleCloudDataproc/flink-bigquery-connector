@@ -26,7 +26,7 @@ import java.io.IOException;
 
 import static com.google.common.truth.Truth.assertThat;
 
-/** */
+/** Tests for {@link BigQueryServices}. */
 public class BigQueryServicesTest {
     @Test
     public void testFactoryWithTestServices() throws IOException {

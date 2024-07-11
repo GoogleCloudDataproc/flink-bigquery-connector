@@ -25,6 +25,7 @@ import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ProtoSchemaConverter;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
@@ -70,23 +71,34 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     // Number of bytes to be sent in the next append request.
     private long appendRequestSizeBytes;
-    private BigQueryServices.StorageWriteClient writeClient;
     protected final int subtaskId;
+    private final String tablePath;
     private final BigQueryConnectOptions connectOptions;
     private final ProtoSchema protoSchema;
     private final BigQueryProtoSerializer serializer;
-    private final Queue<ApiFuture> appendResponseFuturesQueue;
     private final ProtoRows.Builder protoRowsBuilder;
 
+    final Queue<AppendInfo> appendResponseFuturesQueue;
+    // Initialization of writeClient has been deferred to first append call. BigQuery's best
+    // practices suggest that client connections should be opened when needed.
+    BigQueryServices.StorageWriteClient writeClient;
     StreamWriter streamWriter;
     String streamName;
+    long totalRecordsSeen;
+    // In exactly-once mode, "totalRecordsWritten" actually represents records appended to a
+    // write stream by this writer. Only at a checkpoint, when sink's commit is invoked, will
+    // the records in a stream get committed to the table. Hence, records written to BigQuery
+    // table is equal to this "totalRecordsWritten" only upon checkpoint completion.
+    long totalRecordsWritten;
 
     BaseWriter(
             int subtaskId,
+            String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer) {
         this.subtaskId = subtaskId;
+        this.tablePath = tablePath;
         this.connectOptions = connectOptions;
         this.protoSchema = getProtoSchema(schemaProvider);
         this.serializer = serializer;
@@ -102,7 +114,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         if (appendRequestSizeBytes > 0) {
             append();
         }
-        logger.debug("Validating all pending append responses in subtask {}", subtaskId);
+        logger.info("Validating all pending append responses in subtask {}", subtaskId);
         validateAppendResponses(true);
     }
 
@@ -125,10 +137,10 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     }
 
     /** Invoke BigQuery storage API for appending data to a table. */
-    abstract ApiFuture sendAppendRequest(ProtoRows protoRows);
+    abstract void sendAppendRequest(ProtoRows protoRows);
 
     /** Checks append response for errors. */
-    abstract void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture);
+    abstract void validateAppendResponse(AppendInfo appendInfo);
 
     /** Add serialized record to append request. */
     void addToAppendRequest(ByteString protoRow) {
@@ -138,21 +150,40 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     /** Send append request to BigQuery storage and prepare for next append request. */
     void append() {
-        ApiFuture responseFuture = sendAppendRequest(protoRowsBuilder.build());
-        appendResponseFuturesQueue.add(responseFuture);
+        sendAppendRequest(protoRowsBuilder.build());
         protoRowsBuilder.clear();
         appendRequestSizeBytes = 0L;
     }
 
     /** Creates a StreamWriter for appending to BigQuery table. */
-    StreamWriter createStreamWriter(boolean enableConnectionPool) {
-        logger.debug("Creating BigQuery StreamWriter in subtask {}", subtaskId);
+    void createStreamWriter(boolean enableConnectionPool) {
         try {
-            writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
-            return writeClient.createStreamWriter(streamName, protoSchema, enableConnectionPool);
+            logger.debug("Creating BigQuery StreamWriter in subtask {}", subtaskId);
+            if (writeClient == null) {
+                writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
+            }
+            streamWriter =
+                    writeClient.createStreamWriter(streamName, protoSchema, enableConnectionPool);
         } catch (IOException e) {
             logger.error("Unable to create StreamWriter for stream {}", streamName);
             throw new BigQueryConnectorException("Unable to create StreamWriter", e);
+        }
+    }
+
+    /** Creates a write stream and StreamWriter for appending to BigQuery table. */
+    void createWriteStreamAndStreamWriter(
+            WriteStream.Type streamType, boolean enableConnectionPool) {
+        logger.info("Creating BigQuery write stream and StreamWriter in subtask {}", subtaskId);
+        try {
+            if (writeClient == null) {
+                writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
+            }
+            streamName = writeClient.createWriteStream(tablePath, streamType).getName();
+            streamWriter =
+                    writeClient.createStreamWriter(streamName, protoSchema, enableConnectionPool);
+        } catch (IOException e) {
+            logger.error("Unable to connect to BigQuery in subtask {}", streamName);
+            throw new BigQueryConnectorException("Unable to create write stream", e);
         }
     }
 
@@ -196,14 +227,52 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
      * order, we proceed to check the next response only after the previous one has arrived.
      */
     void validateAppendResponses(boolean waitForResponse) {
-        ApiFuture<AppendRowsResponse> appendResponseFuture;
-        while ((appendResponseFuture = appendResponseFuturesQueue.peek()) != null) {
-            if (waitForResponse || appendResponseFuture.isDone()) {
+        while (!appendResponseFuturesQueue.isEmpty()) {
+            AppendInfo appendInfo = appendResponseFuturesQueue.peek();
+            if (waitForResponse || appendInfo.getFuture().isDone()) {
                 appendResponseFuturesQueue.poll();
-                validateAppendResponse(appendResponseFuture);
+                validateAppendResponse(appendInfo);
             } else {
                 break;
             }
+        }
+    }
+
+    void logAndThrowFatalException(Throwable error) {
+        logger.error(String.format("AppendRows request failed in subtask %d", subtaskId), error);
+        throw new BigQueryConnectorException("Error while writing to BigQuery", error);
+    }
+
+    void logAndThrowFatalException(String errorMessage) {
+        logger.error(
+                String.format(
+                        "AppendRows request failed in subtask %d\n%s", subtaskId, errorMessage));
+        throw new BigQueryConnectorException(
+                String.format("Error while writing to BigQuery\n%s", errorMessage));
+    }
+
+    static class AppendInfo {
+        private final ApiFuture<AppendRowsResponse> future;
+        private final long expectedOffset;
+        private final long recordsAppended;
+
+        AppendInfo(
+                ApiFuture<AppendRowsResponse> future, long expectedOffset, long recordsAppended) {
+            this.future = future;
+            this.expectedOffset = expectedOffset;
+            this.recordsAppended = recordsAppended;
+        }
+
+        public ApiFuture<AppendRowsResponse> getFuture() {
+            return future;
+        }
+
+        public long getExpectedOffset() {
+            return expectedOffset;
+        }
+
+        public long getRecordsAppended() {
+            return recordsAppended;
         }
     }
 
