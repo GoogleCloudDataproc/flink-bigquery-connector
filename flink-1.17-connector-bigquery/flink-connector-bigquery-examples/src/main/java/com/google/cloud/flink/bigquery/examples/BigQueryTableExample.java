@@ -358,8 +358,6 @@ public class BigQueryTableExample {
                 BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
 
         // Insert the table sourceTable to the registered sinkTable
-        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
-
         sourceTable =
                 sourceTable
                         .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
