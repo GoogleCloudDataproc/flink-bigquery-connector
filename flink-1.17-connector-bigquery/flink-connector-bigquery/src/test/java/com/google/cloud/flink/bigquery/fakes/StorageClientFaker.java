@@ -79,9 +79,6 @@ public class StorageClientFaker {
     /** Implementation for the BigQuery services for testing purposes. */
     public static class FakeBigQueryServices implements BigQueryServices {
 
-        static volatile FakeBigQueryServices instance = null;
-        static final Object LOCK = new Object();
-
         private final FakeBigQueryStorageReadClient storageReadClient;
         private final FakeBigQueryStorageWriteClient storageWriteClient;
 
@@ -95,16 +92,8 @@ public class StorageClientFaker {
         static FakeBigQueryServices getInstance(
                 FakeBigQueryStorageReadClient storageReadClient,
                 FakeBigQueryStorageWriteClient storageWriteClient) {
-            if (instance == null) {
-                synchronized (LOCK) {
-                    if (instance == null) {
-                        instance =
-                                Mockito.spy(
-                                        new FakeBigQueryServices(
-                                                storageReadClient, storageWriteClient));
-                    }
-                }
-            }
+            FakeBigQueryServices instance =
+                    Mockito.spy(new FakeBigQueryServices(storageReadClient, storageWriteClient));
             return instance;
         }
 
@@ -749,9 +738,6 @@ public class StorageClientFaker {
     /** Implementation of {@link BigQueryServices} for testing Table API. */
     public static class FakeBigQueryTableServices implements BigQueryServices {
 
-        static volatile FakeBigQueryTableServices instance = null;
-        static final Object LOCK = new Object();
-
         private final FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient;
         private final FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient;
 
@@ -765,16 +751,9 @@ public class StorageClientFaker {
         static FakeBigQueryTableServices getInstance(
                 FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
                 FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient) {
-            if (instance == null) {
-                synchronized (LOCK) {
-                    if (instance == null) {
-                        instance =
-                                Mockito.spy(
-                                        new FakeBigQueryTableServices(
-                                                storageReadClient, storageWriteClient));
-                    }
-                }
-            }
+            FakeBigQueryTableServices instance =
+                    Mockito.spy(
+                            new FakeBigQueryTableServices(storageReadClient, storageWriteClient));
             return instance;
         }
 
