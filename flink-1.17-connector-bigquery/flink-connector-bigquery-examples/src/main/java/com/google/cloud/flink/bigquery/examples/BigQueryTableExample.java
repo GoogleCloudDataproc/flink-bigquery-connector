@@ -24,6 +24,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.annotation.DataTypeHint;
 import org.apache.flink.table.annotation.FunctionHint;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TablePipeline;
+import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
@@ -363,7 +365,9 @@ public class BigQueryTableExample {
                         .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
                         .as($("name"), $("number"), $("ts"));
 
-        sourceTable.executeInsert("bigQuerySinkTable");
+        TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
+        TableResult res = pipeline.execute();
+        res.await();
     }
 
     /** Function to flatmap the Table API source Catalog Table. */
