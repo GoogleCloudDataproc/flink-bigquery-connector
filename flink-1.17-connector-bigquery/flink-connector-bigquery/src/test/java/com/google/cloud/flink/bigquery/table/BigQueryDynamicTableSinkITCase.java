@@ -31,9 +31,10 @@ import org.apache.flink.util.function.SerializableSupplier;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
-import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.Schema;
@@ -48,10 +49,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -94,15 +91,6 @@ public class BigQueryDynamicTableSinkITCase {
                                     .collect(Collectors.toList());
                         };
 
-        SerializableSupplier<BigQueryServices> testingServices =
-                StorageClientFaker.createReadOptions(
-                                TOTAL_ROW_COUNT_PER_STREAM,
-                                STREAM_COUNT,
-                                AVRO_SCHEMA.toString(),
-                                dataGenerator)
-                        .getBigQueryConnectOptions()
-                        .getTestingBigQueryServices();
-
         AppendRowsResponse appendRowsResponse = AppendRowsResponse.newBuilder().build();
 
         SerializableSupplier<BigQueryServices> testingServices =
@@ -139,7 +127,6 @@ public class BigQueryDynamicTableSinkITCase {
 
     @Test
     public void testSchemaResolution() throws IOException {
-        tEnv.createTable("bigquery_sink", createTestDDl(null));
         tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.AT_LEAST_ONCE));
         // Resolved Schema is obtained after resolution and validation.
         ResolvedSchema resolvedSchema = tEnv.from("bigquery_sink").getResolvedSchema();
@@ -151,7 +138,6 @@ public class BigQueryDynamicTableSinkITCase {
         Assertions.assertEquals(expectedResolvedSchema, resolvedSchema);
     }
 
-    private static TableDescriptor createTestDDl(Map<String, String> extraOptions)
     private static TableDescriptor createTestDDl(DeliveryGuarantee deliveryGuarantee)
             throws IOException {
         BigQueryTableConfig tableConfig =
@@ -160,19 +146,7 @@ public class BigQueryDynamicTableSinkITCase {
                         .dataset("dataset")
                         .table("table")
                         .testMode(true)
-                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
                         .deliveryGuarantee(deliveryGuarantee)
-                        .build();
-        return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
-    }
-
-    private static TableDescriptor createReadTestDDl() throws IOException {
-        BigQueryTableConfig tableConfig =
-                BigQueryReadTableConfig.newBuilder()
-                        .project("project")
-                        .dataset("dataset")
-                        .table("table")
-                        .testMode(true)
                         .build();
         return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
     }
