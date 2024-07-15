@@ -40,6 +40,8 @@ import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.table.annotation.DataTypeHint;
 import org.apache.flink.table.annotation.FunctionHint;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TablePipeline;
+import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
@@ -96,6 +98,7 @@ import static org.apache.flink.table.api.Expressions.call;
  *         <li>--bq-dest-table {optional; name of Destination BigQuery table to write} <br>
  *         <li>--sink-parallelism {optional; parallelism for sink job}
  *         <li>--exactly-once {optional; set flag to enable exactly once approach}
+ *         <li>--is-sql {optional; set flag to run Table API methods for read and write}
  *       </ul>
  *       The sequence of operations in the read and write pipeline is: <i>source > map > sink</i>.
  *       <br>
@@ -105,6 +108,12 @@ import static org.apache.flink.table.api.Expressions.call;
  *       counts the total number of records read (the number of records observed by map operation)
  *       and logs this count at the end. It also logs the "HOUR" and "DAY" value of the obtained
  *       rows in order to verify the query correctness. <br>
+ *       In case the <code>is-sql</code> flag is set to true, Flink's Table API's <code>
+ *       .select($(*))</code> method is executed. Which is responsible for reading a source table.
+ *       These read records are then pass through a flat map which appends a string to the "name"
+ *       field in the record. These modified records are written back to BigQuery using <code>
+ *       .insertInto().execute()</code>. Overall, the execution pipeline for Table API is read >
+ *       flatmap > sink. <br>
  *       Command to run bounded tests on Dataproc Cluster is: <br>
  *       {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION}
  *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-source-project {GCP_SOURCE_PROJECT_ID}
@@ -112,7 +121,8 @@ import static org.apache.flink.table.api.Expressions.call;
  *       Name} --agg-prop {PROPERTY_TO_AGGREGATE_ON} --query {QUERY} --gcp-dest-project
  *       {GCP_DESTINATION_PROJECT_ID} --bq-dest-dataset {BigQuery Destination Dataset Name}
  *       --bq-dest-table {BigQuery Destination Table Name} --sink-parallelism {Parallelism to be
- *       followed by the sink} --exactly-once {set flag to enable exactly once approach}} <br>
+ *       followed by the sink} --exactly-once {set flag to enable exactly once approach} --is-sql
+ *       {set flag to enable running Flink's Table API methods}} <br>
  *   <li>Unbounded Job: Involve reading from and writing to a partitioned BigQuery Table in the <i>
  *       unbounded </i> mode.<br>
  *       This test requires some additional arguments besides the ones mentioned in the bounded
@@ -129,7 +139,10 @@ import static org.apache.flink.table.api.Expressions.call;
  *       </ul>
  *       The sequence of operations in this pipeline is simply <i>source > sink</i>. <br>
  *       This job is run asynchronously. The test appends newer partitions to check the read
- *       correctness. Hence, after the job is created new partitions are added. <br>
+ *       correctness. Hence, after the job is created new partitions are added.<br>
+ *       In unbounded mode, the SQL read and write is similar as described above for bounded mode
+ *       with incremental partitions being read and written to BigQuery as per the described
+ *       unbounded mode.<br>
  *       Command to run unbounded tests on Dataproc Cluster is: <br>
  *       {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION}
  *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-source-project {GCP_SOURCE_PROJECT_ID}
@@ -139,7 +152,8 @@ import static org.apache.flink.table.api.Expressions.call;
  *       --bq-dest-table {BigQuery Destination Table Name} --sink-parallelism {Parallelism to be
  *       followed by the sink} --exactly-once {set flag to enable exactly once approach} --mode
  *       unbounded --ts-prop {TIMESTAMP_PROPERTY} --partition-discovery-interval
- *       {PARTITION_DISCOVERY_INTERVAL} }
+ *       {PARTITION_DISCOVERY_INTERVAL} --is-sql {set flag to enable running Flink's Table API
+ *       methods}}
  * </ol>
  */
 public class BigQueryIntegrationTest {
@@ -209,19 +223,18 @@ public class BigQueryIntegrationTest {
                 // Sink Parameters have been provided.
                 switch (mode) {
                     case "bounded":
-                        runBoundedSQLJobWithSink(
+                        runBoundedSQLFlinkJob(
                                 sourceGcpProjectName,
                                 sourceDatasetName,
                                 sourceTableName,
                                 destGcpProjectName,
                                 destDatasetName,
                                 destTableName,
-                                isExactlyOnceEnabled,
-                                sinkParallelism);
+                                isExactlyOnceEnabled);
                         break;
                     case "unbounded":
                         recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                        runStreamingSQLJobWithSink(
+                        runStreamingSQLFlinkJob(
                                 sourceGcpProjectName,
                                 sourceDatasetName,
                                 sourceTableName,
@@ -229,43 +242,18 @@ public class BigQueryIntegrationTest {
                                 destDatasetName,
                                 destTableName,
                                 isExactlyOnceEnabled,
-                                sinkParallelism,
                                 recordPropertyForTimestamps,
                                 partitionDiscoveryInterval,
                                 timeoutTimePeriod);
                         break;
                     default:
                         throw new IllegalArgumentException(
-                                "Allowed values for mode are bounded, unbounded or hybrid. Found "
-                                        + mode);
+                                "Allowed values for mode are bounded or unbounded. Found " + mode);
                 }
             } else {
-                //                switch (mode) {
-                //                    case "bounded":
-                //                        recordPropertyToAggregate =
-                // parameterTool.getRequired("agg-prop");
-                //                        runBoundedSQLJob(
-                //                                sourceGcpProjectName,
-                //                                sourceDatasetName,
-                //                                sourceTableName,
-                //                                recordPropertyToAggregate);
-                //                        break;
-                //                    case "unbounded":
-                //                        recordPropertyForTimestamps =
-                // parameterTool.getRequired("ts-prop");
-                //                        runStreamingSQLJob(
-                //                                sourceGcpProjectName,
-                //                                sourceDatasetName,
-                //                                sourceTableName,
-                //                                recordPropertyForTimestamps,
-                //                                partitionDiscoveryInterval,
-                //                                expectedNumberOfRecords,
-                //                                timeoutTimePeriod);
-                //                        break;
-                //                    default:
                 throw new IllegalArgumentException(
-                        "Allowed values for mode are bounded, unbounded. Found " + mode);
-                //                }
+                        "No example currently provided for read-only table API implementation."
+                                + mode);
             }
         } else {
             if (sinkToBigQuery) {
@@ -344,156 +332,6 @@ public class BigQueryIntegrationTest {
                 .print();
 
         env.execute("Flink BigQuery Query Integration Test");
-    }
-
-    private static void runBoundedSQLJobWithSink(
-            String sourceGcpProjectName,
-            String sourceDatasetName,
-            String sourceTableName,
-            String destGcpProjectName,
-            String destDatasetName,
-            String destTableName,
-            boolean exactlyOnce,
-            Integer sinkParallelism)
-            throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-
-        // Declare Read Options.
-        BigQueryTableConfig readTableConfig =
-                BigQueryReadTableConfig.newBuilder()
-                        .table(sourceTableName)
-                        .project(sourceGcpProjectName)
-                        .dataset(sourceDatasetName)
-                        .testMode(false)
-                        .boundedness(Boundedness.BOUNDED)
-                        .build();
-
-        // Register the Source Table
-        tEnv.createTable(
-                "bigQuerySourceTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
-        Table sourceTable = tEnv.from("bigQuerySourceTable");
-
-        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
-
-        sourceTable = sourceTable.select($("*"));
-
-        BigQueryTableConfig sinkTableConfig =
-                BigQuerySinkTableConfig.newBuilder()
-                        .table(destTableName)
-                        .project(destGcpProjectName)
-                        .dataset(destDatasetName)
-                        .testMode(false)
-                        .build();
-
-        if (exactlyOnce) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .build();
-        }
-
-        // Register the Sink Table
-        tEnv.createTable(
-                "bigQuerySinkTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
-
-        // Insert the table sourceTable to the registered sinkTable
-        sourceTable.executeInsert("bigQuerySinkTable");
-    }
-
-    private static void runStreamingSQLJobWithSink(
-            String sourceGcpProjectName,
-            String sourceDatasetName,
-            String sourceTableName,
-            String destGcpProjectName,
-            String destDatasetName,
-            String destTableName,
-            boolean isExactlyOnceEnabled,
-            Integer sinkParallelism,
-            String recordPropertyForTimestamps,
-            Integer partitionDiscoveryInterval,
-            Integer timeoutTimePeriod)
-            throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-
-        // Declare Read Options.
-        BigQueryTableConfig readTableConfig =
-                BigQueryReadTableConfig.newBuilder()
-                        .table(sourceTableName)
-                        .project(sourceGcpProjectName)
-                        .dataset(sourceDatasetName)
-                        .testMode(false)
-                        .partitionDiscoveryInterval(partitionDiscoveryInterval)
-                        .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
-                        .build();
-
-        // Register the Source Table
-        tEnv.createTable(
-                "bigQuerySourceTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
-        Table sourceTable = tEnv.from("bigQuerySourceTable");
-
-        // Fetch entries in this sourceTable
-        sourceTable = sourceTable.select($("*"));
-
-        // Declare Write Options.
-        BigQueryTableConfig sinkTableConfig =
-                BigQuerySinkTableConfig.newBuilder()
-                        .table(destTableName)
-                        .project(destGcpProjectName)
-                        .dataset(destDatasetName)
-                        .testMode(false)
-                        .build();
-
-        if (isExactlyOnceEnabled) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .build();
-        }
-
-        // Register the Sink Table
-        tEnv.createTable(
-                "bigQuerySinkTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
-        Table sinkTable = tEnv.from("bigQuerySinkTable");
-
-        // Insert the table sourceTable to the registered sinkTable
-        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
-
-        sourceTable =
-                sourceTable
-                        .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
-                        .as($("name"), $("number"), $("ts"));
-
-        sourceTable.executeInsert("bigQuerySinkTable");
-    }
-
-    /** Function to flatmap the Table API source Catalog Table. */
-    @FunctionHint(
-            input = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"),
-            output = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"))
-    public static class MyFlatMapFunction extends TableFunction<Row> {
-
-        public void eval(Row row) {
-            String str = (String) row.getField("name");
-            collect(Row.of(str + "_write_test", row.getField("number"), row.getField("ts")));
-        }
     }
 
     private static void runBoundedFlinkJobWithSink(
@@ -792,6 +630,210 @@ public class BigQueryIntegrationTest {
                 recordPropertyForTimestamps,
                 expectedNumberOfRecords,
                 timeoutTimePeriod);
+    }
+
+    /**
+     * Bounded read and sink operation via Flink's Table API. The function is responsible for
+     * reading a BigQuery table (having schema <i>name</i> <code>STRING</code>, <i>number</i> <code>
+     * INTEGER</code>, <i>ts</i> <code>TIMESTAMP</code>) in bounded mode and then passing the
+     * obtained records via a flatmap. The flatmap appends a string "_write_test" to the "name"
+     * field and writes the modified records back to another BigQuery table.
+     *
+     * @param sourceGcpProjectName The GCP Project name of the source table.
+     * @param sourceDatasetName Dataset name of the source table.
+     * @param sourceTableName Source Table Name.
+     * @param destGcpProjectName The GCP Project name of the destination table.
+     * @param destDatasetName Dataset name of the destination table.
+     * @param destTableName Destination Table Name.
+     * @param isExactlyOnce Boolean value, True if exactly-once mode, false otherwise.
+     * @throws Exception in a case of error, obtaining Table Descriptor.
+     */
+    private static void runBoundedSQLFlinkJob(
+            String sourceGcpProjectName,
+            String sourceDatasetName,
+            String sourceTableName,
+            String destGcpProjectName,
+            String destDatasetName,
+            String destTableName,
+            boolean isExactlyOnce)
+            throws Exception {
+
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+        tEnv.createTemporarySystemFunction("func", MySQLFlatMapFunction.class);
+
+        // Declare Read Options.
+        BigQueryTableConfig readTableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .project(sourceGcpProjectName)
+                        .dataset(sourceDatasetName)
+                        .table(sourceTableName)
+                        .testMode(false)
+                        .boundedness(Boundedness.BOUNDED)
+                        .build();
+
+        // Register the Source Table
+        tEnv.createTable(
+                "bigQuerySourceTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
+
+        // Read the table and pass to flatmap.
+        Table sourceTable =
+                tEnv.from("bigQuerySourceTable")
+                        .select($("*"))
+                        .flatMap(
+                                call(
+                                        "func",
+                                        Row.of($("unique_key"), $("name"), $("number"), $("ts"))))
+                        .as($("unique_key"), $("name"), $("number"), $("ts"));
+
+        BigQueryTableConfig sinkTableConfig =
+                BigQuerySinkTableConfig.newBuilder()
+                        .project(destGcpProjectName)
+                        .dataset(destDatasetName)
+                        .table(destTableName)
+                        .testMode(false)
+                        .build();
+
+        if (isExactlyOnce) {
+            sinkTableConfig =
+                    BigQuerySinkTableConfig.newBuilder()
+                            .table(destTableName)
+                            .project(destGcpProjectName)
+                            .dataset(destDatasetName)
+                            .testMode(false)
+                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                            .build();
+        }
+
+        // Register the Sink Table
+        tEnv.createTable(
+                "bigQuerySinkTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+
+        // Insert the table sourceTable to the registered sinkTable
+        TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
+        TableResult res = pipeline.execute();
+        res.await();
+    }
+
+    /**
+     * Unbounded read and sink operation via Flink's Table API. The function is responsible for
+     * reading a BigQuery table (having schema <i>name</i> <code>STRING</code>, <i>number</i> <code>
+     * INTEGER</code>, <i>ts</i> <code>TIMESTAMP</code>) in unbounded mode and then passing the
+     * obtained records via a flatmap. The flatmap appends a string "_write_test" to the "name"
+     * field and writes the modified records back to another BigQuery table.
+     *
+     * @param sourceGcpProjectName The GCP Project name of the source table.
+     * @param sourceDatasetName Dataset name of the source table.
+     * @param sourceTableName Source Table Name.
+     * @param destGcpProjectName The GCP Project name of the destination table.
+     * @param destDatasetName Dataset name of the destination table.
+     * @param destTableName Destination Table Name.
+     * @param isExactlyOnceEnabled Boolean value, True if exactly-once mode, false otherwise.
+     * @param recordPropertyForTimestamps Required String indicating the column name along which
+     *     BigQuery Table is partitioned.
+     * @throws Exception in a case of error, obtaining Table Descriptor.
+     */
+    private static void runStreamingSQLFlinkJob(
+            String sourceGcpProjectName,
+            String sourceDatasetName,
+            String sourceTableName,
+            String destGcpProjectName,
+            String destDatasetName,
+            String destTableName,
+            Boolean isExactlyOnceEnabled,
+            String recordPropertyForTimestamps,
+            Integer partitionDiscoveryInterval,
+            Integer timeoutTimePeriod)
+            throws Exception {
+
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+        tEnv.createTemporarySystemFunction("func", MySQLFlatMapFunction.class);
+
+        // Declare Read Options.
+        BigQueryTableConfig readTableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .table(sourceTableName)
+                        .project(sourceGcpProjectName)
+                        .dataset(sourceDatasetName)
+                        .testMode(false)
+                        .partitionDiscoveryInterval(partitionDiscoveryInterval)
+                        .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
+                        .build();
+
+        // Register the Source Table
+        tEnv.createTable(
+                "bigQuerySourceTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
+
+        // Fetch entries in this sourceTable
+        Table sourceTable =
+                tEnv.from("bigQuerySourceTable")
+                        .select($("*"))
+                        .flatMap(
+                                call(
+                                        "func",
+                                        Row.of($("unique_key"), $("name"), $("number"), $("ts"))))
+                        .as($("unique_key"), $("name"), $("number"), $("ts"));
+
+        // Declare Write Options.
+        BigQueryTableConfig sinkTableConfig =
+                BigQuerySinkTableConfig.newBuilder()
+                        .table(destTableName)
+                        .project(destGcpProjectName)
+                        .dataset(destDatasetName)
+                        .testMode(false)
+                        .build();
+
+        if (isExactlyOnceEnabled) {
+            sinkTableConfig =
+                    BigQuerySinkTableConfig.newBuilder()
+                            .table(destTableName)
+                            .project(destGcpProjectName)
+                            .dataset(destDatasetName)
+                            .testMode(false)
+                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                            .build();
+        }
+
+        // Register the Sink Table
+        tEnv.createTable(
+                "bigQuerySinkTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+
+        // Insert the table sourceTable to the registered sinkTable
+        TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
+        TableResult res = pipeline.execute();
+        try {
+            res.await(timeoutTimePeriod, TimeUnit.MINUTES);
+        } catch (InterruptedException | TimeoutException e) {
+            LOG.info("Job Cancelled!", e);
+        }
+    }
+
+    /** Function to flatmap the Table API source Catalog Table. */
+    @FunctionHint(
+            input =
+                    @DataTypeHint(
+                            "ROW<`unique_key` STRING, `name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"),
+            output =
+                    @DataTypeHint(
+                            "ROW<`unique_key` STRING, `name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"))
+    public static class MySQLFlatMapFunction extends TableFunction<Row> {
+
+        public void eval(Row row) {
+            String str = (String) row.getField("name");
+            collect(
+                    Row.of(
+                            row.getField("unique_key"),
+                            str + "_write_test",
+                            row.getField("number"),
+                            row.getField("ts")));
+        }
     }
 
     static class FlatMapper extends RichFlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
