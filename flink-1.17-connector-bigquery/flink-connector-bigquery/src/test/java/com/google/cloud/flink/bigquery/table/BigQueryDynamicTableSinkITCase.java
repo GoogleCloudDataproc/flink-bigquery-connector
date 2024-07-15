@@ -35,7 +35,6 @@ import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
-import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.Schema;
@@ -91,6 +90,7 @@ public class BigQueryDynamicTableSinkITCase {
                                             })
                                     .collect(Collectors.toList());
                         };
+
         AppendRowsResponse appendRowsResponse = AppendRowsResponse.newBuilder().build();
 
         SerializableSupplier<BigQueryServices> testingServices =
@@ -147,17 +147,6 @@ public class BigQueryDynamicTableSinkITCase {
                         .table("table")
                         .testMode(true)
                         .deliveryGuarantee(deliveryGuarantee)
-                        .build();
-        return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
-    }
-
-    private static TableDescriptor createReadTestDDl() throws IOException {
-        BigQueryTableConfig tableConfig =
-                BigQueryReadTableConfig.newBuilder()
-                        .project("project")
-                        .dataset("dataset")
-                        .table("table")
-                        .testMode(true)
                         .build();
         return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
     }
