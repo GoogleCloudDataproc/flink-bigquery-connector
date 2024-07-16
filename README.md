@@ -5,7 +5,7 @@
 
 The connector supports streaming data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink, 
 and writing results back to BigQuery tables.
-This is done by using the [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/overview/) 
+This is done by using the [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/overview/) as well as [Flink's Table API and SQL](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/table/overview/)
 to communicate with BigQuery.
 
 ## Public Preview
@@ -85,7 +85,7 @@ granted.
 * Unix-like environment (we use Linux, Mac OS X)
 * Git
 * Maven (we recommend version 3.8.6)
-* Java 8
+* Java 11
 
 ### Downloading the Connector
 
@@ -96,9 +96,9 @@ There are two ways to access the connector.
 The connector is available on the [Maven Central](https://repo1.maven.org/maven2/com/google/cloud/flink/)
 repository.
 
-| Flink version | Connector Artifact                                                       |
-|---------------|--------------------------------------------------------------------------|
-| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.2.0`             |
+| Flink version | Connector Artifact                                                                                                          |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------|
+| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.2.0`,  `com.google.cloud.flink:flink-1.17-connector-bigquery:0.3.0` |
 
 #### GitHub
 
@@ -109,7 +109,7 @@ Users can obtain the connector artifact from our [GitHub repository](https://git
 ```shell
 git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
 cd flink-bigquery-connector
-git checkout tags/0.2.0
+git checkout tags/0.3.0
 mvn clean install -DskipTests -Pflink_1.17
 ```
 
@@ -129,6 +129,7 @@ If only the jars are needed, then execute maven `package` instead of `install`.
 | 0.1.0-preview                 | ✓      | ✓      |
 | 0.2.0-preview                 | ✓      | ✓      |
 | 0.2.0                         | ✓      | ✓      |
+| 0.3.0                         | ✓      | ✓      |
 
 ### Create a Google Cloud Dataproc cluster (Optional)
 
@@ -150,10 +151,11 @@ Follow [this document](https://cloud.google.com/dataproc/docs/concepts/component
 | 0.1.0-preview                  | ✓   | ✓   |
 | 0.2.0-preview                  | ✓   | ✓   |
 | 0.2.0                          | ✓   | ✓   |
+| 0.3.0                          | ✓   | ✓   |
 
 ## Usage
-
-The connector uses Flink’s Datastream API, and can be used in Java applications. For a Flink source, it offers two read 
+The connector could be used via Flink’s Datastream API, and can be used in Java applications. 
+It could also be used via Flink's Table API and SQL. For a Flink source, it offers two read 
 modes, bounded and unbounded.
 
 ### Compiling against the connector
@@ -164,7 +166,7 @@ modes, bounded and unbounded.
 <dependency>
   <groupId>com.google.cloud.flink</groupId>
   <artifactId>flink-1.17-connector-bigquery</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
@@ -187,6 +189,8 @@ in Sink's [Writers](https://nightlies.apache.org/flink/flink-docs-release-1.17/a
 ```java
 // StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 // env.enableCheckpointing(checkpointInterval);
+
+// Via DataStream API
 
 BigQueryConnectOptions sinkConnectOptions =
         BigQueryConnectOptions.builder()
@@ -235,6 +239,99 @@ to store this data.
 
 **Important:** Please refer to [data ingestion pricing](https://cloud.google.com/bigquery/pricing#data_ingestion_pricing) to 
 understand the BigQuery Storage Write API pricing.
+
+### Table API Support
+ * Table API is a high-level declarative API that allows users to describe what they want to do 
+rather than how to do it. 
+ * This results in simpler customer code and higher level pipelines that are more easily optimized in a managed service.
+* The Table API is a superset of the SQL language and is specially designed for working with Apache Flink.
+* It also allows language-embedded style support for queries in Java, Scala or Python besides the always available String values as queries in SQL.
+<br>
+
+* Reading Via Flink's Table API
+```java
+// Note: Users must create and register a catalog table before reading and writing to them.
+
+// final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+// env.enableCheckpointing(CHECKPOINT_INTERVAL);
+// final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
+// Create the Config.
+BigQueryTableConfig readTableConfig =  new BigQueryReadTableConfig.Builder()
+        .table(...)
+        .project(...)
+        .dataset(...)
+        .partitionDiscoveryInterval(...)
+        .boundedness(...) // Boundedness.CONTINUOUS_UNBOUNDED or Boundedness.BOUNDED
+        .limit()
+        .columnProjection()
+        .snapshotTimestamp()
+        .maxStreamCount()
+        .rowRestriction()
+        .build();
+
+// Create the catalog table.
+tEnv.createTable(
+        "bigQuerySourceTable",
+         BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
+Table sourceTable = tEnv.from("bigQuerySourceTable");
+
+// Fetch entries in this sourceTable
+sourceTable = sourceTable.select($("*"));
+```
+* Writing Via Flink's Table API
+```java
+// Note: Users must create and register a catalog table before reading and writing to them.
+// Schema of the source and sink catalog table must be the same
+
+// final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+// env.enableCheckpointing(CHECKPOINT_INTERVAL);
+// final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
+// Create the Config.
+BigQueryTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
+        .table(...)
+        .project(...)
+        .dataset(...)
+        .testMode(...)
+        .credentialAccessToken()
+        .credentialFile()
+        .credentialKey()
+        .deliveryGuarantee()
+        .build();
+
+// Register the Sink Table
+tEnv.createTable(
+        "bigQuerySinkTable",
+        BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+
+// Insert entries in this sinkTable
+sourceTable.executeInsert("bigQuerySinkTable");
+```
+* Catalog Tables: 
+    * Catalog Table usage helps hide the complexities of interacting with different external systems behind a common interface.
+    * In Apache Flink, a CatalogTable represents the unresolved metadata of a table stored within a catalog. 
+    * It is an encapsulation of all the characteristics that would typically define an SQL CREATE TABLE statement.
+    * This includes the table's schema (column names and data types), partitioning information, constraints etc.
+      It doesn't contain the actual table data.
+    * SQL Command for Catalog Table Creation
+  ```java
+    CREATE TABLE sample_catalog_table
+    (name STRING) // Schema Details
+    WITH
+    ('connector' = 'bigquery',
+    'project' = '<bigquery_project_name>',
+    'dataset' = '<bigquery_dataset_name>',
+    'table' = '<bigquery_table_name>');
+  ```
+* <b>Input and Output tables (catalog tables) must be registered in the TableEnvironment.
+* Moreover, the schema of the registered table must match the schema of the query.</b>
+* Boundedness must be either `Boundedness.CONTINUOUS_UNBOUNDED` or `Boundedness.BOUNDED`.
+* Checkpointing must be enabled as mentioned above. Delivery guarantee must be at-least-once.
+* [BigQueryTableConfig](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/table/config/BigQueryTableConfig.java) stores information needed to connect to a BigQuery table. It could even be used to obtain the TableDescriptor required for the creation of Catalog Table.
+* [RowDataToProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/RowDataToProtoSerializer.java) is offered for serialization of `RowData` (since Table API read/writes `RowData` format records) records to BigQuery Proto Rows. This out-of-box serializer is automatically provided to the sink during runtime.
+* [BigQueryTableSchemaProvider](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQueryTableSchemaProvider.java) is a helper class which contains the method `getTableDescriptor()` which could be used to obtain a [TableDescriptor](https://nightlies.apache.org/flink/flink-docs-master/api/java/org/apache/flink/table/api/TableDescriptor.html) for creation of catalog table via `BigQueryTableConfig` (`BigQuerySinkTableConfig` for sink options and `BigQueryReadTableConfig` for read options). 
+Users could also create their own catalog tables; provided the schema of the registered table, and the associated BigQuery table is the same.
 
 ### Unbounded Source
 
@@ -363,9 +460,11 @@ All the current BigQuery datatypes are being handled when transforming data from
 
 ## Example Application
 
-The `flink-1.17-connector-bigquery-examples` module offers a sample Flink application powered by the connector. It can be 
-found at `com.google.cloud.flink.bigquery.examples.BigQueryExample`. It offers an intuitive hands-on application with 
-elaborate guidance to test out the connector and its various configurations.
+The `flink-1.17-connector-bigquery-examples` module offers a sample Flink application powered by the connector.
+It can be found at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API 
+and at `com.google.cloud.flink.bigquery.examples.BigQueryTableExample` for the Table API and SQL.
+It offers an intuitive hands-on application with elaborate guidance to test out the connector and 
+its various configurations.
 
 ## FAQ
 
