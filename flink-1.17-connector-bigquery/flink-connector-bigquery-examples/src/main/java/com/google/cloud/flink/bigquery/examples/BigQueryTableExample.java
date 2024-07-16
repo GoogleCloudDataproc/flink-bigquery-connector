@@ -323,11 +323,6 @@ public class BigQueryTableExample {
                         .testMode(false)
                         .partitionDiscoveryInterval(partitionDiscoveryInterval)
                         .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
-                        .limit()
-                        .columnProjection()
-                        .snapshotTimestamp()
-                        .maxStreamCount()
-                        .rowRestriction()
                         .build();
 
         // Register the Source Table
