@@ -29,7 +29,7 @@ under the License.
     </parent>
 
 
-    <artifactId>flink-1.17-connector-bigquerytable-api-examples</artifactId>
+    <artifactId>flink-1.17-connector-bigquery-table-api-examples</artifactId>
     <name>Flink : Connectors : Google BigQuery Table API Example (Flink v1.17)</name>
     <packaging>jar</packaging>
 
