@@ -177,7 +177,8 @@ modes, bounded and unbounded.
 * Source factory methods are defined at `com.google.cloud.flink.bigquery.source.BigQuerySource`.
 * Source configs are defined at `com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions`.
 * BigQuery connection config is defined at `com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions`.
-* Sample Flink application using connector is defined at `com.google.cloud.flink.bigquery.examples.BigQueryExample`.
+* Sample Flink application using connector is defined at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API
+  and at `com.google.cloud.flink.bigquery.examples.BigQueryTableExample` for the Table API and SQL.
 
 ### At Least Once Sink
 
@@ -460,7 +461,7 @@ All the current BigQuery datatypes are being handled when transforming data from
 
 ## Example Application
 
-The `flink-1.17-connector-bigquery-examples` module offers a sample Flink application powered by the connector.
+The `flink-1.17-connector-bigquery-examples`  and `flink-1.17-connector-bigquery-table-api-examples` modules offer a sample Flink application powered by the connector.
 It can be found at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API 
 and at `com.google.cloud.flink.bigquery.examples.BigQueryTableExample` for the Table API and SQL.
 It offers an intuitive hands-on application with elaborate guidance to test out the connector and 

@@ -235,7 +235,7 @@ public class BigQueryTableExample {
                 tEnv.from("bigQuerySourceTable")
                         .select($("*"))
                         .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
-                        .as($("name"), $("number"), $("ts"));
+                        .as("name", "number", "ts");
 
         BigQueryTableConfig sinkTableConfig =
                 BigQuerySinkTableConfig.newBuilder()
@@ -298,7 +298,7 @@ public class BigQueryTableExample {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
-            Boolean isExactlyOnceEnabled,
+            boolean isExactlyOnceEnabled,
             String recordPropertyForTimestamps,
             String rowRestriction,
             Integer limit,
@@ -321,6 +321,8 @@ public class BigQueryTableExample {
                         .project(sourceGcpProjectName)
                         .dataset(sourceDatasetName)
                         .testMode(false)
+                        .limit(limit)
+                        .rowRestriction(rowRestriction)
                         .partitionDiscoveryInterval(partitionDiscoveryInterval)
                         .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                         .build();
@@ -363,7 +365,7 @@ public class BigQueryTableExample {
         sourceTable =
                 sourceTable
                         .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
-                        .as($("name"), $("number"), $("ts"));
+                        .as("name", "number", "ts");
 
         TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
         TableResult res = pipeline.execute();
