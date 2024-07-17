@@ -112,7 +112,7 @@ public class BigQueryDynamicTableFactoryTest {
                 BigQueryConnectorOptions.ROW_RESTRICTION.key(), "aaa > 10 AND NOT bbb IS NULL");
         properties.put(
                 BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
-                "" + Instant.EPOCH.toEpochMilli());
+                Long.toString(Instant.EPOCH.toEpochMilli()));
         properties.put(
                 BigQueryConnectorOptions.MODE.key(),
                 String.valueOf(Boundedness.CONTINUOUS_UNBOUNDED));

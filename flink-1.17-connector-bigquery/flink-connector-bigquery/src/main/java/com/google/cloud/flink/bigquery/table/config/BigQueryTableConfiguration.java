@@ -52,11 +52,11 @@ public class BigQueryTableConfiguration {
         return this;
     }
 
-    public Boolean isTestModeEnabled() {
+    public boolean isTestModeEnabled() {
         return config.get(BigQueryConnectorOptions.TEST_MODE);
     }
 
-    public Boolean isUnboundedEnabled() {
+    public boolean isUnboundedEnabled() {
         return config.get(BigQueryConnectorOptions.MODE) == Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
