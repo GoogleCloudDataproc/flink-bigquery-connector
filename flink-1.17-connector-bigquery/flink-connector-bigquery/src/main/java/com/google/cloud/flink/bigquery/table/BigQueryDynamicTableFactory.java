@@ -114,15 +114,12 @@ public class BigQueryDynamicTableFactory
         }
 
         // Create an unbounded source.
-        if (config.isUnboundedEnabled()) {
-            return new BigQueryDynamicTableSource(
-                    config.toBigQueryReadOptions(),
-                    context.getPhysicalRowDataType(),
-                    Boundedness.CONTINUOUS_UNBOUNDED);
-        }
-
         return new BigQueryDynamicTableSource(
-                config.toBigQueryReadOptions(), context.getPhysicalRowDataType());
+                config.toBigQueryReadOptions(),
+                context.getPhysicalRowDataType(),
+                config.isUnboundedEnabled()
+                        ? Boundedness.CONTINUOUS_UNBOUNDED
+                        : Boundedness.BOUNDED);
     }
 
     static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {

@@ -25,13 +25,10 @@ import org.apache.flink.table.types.logical.LogicalType;
 
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
-import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.apache.avro.Schema;
-
-import java.util.Objects;
 
 /** A {@link org.apache.flink.table.connector.sink.DynamicTableSink} for Google BigQuery. Tho */
 @Internal
@@ -51,41 +48,6 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         .connectOptions(sinkConfig.getConnectOptions())
                         .serializer(sinkConfig.getSerializer())
                         .build();
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(this.sinkConfig, this.logicalType);
-    }
-
-    /**
-     * Method overwritten to check equality, required for testing.
-     *
-     * @param obj Target Object to check equality.
-     * @return True if {@link Object} is equal to current object.
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        BigQueryDynamicTableSink object = (BigQueryDynamicTableSink) obj;
-        if ((this.logicalType == object.logicalType)
-                && (this.sinkConfig.getConnectOptions() == object.sinkConfig.getConnectOptions())
-                && (this.sinkConfig.getSerializer() == object.sinkConfig.getSerializer())
-                && (this.sinkConfig.getDeliveryGuarantee()
-                        == object.sinkConfig.getDeliveryGuarantee())) {
-            BigQuerySchemaProvider thisSchemaProvider = this.sinkConfig.getSchemaProvider();
-            BigQuerySchemaProvider objSchemaProvider = object.sinkConfig.getSchemaProvider();
-            return thisSchemaProvider.getAvroSchema().equals(objSchemaProvider.getAvroSchema());
-        }
-        return false;
     }
 
     @Override
