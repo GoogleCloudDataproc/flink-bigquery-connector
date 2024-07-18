@@ -263,8 +263,6 @@ public class BigQueryTableExample {
 
         // Insert the table sourceTable to the registered sinkTable
         sourceTable.executeInsert("bigQuerySinkTable");
-
-        env.execute("Flink Table API BigQuery Bounded Read and Write Example");
     }
 
     /**
@@ -369,7 +367,6 @@ public class BigQueryTableExample {
 
         TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
         TableResult res = pipeline.execute();
-        res.await();
     }
 
     /** Function to flatmap the Table API source Catalog Table. */
