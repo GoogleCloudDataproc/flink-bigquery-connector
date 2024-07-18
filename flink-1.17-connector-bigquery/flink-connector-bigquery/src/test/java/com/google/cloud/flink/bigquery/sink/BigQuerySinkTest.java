@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
@@ -31,6 +32,8 @@ import static org.junit.Assert.assertNotNull;
 /** Tests for {@link BigQuerySink}. */
 public class BigQuerySinkTest {
 
+    StreamExecutionEnvironment env = new StreamExecutionEnvironment();
+
     @Test
     public void testGetWithAtLeastOnce() throws IOException {
         BigQuerySinkConfig sinkConfig =
@@ -39,6 +42,18 @@ public class BigQuerySinkTest {
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .build();
+        assertNotNull(BigQuerySink.get(sinkConfig, env));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetWithNullStreamExecutionEnv() throws IOException {
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.NONE)
                         .build();
         assertNotNull(BigQuerySink.get(sinkConfig, null));
     }
@@ -52,7 +67,7 @@ public class BigQuerySinkTest {
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.NONE)
                         .build();
-        assertNotNull(BigQuerySink.get(sinkConfig, null));
+        assertNotNull(BigQuerySink.get(sinkConfig, env));
     }
 
     @Test(expected = UnsupportedOperationException.class)
@@ -64,6 +79,6 @@ public class BigQuerySinkTest {
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                         .build();
-        assertNotNull(BigQuerySink.get(sinkConfig, null));
+        assertNotNull(BigQuerySink.get(sinkConfig, env));
     }
 }
