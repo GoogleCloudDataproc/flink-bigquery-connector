@@ -128,7 +128,6 @@ public class BigQueryDynamicTableSinkIntegrationTestCase {
     @Test
     public void testSchemaResolution() throws IOException {
         tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.AT_LEAST_ONCE));
-        System.out.println("In testSchemaResolution() "+ env);
         // Resolved Schema is obtained after resolution and validation.
         ResolvedSchema resolvedSchema = tEnv.from("bigquery_sink").getResolvedSchema();
         ResolvedSchema expectedResolvedSchema =
