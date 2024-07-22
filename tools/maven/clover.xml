@@ -32,7 +32,7 @@ under the License.
                     <include name="**/IT*.java"/>
                     <include name="**/*IT.java"/>
                     <include name="**/*ITCase.java"/>
-					<include name="**/*IntegrationTestCase.java"/>
+                    <include name="**/*IntegrationTestCase.java"/>
                     <!-- Use Maven-Surefire-Plugin naming convention -->
                     <include name="**/Test*.java"/>
                     <include name="**/*Test.java"/>
