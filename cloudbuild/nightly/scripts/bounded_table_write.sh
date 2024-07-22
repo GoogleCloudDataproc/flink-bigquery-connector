@@ -15,7 +15,6 @@
 # limitations under the License.
 PROPERTIES=$1
 BOUNDED_JOB_SINK_PARALLELISM=$2
-IS_SQL=$3
 
 # We won't run this async as we can wait for a bounded job to succeed or fail.
 # Create the destination table from the source table schema.
@@ -23,4 +22,4 @@ python3 cloudbuild/nightly/scripts/python-scripts/create_sink_table.py -- --proj
 # Set the expiration time to 1 hour.
 bq update --expiration 3600 "$DATASET_NAME"."$DESTINATION_TABLE_NAME"
 # Run the sink JAR JOB
-gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" -- --gcp-source-project "$PROJECT_NAME" --bq-source-dataset "$DATASET_NAME" --bq-source-table "$SOURCE_TABLE_NAME" --gcp-dest-project "$PROJECT_NAME" --bq-dest-dataset "$DATASET_NAME" --bq-dest-table "$DESTINATION_TABLE_NAME" --sink-parallelism "$BOUNDED_JOB_SINK_PARALLELISM" --is-sql "$IS_SQL"
+gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" -- --gcp-source-project "$PROJECT_NAME" --bq-source-dataset "$DATASET_NAME" --bq-source-table "$SOURCE_TABLE_NAME" --gcp-dest-project "$PROJECT_NAME" --bq-dest-dataset "$DATASET_NAME" --bq-dest-table "$DESTINATION_TABLE_NAME" --sink-parallelism "$BOUNDED_JOB_SINK_PARALLELISM"
