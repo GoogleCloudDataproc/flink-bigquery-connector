@@ -363,8 +363,7 @@ public class BigQueryTableExample {
                         .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
                         .as("name", "number", "ts");
 
-        TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
-        TableResult res = pipeline.execute();
+        sourceTable.executeInsert("bigQuerySinkTable");
     }
 
     /** Function to flatmap the Table API source Catalog Table. */
