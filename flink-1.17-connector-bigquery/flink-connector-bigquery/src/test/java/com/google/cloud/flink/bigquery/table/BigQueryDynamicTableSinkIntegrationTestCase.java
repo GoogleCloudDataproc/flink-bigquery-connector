@@ -55,7 +55,7 @@ import java.util.stream.IntStream;
 import static com.google.cloud.flink.bigquery.fakes.StorageClientFaker.createConnectOptionsForWrite;
 
 /** An integration test for the SQL interface of the BigQuery connector. */
-public class BigQueryDynamicTableSinkITCase {
+public class BigQueryDynamicTableSinkIntegrationTestCase {
 
     private static final int PARALLELISM = 1;
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;
@@ -128,6 +128,7 @@ public class BigQueryDynamicTableSinkITCase {
     @Test
     public void testSchemaResolution() throws IOException {
         tEnv.createTable("bigquery_sink", createTestDDl(DeliveryGuarantee.AT_LEAST_ONCE));
+        System.out.println("In testSchemaResolution() "+ env);
         // Resolved Schema is obtained after resolution and validation.
         ResolvedSchema resolvedSchema = tEnv.from("bigquery_sink").getResolvedSchema();
         ResolvedSchema expectedResolvedSchema =

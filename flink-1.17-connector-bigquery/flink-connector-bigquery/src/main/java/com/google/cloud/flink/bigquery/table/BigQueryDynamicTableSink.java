@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
@@ -29,6 +30,9 @@ import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImp
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.apache.avro.Schema;
+
+import java.util.Objects;
+import java.util.ResourceBundle;
 
 /** A {@link org.apache.flink.table.connector.sink.DynamicTableSink} for Google BigQuery. Tho */
 @Internal
@@ -51,6 +55,33 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(this.sinkConfig, this.logicalType);
+    }
+
+    /**
+     * Method overwritten to check equality, required for testing.
+     *
+     * @param obj Target Object to check equality.
+     * @return True if {@link Object} is equal to current object.
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        BigQueryDynamicTableSink object = (BigQueryDynamicTableSink) obj;
+        return (this.logicalType == object.logicalType)
+                && (this.sinkConfig.equals(object.sinkConfig));
+    }
+
+    @Override
     public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
         return ChangelogMode.insertOnly();
     }
@@ -58,10 +89,11 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
     @Override
     public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
         // init() should be called itself.
+        System.out.println("Stream Envt getSinkRuntimeProvider() " + StreamExecutionEnvironment.getExecutionEnvironment());
         // Set the logical type.
         ((RowDataToProtoSerializer) sinkConfig.getSerializer()).setLogicalType(this.logicalType);
         // Get the Datastream-API Sink.
-        return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null));
+        return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, StreamExecutionEnvironment.getExecutionEnvironment()));
     }
 
     @Override
@@ -71,7 +103,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
 
     @Override
     public String asSummaryString() {
-        return "BigQuery";
+        ResourceBundle connectorResources = ResourceBundle.getBundle("connector");
+        return connectorResources.getString("connector");
     }
 
     @VisibleForTesting
