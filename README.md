@@ -295,10 +295,10 @@ BigQueryTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
         .project(...)
         .dataset(...)
         .testMode(...)
-        .credentialAccessToken()
-        .credentialFile()
-        .credentialKey()
-        .deliveryGuarantee()
+        .credentialAccessToken(...)
+        .credentialFile(...)
+        .credentialKey(...)
+        .deliveryGuarantee(...)
         .build();
 
 // Register the Sink Table
@@ -308,6 +308,15 @@ tEnv.createTable(
 
 // Insert entries in this sinkTable
 sourceTable.executeInsert("bigQuerySinkTable");
+```
+Note: While running the above code sample for unbounded insert on a dataproc cluster via the `gcloud submit` command, remember to add an `.await()` after the `.executeInsert()` to prevent untimely job termination.
+Application works expected when submitted via Flink CLI on the master node in both application and per-job mode. 
+```java
+// Insert entries in this sinkTable
+TableResult res = sourceTable.executeInsert("bigQuerySinkTable");
+// wait for the job to complete 
+// (for jobs running on dataproc cluster via "gcloud submit" command only) 
+res.await();
 ```
 * Catalog Tables: 
     * Catalog Table usage helps hide the complexities of interacting with different external systems behind a common interface.
@@ -333,6 +342,11 @@ sourceTable.executeInsert("bigQuerySinkTable");
 * [RowDataToProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/RowDataToProtoSerializer.java) is offered for serialization of `RowData` (since Table API read/writes `RowData` format records) records to BigQuery Proto Rows. This out-of-box serializer is automatically provided to the sink during runtime.
 * [BigQueryTableSchemaProvider](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQueryTableSchemaProvider.java) is a helper class which contains the method `getTableDescriptor()` which could be used to obtain a [TableDescriptor](https://nightlies.apache.org/flink/flink-docs-master/api/java/org/apache/flink/table/api/TableDescriptor.html) for creation of catalog table via `BigQueryTableConfig` (`BigQuerySinkTableConfig` for sink options and `BigQueryReadTableConfig` for read options). 
 Users could also create their own catalog tables; provided the schema of the registered table, and the associated BigQuery table is the same.
+<br>
+* Limitations:
+    * Inability to read and then write `TIME` type BigQuery records. Reading `TIME` type records and subsequently writing them to BigQuery would result in an error due to misconfigured types between BigQuery and Flink's RowData.
+    * Incorrect value obtained during read and write of `BIGNUMERIC` type BigQuery Records. Reading `BIGNUMERIC` type records from a BigQuery table and subsequently writing them to BigQuery would result in incorrect value being written to BigQuery as Flink's RowData does not support NUMERIC Types with precision more than 38 (BIGNUMERIC supports precision upto 76).
+
 
 ### Unbounded Source
 
@@ -366,7 +380,6 @@ end.
 partition’s end.
 * This approach is susceptible to out-of-order data, and we plan to replace it with a lateness tolerance beyond the 
 partition’s end in future releases.
-
 ### Bounded Source
 
 #### Table
