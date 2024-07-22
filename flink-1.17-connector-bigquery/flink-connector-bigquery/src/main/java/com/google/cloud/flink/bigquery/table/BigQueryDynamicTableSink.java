@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
@@ -88,10 +89,11 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
     @Override
     public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
         // init() should be called itself.
+        System.out.println("Stream Envt getSinkRuntimeProvider() " + StreamExecutionEnvironment.getExecutionEnvironment());
         // Set the logical type.
         ((RowDataToProtoSerializer) sinkConfig.getSerializer()).setLogicalType(this.logicalType);
         // Get the Datastream-API Sink.
-        return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null));
+        return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, StreamExecutionEnvironment.getExecutionEnvironment()));
     }
 
     @Override
