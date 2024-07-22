@@ -55,7 +55,7 @@ import java.util.stream.IntStream;
 import static com.google.cloud.flink.bigquery.fakes.StorageClientFaker.createConnectOptionsForWrite;
 
 /** An integration test for the SQL interface of the BigQuery connector. */
-public class BigQueryDynamicTableSinkITCase {
+public class BigQueryDynamicTableSinkIntegrationTestCase {
 
     private static final int PARALLELISM = 1;
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;
