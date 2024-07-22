@@ -264,11 +264,11 @@ BigQueryTableConfig readTableConfig =  new BigQueryReadTableConfig.Builder()
         .dataset(...)
         .partitionDiscoveryInterval(...)
         .boundedness(...) // Boundedness.CONTINUOUS_UNBOUNDED or Boundedness.BOUNDED
-        .limit()
-        .columnProjection()
-        .snapshotTimestamp()
-        .maxStreamCount()
-        .rowRestriction()
+        .limit(...)
+        .columnProjection(...)
+        .snapshotTimestamp(...)
+        .maxStreamCount(...)
+        .rowRestriction(...)
         .build();
 
 // Create the catalog table.

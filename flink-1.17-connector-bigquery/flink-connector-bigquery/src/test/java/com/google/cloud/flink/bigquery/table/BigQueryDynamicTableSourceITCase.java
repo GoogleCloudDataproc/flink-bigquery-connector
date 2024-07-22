@@ -57,7 +57,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /** An integration test for the SQL interface of the BigQuery connector. */
-public class BigQueryDynamicTableSourceIntegrationTestCase {
+public class BigQueryDynamicTableSourceITCase {
 
     private static final int PARALLELISM = 1;
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;

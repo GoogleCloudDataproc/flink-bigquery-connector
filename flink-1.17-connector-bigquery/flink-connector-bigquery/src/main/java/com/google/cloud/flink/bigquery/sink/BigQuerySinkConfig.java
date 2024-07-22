@@ -22,8 +22,6 @@ import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 
-import java.util.Objects;
-
 /**
  * Configurations for a BigQuery Sink.
  *
@@ -38,34 +36,6 @@ public class BigQuerySinkConfig {
 
     public static Builder newBuilder() {
         return new Builder();
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(
-                this.connectOptions, this.deliveryGuarantee, this.schemaProvider, this.serializer);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        BigQuerySinkConfig object = (BigQuerySinkConfig) obj;
-        if (this.getConnectOptions() == object.getConnectOptions()
-                && (this.getSerializer() == object.getSerializer())
-                && (this.getDeliveryGuarantee() == object.getDeliveryGuarantee())) {
-            BigQuerySchemaProvider thisSchemaProvider = this.getSchemaProvider();
-            BigQuerySchemaProvider objSchemaProvider = object.getSchemaProvider();
-            return thisSchemaProvider.getAvroSchema().equals(objSchemaProvider.getAvroSchema());
-        }
-        return false;
     }
 
     private BigQuerySinkConfig(

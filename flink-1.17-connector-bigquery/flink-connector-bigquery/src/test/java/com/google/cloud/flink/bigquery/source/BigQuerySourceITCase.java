@@ -49,7 +49,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 /** */
 @TestInstance(Lifecycle.PER_CLASS)
-public class BigQuerySourceIntegrationTestCase {
+public class BigQuerySourceITCase {
 
     private static final int PARALLELISM = 2;
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;

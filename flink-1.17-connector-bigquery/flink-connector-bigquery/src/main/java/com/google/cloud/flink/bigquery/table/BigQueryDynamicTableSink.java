@@ -30,9 +30,6 @@ import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvid
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.apache.avro.Schema;
 
-import java.util.Objects;
-import java.util.ResourceBundle;
-
 /** A {@link org.apache.flink.table.connector.sink.DynamicTableSink} for Google BigQuery. Tho */
 @Internal
 public class BigQueryDynamicTableSink implements DynamicTableSink {
@@ -51,33 +48,6 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         .connectOptions(sinkConfig.getConnectOptions())
                         .serializer(sinkConfig.getSerializer())
                         .build();
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(this.sinkConfig, this.logicalType);
-    }
-
-    /**
-     * Method overwritten to check equality, required for testing.
-     *
-     * @param obj Target Object to check equality.
-     * @return True if {@link Object} is equal to current object.
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        BigQueryDynamicTableSink object = (BigQueryDynamicTableSink) obj;
-        return (this.logicalType == object.logicalType)
-                && (this.sinkConfig.equals(object.sinkConfig));
     }
 
     @Override
@@ -101,8 +71,7 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
 
     @Override
     public String asSummaryString() {
-        ResourceBundle connectorResources = ResourceBundle.getBundle("connector");
-        return connectorResources.getString("connector");
+        return "BigQuery";
     }
 
     @VisibleForTesting
