@@ -715,7 +715,8 @@ public class BigQueryIntegrationTest {
                 BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
 
         // Insert the table sourceTable to the registered sinkTable
-        sourceTable.executeInsert("bigQuerySinkTable");
+        TableResult res = sourceTable.executeInsert("bigQuerySinkTable");
+        res.await();
     }
 
     /**
