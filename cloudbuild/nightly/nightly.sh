@@ -158,12 +158,27 @@ case $STEP in
     exit
     ;;
 
+  # Run the nested schema table bounded e2e test.
+  e2e_bounded_table_api_nested_schema_test)
+    IS_EXACTLY_ONCE_ENABLED=False
+    IS_SQL=True
+    run_read_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE" "$TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB" "$SINK_PARALLELISM_SMALL_BOUNDED_JOB" "$IS_SQL"
+    exit
+    ;;
+
+  # Run the nested schema table bounded e2e test.
+  e2e_bounded_table_api_all_datatypes_test)
+    IS_EXACTLY_ONCE_ENABLED=False
+    IS_SQL=True
+    run_read_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_ALL_DATATYPES_TABLE" "$TABLE_NAME_DESTINATION_ALL_DATATYPES_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB" "$SINK_PARALLELISM_SMALL_BOUNDED_JOB" "$IS_SQL"
+    exit
+    ;;
+
   # Run the query  bounded e2e test.
   e2e_bounded_query_test)
     run_read_only_test_delete_cluster "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
     exit
     ;;
-
 
   # Run the large table O(GB's) bounded e2e test.
   e2e_bounded_large_table_test)
