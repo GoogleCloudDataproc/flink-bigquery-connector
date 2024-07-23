@@ -188,6 +188,16 @@ case $STEP in
     exit
     ;;
 
+  # Run the large table O(GB's) bounded e2e test.
+  e2e_bounded_table_api_large_table_test)
+    # Run the large table test.
+    IS_EXACTLY_ONCE_ENABLED=False
+    IS_SQL=True
+    run_read_write_test_delete_cluster "$PROJECT_ID" "$REGION_LARGE_TABLE_TEST_FILE" "$CLUSTER_LARGE_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_LARGE_TABLE" "$TABLE_NAME_DESTINATION_LARGE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB" "$SINK_PARALLELISM_LARGE_BOUNDED_JOB"
+    exit
+    ;;
+
+
   # Run the unbounded table e2e test.
   e2e_unbounded_test)
     IS_EXACTLY_ONCE_ENABLED=False
