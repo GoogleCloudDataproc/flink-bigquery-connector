@@ -65,7 +65,24 @@ steps:
       - 'CLUSTER_UNBOUNDED_TABLE_TEST_FILE=${_CLUSTER_UNBOUNDED_TABLE_TEST_FILE}'
       - 'WORKER_MACHINE_TYPE_UNBOUNDED=${_WORKER_MACHINE_TYPE_UNBOUNDED}'
 
-# 3.4 Create the dataproc cluster - for table api unbounded test.
+# 3.4 Create the dataproc cluster - for table api large table bounded test.
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'create-clusters-table-api-bounded-large-table'
+    waitFor: ['init']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'create_clusters_table_api_bounded_large_table']
+    env:
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'DATAPROC_IMAGE_VERSION=${_DATAPROC_IMAGE_VERSION}'
+      - 'NUM_WORKERS_LARGE_TABLE_TEST=${_NUM_WORKERS_LARGE_TABLE_TEST}'
+      - 'CLUSTER_NAME_TABLE_API_LARGE_TABLE_TEST=${_CLUSTER_NAME_TABLE_API_LARGE_TABLE_TEST}'
+      - 'REGION_ARRAY_STRING_TABLE_API_LARGE_TABLE_TEST=${_REGION_ARRAY_STRING_TABLE_API_LARGE_TABLE_TEST}'
+      - 'INITIALISATION_ACTION_SCRIPT_URI=${_INITIALISATION_ACTION_SCRIPT_URI}'
+      - 'REGION_TABLE_API_LARGE_TABLE_TEST_FILE=${_REGION_TABLE_API_LARGE_TABLE_TEST_FILE}'
+      - 'CLUSTER_TABLE_API_LARGE_TABLE_TEST_FILE=${_CLUSTER_TABLE_API_LARGE_TABLE_TEST_FILE}'
+      - 'WORKER_MACHINE_TYPE_LARGE_BOUNDED=${_WORKER_MACHINE_TYPE_LARGE_BOUNDED}'
+
+# 3.5 Create the dataproc cluster - for table api unbounded test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'create-clusters-table-api-unbounded-table'
     waitFor: ['init']
@@ -204,6 +221,24 @@ steps:
       - 'PROPERTIES_LARGE_BOUNDED_JOB=${_PROPERTIES_LARGE_BOUNDED_JOB}'
       - 'REGION_LARGE_TABLE_TEST_FILE=${_REGION_LARGE_TABLE_TEST_FILE}'
       - 'CLUSTER_LARGE_TABLE_TEST_FILE=${_CLUSTER_LARGE_TABLE_TEST_FILE}'
+      - 'SINK_PARALLELISM_LARGE_BOUNDED_JOB=${_SINK_PARALLELISM_LARGE_BOUNDED_JOB}'
+
+# 11. Start the Table API large table e2e test.
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'e2e-bounded-table-api-large-table-test'
+    waitFor: ['create-clusters-table-api-bounded-large-table']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_table_api_bounded_large_table_test']
+    env:
+      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'PROJECT_NAME=${_PROJECT_NAME}'
+      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
+      - 'TABLE_NAME_SOURCE_TABLE_API_LARGE_TABLE=${_TABLE_NAME_LARGE_TABLE}'
+      - 'TABLE_NAME_DESTINATION_TABLE_API_LARGE_TABLE=${_TABLE_NAME_LARGE_TABLE}'
+      - 'PROPERTIES_LARGE_BOUNDED_JOB=${_PROPERTIES_LARGE_BOUNDED_JOB}'
+      - 'REGION_TABLE_API_LARGE_TABLE_TEST_FILE=${_REGION_TABLE_API_LARGE_TABLE_TEST_FILE}'
+      - 'CLUSTER_TABLE_API_LARGE_TABLE_TEST_FILE=${_CLUSTER_TABLE_API_LARGE_TABLE_TEST_FILE}'
       - 'SINK_PARALLELISM_LARGE_BOUNDED_JOB=${_SINK_PARALLELISM_LARGE_BOUNDED_JOB}'
 
 # 12. Start the unbounded source table e2e test
