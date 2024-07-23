@@ -228,7 +228,7 @@ steps:
     id: 'e2e-bounded-table-api-large-table-test'
     waitFor: ['create-clusters-table-api-bounded-large-table']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_table_api_bounded_large_table_test']
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_large_table_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
