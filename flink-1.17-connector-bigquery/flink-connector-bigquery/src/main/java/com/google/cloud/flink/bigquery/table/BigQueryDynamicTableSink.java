@@ -33,7 +33,7 @@ import org.apache.avro.Schema;
 import java.util.Objects;
 import java.util.ResourceBundle;
 
-/** A {@link org.apache.flink.table.connector.sink.DynamicTableSink} for Google BigQuery. Tho */
+/** A {@link org.apache.flink.table.connector.sink.DynamicTableSink} for Google BigQuery. */
 @Internal
 public class BigQueryDynamicTableSink implements DynamicTableSink {
 

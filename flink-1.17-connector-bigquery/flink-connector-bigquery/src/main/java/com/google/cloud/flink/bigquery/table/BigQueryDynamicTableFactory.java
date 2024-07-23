@@ -113,7 +113,7 @@ public class BigQueryDynamicTableFactory
             config = config.withTestingServices(testingServices);
         }
 
-        // Create an unbounded source.
+        // Create a Source depending on the boundedness.
         return new BigQueryDynamicTableSource(
                 config.toBigQueryReadOptions(),
                 context.getPhysicalRowDataType(),
