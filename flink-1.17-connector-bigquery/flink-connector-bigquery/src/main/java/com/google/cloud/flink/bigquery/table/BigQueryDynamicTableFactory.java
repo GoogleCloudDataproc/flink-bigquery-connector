@@ -28,7 +28,7 @@ import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
-import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfiguration;
+import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfigurationProvider;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -106,18 +106,19 @@ public class BigQueryDynamicTableFactory
         final FactoryUtil.TableFactoryHelper helper =
                 FactoryUtil.createTableFactoryHelper(this, context);
 
-        BigQueryTableConfiguration config = new BigQueryTableConfiguration(helper.getOptions());
+        BigQueryTableConfigurationProvider configProvider =
+                new BigQueryTableConfigurationProvider(helper.getOptions());
         helper.validate();
 
-        if (config.isTestModeEnabled()) {
-            config = config.withTestingServices(testingServices);
+        if (configProvider.isTestModeEnabled()) {
+            configProvider = configProvider.withTestingServices(testingServices);
         }
 
         // Create a Source depending on the boundedness.
         return new BigQueryDynamicTableSource(
-                config.toBigQueryReadOptions(),
+                configProvider.toBigQueryReadOptions(),
                 context.getPhysicalRowDataType(),
-                config.isUnboundedEnabled()
+                configProvider.isUnboundedEnabled()
                         ? Boundedness.CONTINUOUS_UNBOUNDED
                         : Boundedness.BOUNDED);
     }
@@ -131,14 +132,15 @@ public class BigQueryDynamicTableFactory
         final FactoryUtil.TableFactoryHelper helper =
                 FactoryUtil.createTableFactoryHelper(this, context);
 
-        BigQueryTableConfiguration config = new BigQueryTableConfiguration(helper.getOptions());
+        BigQueryTableConfigurationProvider configProvider =
+                new BigQueryTableConfigurationProvider(helper.getOptions());
         helper.validate();
 
-        if (config.isTestModeEnabled()) {
-            config = config.withTestingServices(testingServices);
+        if (configProvider.isTestModeEnabled()) {
+            configProvider = configProvider.withTestingServices(testingServices);
         }
 
         return new BigQueryDynamicTableSink(
-                config.toSinkConfig(), context.getPhysicalRowDataType().getLogicalType());
+                configProvider.toSinkConfig(), context.getPhysicalRowDataType().getLogicalType());
     }
 }

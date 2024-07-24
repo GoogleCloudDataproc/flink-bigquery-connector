@@ -38,15 +38,15 @@ import java.util.Optional;
  * source implementation expects.
  */
 @Internal
-public class BigQueryTableConfiguration {
+public class BigQueryTableConfigurationProvider {
     private final ReadableConfig config;
     private Optional<SerializableSupplier<BigQueryServices>> testingServices = Optional.empty();
 
-    public BigQueryTableConfiguration(ReadableConfig config) {
+    public BigQueryTableConfigurationProvider(ReadableConfig config) {
         this.config = config;
     }
 
-    public BigQueryTableConfiguration withTestingServices(
+    public BigQueryTableConfigurationProvider withTestingServices(
             SerializableSupplier<BigQueryServices> testingServices) {
         this.testingServices = Optional.of(testingServices);
         return this;
