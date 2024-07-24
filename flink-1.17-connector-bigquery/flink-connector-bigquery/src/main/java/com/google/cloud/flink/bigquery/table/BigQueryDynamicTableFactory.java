@@ -77,6 +77,9 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.MODE);
         additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
+        additionalOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+        additionalOptions.add(BigQueryConnectorOptions.STREAM_EXECUTION_ENVIRONMENT);
+
         return additionalOptions;
     }
 
@@ -98,6 +101,9 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
         forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
+        forwardOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+        forwardOptions.add(BigQueryConnectorOptions.STREAM_EXECUTION_ENVIRONMENT);
+
         return forwardOptions;
     }
 
@@ -137,8 +143,14 @@ public class BigQueryDynamicTableFactory
         if (config.isTestModeEnabled()) {
             config = config.withTestingServices(testingServices);
         }
+        if (!config.isStreamEnvironmentSet()) {
+            throw new IllegalArgumentException(
+                    "Stream Execution Environment is" + " not set for creation of sink!");
+        }
 
         return new BigQueryDynamicTableSink(
-                config.toSinkConfig(), context.getPhysicalRowDataType().getLogicalType());
+                config.toSinkConfig(),
+                context.getPhysicalRowDataType().getLogicalType(),
+                config.getParallelism().orElse(null));
     }
 }

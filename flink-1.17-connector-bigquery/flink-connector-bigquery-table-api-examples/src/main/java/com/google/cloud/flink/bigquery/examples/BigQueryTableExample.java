@@ -240,6 +240,7 @@ public class BigQueryTableExample {
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
                         .table(destTableName)
+                        .sinkParallelism(2)
                         .testMode(false)
                         .build();
 
@@ -338,6 +339,8 @@ public class BigQueryTableExample {
                         .table(destTableName)
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
+                        .streamExecutionEnvironment(env)
+                        .sinkParallelism(2)
                         .testMode(false)
                         .build();
 

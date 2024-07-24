@@ -60,6 +60,20 @@ public class BigQueryTableConfiguration {
         return config.get(BigQueryConnectorOptions.MODE) == Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
+    public Optional<Integer> getParallelism() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.SINK_PARALLELISM));
+    }
+
+    /**
+     * Method to check if the user has provided the StreamExecutionEnvironment parameter.
+     *
+     * @return True if the <code>StreamExecutionEnvironment</code> is set (not null), false
+     *     otherwise
+     */
+    public boolean isStreamEnvironmentSet() {
+        return config.get(BigQueryConnectorOptions.STREAM_EXECUTION_ENVIRONMENT) != null;
+    }
+
     public BigQueryReadOptions toBigQueryReadOptions() {
         try {
             return BigQueryReadOptions.builder()

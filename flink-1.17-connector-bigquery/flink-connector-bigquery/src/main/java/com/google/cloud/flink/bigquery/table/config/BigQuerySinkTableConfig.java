@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.table.config;
 
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableDescriptor;
 
 /**
@@ -29,6 +30,8 @@ import org.apache.flink.table.api.TableDescriptor;
 public class BigQuerySinkTableConfig extends BigQueryTableConfig {
 
     private final DeliveryGuarantee deliveryGuarantee;
+    private final StreamExecutionEnvironment streamExecutionEnvironment;
+    private final Integer sinkParallelism;
 
     BigQuerySinkTableConfig(
             String project,
@@ -38,7 +41,9 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             String credentialFile,
             String credentialKey,
             boolean testMode,
-            DeliveryGuarantee deliveryGuarantee) {
+            DeliveryGuarantee deliveryGuarantee,
+            StreamExecutionEnvironment streamExecutionEnvironment,
+            Integer sinkParallelism) {
         super(
                 project,
                 dataset,
@@ -48,6 +53,8 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                 credentialKey,
                 testMode);
         this.deliveryGuarantee = deliveryGuarantee;
+        this.streamExecutionEnvironment = streamExecutionEnvironment;
+        this.sinkParallelism = sinkParallelism;
     }
 
     public static BigQuerySinkTableConfig.Builder newBuilder() {
@@ -68,6 +75,18 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             tableDescriptorBuilder.option(
                     BigQueryConnectorOptions.DELIVERY_GUARANTEE, this.deliveryGuarantee);
         }
+        // StreamExecutionEnvironment has to be set.
+        // when exactly once connector mode is out,
+        // this has to be checked for proper usage of client API.
+        if (this.streamExecutionEnvironment != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.STREAM_EXECUTION_ENVIRONMENT,
+                    this.streamExecutionEnvironment.toString());
+        }
+        if (this.sinkParallelism != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.SINK_PARALLELISM, sinkParallelism);
+        }
         return tableDescriptorBuilder.build();
     }
 
@@ -75,6 +94,9 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
     public static class Builder extends BigQueryTableConfig.Builder {
 
         private DeliveryGuarantee deliveryGuarantee;
+
+        private StreamExecutionEnvironment streamExecutionEnvironment;
+        private Integer sinkParallelism;
 
         @Override
         public BigQuerySinkTableConfig.Builder project(String project) {
@@ -131,6 +153,19 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             return this;
         }
 
+        /** [REQUIRED, Sink Configuration] Object representing the StreamExecutionEnvironment. */
+        public BigQuerySinkTableConfig.Builder streamExecutionEnvironment(
+                StreamExecutionEnvironment streamExecutionEnvironment) {
+            this.streamExecutionEnvironment = streamExecutionEnvironment;
+            return this;
+        }
+
+        /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink job. */
+        public BigQuerySinkTableConfig.Builder sinkParallelism(Integer sinkParallelism) {
+            this.sinkParallelism = sinkParallelism;
+            return this;
+        }
+
         public BigQuerySinkTableConfig build() {
             return new BigQuerySinkTableConfig(
                     project,
@@ -140,7 +175,9 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                     credentialFile,
                     credentialKey,
                     testMode,
-                    deliveryGuarantee);
+                    deliveryGuarantee,
+                    streamExecutionEnvironment,
+                    sinkParallelism);
         }
     }
 }
