@@ -376,8 +376,7 @@ rather than how to do it.
  * This results in simpler customer code and higher level pipelines that are more easily optimized in a managed service.
 * The Table API is a superset of the SQL language and is specially designed for working with Apache Flink.
 * It also allows language-embedded style support for queries in Java, Scala or Python besides the always available String values as queries in SQL.
-<br>
-
+  
 #### Source: Bounded and Unbounded
 ```java
 // Note: Users must create and register a catalog table before reading and writing to them.
@@ -451,7 +450,7 @@ TableResult res = sourceTable.executeInsert("bigQuerySinkTable");
 res.await();
 ```
 #### More Details:
-* <b>Input and Output tables (catalog tables) must be registered in the TableEnvironment.
+* Input and Output tables (catalog tables) must be registered in the TableEnvironment.
 * Moreover, the schema of the registered table must match the schema of the query.</b>
 * Boundedness must be either `Boundedness.CONTINUOUS_UNBOUNDED` or `Boundedness.BOUNDED`.
 * Checkpointing must be enabled as mentioned above. Delivery guarantee must be at-least-once.
@@ -459,7 +458,6 @@ res.await();
 * [RowDataToProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/RowDataToProtoSerializer.java) is offered for serialization of `RowData` (since Table API read/writes `RowData` format records) records to BigQuery Proto Rows. This out-of-box serializer is automatically provided to the sink during runtime.
 * [BigQueryTableSchemaProvider](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQueryTableSchemaProvider.java) is a helper class which contains the method `getTableDescriptor()` which could be used to obtain a [TableDescriptor](https://nightlies.apache.org/flink/flink-docs-master/api/java/org/apache/flink/table/api/TableDescriptor.html) for creation of catalog table via `BigQueryTableConfig` (`BigQuerySinkTableConfig` for sink options and `BigQueryReadTableConfig` for read options). 
 Users could also create their own catalog tables; provided the schema of the registered table, and the associated BigQuery table is the same.
-<br>
 * Limitations:
     * Inability to read and then write `TIME` type BigQuery records. Reading `TIME` type records and subsequently writing them to BigQuery would result in an error due to misconfigured types between BigQuery and Flink's RowData.
     * Incorrect value obtained during read and write of `BIGNUMERIC` type BigQuery Records. Reading `BIGNUMERIC` type records from a BigQuery table and subsequently writing them to BigQuery would result in incorrect value being written to BigQuery as Flink's RowData does not support NUMERIC Types with precision more than 38 (BIGNUMERIC supports precision upto 76).
