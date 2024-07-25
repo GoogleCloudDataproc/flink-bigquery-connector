@@ -38,15 +38,15 @@ import java.util.Optional;
  * source implementation expects.
  */
 @Internal
-public class BigQueryTableConfiguration {
+public class BigQueryTableConfigurationProvider {
     private final ReadableConfig config;
     private Optional<SerializableSupplier<BigQueryServices>> testingServices = Optional.empty();
 
-    public BigQueryTableConfiguration(ReadableConfig config) {
+    public BigQueryTableConfigurationProvider(ReadableConfig config) {
         this.config = config;
     }
 
-    public BigQueryTableConfiguration withTestingServices(
+    public BigQueryTableConfigurationProvider withTestingServices(
             SerializableSupplier<BigQueryServices> testingServices) {
         this.testingServices = Optional.of(testingServices);
         return this;
@@ -58,6 +58,10 @@ public class BigQueryTableConfiguration {
 
     public boolean isUnboundedEnabled() {
         return config.get(BigQueryConnectorOptions.MODE) == Boundedness.CONTINUOUS_UNBOUNDED;
+    }
+
+    public Optional<Integer> getParallelism() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.SINK_PARALLELISM));
     }
 
     public BigQueryReadOptions toBigQueryReadOptions() {
@@ -74,6 +78,9 @@ public class BigQueryTableConfiguration {
                                     .orElse(new ArrayList<>()))
                     .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                     .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
+                    .setOldestPartitionId(config.get(BigQueryConnectorOptions.OLDEST_PARTITION_ID))
+                    .setMaxRecordsPerSplitFetch(
+                            config.get(BigQueryConnectorOptions.MAX_RECORDS_PER_SPLIT_FETCH))
                     .setPartitionDiscoveryRefreshIntervalInMinutes(
                             config.get(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL))
                     .build();

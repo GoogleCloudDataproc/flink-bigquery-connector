@@ -110,12 +110,38 @@ public class BigQueryConnectorOptions {
      * Default: 0 - BigQuery decides the optimal amount.
      */
     public static final ConfigOption<Integer> MAX_STREAM_COUNT =
-            ConfigOptions.key("read.streams.maxcount")
+            ConfigOptions.key("read.streams.max-count")
                     .intType()
                     .defaultValue(0)
                     .withDescription(
                             "The max number of streams used to read from the underlying table,"
                                     + " BigQuery can decide for less than this number.");
+
+    /**
+     * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of records to read
+     * from a stream once a fetch has been requested from a particular split. If not set BigQuery
+     * decides the optimal amount.
+     */
+    public static final ConfigOption<Integer> MAX_RECORDS_PER_SPLIT_FETCH =
+            ConfigOptions.key("read.streams.max-records-per-fetch")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription(
+                            "The max number of records to read from a streams once a fetch has "
+                                    + "been requested from a particular split");
+
+    /**
+     * [OPTIONAL, Read Configuration] String value indicating the oldest partition that will be
+     * considered for unbounded reads when using completed partitions approach.<br>
+     * If not included, all the partitions on the table will be read.
+     */
+    public static final ConfigOption<String> OLDEST_PARTITION_ID =
+            ConfigOptions.key("read.oldest-partition-id")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription(
+                            "String value indicating the oldest partition that will be "
+                                    + "considered for unbounded reads.");
 
     /**
      * Read Configuration: Long value indicating the millis since epoch for the underlying table
@@ -130,7 +156,7 @@ public class BigQueryConnectorOptions {
 
     /** [OPTIONAL] Specifies the GCP access token to use as credentials. */
     public static final ConfigOption<String> CREDENTIALS_ACCESS_TOKEN =
-            ConfigOptions.key("credentials.accesstoken")
+            ConfigOptions.key("credentials.access-token")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the GCP access token to use as credentials.");
@@ -166,7 +192,7 @@ public class BigQueryConnectorOptions {
      * Default: 10 minutes
      */
     public static final ConfigOption<Integer> PARTITION_DISCOVERY_INTERVAL =
-            ConfigOptions.key("read.discoveryinterval")
+            ConfigOptions.key("read.discovery-interval")
                     .intType()
                     .defaultValue(10)
                     .withDescription("Partition Discovery interval(in minutes)");
@@ -178,8 +204,15 @@ public class BigQueryConnectorOptions {
      * Default: <code>DeliveryGuarantee.AT_LEAST_ONCE</code> - At-least Once Mode.
      */
     public static final ConfigOption<DeliveryGuarantee> DELIVERY_GUARANTEE =
-            ConfigOptions.key("write.deliveryguarantee")
+            ConfigOptions.key("write.delivery-guarantee")
                     .enumType(DeliveryGuarantee.class)
                     .defaultValue(DeliveryGuarantee.AT_LEAST_ONCE)
                     .withDescription("Delivery Guarantee (AT_LEAST_ONCE or EXACTLY_ONCE");
+
+    /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink job. */
+    public static final ConfigOption<Integer> SINK_PARALLELISM =
+            ConfigOptions.key("write.parallelism")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("Sink Parallelism");
 }

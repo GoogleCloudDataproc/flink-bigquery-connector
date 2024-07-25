@@ -29,6 +29,7 @@ import org.apache.flink.table.api.TableDescriptor;
 public class BigQuerySinkTableConfig extends BigQueryTableConfig {
 
     private final DeliveryGuarantee deliveryGuarantee;
+    private final Integer sinkParallelism;
 
     BigQuerySinkTableConfig(
             String project,
@@ -38,7 +39,8 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             String credentialFile,
             String credentialKey,
             boolean testMode,
-            DeliveryGuarantee deliveryGuarantee) {
+            DeliveryGuarantee deliveryGuarantee,
+            Integer sinkParallelism) {
         super(
                 project,
                 dataset,
@@ -48,6 +50,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                 credentialKey,
                 testMode);
         this.deliveryGuarantee = deliveryGuarantee;
+        this.sinkParallelism = sinkParallelism;
     }
 
     public static BigQuerySinkTableConfig.Builder newBuilder() {
@@ -68,13 +71,18 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             tableDescriptorBuilder.option(
                     BigQueryConnectorOptions.DELIVERY_GUARANTEE, this.deliveryGuarantee);
         }
+        if (this.sinkParallelism != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.SINK_PARALLELISM, sinkParallelism);
+        }
         return tableDescriptorBuilder.build();
     }
 
-    /** Builder for BigQueryReadTableConfig. */
+    /** Builder for BigQuerySinkTableConfig. */
     public static class Builder extends BigQueryTableConfig.Builder {
 
         private DeliveryGuarantee deliveryGuarantee;
+        private Integer sinkParallelism;
 
         @Override
         public BigQuerySinkTableConfig.Builder project(String project) {
@@ -131,6 +139,12 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             return this;
         }
 
+        /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink job. */
+        public BigQuerySinkTableConfig.Builder sinkParallelism(Integer sinkParallelism) {
+            this.sinkParallelism = sinkParallelism;
+            return this;
+        }
+
         public BigQuerySinkTableConfig build() {
             return new BigQuerySinkTableConfig(
                     project,
@@ -140,7 +154,8 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                     credentialFile,
                     credentialKey,
                     testMode,
-                    deliveryGuarantee);
+                    deliveryGuarantee,
+                    sinkParallelism);
         }
     }
 }

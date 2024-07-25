@@ -28,7 +28,7 @@ import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
-import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfiguration;
+import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfigurationProvider;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -76,7 +76,11 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.TEST_MODE);
         additionalOptions.add(BigQueryConnectorOptions.MODE);
         additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
+        additionalOptions.add(BigQueryConnectorOptions.OLDEST_PARTITION_ID);
+        additionalOptions.add(BigQueryConnectorOptions.MAX_RECORDS_PER_SPLIT_FETCH);
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
+        additionalOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+
         return additionalOptions;
     }
 
@@ -98,6 +102,10 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
         forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
+        forwardOptions.add(BigQueryConnectorOptions.OLDEST_PARTITION_ID);
+        forwardOptions.add(BigQueryConnectorOptions.MAX_RECORDS_PER_SPLIT_FETCH);
+        forwardOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+
         return forwardOptions;
     }
 
@@ -106,18 +114,19 @@ public class BigQueryDynamicTableFactory
         final FactoryUtil.TableFactoryHelper helper =
                 FactoryUtil.createTableFactoryHelper(this, context);
 
-        BigQueryTableConfiguration config = new BigQueryTableConfiguration(helper.getOptions());
+        BigQueryTableConfigurationProvider configProvider =
+                new BigQueryTableConfigurationProvider(helper.getOptions());
         helper.validate();
 
-        if (config.isTestModeEnabled()) {
-            config = config.withTestingServices(testingServices);
+        if (configProvider.isTestModeEnabled()) {
+            configProvider = configProvider.withTestingServices(testingServices);
         }
 
-        // Create an unbounded source.
+        // Create a Source depending on the boundedness.
         return new BigQueryDynamicTableSource(
-                config.toBigQueryReadOptions(),
+                configProvider.toBigQueryReadOptions(),
                 context.getPhysicalRowDataType(),
-                config.isUnboundedEnabled()
+                configProvider.isUnboundedEnabled()
                         ? Boundedness.CONTINUOUS_UNBOUNDED
                         : Boundedness.BOUNDED);
     }
@@ -131,14 +140,17 @@ public class BigQueryDynamicTableFactory
         final FactoryUtil.TableFactoryHelper helper =
                 FactoryUtil.createTableFactoryHelper(this, context);
 
-        BigQueryTableConfiguration config = new BigQueryTableConfiguration(helper.getOptions());
+        BigQueryTableConfigurationProvider configProvider =
+                new BigQueryTableConfigurationProvider(helper.getOptions());
         helper.validate();
 
-        if (config.isTestModeEnabled()) {
-            config = config.withTestingServices(testingServices);
+        if (configProvider.isTestModeEnabled()) {
+            configProvider = configProvider.withTestingServices(testingServices);
         }
 
         return new BigQueryDynamicTableSink(
-                config.toSinkConfig(), context.getPhysicalRowDataType().getLogicalType());
+                configProvider.toSinkConfig(),
+                context.getPhysicalRowDataType().getLogicalType(),
+                configProvider.getParallelism().orElse(null));
     }
 }

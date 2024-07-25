@@ -67,7 +67,7 @@ public class BigQueryDynamicTableSinkTest {
                         .serializer(new RowDataToProtoSerializer())
                         .build();
         bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, null);
     }
 
     @Test
@@ -87,9 +87,19 @@ public class BigQueryDynamicTableSinkTest {
     @Test
     public void testCopy() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, null);
         BigQueryDynamicTableSink bigQueryDynamicTableSinkCopy =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, null);
+
+        assertEquals(bigQueryDynamicTableSinkCopy, bigQueryDynamicTableSink.copy());
+    }
+
+    @Test
+    public void testCopyWithParallelism() {
+        BigQueryDynamicTableSink bigQueryDynamicTableSink =
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, 5);
+        BigQueryDynamicTableSink bigQueryDynamicTableSinkCopy =
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, 5);
 
         assertEquals(bigQueryDynamicTableSinkCopy, bigQueryDynamicTableSink.copy());
     }
@@ -97,14 +107,14 @@ public class BigQueryDynamicTableSinkTest {
     @Test
     public void testSummaryString() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, null);
         assertEquals("BigQuery", bigQueryDynamicTableSink.asSummaryString());
     }
 
     @Test
     public void testChangelogMode() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, null);
         assertEquals(
                 ChangelogMode.insertOnly(),
                 bigQueryDynamicTableSink.getChangelogMode(Mockito.mock(ChangelogMode.class)));
@@ -113,7 +123,7 @@ public class BigQueryDynamicTableSinkTest {
     @Test
     public void testSinkRuntimeProvider() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, null);
         assertInstanceOf(
                 SinkV2Provider.class,
                 bigQueryDynamicTableSink.getSinkRuntimeProvider(

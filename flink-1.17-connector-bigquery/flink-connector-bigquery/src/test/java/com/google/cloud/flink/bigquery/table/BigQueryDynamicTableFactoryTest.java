@@ -156,11 +156,15 @@ public class BigQueryDynamicTableFactoryTest {
     @Test
     public void testBigQuerySinkProperties() throws IOException {
         Map<String, String> properties = getRequiredOptions();
+        Integer sinkParallelism = 5;
+        properties.put(
+                BigQueryConnectorOptions.SINK_PARALLELISM.key(), String.valueOf(sinkParallelism));
 
         DynamicTableSink actual = FactoryMocks.createTableSink(SCHEMA, properties);
         BigQueryReadOptions connectorOptions = getConnectorOptions();
         LogicalType logicalType = SCHEMA.toPhysicalRowDataType().getLogicalType();
 
+        assertEquals(((BigQueryDynamicTableSink) actual).getSinkParallelism(), sinkParallelism);
         assertEquals(((BigQueryDynamicTableSink) actual).getLogicalType(), logicalType);
         assertEquals(
                 DeliveryGuarantee.AT_LEAST_ONCE,
@@ -190,7 +194,6 @@ public class BigQueryDynamicTableFactoryTest {
                 getRequiredOptionsWithSetting(
                         BigQueryConnectorOptions.DELIVERY_GUARANTEE.key(),
                         String.valueOf(DeliveryGuarantee.EXACTLY_ONCE));
-
         DynamicTableSink actual = FactoryMocks.createTableSink(SCHEMA, properties);
 
         BigQueryReadOptions connectorOptions = getConnectorOptions();

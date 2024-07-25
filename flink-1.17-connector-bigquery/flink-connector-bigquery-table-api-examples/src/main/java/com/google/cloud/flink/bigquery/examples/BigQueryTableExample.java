@@ -220,6 +220,7 @@ public class BigQueryTableExample {
                         .limit(limit)
                         .rowRestriction(rowRestriction)
                         .testMode(false)
+                        .maxRecordsPerSplitFetch(5000)
                         .boundedness(Boundedness.BOUNDED)
                         .build();
 
@@ -240,6 +241,7 @@ public class BigQueryTableExample {
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
                         .table(destTableName)
+                        .sinkParallelism(2)
                         .testMode(false)
                         .build();
 
@@ -319,6 +321,7 @@ public class BigQueryTableExample {
                         .testMode(false)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
+                        .oldestPartitionId(oldestPartition)
                         .partitionDiscoveryInterval(partitionDiscoveryInterval)
                         .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                         .build();
@@ -338,6 +341,7 @@ public class BigQueryTableExample {
                         .table(destTableName)
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
+                        .sinkParallelism(2)
                         .testMode(false)
                         .build();
 
