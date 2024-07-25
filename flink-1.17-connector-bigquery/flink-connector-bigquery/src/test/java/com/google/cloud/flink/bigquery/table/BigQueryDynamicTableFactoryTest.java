@@ -18,7 +18,6 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.connector.base.DeliveryGuarantee;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedSchema;
@@ -157,15 +156,15 @@ public class BigQueryDynamicTableFactoryTest {
     @Test
     public void testBigQuerySinkProperties() throws IOException {
         Map<String, String> properties = getRequiredOptions();
+        Integer sinkParallelism = 5;
         properties.put(
-                BigQueryConnectorOptions.STREAM_EXECUTION_ENVIRONMENT.key(),
-                StreamExecutionEnvironment.getExecutionEnvironment().toString());
-        properties.put(BigQueryConnectorOptions.SINK_PARALLELISM.key(), String.valueOf(5));
+                BigQueryConnectorOptions.SINK_PARALLELISM.key(), String.valueOf(sinkParallelism));
 
         DynamicTableSink actual = FactoryMocks.createTableSink(SCHEMA, properties);
         BigQueryReadOptions connectorOptions = getConnectorOptions();
         LogicalType logicalType = SCHEMA.toPhysicalRowDataType().getLogicalType();
 
+        assertEquals(((BigQueryDynamicTableSink) actual).getSinkParallelism(), sinkParallelism);
         assertEquals(((BigQueryDynamicTableSink) actual).getLogicalType(), logicalType);
         assertEquals(
                 DeliveryGuarantee.AT_LEAST_ONCE,
@@ -173,9 +172,6 @@ public class BigQueryDynamicTableFactoryTest {
         assertEquals(
                 ((BigQueryDynamicTableSink) actual).getSinkConfig().getConnectOptions(),
                 connectorOptions.getBigQueryConnectOptions());
-
-        assertEquals(((BigQueryDynamicTableSink) actual).getSinkParallelism(), 5);
-        assertEquals(((BigQueryDynamicTableSink) actual).get(), 5);
 
         // Check the avroSchema initialization as well.
         Schema actualAvroSchema =
@@ -198,11 +194,6 @@ public class BigQueryDynamicTableFactoryTest {
                 getRequiredOptionsWithSetting(
                         BigQueryConnectorOptions.DELIVERY_GUARANTEE.key(),
                         String.valueOf(DeliveryGuarantee.EXACTLY_ONCE));
-
-        properties.put(
-                BigQueryConnectorOptions.STREAM_EXECUTION_ENVIRONMENT.key(),
-                StreamExecutionEnvironment.getExecutionEnvironment().toString());
-
         DynamicTableSink actual = FactoryMocks.createTableSink(SCHEMA, properties);
 
         BigQueryReadOptions connectorOptions = getConnectorOptions();

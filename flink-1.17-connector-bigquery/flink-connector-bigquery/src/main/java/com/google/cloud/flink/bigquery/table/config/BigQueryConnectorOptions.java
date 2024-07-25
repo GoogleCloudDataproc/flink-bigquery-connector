@@ -118,6 +118,32 @@ public class BigQueryConnectorOptions {
                                     + " BigQuery can decide for less than this number.");
 
     /**
+     * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of records to read
+     * from a stream once a fetch has been requested from a particular split. If not set BigQuery
+     * decides the optimal amount.
+     */
+    public static final ConfigOption<Integer> MAX_RECORDS_PER_SPLIT_FETCH =
+            ConfigOptions.key("read.streams.max-records-per-fetch")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription(
+                            "The max number of records to read from a streams once a fetch has "
+                                    + "been requested from a particular split");
+
+    /**
+     * [OPTIONAL, Read Configuration] String value indicating the oldest partition that will be
+     * considered for unbounded reads when using completed partitions approach.<br>
+     * If not included, all the partitions on the table will be read.
+     */
+    public static final ConfigOption<String> OLDEST_PARTITION_ID =
+            ConfigOptions.key("read.oldest-partition-id")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription(
+                            "String value indicating the oldest partition that will be "
+                                    + "considered for unbounded reads.");
+
+    /**
      * Read Configuration: Long value indicating the millis since epoch for the underlying table
      * snapshot. Connector would read records from this snapshot instance table. <br>
      * Default: latest snapshot is read.
@@ -182,14 +208,6 @@ public class BigQueryConnectorOptions {
                     .enumType(DeliveryGuarantee.class)
                     .defaultValue(DeliveryGuarantee.AT_LEAST_ONCE)
                     .withDescription("Delivery Guarantee (AT_LEAST_ONCE or EXACTLY_ONCE");
-
-    /** [REQUIRED, Sink Configuration] Object representing the StreamExecutionEnvironment. */
-    public static final ConfigOption<String> STREAM_EXECUTION_ENVIRONMENT =
-            ConfigOptions.key("write.stream-execution-environment")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Stream Execution Environment of the execution (required for Datastream sink)");
 
     /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink job. */
     public static final ConfigOption<Integer> SINK_PARALLELISM =

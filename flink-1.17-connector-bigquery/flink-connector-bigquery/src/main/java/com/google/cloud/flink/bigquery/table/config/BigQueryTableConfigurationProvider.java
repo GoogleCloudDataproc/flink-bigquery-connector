@@ -64,16 +64,6 @@ public class BigQueryTableConfigurationProvider {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.SINK_PARALLELISM));
     }
 
-    /**
-     * Method to check if the user has provided the StreamExecutionEnvironment parameter.
-     *
-     * @return True if the <code>StreamExecutionEnvironment</code> is set (not null), false
-     *     otherwise
-     */
-    public boolean isStreamEnvironmentSet() {
-        return config.get(BigQueryConnectorOptions.STREAM_EXECUTION_ENVIRONMENT) != null;
-    }
-
     public BigQueryReadOptions toBigQueryReadOptions() {
         try {
             return BigQueryReadOptions.builder()
@@ -88,6 +78,9 @@ public class BigQueryTableConfigurationProvider {
                                     .orElse(new ArrayList<>()))
                     .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                     .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
+                    .setOldestPartitionId(config.get(BigQueryConnectorOptions.OLDEST_PARTITION_ID))
+                    .setMaxRecordsPerSplitFetch(
+                            config.get(BigQueryConnectorOptions.MAX_RECORDS_PER_SPLIT_FETCH))
                     .setPartitionDiscoveryRefreshIntervalInMinutes(
                             config.get(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL))
                     .build();

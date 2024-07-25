@@ -19,8 +19,6 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryDefaultWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Sink to write data into a BigQuery table using {@link BigQueryDefaultWriter}.
@@ -31,7 +29,6 @@ import org.slf4j.LoggerFactory;
  * <li>Checkpointing disabled: no consistency guarantee.
  */
 class BigQueryDefaultSink extends BigQueryBaseSink {
-    private static final Logger LOG = LoggerFactory.getLogger(BigQueryBaseSink.class);
 
     BigQueryDefaultSink(BigQuerySinkConfig sinkConfig) {
         super(sinkConfig);
@@ -39,9 +36,6 @@ class BigQueryDefaultSink extends BigQueryBaseSink {
 
     @Override
     public SinkWriter createWriter(InitContext context) {
-        LOG.info(
-                "@prashastia: context.getNumberOfParallelSubtasks(): "
-                        + context.getNumberOfParallelSubtasks());
         checkParallelism(context.getNumberOfParallelSubtasks());
         return new BigQueryDefaultWriter(
                 context.getSubtaskId(), connectOptions, schemaProvider, serializer, tablePath);
