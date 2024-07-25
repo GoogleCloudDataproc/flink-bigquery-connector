@@ -17,22 +17,29 @@
 package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
-import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfiguration;
+import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfigurationProvider;
 
 import java.util.HashSet;
 import java.util.Set;
 
-/** Factory class to create configured instances of {@link BigQueryDynamicTableSource}. */
+/**
+ * Factory class to create configured instances of {@link BigQueryDynamicTableSource} and {@link
+ * BigQueryDynamicTableSink}.
+ */
 @Internal
-public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
+public class BigQueryDynamicTableFactory
+        implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 
     public static final String IDENTIFIER = "bigquery";
 
@@ -67,7 +74,9 @@ public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_FILE);
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
         additionalOptions.add(BigQueryConnectorOptions.TEST_MODE);
-
+        additionalOptions.add(BigQueryConnectorOptions.MODE);
+        additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
+        additionalOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
         return additionalOptions;
     }
 
@@ -79,6 +88,7 @@ public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
         forwardOptions.add(BigQueryConnectorOptions.DATASET);
         forwardOptions.add(BigQueryConnectorOptions.TABLE);
         forwardOptions.add(BigQueryConnectorOptions.LIMIT);
+        forwardOptions.add(BigQueryConnectorOptions.MODE);
         forwardOptions.add(BigQueryConnectorOptions.ROW_RESTRICTION);
         forwardOptions.add(BigQueryConnectorOptions.COLUMNS_PROJECTION);
         forwardOptions.add(BigQueryConnectorOptions.MAX_STREAM_COUNT);
@@ -86,7 +96,8 @@ public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_ACCESS_TOKEN);
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_FILE);
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
-
+        forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
+        forwardOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
         return forwardOptions;
     }
 
@@ -95,18 +106,41 @@ public class BigQueryDynamicTableFactory implements DynamicTableSourceFactory {
         final FactoryUtil.TableFactoryHelper helper =
                 FactoryUtil.createTableFactoryHelper(this, context);
 
-        BigQueryTableConfiguration config = new BigQueryTableConfiguration(helper.getOptions());
+        BigQueryTableConfigurationProvider configProvider =
+                new BigQueryTableConfigurationProvider(helper.getOptions());
         helper.validate();
 
-        if (config.isTestModeEnabled()) {
-            config = config.withTestingServices(testingServices);
+        if (configProvider.isTestModeEnabled()) {
+            configProvider = configProvider.withTestingServices(testingServices);
         }
 
+        // Create a Source depending on the boundedness.
         return new BigQueryDynamicTableSource(
-                config.toBigQueryReadOptions(), context.getPhysicalRowDataType());
+                configProvider.toBigQueryReadOptions(),
+                context.getPhysicalRowDataType(),
+                configProvider.isUnboundedEnabled()
+                        ? Boundedness.CONTINUOUS_UNBOUNDED
+                        : Boundedness.BOUNDED);
     }
 
     static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {
         BigQueryDynamicTableFactory.testingServices = testingServices;
+    }
+
+    @Override
+    public DynamicTableSink createDynamicTableSink(Context context) {
+        final FactoryUtil.TableFactoryHelper helper =
+                FactoryUtil.createTableFactoryHelper(this, context);
+
+        BigQueryTableConfigurationProvider configProvider =
+                new BigQueryTableConfigurationProvider(helper.getOptions());
+        helper.validate();
+
+        if (configProvider.isTestModeEnabled()) {
+            configProvider = configProvider.withTestingServices(testingServices);
+        }
+
+        return new BigQueryDynamicTableSink(
+                configProvider.toSinkConfig(), context.getPhysicalRowDataType().getLogicalType());
     }
 }

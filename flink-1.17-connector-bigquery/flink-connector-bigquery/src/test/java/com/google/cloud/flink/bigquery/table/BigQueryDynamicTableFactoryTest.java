@@ -16,18 +16,25 @@
 
 package com.google.cloud.flink.bigquery.table;
 
+import org.apache.flink.api.connector.source.Boundedness;
+import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.catalog.UniqueConstraint;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.utils.FactoryMocks;
+import org.apache.flink.table.types.logical.LogicalType;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
+import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
+import org.apache.avro.Schema;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
@@ -39,6 +46,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
 public class BigQueryDynamicTableFactoryTest {
@@ -96,6 +104,42 @@ public class BigQueryDynamicTableFactoryTest {
     }
 
     @Test
+    public void testBigQueryUnboundedReadProperties() throws IOException {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.COLUMNS_PROJECTION.key(), "aaa,bbb");
+        properties.put(BigQueryConnectorOptions.MAX_STREAM_COUNT.key(), "100");
+        properties.put(
+                BigQueryConnectorOptions.ROW_RESTRICTION.key(), "aaa > 10 AND NOT bbb IS NULL");
+        properties.put(
+                BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
+                Long.toString(Instant.EPOCH.toEpochMilli()));
+        properties.put(
+                BigQueryConnectorOptions.MODE.key(),
+                String.valueOf(Boundedness.CONTINUOUS_UNBOUNDED));
+
+        DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, properties);
+
+        BigQueryReadOptions connectorOptions = getConnectorOptions();
+        BigQueryReadOptions readOptions =
+                BigQueryReadOptions.builder()
+                        .setColumnNames(Arrays.asList("aaa", "bbb"))
+                        .setMaxStreamCount(100)
+                        .setRowRestriction("aaa > 10 AND NOT bbb IS NULL")
+                        .setSnapshotTimestampInMillis(Instant.EPOCH.toEpochMilli())
+                        .setBigQueryConnectOptions(connectorOptions.getBigQueryConnectOptions())
+                        .build();
+
+        BigQueryDynamicTableSource expected =
+                new BigQueryDynamicTableSource(
+                        readOptions,
+                        SCHEMA.toPhysicalRowDataType(),
+                        Boundedness.CONTINUOUS_UNBOUNDED);
+
+        assertThat(actual).isEqualTo(expected);
+        assertThat(actual.hashCode()).isEqualTo(expected.hashCode());
+    }
+
+    @Test
     public void testBigQuerySourceValidation() {
         // max num of streams should be positive
         assertSourceValidationRejects(
@@ -107,6 +151,58 @@ public class BigQueryDynamicTableFactoryTest {
                 BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
                 "-1000",
                 "The oldest timestamp should be equal or bigger than epoch.");
+    }
+
+    @Test
+    public void testBigQuerySinkProperties() throws IOException {
+        Map<String, String> properties = getRequiredOptions();
+
+        DynamicTableSink actual = FactoryMocks.createTableSink(SCHEMA, properties);
+        BigQueryReadOptions connectorOptions = getConnectorOptions();
+        LogicalType logicalType = SCHEMA.toPhysicalRowDataType().getLogicalType();
+
+        assertEquals(((BigQueryDynamicTableSink) actual).getLogicalType(), logicalType);
+        assertEquals(
+                DeliveryGuarantee.AT_LEAST_ONCE,
+                ((BigQueryDynamicTableSink) actual).getSinkConfig().getDeliveryGuarantee());
+        assertEquals(
+                ((BigQueryDynamicTableSink) actual).getSinkConfig().getConnectOptions(),
+                connectorOptions.getBigQueryConnectOptions());
+
+        // Check the avroSchema initialization as well.
+        Schema actualAvroSchema =
+                ((BigQueryDynamicTableSink) actual)
+                        .getSinkConfig()
+                        .getSchemaProvider()
+                        .getAvroSchema();
+        AvroSchemaConvertor avroSchemaConvertor = new AvroSchemaConvertor();
+        Schema expectedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
+        assertEquals(expectedAvroSchema, actualAvroSchema);
+
+        // check if RowDataToProtoSerializer is the Serializer.
+        assertThat(((BigQueryDynamicTableSink) actual).getSinkConfig().getSerializer())
+                .isInstanceOf(RowDataToProtoSerializer.class);
+    }
+
+    @Test
+    public void testBigQuerySinkExactlyOnceProperties() throws IOException {
+        Map<String, String> properties =
+                getRequiredOptionsWithSetting(
+                        BigQueryConnectorOptions.DELIVERY_GUARANTEE.key(),
+                        String.valueOf(DeliveryGuarantee.EXACTLY_ONCE));
+
+        DynamicTableSink actual = FactoryMocks.createTableSink(SCHEMA, properties);
+
+        BigQueryReadOptions connectorOptions = getConnectorOptions();
+        LogicalType logicalType = SCHEMA.toPhysicalRowDataType().getLogicalType();
+
+        assertEquals(((BigQueryDynamicTableSink) actual).getLogicalType(), logicalType);
+        assertEquals(
+                DeliveryGuarantee.EXACTLY_ONCE,
+                ((BigQueryDynamicTableSink) actual).getSinkConfig().getDeliveryGuarantee());
+        assertEquals(
+                ((BigQueryDynamicTableSink) actual).getSinkConfig().getConnectOptions(),
+                connectorOptions.getBigQueryConnectOptions());
     }
 
     private void assertSourceValidationRejects(String key, String value, String errorMessage) {

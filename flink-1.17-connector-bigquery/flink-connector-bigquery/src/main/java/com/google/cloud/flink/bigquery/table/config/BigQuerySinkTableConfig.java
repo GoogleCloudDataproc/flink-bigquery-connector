@@ -71,7 +71,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
         return tableDescriptorBuilder.build();
     }
 
-    /** Builder for BigQueryReadTableConfig. */
+    /** Builder for BigQuerySinkTableConfig. */
     public static class Builder extends BigQueryTableConfig.Builder {
 
         private DeliveryGuarantee deliveryGuarantee;

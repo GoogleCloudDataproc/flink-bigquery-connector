@@ -580,31 +580,60 @@ public class StorageClientFaker {
                 .build();
     }
 
-    public static BigQueryReadOptions createTableReadOptions(
+    public static BigQueryReadOptions createReadAndWriteOptions(
             Integer expectedRowCount,
             Integer expectedReadStreamCount,
             String avroSchemaString,
-            Integer readLimit)
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            AppendRowsResponse appendRowsResponse)
             throws IOException {
-        return createTableReadOptions(
+        return createReadAndWriteOptions(
                 expectedRowCount,
                 expectedReadStreamCount,
                 avroSchemaString,
-                params -> StorageClientFaker.createRecordList(params),
-                0D,
-                readLimit);
-    }
-
-    public static BigQueryReadOptions createTableReadOptions(
-            Integer expectedRowCount, Integer expectedReadStreamCount, String avroSchemaString)
-            throws IOException {
-        return createTableReadOptions(
-                expectedRowCount,
-                expectedReadStreamCount,
-                avroSchemaString,
-                params -> StorageClientFaker.createRecordList(params),
+                dataGenerator,
+                appendRowsResponse,
                 0D,
                 -1);
+    }
+
+    public static BigQueryReadOptions createReadAndWriteOptions(
+            Integer expectedRowCount,
+            Integer expectedReadStreamCount,
+            String avroSchemaString,
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
+            AppendRowsResponse appendRowsResponse,
+            Double errorPercentage,
+            Integer readLimit)
+            throws IOException {
+        return BigQueryReadOptions.builder()
+                .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
+                .setLimit(readLimit)
+                .setQuery("SELECT 1")
+                .setQueryExecutionProject("some-gcp-project")
+                .setBigQueryConnectOptions(
+                        BigQueryConnectOptions.builder()
+                                .setDataset("dataset")
+                                .setProjectId("project")
+                                .setTable("table")
+                                .setCredentialsOptions(null)
+                                .setTestingBigQueryServices(
+                                        () -> {
+                                            return FakeBigQueryServices.getInstance(
+                                                    new StorageClientFaker.FakeBigQueryServices
+                                                            .FakeBigQueryStorageReadClient(
+                                                            StorageClientFaker.fakeReadSession(
+                                                                    expectedRowCount,
+                                                                    expectedReadStreamCount,
+                                                                    avroSchemaString),
+                                                            dataGenerator,
+                                                            errorPercentage),
+                                                    new FakeBigQueryServices
+                                                            .FakeBigQueryStorageWriteClient(
+                                                            appendRowsResponse));
+                                        })
+                                .build())
+                .build();
     }
 
     public static BigQueryReadOptions createTableReadOptions(
@@ -615,22 +644,6 @@ public class StorageClientFaker {
             throws IOException {
         return createTableReadOptions(
                 expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D, -1);
-    }
-
-    public static BigQueryReadOptions createTableReadOptions(
-            Integer expectedRowCount,
-            Integer expectedReadStreamCount,
-            String avroSchemaString,
-            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
-            Double errorPercentage)
-            throws IOException {
-        return createTableReadOptions(
-                expectedRowCount,
-                expectedReadStreamCount,
-                avroSchemaString,
-                dataGenerator,
-                errorPercentage,
-                -1);
     }
 
     public static BigQueryReadOptions createTableReadOptions(
