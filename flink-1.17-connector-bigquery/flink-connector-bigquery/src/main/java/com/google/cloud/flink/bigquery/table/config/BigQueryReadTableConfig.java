@@ -35,8 +35,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
     private final Long snapshotTimestamp;
     private final Boundedness boundedness;
     private final Integer partitionDiscoveryInterval;
-    private final Integer maxRecordsPerSplitFetch;
-    private final String oldestPartitionId;
 
     BigQueryReadTableConfig(
             String project,
@@ -52,9 +50,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             Integer limit,
             Long snapshotTimestamp,
             Boundedness boundedness,
-            Integer partitionDiscoveryInterval,
-            Integer maxRecordsPerSplitFetch,
-            String oldestPartitionId) {
+            Integer partitionDiscoveryInterval) {
         super(
                 project,
                 dataset,
@@ -71,8 +67,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         this.snapshotTimestamp = snapshotTimestamp;
         this.boundedness = boundedness;
         this.partitionDiscoveryInterval = partitionDiscoveryInterval;
-        this.maxRecordsPerSplitFetch = maxRecordsPerSplitFetch;
-        this.oldestPartitionId = oldestPartitionId;
     }
 
     public static BigQueryReadTableConfig.Builder newBuilder() {
@@ -110,15 +104,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
                     BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL,
                     this.partitionDiscoveryInterval);
         }
-        if (this.oldestPartitionId != null) {
-            tableDescriptorBuilder.option(
-                    BigQueryConnectorOptions.OLDEST_PARTITION_ID, this.oldestPartitionId);
-        }
-        if (this.maxRecordsPerSplitFetch != null) {
-            tableDescriptorBuilder.option(
-                    BigQueryConnectorOptions.MAX_RECORDS_PER_SPLIT_FETCH,
-                    this.maxRecordsPerSplitFetch);
-        }
         return tableDescriptorBuilder.build();
     }
 
@@ -135,9 +120,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         private Boundedness boundedness;
 
         private Integer partitionDiscoveryInterval;
-
-        private Integer maxRecordsPerSplitFetch;
-        private String oldestPartitionId;
 
         @Override
         public BigQueryReadTableConfig.Builder project(String project) {
@@ -244,27 +226,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         }
 
         /**
-         * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of records to
-         * read from a stream once a fetch has been requested from a particular split. If not set
-         * BigQuery decides the optimal amount.
-         */
-        public BigQueryReadTableConfig.Builder maxRecordsPerSplitFetch(
-                Integer maxRecordsPerSplitFetch) {
-            this.maxRecordsPerSplitFetch = maxRecordsPerSplitFetch;
-            return this;
-        }
-
-        /**
-         * [OPTIONAL, Read Configuration] String value indicating the oldest partition that will be
-         * considered for unbounded reads when using completed partitions approach.<br>
-         * If not included, all the partitions on the table will be read.
-         */
-        public BigQueryReadTableConfig.Builder oldestPartitionId(String oldestPartitionId) {
-            this.oldestPartitionId = oldestPartitionId;
-            return this;
-        }
-
-        /**
          * [OPTIONAL, Read Configuration] Integer value indicating periodicity (in minutes) of
          * partition discovery in table. This config is used in unbounded source.<br>
          * Default: 10 minutes
@@ -290,9 +251,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
                     limit,
                     snapshotTimestamp,
                     boundedness,
-                    partitionDiscoveryInterval,
-                    maxRecordsPerSplitFetch,
-                    oldestPartitionId);
+                    partitionDiscoveryInterval);
         }
     }
 }

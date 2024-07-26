@@ -83,8 +83,6 @@ public class BigQueryDynamicTableFactoryTest {
         properties.put(
                 BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
                 "" + Instant.EPOCH.toEpochMilli());
-        properties.put(
-                BigQueryConnectorOptions.MAX_RECORDS_PER_SPLIT_FETCH.key(), Integer.toString(5000));
 
         DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, properties);
 
@@ -94,7 +92,6 @@ public class BigQueryDynamicTableFactoryTest {
                         .setColumnNames(Arrays.asList("aaa", "bbb"))
                         .setMaxStreamCount(100)
                         .setRowRestriction("aaa > 10 AND NOT bbb IS NULL")
-                        .setMaxRecordsPerSplitFetch(5000)
                         .setSnapshotTimestampInMillis(Instant.EPOCH.toEpochMilli())
                         .setBigQueryConnectOptions(connectorOptions.getBigQueryConnectOptions())
                         .build();
@@ -119,9 +116,6 @@ public class BigQueryDynamicTableFactoryTest {
                 BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
                 Long.toString(instantEpochMillis));
         properties.put(
-                BigQueryConnectorOptions.OLDEST_PARTITION_ID.key(),
-                Long.toString(instantEpochMillis));
-        properties.put(
                 BigQueryConnectorOptions.MODE.key(),
                 String.valueOf(Boundedness.CONTINUOUS_UNBOUNDED));
 
@@ -134,7 +128,6 @@ public class BigQueryDynamicTableFactoryTest {
                         .setMaxStreamCount(100)
                         .setRowRestriction("aaa > 10 AND NOT bbb IS NULL")
                         .setSnapshotTimestampInMillis(instantEpochMillis)
-                        .setOldestPartitionId(Long.toString(instantEpochMillis))
                         .setBigQueryConnectOptions(connectorOptions.getBigQueryConnectOptions())
                         .build();
 
