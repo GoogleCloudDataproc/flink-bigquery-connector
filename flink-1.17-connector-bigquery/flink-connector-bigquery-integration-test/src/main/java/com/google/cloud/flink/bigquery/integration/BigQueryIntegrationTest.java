@@ -237,7 +237,8 @@ public class BigQueryIntegrationTest {
                                 destGcpProjectName,
                                 destDatasetName,
                                 destTableName,
-                                isExactlyOnceEnabled);
+                                isExactlyOnceEnabled,
+                                sinkParallelism);
                         break;
                     case "unbounded":
                         recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -251,7 +252,8 @@ public class BigQueryIntegrationTest {
                                 isExactlyOnceEnabled,
                                 recordPropertyForTimestamps,
                                 partitionDiscoveryInterval,
-                                timeoutTimePeriod);
+                                timeoutTimePeriod,
+                                sinkParallelism);
                         break;
                     default:
                         throw new IllegalArgumentException(
@@ -662,7 +664,8 @@ public class BigQueryIntegrationTest {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
-            boolean isExactlyOnce)
+            boolean isExactlyOnce,
+            Integer sinkParallelism)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -695,6 +698,7 @@ public class BigQueryIntegrationTest {
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
                         .table(destTableName)
+                        .sinkParallelism(sinkParallelism)
                         .testMode(false)
                         .build();
 
@@ -705,6 +709,7 @@ public class BigQueryIntegrationTest {
                             .project(destGcpProjectName)
                             .dataset(destDatasetName)
                             .testMode(false)
+                            .sinkParallelism(sinkParallelism)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .build();
         }
@@ -747,7 +752,8 @@ public class BigQueryIntegrationTest {
             Boolean isExactlyOnceEnabled,
             String recordPropertyForTimestamps,
             Integer partitionDiscoveryInterval,
-            Integer timeoutTimePeriod)
+            Integer timeoutTimePeriod,
+            Integer sinkParallelism)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -788,6 +794,7 @@ public class BigQueryIntegrationTest {
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
                         .testMode(false)
+                        .sinkParallelism(sinkParallelism)
                         .build();
 
         if (isExactlyOnceEnabled) {
@@ -798,6 +805,7 @@ public class BigQueryIntegrationTest {
                             .dataset(destDatasetName)
                             .testMode(false)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                            .sinkParallelism(sinkParallelism)
                             .build();
         }
 
