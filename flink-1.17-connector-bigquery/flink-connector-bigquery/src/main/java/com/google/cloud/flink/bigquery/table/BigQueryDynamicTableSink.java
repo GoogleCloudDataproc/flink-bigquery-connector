@@ -41,6 +41,10 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
     private final LogicalType logicalType;
     private final Integer parallelism;
 
+    public BigQueryDynamicTableSink(BigQuerySinkConfig sinkConfig, LogicalType logicalType) {
+        this(sinkConfig, logicalType, null);
+    }
+
     public BigQueryDynamicTableSink(
             BigQuerySinkConfig sinkConfig, LogicalType logicalType, Integer parallelism) {
         this.logicalType = logicalType;
