@@ -387,17 +387,15 @@ rather than how to do it.
 
 // Create the Config.
 BigQueryTableConfig readTableConfig =  new BigQueryReadTableConfig.Builder()
-        .table(...)
-        .project(...)
-        .dataset(...)
-        .partitionDiscoveryInterval(...)
-        .boundedness(...) // Boundedness.CONTINUOUS_UNBOUNDED or Boundedness.BOUNDED
-        .limit(...)
-        .columnProjection(...)
-        .snapshotTimestamp(...)
-        .oldestPartitionId(...)
-        .maxStreamCount(...)
-        .rowRestriction(...)
+        .table(...) // REQUIRED
+        .project(...) // REQUIRED
+        .dataset(...) // REQUIRED
+        .partitionDiscoveryInterval(...) // OPTIONAL; only in CONTINUOUS_UNBOUNDED source
+        .boundedness(...) // OPTIONAL; Boundedness.CONTINUOUS_UNBOUNDED or Boundedness.BOUNDED
+        .limit(...) // OPTIONAL
+        .columnProjection(...) // OPTIONAL
+        .snapshotTimestamp(...) // OPTIONAL
+        .rowRestriction(...) // OPTIONAL
         .build();
 
 // Create the catalog table.
@@ -420,15 +418,15 @@ sourceTable = sourceTable.select($("*"));
 
 // Create the Config.
 BigQueryTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
-        .table(...)
-        .project(...)
-        .dataset(...)
-        .testMode(...)
-        .credentialAccessToken(...)
-        .credentialFile(...)
-        .credentialKey(...)
-        .sinkParallelism(...) // Should be atmost 128
-        .deliveryGuarantee(...)
+        .table(...) // REQUIRED
+        .project(...) // REQUIRED
+        .dataset(...) // REQUIRED
+        .testMode(...) // OPTIONAL
+        .credentialAccessToken(...) // OPTIONAL
+        .credentialFile(...) // OPTIONAL
+        .credentialKey(...) // OPTIONAL
+        .sinkParallelism(...) // OPTIONAL; Should be atmost 128
+        .deliveryGuarantee(...) // OPTIONAL
         .build();
 
 // Register the Sink Table
@@ -451,18 +449,16 @@ res.await();
 ```
 #### More Details:
 * Input and Output tables (catalog tables) must be registered in the TableEnvironment.
-* Moreover, the schema of the registered table must match the schema of the query.</b>
+* The schema of the registered table must match the schema of the query.</b>
 * Boundedness must be either `Boundedness.CONTINUOUS_UNBOUNDED` or `Boundedness.BOUNDED`.
 * Checkpointing must be enabled as mentioned above. Delivery guarantee must be at-least-once.
-* [BigQueryTableConfig](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/table/config/BigQueryTableConfig.java) stores information needed to connect to a BigQuery table. It could even be used to obtain the TableDescriptor required for the creation of Catalog Table.
+* [BigQueryTableConfig](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/table/config/BigQueryTableConfig.java) stores information needed to connect to a BigQuery table. It could even be used to obtain the TableDescriptor required for the creation of Catalog Table. <br/>Please refer to:
+  * [BigQueryReadTableConfig](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/table/config/BigQueryReadTableConfig.java) for more details on available read configurations.
+  * [BigQuerySinkTableConfig](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/table/config/BigQuerySinkTableConfig.java) for more details on available sink configurations.
 * [RowDataToProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/RowDataToProtoSerializer.java) is offered for serialization of `RowData` (since Table API read/writes `RowData` format records) records to BigQuery Proto Rows. This out-of-box serializer is automatically provided to the sink during runtime.
 * [BigQueryTableSchemaProvider](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQueryTableSchemaProvider.java) is a helper class which contains the method `getTableDescriptor()` which could be used to obtain a [TableDescriptor](https://nightlies.apache.org/flink/flink-docs-master/api/java/org/apache/flink/table/api/TableDescriptor.html) for creation of catalog table via `BigQueryTableConfig` (`BigQuerySinkTableConfig` for sink options and `BigQueryReadTableConfig` for read options). 
 Users could also create their own catalog tables; provided the schema of the registered table, and the associated BigQuery table is the same.
-* Limitations:
-    * Inability to read and then write `TIME` type BigQuery records. Reading `TIME` type records and subsequently writing them to BigQuery would result in an error due to misconfigured types between BigQuery and Flink's RowData.
-    * Incorrect value obtained during read and write of `BIGNUMERIC` type BigQuery Records. Reading `BIGNUMERIC` type records from a BigQuery table and subsequently writing them to BigQuery would result in incorrect value being written to BigQuery as Flink's RowData does not support NUMERIC Types with precision more than 38 (BIGNUMERIC supports precision upto 76).
-    * Supports only `INSERT` type operations such as `SELECT`/`WHERE`, `UNION`, `JOIN`, etc.
-The connector supports a number of options to configure.
+* The connector supports a number of options to configure.
 
 | Property                                     | Data Type         | Description                                                                                                                                                                                                                                                                                                                                               | Availability                                         |
 |----------------------------------------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------| 
@@ -477,12 +473,16 @@ The connector supports a number of options to configure.
 | `columnProjection`                           | String            | Columns (comma separated list of values) to project from the table. This config is used in bounded table or unbounded source. If unspecified, all columns are fetched.                                                                                                                                                                                    | `BigQueryReadTableConfig`                            |
 | `maxStreamCount`                             | Integer           | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. This config is used in bounded table or unbounded source. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                             | `BigQueryReadTableConfig`                            |
 | `snapshotTimeInMillis`                       | Long              | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. This config is used in bounded table or unbounded source. If unspecified, the latest snapshot is read.                                                                                                                                                                        | `BigQueryReadTableConfig`                            |
-| `maxRecordsPerSplitFetch`                    | Integer           | Maximum number of records to read from a split once Flink requests fetch. This config is used in bounded table or unbounded source. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream. | `BigQueryReadTableConfig`                            |
-| `oldestPartitionId`                          | String            | Earliest table partition to consider for unbounded reads. This config is used in unbounded source. If unspecified, all partitions are read.                                                                                                                                                                                                               | `BigQueryReadTableConfig`                            |
 | `partitionDiscoveryRefreshIntervalInMinutes` | Integer           | Periodicity (in minutes) of partition discovery in table. This config is used in unbounded source. If unspecified, the default value used is 10 minutes.                                                                                                                                                                                                  | `BigQueryReadTableConfig`                            |
 | `sinkParallelism`                            | Integer           | Integer value indicating the parallelism for the sink . This config is used in unbounded source and is optional. If unspecified, the application decides the optimal parallelism. <br/>Maximum value: 128.                                                                                                                                                | `BigQuerySinkTableConfig`                            |
 | `boundedness`                                | Boundedness       | Enum value indicating boundedness of the source. <br/> Possible values: `Boundedness.CONTINUOUS_UNBOUNDED` or `Boundedness.BOUNDED`. <br/> Default Value:  `Boundedness.BOUNDED`                                                                                                                                                                          | `BigQueryReadTableConfig`                            |
 | `deliveryGuarantee`                          | DeliveryGuarantee | Enum value indicating delivery guarantee of the source. <br/> Possible values: `DeliveryGuarantee.EXACTLY_ONCE` or `DeliveryGuarantee.AT_LEAST_ONCE`. <br/> Default Value:  `DeliveryGuarantee.AT_LEAST_ONCE`                                                                                                                                             | `BigQueryReadTableConfig`                            |
+* Limitations:
+    * Inability to read and then write `TIME` type BigQuery records. Reading `TIME` type records and subsequently writing them to BigQuery would result in an error due to misconfigured types between 
+BigQuery and Flink's RowData. <br/> This misconfiguration only happens when BigQuery is used as both the source and sink, connector works as expected for correctly formatted `RowData` records read from other sources.
+    * Incorrect value obtained during read and write of `BIGNUMERIC` type BigQuery Records. Reading `BIGNUMERIC` type records from a BigQuery table and subsequently writing them to 
+BigQuery would result in incorrect value being written to BigQuery as Flink's RowData does not support NUMERIC Types with precision more than 38 (BIGNUMERIC supports precision up to 76). <br/> This mismatch only occurs due to bigquery's support for NUMERIC values with > 38 precision. The connector works as expected for other sources(even BigQuery) within the permitted(up to 38) range.
+    * Supports only `INSERT` type operations such as `SELECT`/`WHERE`, `UNION`, `JOIN`, etc.
 
 #### Catalog Tables:
 * Catalog Table usage helps hide the complexities of interacting with different external systems behind a common interface.

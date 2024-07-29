@@ -220,7 +220,6 @@ public class BigQueryTableExample {
                         .limit(limit)
                         .rowRestriction(rowRestriction)
                         .testMode(false)
-                        .maxRecordsPerSplitFetch(5000)
                         .boundedness(Boundedness.BOUNDED)
                         .build();
 
@@ -321,7 +320,6 @@ public class BigQueryTableExample {
                         .testMode(false)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
-                        .oldestPartitionId(oldestPartition)
                         .partitionDiscoveryInterval(partitionDiscoveryInterval)
                         .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                         .build();
@@ -372,8 +370,10 @@ public class BigQueryTableExample {
 
     /**
      * Bounded read > join and sink operation via Flink's Table API. The function is responsible for
-     * reading a BigQuery table (having schema <i>id</i> <code>STRING</code>, <i>name_left</i> <code>
-     * STRING</code>) in bounded mode and then writes the modified records back to another BigQuery table.
+     * reading a BigQuery table (having schema <i>id</i> <code>STRING</code>, <i>name_left</i>
+     * <code>
+     * STRING</code>) in bounded mode and then writes the modified records back to another BigQuery
+     * table.
      *
      * @param sourceGcpProjectName The GCP Project name of the source table.
      * @param sourceDatasetName Dataset name of the source table.
@@ -425,7 +425,7 @@ public class BigQueryTableExample {
 
         readTableConfig =
                 BigQueryReadTableConfig.newBuilder()
-                        .table(rightSourceTableName)
+                        .table("right_table")
                         .project(sourceGcpProjectName)
                         .dataset(sourceDatasetName)
                         .testMode(false)
@@ -463,21 +463,21 @@ public class BigQueryTableExample {
                 "bigQuerySinkTable",
                 BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
 
-        // Join Example
-//        Table leftSourceTable = tEnv.from("leftSourceTable");
-//        Table rightSourceTable = tEnv.from("rightSourceTable");
-//        Table joinedTable =
-//                leftSourceTable
-//                        .renameColumns($("id").as("id_l"))
-//                        .join(rightSourceTable, $("id_l").isEqual($("id")))
-//                        .select($("id"), $("name_left"), $("name_right"));
-//        joinedTable.executeInsert("bigQuerySinkTable");
+        // Join Example - Table API
+        //        Table leftSourceTable = tEnv.from("leftSourceTable");
+        //        Table rightSourceTable = tEnv.from("rightSourceTable");
+        //        Table joinedTable =
+        //                leftSourceTable
+        //                        .renameColumns($("id").as("id_l"))
+        //                        .join(rightSourceTable, $("id_l").isEqual($("id")))
+        //                        .select($("id"), $("name_left"), $("name_right"));
+        //        joinedTable.executeInsert("bigQuerySinkTable");
 
-
-        //SQL Example
-        tEnv.executeSql("insert into bigQuerySinkTable values (Select leftSourceTable.id, "
-                + "name_left, name_right  from leftSourceTable, rightSourceTable where "
-                + "leftSourceTable.id == rightSourceTable.id)");
+        // Join Example - SQL
+        tEnv.executeSql(
+                "insert into bigQuerySinkTable Select leftSourceTable.id AS id, "
+                        + "leftSourceTable.name_left AS name_left, rightSourceTable.name_right as name_right from leftSourceTable JOIN rightSourceTable ON "
+                        + "leftSourceTable.id = rightSourceTable.id;");
     }
 
     /** Function to flatmap the Table API source Catalog Table. */
