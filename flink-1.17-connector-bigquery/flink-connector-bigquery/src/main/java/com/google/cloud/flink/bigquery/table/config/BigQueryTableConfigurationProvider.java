@@ -78,9 +78,6 @@ public class BigQueryTableConfigurationProvider {
                                     .orElse(new ArrayList<>()))
                     .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                     .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
-                    .setOldestPartitionId(config.get(BigQueryConnectorOptions.OLDEST_PARTITION_ID))
-                    .setMaxRecordsPerSplitFetch(
-                            config.get(BigQueryConnectorOptions.MAX_RECORDS_PER_SPLIT_FETCH))
                     .setPartitionDiscoveryRefreshIntervalInMinutes(
                             config.get(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL))
                     .build();

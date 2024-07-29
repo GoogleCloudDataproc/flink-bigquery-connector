@@ -98,11 +98,17 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
         // Set the logical type.
         ((RowDataToProtoSerializer) sinkConfig.getSerializer()).setLogicalType(this.logicalType);
         // Get the Datastream-API Sink.
+        if (this.parallelism == null) {
+            return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null));
+        }
         return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null), this.parallelism);
     }
 
     @Override
     public DynamicTableSink copy() {
+        if (this.parallelism == null) {
+            return new BigQueryDynamicTableSink(this.sinkConfig, this.logicalType);
+        }
         return new BigQueryDynamicTableSink(this.sinkConfig, this.logicalType, this.parallelism);
     }
 
