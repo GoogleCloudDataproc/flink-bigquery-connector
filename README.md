@@ -461,7 +461,7 @@ Users could also create their own catalog tables; provided the schema of the reg
 * Limitations:
     * Inability to read and then write `TIME` type BigQuery records. Reading `TIME` type records and subsequently writing them to BigQuery would result in an error due to misconfigured types between BigQuery and Flink's RowData.
     * Incorrect value obtained during read and write of `BIGNUMERIC` type BigQuery Records. Reading `BIGNUMERIC` type records from a BigQuery table and subsequently writing them to BigQuery would result in incorrect value being written to BigQuery as Flink's RowData does not support NUMERIC Types with precision more than 38 (BIGNUMERIC supports precision upto 76).
-
+    * Supports only `INSERT` type operations such as `SELECT`/`WHERE`, `UNION`, `JOIN`, etc.
 The connector supports a number of options to configure.
 
 | Property                                     | Data Type         | Description                                                                                                                                                                                                                                                                                                                                               | Availability                                         |
