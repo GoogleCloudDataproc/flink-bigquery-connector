@@ -137,7 +137,7 @@ public class BigQueryTableExample {
         String recordPropertyForTimestamps;
         switch (mode) {
             case "bounded":
-                runBoundedSQLFlinkJob(
+                runBoundedTableAPIFlinkJob(
                         sourceGcpProjectName,
                         sourceDatasetName,
                         sourceTableName,
@@ -151,7 +151,7 @@ public class BigQueryTableExample {
                 break;
             case "unbounded":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                runStreamingSQLFlinkJob(
+                runStreamingTableAPIFlinkJob(
                         sourceGcpProjectName,
                         sourceDatasetName,
                         sourceTableName,
@@ -193,7 +193,7 @@ public class BigQueryTableExample {
      * @param checkpointInterval Long value, Interval between two check points (milliseconds)
      * @throws Exception in a case of error, obtaining Table Descriptor.
      */
-    private static void runBoundedSQLFlinkJob(
+    private static void runBoundedTableAPIFlinkJob(
             String sourceGcpProjectName,
             String sourceDatasetName,
             String sourceTableName,
@@ -220,7 +220,6 @@ public class BigQueryTableExample {
                         .limit(limit)
                         .rowRestriction(rowRestriction)
                         .testMode(false)
-                        .maxRecordsPerSplitFetch(5000)
                         .boundedness(Boundedness.BOUNDED)
                         .build();
 
@@ -289,7 +288,7 @@ public class BigQueryTableExample {
      * @param maxIdleness Maximum idle minutes for read stream.
      * @throws Exception in a case of error, obtaining Table Descriptor.
      */
-    private static void runStreamingSQLFlinkJob(
+    private static void runStreamingTableAPIFlinkJob(
             String sourceGcpProjectName,
             String sourceDatasetName,
             String sourceTableName,
@@ -321,7 +320,6 @@ public class BigQueryTableExample {
                         .testMode(false)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
-                        .oldestPartitionId(oldestPartition)
                         .partitionDiscoveryInterval(partitionDiscoveryInterval)
                         .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                         .build();
@@ -368,6 +366,118 @@ public class BigQueryTableExample {
                         .as("name", "number", "ts");
 
         sourceTable.executeInsert("bigQuerySinkTable");
+    }
+
+    /**
+     * Bounded read > join and sink operation via Flink's Table API. The function is responsible for
+     * reading a BigQuery table (having schema <i>id</i> <code>STRING</code>, <i>name_left</i>
+     * <code>
+     * STRING</code>) in bounded mode and then writes the modified records back to another BigQuery
+     * table.
+     *
+     * @param sourceGcpProjectName The GCP Project name of the source table.
+     * @param sourceDatasetName Dataset name of the source table.
+     * @param leftSourceTableName Source Table Name (left for Join).
+     * @param rightSourceTableName Source Table Name (right for Join).
+     * @param destGcpProjectName The GCP Project name of the destination table.
+     * @param destDatasetName Dataset name of the destination table.
+     * @param destTableName Destination Table Name.
+     * @param isExactlyOnce Boolean value, True if exactly-once mode, false otherwise.
+     * @param rowRestriction String value, filtering the rows to be read.
+     * @param limit Integer value, Number of rows to limit the read result.
+     * @param checkpointInterval Long value, Interval between two check points (milliseconds)
+     * @throws Exception in a case of error, obtaining Table Descriptor.
+     */
+    private static void runBoundedJoinFlinkJob(
+            String sourceGcpProjectName,
+            String sourceDatasetName,
+            String leftSourceTableName,
+            String rightSourceTableName,
+            String destGcpProjectName,
+            String destDatasetName,
+            String destTableName,
+            boolean isExactlyOnce,
+            String rowRestriction,
+            Integer limit,
+            Long checkpointInterval)
+            throws Exception {
+
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(checkpointInterval);
+        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
+
+        // Declare Read Options.
+        BigQueryTableConfig readTableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .table(leftSourceTableName)
+                        .project(sourceGcpProjectName)
+                        .dataset(sourceDatasetName)
+                        .testMode(false)
+                        .limit(limit)
+                        .rowRestriction(rowRestriction)
+                        .boundedness(Boundedness.BOUNDED)
+                        .build();
+
+        // Register the Source Table
+        tEnv.createTable(
+                "leftSourceTable", BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
+
+        readTableConfig =
+                BigQueryReadTableConfig.newBuilder()
+                        .table("right_table")
+                        .project(sourceGcpProjectName)
+                        .dataset(sourceDatasetName)
+                        .testMode(false)
+                        .limit(limit)
+                        .rowRestriction(rowRestriction)
+                        .boundedness(Boundedness.BOUNDED)
+                        .build();
+
+        tEnv.createTable(
+                "rightSourceTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
+
+        // Declare Write Options.
+        BigQueryTableConfig sinkTableConfig =
+                BigQuerySinkTableConfig.newBuilder()
+                        .table(destTableName)
+                        .project(destGcpProjectName)
+                        .dataset(destDatasetName)
+                        .testMode(false)
+                        .build();
+
+        if (isExactlyOnce) {
+            sinkTableConfig =
+                    BigQuerySinkTableConfig.newBuilder()
+                            .table(destTableName)
+                            .project(destGcpProjectName)
+                            .dataset(destDatasetName)
+                            .testMode(false)
+                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                            .build();
+        }
+
+        // Register the Sink Table
+        tEnv.createTable(
+                "bigQuerySinkTable",
+                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+
+        // Join Example - Table API
+        //        Table leftSourceTable = tEnv.from("leftSourceTable");
+        //        Table rightSourceTable = tEnv.from("rightSourceTable");
+        //        Table joinedTable =
+        //                leftSourceTable
+        //                        .renameColumns($("id").as("id_l"))
+        //                        .join(rightSourceTable, $("id_l").isEqual($("id")))
+        //                        .select($("id"), $("name_left"), $("name_right"));
+        //        joinedTable.executeInsert("bigQuerySinkTable");
+
+        // Join Example - SQL
+        tEnv.executeSql(
+                "insert into bigQuerySinkTable Select leftSourceTable.id AS id, "
+                        + "leftSourceTable.name_left AS name_left, rightSourceTable.name_right as name_right from leftSourceTable JOIN rightSourceTable ON "
+                        + "leftSourceTable.id = rightSourceTable.id;");
     }
 
     /** Function to flatmap the Table API source Catalog Table. */
