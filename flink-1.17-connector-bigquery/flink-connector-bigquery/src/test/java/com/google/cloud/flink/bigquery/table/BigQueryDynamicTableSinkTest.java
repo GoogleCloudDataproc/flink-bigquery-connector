@@ -45,7 +45,7 @@ public class BigQueryDynamicTableSinkTest {
     static LogicalType logicalTypeSchema = null;
     static BigQuerySinkConfig bigQuerySinkConfig = null;
 
-    private static final int PARALLELISM = 1;
+    private static final int PARALLELISM = 5;
 
     @RegisterExtension
     static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
@@ -67,7 +67,7 @@ public class BigQueryDynamicTableSinkTest {
                         .serializer(new RowDataToProtoSerializer())
                         .build();
         bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, PARALLELISM);
     }
 
     @Test
@@ -82,6 +82,7 @@ public class BigQueryDynamicTableSinkTest {
                                         + "\"namespace\":\"org.apache.flink.avro.generated\",\"fields\":"
                                         + "[{\"name\":\"number\",\"type\":\"long\"}]}");
         assertEquals(convertedAvroSchema, obtainedSinkConfig.getSchemaProvider().getAvroSchema());
+        assertEquals(PARALLELISM, bigQueryDynamicTableSink.getSinkParallelism());
     }
 
     @Test
@@ -90,6 +91,16 @@ public class BigQueryDynamicTableSinkTest {
                 new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
         BigQueryDynamicTableSink bigQueryDynamicTableSinkCopy =
                 new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+
+        assertEquals(bigQueryDynamicTableSinkCopy, bigQueryDynamicTableSink.copy());
+    }
+
+    @Test
+    public void testCopyWithParallelism() {
+        BigQueryDynamicTableSink bigQueryDynamicTableSink =
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, PARALLELISM);
+        BigQueryDynamicTableSink bigQueryDynamicTableSinkCopy =
+                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, PARALLELISM);
 
         assertEquals(bigQueryDynamicTableSinkCopy, bigQueryDynamicTableSink.copy());
     }

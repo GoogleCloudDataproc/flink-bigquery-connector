@@ -60,6 +60,10 @@ public class BigQueryTableConfigurationProvider {
         return config.get(BigQueryConnectorOptions.MODE) == Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
+    public Optional<Integer> getParallelism() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.SINK_PARALLELISM));
+    }
+
     public BigQueryReadOptions toBigQueryReadOptions() {
         try {
             return BigQueryReadOptions.builder()

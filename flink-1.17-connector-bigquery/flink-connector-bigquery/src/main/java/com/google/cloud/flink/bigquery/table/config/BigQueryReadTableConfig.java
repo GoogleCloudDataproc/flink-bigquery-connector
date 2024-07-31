@@ -30,13 +30,10 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
 
     private final Integer limit;
     private final String rowRestriction;
-
     private final String columnProjection;
     private final Integer maxStreamCount;
-
     private final Long snapshotTimestamp;
     private final Boundedness boundedness;
-
     private final Integer partitionDiscoveryInterval;
 
     BigQueryReadTableConfig(

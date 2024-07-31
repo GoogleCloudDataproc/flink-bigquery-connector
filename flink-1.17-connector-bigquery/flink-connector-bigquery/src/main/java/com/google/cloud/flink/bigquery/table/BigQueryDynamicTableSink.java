@@ -39,8 +39,14 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
 
     private final BigQuerySinkConfig sinkConfig;
     private final LogicalType logicalType;
+    private final Integer parallelism;
 
     public BigQueryDynamicTableSink(BigQuerySinkConfig sinkConfig, LogicalType logicalType) {
+        this(sinkConfig, logicalType, null);
+    }
+
+    public BigQueryDynamicTableSink(
+            BigQuerySinkConfig sinkConfig, LogicalType logicalType, Integer parallelism) {
         this.logicalType = logicalType;
         Schema avroSchema =
                 BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(this.logicalType);
@@ -51,6 +57,7 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         .connectOptions(sinkConfig.getConnectOptions())
                         .serializer(sinkConfig.getSerializer())
                         .build();
+        this.parallelism = parallelism;
     }
 
     @Override
@@ -91,12 +98,18 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
         // Set the logical type.
         ((RowDataToProtoSerializer) sinkConfig.getSerializer()).setLogicalType(this.logicalType);
         // Get the Datastream-API Sink.
-        return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null));
+        if (this.parallelism == null) {
+            return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null));
+        }
+        return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig, null), this.parallelism);
     }
 
     @Override
     public DynamicTableSink copy() {
-        return new BigQueryDynamicTableSink(this.sinkConfig, this.logicalType);
+        if (this.parallelism == null) {
+            return new BigQueryDynamicTableSink(this.sinkConfig, this.logicalType);
+        }
+        return new BigQueryDynamicTableSink(this.sinkConfig, this.logicalType, this.parallelism);
     }
 
     @Override
@@ -113,5 +126,10 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
     @VisibleForTesting
     BigQuerySinkConfig getSinkConfig() {
         return this.sinkConfig;
+    }
+
+    @VisibleForTesting
+    Integer getSinkParallelism() {
+        return this.parallelism;
     }
 }

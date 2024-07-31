@@ -106,13 +106,15 @@ public class BigQueryDynamicTableFactoryTest {
     @Test
     public void testBigQueryUnboundedReadProperties() throws IOException {
         Map<String, String> properties = getRequiredOptions();
+        long instantEpochMillis = Instant.EPOCH.toEpochMilli();
+
         properties.put(BigQueryConnectorOptions.COLUMNS_PROJECTION.key(), "aaa,bbb");
         properties.put(BigQueryConnectorOptions.MAX_STREAM_COUNT.key(), "100");
         properties.put(
                 BigQueryConnectorOptions.ROW_RESTRICTION.key(), "aaa > 10 AND NOT bbb IS NULL");
         properties.put(
                 BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
-                Long.toString(Instant.EPOCH.toEpochMilli()));
+                Long.toString(instantEpochMillis));
         properties.put(
                 BigQueryConnectorOptions.MODE.key(),
                 String.valueOf(Boundedness.CONTINUOUS_UNBOUNDED));
@@ -125,7 +127,7 @@ public class BigQueryDynamicTableFactoryTest {
                         .setColumnNames(Arrays.asList("aaa", "bbb"))
                         .setMaxStreamCount(100)
                         .setRowRestriction("aaa > 10 AND NOT bbb IS NULL")
-                        .setSnapshotTimestampInMillis(Instant.EPOCH.toEpochMilli())
+                        .setSnapshotTimestampInMillis(instantEpochMillis)
                         .setBigQueryConnectOptions(connectorOptions.getBigQueryConnectOptions())
                         .build();
 
@@ -156,11 +158,15 @@ public class BigQueryDynamicTableFactoryTest {
     @Test
     public void testBigQuerySinkProperties() throws IOException {
         Map<String, String> properties = getRequiredOptions();
+        Integer sinkParallelism = 5;
+        properties.put(
+                BigQueryConnectorOptions.SINK_PARALLELISM.key(), String.valueOf(sinkParallelism));
 
         DynamicTableSink actual = FactoryMocks.createTableSink(SCHEMA, properties);
         BigQueryReadOptions connectorOptions = getConnectorOptions();
         LogicalType logicalType = SCHEMA.toPhysicalRowDataType().getLogicalType();
 
+        assertEquals(((BigQueryDynamicTableSink) actual).getSinkParallelism(), sinkParallelism);
         assertEquals(((BigQueryDynamicTableSink) actual).getLogicalType(), logicalType);
         assertEquals(
                 DeliveryGuarantee.AT_LEAST_ONCE,

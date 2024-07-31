@@ -243,10 +243,10 @@ public abstract class BigQueryReadOptions implements Serializable {
          * from a particular split. Configuring this number too high may cause memory pressure in
          * the task manager, depending on the BigQuery record's size and total rows on the stream.
          *
-         * @param maxStreamCount The maximum number records to read from a split at a time.
+         * @param maxRecordsPerSplitFetch The maximum number records to read from a split at a time.
          * @return This {@link Builder} instance.
          */
-        public abstract Builder setMaxRecordsPerSplitFetch(Integer maxStreamCount);
+        public abstract Builder setMaxRecordsPerSplitFetch(Integer maxRecordsPerSplitFetch);
 
         /**
          * Sets the {@link BigQueryConnectOptions} instance.

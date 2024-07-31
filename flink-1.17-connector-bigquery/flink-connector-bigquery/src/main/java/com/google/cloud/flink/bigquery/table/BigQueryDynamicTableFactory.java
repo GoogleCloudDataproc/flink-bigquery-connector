@@ -77,6 +77,8 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.MODE);
         additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
+        additionalOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+
         return additionalOptions;
     }
 
@@ -98,6 +100,8 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
         forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
+        forwardOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+
         return forwardOptions;
     }
 
@@ -141,6 +145,8 @@ public class BigQueryDynamicTableFactory
         }
 
         return new BigQueryDynamicTableSink(
-                configProvider.toSinkConfig(), context.getPhysicalRowDataType().getLogicalType());
+                configProvider.toSinkConfig(),
+                context.getPhysicalRowDataType().getLogicalType(),
+                configProvider.getParallelism().orElse(null));
     }
 }

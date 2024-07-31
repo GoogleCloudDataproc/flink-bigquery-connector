@@ -147,6 +147,7 @@ public class BigQueryDynamicTableSinkIntegrationTestCase {
                         .table("table")
                         .testMode(true)
                         .deliveryGuarantee(deliveryGuarantee)
+                        .sinkParallelism(4)
                         .build();
         return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
     }
