@@ -3,9 +3,9 @@
 ## Next
 
 ## 0.3.0 - 2024-08-07
-* Release BigQuery sink with Table API Support.
-* BigQuery sink's maximum parallelism is capped at 128, beyond which the application will fail.
-* Modifies a few config keys for the pre-existing source implementation for the Table API:
+* Support BigQuery sink in Flink's Table API.
+* BigQuery sink's maximum parallelism is increased from 100 to 128, beyond which the application will fail.
+* Modifies the following config keys for connector source in Table API:
 
 | Before                    | After                      |
 |---------------------------|----------------------------|
