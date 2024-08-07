@@ -1,5 +1,7 @@
 # Release Notes
 
+## Next
+
 ## 0.3.0 - 2024-08-07
 
 * Support BigQuery sink in Flink's Table API.
