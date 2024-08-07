@@ -1,6 +1,6 @@
 # Release Notes
 
-## Next
+## 0.3.0 - 2024-08-07
 
 * Support BigQuery sink in Flink's Table API.
 * BigQuery sink's maximum parallelism is increased from 100 to 128, beyond which the application will fail.
