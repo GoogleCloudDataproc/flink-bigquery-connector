@@ -449,7 +449,7 @@ public class BigQueryPartitionUtilsTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoDateDay() {
-        String expected = "dragon BETWEEN '2023-01-02' AND '2023-01-03'";
+        String expected = "dragon >= '2023-01-02' AND dragon < '2023-01-03'";
         String actual =
                 BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
@@ -466,7 +466,7 @@ public class BigQueryPartitionUtilsTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoDateMonth() {
-        String expected = "dragon BETWEEN '2023-01-01' AND '2023-02-01'";
+        String expected = "dragon >= '2023-01-01' AND dragon < '2023-02-01'";
         String actual =
                 BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
@@ -483,7 +483,7 @@ public class BigQueryPartitionUtilsTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoDateYear() {
-        String expected = "dragon BETWEEN '2023-01-01' AND '2024-01-01'";
+        String expected = "dragon >= '2023-01-01' AND dragon < '2024-01-01'";
         String actual =
                 BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
@@ -500,7 +500,7 @@ public class BigQueryPartitionUtilsTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoTimestampHour() {
-        String expected = "dragon BETWEEN '2023-01-01 03:00:00' AND '2023-01-01 04:00:00'";
+        String expected = "dragon >= '2023-01-01 03:00:00' AND dragon < '2023-01-01 04:00:00'";
         String actual =
                 BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
@@ -517,7 +517,7 @@ public class BigQueryPartitionUtilsTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoTimestampDay() {
-        String expected = "dragon BETWEEN '2023-01-01 00:00:00' AND '2023-01-02 00:00:00'";
+        String expected = "dragon >= '2023-01-01 00:00:00' AND dragon < '2023-01-02 00:00:00'";
         String actual =
                 BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
@@ -534,7 +534,7 @@ public class BigQueryPartitionUtilsTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoTimestampMonth() {
-        String expected = "dragon BETWEEN '2023-01-01 00:00:00' AND '2023-02-01 00:00:00'";
+        String expected = "dragon >= '2023-01-01 00:00:00' AND dragon < '2023-02-01 00:00:00'";
         String actual =
                 BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(
@@ -551,7 +551,7 @@ public class BigQueryPartitionUtilsTest {
 
     @Test
     public void testFormatPartitionRestrictionBasedOnInfoTimestampYear() {
-        String expected = "dragon BETWEEN '2023-01-01 00:00:00' AND '2024-01-01 00:00:00'";
+        String expected = "dragon >= '2023-01-01 00:00:00' AND dragon < '2024-01-01 00:00:00'";
         String actual =
                 BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
                         Optional.of(

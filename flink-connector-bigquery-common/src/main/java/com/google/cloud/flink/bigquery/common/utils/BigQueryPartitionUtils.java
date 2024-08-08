@@ -180,7 +180,7 @@ public class BigQueryPartitionUtils {
 
     static String dateRestrictionFromPartitionType(
             PartitionType partitionType, String columnName, String valueFromSQL) {
-        String temporalFormat = "%s BETWEEN '%s' AND '%s'";
+        String temporalFormat = "%s >= '%s' AND %s < '%s'";
         try {
             switch (partitionType) {
                 case DAY:
@@ -192,6 +192,7 @@ public class BigQueryPartitionUtils {
                                 temporalFormat,
                                 columnName,
                                 SQL_DAY_FORMAT.format(day),
+                                columnName,
                                 SQL_DAY_FORMAT.format(
                                         Date.from(day.toInstant().plusSeconds(DAY_SECONDS))));
                     }
@@ -204,6 +205,7 @@ public class BigQueryPartitionUtils {
                                 temporalFormat,
                                 columnName,
                                 SQL_MONTH_FORMAT.format(day),
+                                columnName,
                                 DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING)
                                         .withZone(UTC_ZONE)
                                         .format(
@@ -223,6 +225,7 @@ public class BigQueryPartitionUtils {
                                 temporalFormat,
                                 columnName,
                                 SQL_YEAR_FORMAT.format(day),
+                                columnName,
                                 DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING)
                                         .withZone(UTC_ZONE)
                                         .format(
@@ -254,7 +257,7 @@ public class BigQueryPartitionUtils {
                                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                                         .withZone(UTC_ZONE))
                         .atZone(UTC_ZONE);
-        String temporalFormat = "%s BETWEEN '%s' AND '%s'";
+        String temporalFormat = "%s >= '%s' AND %s < '%s'";
         switch (partitionType) {
             case HOUR:
                 {
@@ -266,6 +269,7 @@ public class BigQueryPartitionUtils {
                             temporalFormat,
                             columnName,
                             parsedDateTime.format(hourFormatter),
+                            columnName,
                             parsedDateTime.plusHours(1).format(hourFormatter));
                 }
             case DAY:
@@ -278,6 +282,7 @@ public class BigQueryPartitionUtils {
                             temporalFormat,
                             columnName,
                             parsedDateTime.format(dayFormatter),
+                            columnName,
                             parsedDateTime.plusDays(1).format(dayFormatter));
                 }
             case MONTH:
@@ -290,6 +295,7 @@ public class BigQueryPartitionUtils {
                             temporalFormat,
                             columnName,
                             parsedDateTime.format(monthFormatter),
+                            columnName,
                             parsedDateTime.plusMonths(1).format(monthFormatter));
                 }
             case YEAR:
@@ -302,6 +308,7 @@ public class BigQueryPartitionUtils {
                             temporalFormat,
                             columnName,
                             parsedDateTime.format(yearFormatter),
+                            columnName,
                             parsedDateTime.plusYears(1).format(yearFormatter));
                 }
             default:
