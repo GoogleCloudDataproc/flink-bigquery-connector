@@ -41,6 +41,10 @@ public class BigQuerySink {
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
 
     public static Sink get(BigQuerySinkConfig sinkConfig, StreamExecutionEnvironment env) {
+        if (env == null) {
+            LOG.error("BigQuerySink requires a valid StreamExecutionEnvironment. Found null.");
+            throw new IllegalArgumentException("StreamExecutionEnvironment not provided");
+        }
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
             return new BigQueryDefaultSink(sinkConfig);
         }
