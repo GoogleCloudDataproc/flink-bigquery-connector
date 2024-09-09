@@ -27,7 +27,8 @@ public class BigQueryWriterStateSerializerTest {
 
     private static final BigQueryWriterStateSerializer INSTANCE =
             new BigQueryWriterStateSerializer();
-    private static final BigQueryWriterState STATE = new BigQueryWriterState("foo", 1996, 23456);
+    private static final BigQueryWriterState STATE =
+            new BigQueryWriterState("foo", 1996, 24000, 23000);
 
     @Test
     public void testSerde() throws IOException {
@@ -35,6 +36,7 @@ public class BigQueryWriterStateSerializerTest {
         BigQueryWriterState de = INSTANCE.deserialize(INSTANCE.getVersion(), ser);
         assertEquals("foo", de.getStreamName());
         assertEquals(1996, de.getStreamOffset());
-        assertEquals(23456, de.getTotalRecordsWritten());
+        assertEquals(24000, de.getTotalRecordsSeen());
+        assertEquals(23000, de.getTotalRecordsWritten());
     }
 }

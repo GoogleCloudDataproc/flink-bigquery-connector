@@ -39,6 +39,7 @@ public class BigQueryWriterStateSerializer
                 final DataOutputStream out = new DataOutputStream(baos)) {
             out.writeUTF(state.getStreamName());
             out.writeLong(state.getStreamOffset());
+            out.writeLong(state.getTotalRecordsSeen());
             out.writeLong(state.getTotalRecordsWritten());
             out.flush();
             return baos.toByteArray();
@@ -51,8 +52,10 @@ public class BigQueryWriterStateSerializer
                 final DataInputStream in = new DataInputStream(bais)) {
             final String streamName = in.readUTF();
             final long streamOffset = in.readLong();
+            final long totalRecordsSeen = in.readLong();
             final long totalRecordsWritten = in.readLong();
-            return new BigQueryWriterState(streamName, streamOffset, totalRecordsWritten);
+            return new BigQueryWriterState(
+                    streamName, streamOffset, totalRecordsSeen, totalRecordsWritten);
         }
     }
 }

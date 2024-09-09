@@ -22,11 +22,18 @@ import com.google.cloud.flink.bigquery.sink.state.BigQueryStreamState;
 public class BigQueryWriterState extends BigQueryStreamState {
 
     // Used for Flink metrics.
+    private long totalRecordsSeen;
     private long totalRecordsWritten;
 
-    public BigQueryWriterState(String streamName, long streamOffset, long totalRecordsWritten) {
+    public BigQueryWriterState(
+            String streamName, long streamOffset, long totalRecordsSeen, long totalRecordsWritten) {
         super(streamName, streamOffset);
+        this.totalRecordsSeen = totalRecordsSeen;
         this.totalRecordsWritten = totalRecordsWritten;
+    }
+
+    public long getTotalRecordsSeen() {
+        return totalRecordsSeen;
     }
 
     public long getTotalRecordsWritten() {
