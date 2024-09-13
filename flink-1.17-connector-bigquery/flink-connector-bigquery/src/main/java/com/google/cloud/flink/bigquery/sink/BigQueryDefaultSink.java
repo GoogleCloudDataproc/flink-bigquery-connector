@@ -23,7 +23,7 @@ import com.google.cloud.flink.bigquery.sink.writer.BigQueryDefaultWriter;
 /**
  * Sink to write data into a BigQuery table using {@link BigQueryDefaultWriter}.
  *
- * <p>Depending on the checkpointing mode, this sink offers following consistency guarantees:
+ * <p>Depending on the checkpointing mode, this sink offers the following consistency guarantees:
  * <li>{@link CheckpointingMode#EXACTLY_ONCE}: at-least-once write consistency.
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
  * <li>Checkpointing disabled (NOT RECOMMENDED!): no consistency guarantee.

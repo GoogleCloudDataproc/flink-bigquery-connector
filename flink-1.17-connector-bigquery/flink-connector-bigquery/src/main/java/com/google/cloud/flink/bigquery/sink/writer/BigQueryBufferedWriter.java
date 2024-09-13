@@ -42,7 +42,7 @@ import java.util.List;
  *
  * <p>Records are grouped to maximally utilize the BigQuery append request's payload.
  *
- * <p>Depending on the checkpointing mode, this writer offers following consistency guarantees:
+ * <p>Depending on the checkpointing mode, this writer offers the following consistency guarantees:
  * <li>{@link CheckpointingMode#EXACTLY_ONCE}: exactly-once write consistency.
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
  * <li>{Checkpointing disabled}: no write consistency.
