@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink;
+
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
@@ -24,6 +26,7 @@ import com.google.cloud.flink.bigquery.sink.TwoPhaseCommittingStatefulSink;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -57,8 +60,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             int subtaskId,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
-        super(subtaskId, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer,
+            Sink.InitContext context) {
+        super(subtaskId, connectOptions, schemaProvider, serializer, context);
     }
 
     @Override
@@ -72,7 +76,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     }
 
     @Override
-    void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture) {
+    void validateAppendResponse(Pair<ApiFuture<AppendRowsResponse>, Long> appendResponseFuture) {
         throw new UnsupportedOperationException("validateAppendResponse not implemented");
     }
 
