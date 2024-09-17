@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink;
+
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
@@ -25,6 +27,7 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.concurrent.ExecutionException;
 
@@ -55,14 +58,17 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
-            String tablePath) {
-        super(subtaskId, connectOptions, schemaProvider, serializer);
+            String tablePath,
+            Sink.InitContext context) {
+        super(subtaskId, connectOptions, schemaProvider, serializer, context);
         streamName = String.format("%s/streams/_default", tablePath);
     }
 
     /** Accept record for writing to BigQuery table. */
     @Override
     public void write(IN element, Context context) {
+        // Increment the records seen.
+        numRecordsInSinceChkptCounter.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -86,11 +92,16 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
     /** Throws a RuntimeException if an error is found with append response. */
     @Override
-    void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture) {
+    void validateAppendResponse(Pair<ApiFuture<AppendRowsResponse>, Long> appendResponseFuture) {
         AppendRowsResponse response;
+        long expectedOffset = appendResponseFuture.getRight();
+        long currentRequestRecordCount =
+                expectedOffset - this.successfullyAppendedRecordsCounter.getCount();
         try {
-            response = appendResponseFuture.get();
+            response = appendResponseFuture.getLeft().get();
         } catch (ExecutionException | InterruptedException e) {
+            // Case 1: we did not get any response:
+            this.numRecordsSendErrorCounter.inc(currentRequestRecordCount);
             logger.error(
                     String.format(
                             "Exception while retrieving AppendRowsResponse in subtask %s",
@@ -100,6 +111,8 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                     "Error getting response for BigQuery write API", e);
         }
         if (response.hasError()) {
+            // Case 2: Append Fails, All the records failed. it is an atomic request.
+            this.numRecordsSendErrorCounter.inc(currentRequestRecordCount);
             logger.error(
                     String.format(
                             "Request to AppendRows failed in subtask %s with error %s",
@@ -109,5 +122,10 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                             "Exception while writing to BigQuery table: %s",
                             response.getError().getMessage()));
         }
+        // Case 3: Append is successful.
+        // it would arrive here only if the response was received and there were no errors.
+        // the request succeeded without errors (records are in BQ)
+        this.successfullyAppendedRecordsCounter.inc(currentRequestRecordCount);
+        this.successfullyAppendedRecordsSinceChkptCounter.inc(currentRequestRecordCount);
     }
 }

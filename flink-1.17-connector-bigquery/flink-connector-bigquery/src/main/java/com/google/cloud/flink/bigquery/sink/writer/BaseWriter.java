@@ -17,7 +17,10 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -33,6 +36,7 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,8 +66,7 @@ import java.util.Queue;
  */
 abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    protected final Logger logger = LoggerFactory.getLogger(BaseWriter.class);
     // Multiply 0.95 to keep a buffer from exceeding payload limits.
     private static final long MAX_APPEND_REQUEST_BYTES =
             (long) (StreamWriter.getApiMaxRequestBytes() * 0.95);
@@ -75,9 +78,19 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     private final BigQueryConnectOptions connectOptions;
     private final ProtoSchema protoSchema;
     private final BigQueryProtoSerializer serializer;
-    private final Queue<ApiFuture> appendResponseFuturesQueue;
+
+    // Contains the ApiFuture and the expected offset.
+    private final Queue<Pair<ApiFuture<AppendRowsResponse>, Long>> appendResponseFuturesQueue;
     private final ProtoRows.Builder protoRowsBuilder;
 
+    // Counters for metric reporting
+    private long previousOffset;
+    private final Counter numRecordsSendCounter;
+    private final Counter numBytesSendCounter;
+    final Counter successfullyAppendedRecordsCounter;
+    final Counter numRecordsSendErrorCounter;
+    final Counter numRecordsInSinceChkptCounter;
+    final Counter successfullyAppendedRecordsSinceChkptCounter;
     StreamWriter streamWriter;
     String streamName;
 
@@ -85,7 +98,8 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             int subtaskId,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
+            BigQueryProtoSerializer serializer,
+            Sink.InitContext context) {
         this.subtaskId = subtaskId;
         this.connectOptions = connectOptions;
         this.protoSchema = getProtoSchema(schemaProvider);
@@ -94,6 +108,17 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();
+        SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
+        // Count of records which are successfully appended to BQ.
+        successfullyAppendedRecordsCounter =
+                sinkWriterMetricGroup.counter("successfullyAppendedRecords");
+        numRecordsInSinceChkptCounter = sinkWriterMetricGroup.counter("numRecordsInSinceChkpt");
+        successfullyAppendedRecordsSinceChkptCounter =
+                sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceChkpt");
+        numRecordsSendCounter = sinkWriterMetricGroup.getNumRecordsSendCounter();
+        numBytesSendCounter = sinkWriterMetricGroup.getNumBytesSendCounter();
+        numRecordsSendErrorCounter = sinkWriterMetricGroup.getNumRecordsSendErrorsCounter();
+        previousOffset = 0;
     }
 
     /** Append pending records and validate all remaining append responses. */
@@ -104,6 +129,11 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         }
         logger.debug("Validating all pending append responses in subtask {}", subtaskId);
         validateAppendResponses(true);
+        // .flush() is called at checkpoint, resetting the counters after all tasks are done.
+        // Set to 0.
+        numRecordsInSinceChkptCounter.dec(numRecordsInSinceChkptCounter.getCount());
+        successfullyAppendedRecordsSinceChkptCounter.dec(
+                successfullyAppendedRecordsSinceChkptCounter.getCount());
     }
 
     /** Close resources maintained by this writer. */
@@ -128,7 +158,8 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     abstract ApiFuture sendAppendRequest(ProtoRows protoRows);
 
     /** Checks append response for errors. */
-    abstract void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture);
+    abstract void validateAppendResponse(
+            Pair<ApiFuture<AppendRowsResponse>, Long> appendResponseFuture);
 
     /** Add serialized record to append request. */
     void addToAppendRequest(ByteString protoRow) {
@@ -139,7 +170,13 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Send append request to BigQuery storage and prepare for next append request. */
     void append() {
         ApiFuture responseFuture = sendAppendRequest(protoRowsBuilder.build());
-        appendResponseFuturesQueue.add(responseFuture);
+        long rowsNext = protoRowsBuilder.getSerializedRowsCount();
+        // Every request also contains the target number of rows appended(until now).
+        appendResponseFuturesQueue.add(Pair.of(responseFuture, previousOffset + rowsNext));
+        // Increment the Flink Metric Group Counters
+        numRecordsSendCounter.inc(rowsNext);
+        numBytesSendCounter.inc(getAppendRequestSizeBytes());
+        previousOffset += rowsNext;
         protoRowsBuilder.clear();
         appendRequestSizeBytes = 0L;
     }
@@ -196,9 +233,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
      * order, we proceed to check the next response only after the previous one has arrived.
      */
     void validateAppendResponses(boolean waitForResponse) {
-        ApiFuture<AppendRowsResponse> appendResponseFuture;
+        Pair<ApiFuture<AppendRowsResponse>, Long> appendResponseFuture;
         while ((appendResponseFuture = appendResponseFuturesQueue.peek()) != null) {
-            if (waitForResponse || appendResponseFuture.isDone()) {
+            if (waitForResponse || appendResponseFuture.getLeft().isDone()) {
                 appendResponseFuturesQueue.poll();
                 validateAppendResponse(appendResponseFuture);
             } else {

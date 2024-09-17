@@ -16,6 +16,9 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+
 import com.google.api.core.ApiFutures;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
@@ -27,6 +30,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
 import com.google.protobuf.ByteString;
 import com.google.rpc.Status;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -209,20 +213,26 @@ public class BigQueryDefaultWriterTest {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         defaultWriter.validateAppendResponse(
-                ApiFutures.immediateFuture(
-                        AppendRowsResponse.newBuilder()
-                                .setError(Status.newBuilder().setCode(4).build())
-                                .build()));
+                Pair.of(
+                        ApiFutures.immediateFuture(
+                                AppendRowsResponse.newBuilder()
+                                        .setError(Status.newBuilder().setCode(4).build())
+                                        .build()),
+                        1));
     }
 
     private BigQueryDefaultWriter createDefaultWriter(
             BigQueryProtoSerializer mockSerializer, AppendRowsResponse appendResponse)
             throws IOException {
+        Sink.InitContext initContext = Mockito.mock(Sink.InitContext.class);
+        Mockito.when(initContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         return new BigQueryDefaultWriter(
                 0,
                 StorageClientFaker.createConnectOptionsForWrite(appendResponse),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
-                "/projects/project/datasets/dataset/tables/table");
+                "/projects/project/datasets/dataset/tables/table",
+                initContext);
     }
 }
