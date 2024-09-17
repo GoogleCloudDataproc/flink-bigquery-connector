@@ -130,7 +130,7 @@ public interface BigQueryServices extends Serializable {
                 throws IOException;
 
         /**
-         * Create a StreamWriter for writing to a BigQuery table.
+         * Create a write stream for a BigQuery table.
          *
          * @param tablePath the table to which the stream belongs.
          * @param streamType the type of the stream.
