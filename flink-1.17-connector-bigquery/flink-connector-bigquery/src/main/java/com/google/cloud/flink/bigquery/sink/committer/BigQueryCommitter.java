@@ -18,8 +18,15 @@ package com.google.cloud.flink.bigquery.sink.committer;
 
 import org.apache.flink.api.connector.sink2.Committer;
 
+import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
+import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.Collection;
 
 /**
@@ -30,10 +37,45 @@ import java.util.Collection;
  */
 public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closeable {
 
-    @Override
-    public void commit(Collection<CommitRequest<BigQueryCommittable>> commitRequests)
-            throws IOException, InterruptedException {}
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryCommitter.class);
+
+    private final BigQueryConnectOptions connectOptions;
+
+    public BigQueryCommitter(BigQueryConnectOptions connectOptions) {
+        this.connectOptions = connectOptions;
+    }
 
     @Override
-    public void close() {}
+    public void commit(Collection<CommitRequest<BigQueryCommittable>> commitRequests) {
+        if (commitRequests.isEmpty()) {
+            LOG.info("No committable found. Nothing to commit!");
+            return;
+        }
+        try (BigQueryServices.StorageWriteClient writeClient =
+                BigQueryServicesFactory.instance(connectOptions).storageWrite()) {
+            for (CommitRequest<BigQueryCommittable> commitRequest : commitRequests) {
+                BigQueryCommittable committable = commitRequest.getCommittable();
+                long producerId = committable.getProducerId();
+                String streamName = committable.getStreamName();
+                long streamOffset = committable.getStreamOffset();
+                LOG.info("Committing records appended by producer {}", producerId);
+                FlushRowsResponse response = writeClient.flushRows(streamName, streamOffset);
+                if (response.getOffset() != streamOffset) {
+                    LOG.error(
+                            "BigQuery FlushRows API failed. Returned offset {}, expected {}",
+                            response.getOffset(),
+                            streamOffset);
+                    throw new BigQueryConnectorException(
+                            String.format("Commit operation failed for producer %d", producerId));
+                }
+            }
+        } catch (Exception e) {
+            throw new BigQueryConnectorException("Commit operation failed");
+        }
+    }
+
+    @Override
+    public void close() {
+        // No op.
+    }
 }
