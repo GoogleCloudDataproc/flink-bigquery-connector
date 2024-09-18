@@ -31,6 +31,8 @@ import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.AvroSchema;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
+import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
+import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -38,6 +40,7 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.cloud.bigquery.storage.v1.ReadStream;
 import com.google.cloud.bigquery.storage.v1.StreamStats;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
+import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
@@ -321,6 +324,21 @@ public class StorageClientFaker {
             public StreamWriter createStreamWriter(
                     String streamName, ProtoSchema protoSchema, boolean enableConnectionPool) {
                 return mockedWriter;
+            }
+
+            @Override
+            public WriteStream createWriteStream(String tablePath, WriteStream.Type streamType) {
+                throw new UnsupportedOperationException("fake createWriteStream not supported");
+            }
+
+            @Override
+            public FlushRowsResponse flushRows(String streamName, long offset) {
+                throw new UnsupportedOperationException("fake flushRows not supported");
+            }
+
+            @Override
+            public FinalizeWriteStreamResponse finalizeWriteStream(String streamName) {
+                throw new UnsupportedOperationException("fake finalizeWriteStream not supported");
             }
 
             @Override
