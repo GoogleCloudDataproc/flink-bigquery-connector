@@ -218,7 +218,7 @@ public class BigQueryDefaultWriterTest {
                                 AppendRowsResponse.newBuilder()
                                         .setError(Status.newBuilder().setCode(4).build())
                                         .build()),
-                        1));
+                        1L));
     }
 
     private BigQueryDefaultWriter createDefaultWriter(
