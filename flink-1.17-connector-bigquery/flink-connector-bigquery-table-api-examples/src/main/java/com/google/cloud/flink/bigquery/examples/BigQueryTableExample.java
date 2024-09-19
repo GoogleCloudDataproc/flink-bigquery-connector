@@ -232,8 +232,16 @@ public class BigQueryTableExample {
         Table sourceTable =
                 tEnv.from("bigQuerySourceTable")
                         .select($("*"))
-                        .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
-                        .as("name", "number", "ts");
+                        .flatMap(
+                                call(
+                                        "func",
+                                        Row.of(
+                                                $("unique_key"),
+                                                $("name"),
+                                                $("number"),
+                                                $("ts"),
+                                                $("description"))))
+                        .as("unique_key", "name", "number", "ts", "description");
 
         BigQueryTableConfig sinkTableConfig =
                 BigQuerySinkTableConfig.newBuilder()
@@ -482,13 +490,23 @@ public class BigQueryTableExample {
 
     /** Function to flatmap the Table API source Catalog Table. */
     @FunctionHint(
-            input = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"),
-            output = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"))
+            input =
+                    @DataTypeHint(
+                            "ROW<`unique_key` STRING, `name` STRING, `number` BIGINT, `ts` TIMESTAMP(6), `description` STRING>"),
+            output =
+                    @DataTypeHint(
+                            "ROW<`unique_key` STRING, `name` STRING, `number` BIGINT, `ts` TIMESTAMP(6), `description` STRING>"))
     public static class MyFlatMapFunction extends TableFunction<Row> {
 
         public void eval(Row row) {
             String str = (String) row.getField("name");
-            collect(Row.of(str + "_write_test", row.getField("number"), row.getField("ts")));
+            collect(
+                    Row.of(
+                            row.getField("unique_key"),
+                            str + "_write_test",
+                            row.getField("number"),
+                            row.getField("ts"),
+                            row.getField("description")));
         }
     }
 }
