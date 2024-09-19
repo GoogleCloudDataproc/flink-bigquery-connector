@@ -100,10 +100,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer) {
         super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
-        this.streamName = streamName;
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
-        this.streamOffset = streamOffset;
+        this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;
+        this.streamOffset = streamOffset;
         this.totalRecordsSeen = totalRecordsSeen;
         this.totalRecordsWritten = totalRecordsWritten;
         writeStreamCreationThrottler = new WriteStreamCreationThrottler(subtaskId);
@@ -147,13 +147,15 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     @Override
     void sendAppendRequest(ProtoRows protoRows) {
         long rowCount = protoRows.getSerializedRowsCount();
-        if (streamOffset == streamOffsetInState && streamName != null && !streamName.isEmpty()) {
+        if (streamOffset == streamOffsetInState
+                && streamName.equals(streamNameInState)
+                && !StringUtils.isNullOrWhitespaceOnly(streamName)) {
             // Writer has an associated write stream and is invoking append for the first
             // time since re-initialization.
             performFirstAppendOnRestoredStream(protoRows, rowCount);
             return;
         }
-        if (streamName == null || streamName.isEmpty()) {
+        if (StringUtils.isNullOrWhitespaceOnly(streamName)) {
             // Throttle stream creation to ensure proper usage of BigQuery createWriteStream API.
             logger.info("Throttling creation of BigQuery write stream in subtask {}", subtaskId);
             writeStreamCreationThrottler.throttle();
@@ -179,7 +181,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             if (offset != expectedOffset) {
                 logAndThrowFatalException(
                         String.format(
-                                "Inconsistent offset in BigQuery API response. Found %d, expected %s",
+                                "Inconsistent offset in BigQuery API response. Found %d, expected %d",
                                 offset, expectedOffset));
             }
             totalRecordsWritten += recordsAppended;
@@ -221,18 +223,18 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
 
     @Override
     public void close() {
-        super.close();
         if (!streamNameInState.equals(streamName) || streamOffsetInState != streamOffset) {
             // Either new stream was created which will not be stored in any state, or something was
             // appended to the existing stream which will not be committed. In both scenarios, the
             // stream is not usable and must be finalized, i.e. "closed".
             finalizeStream();
         }
+        super.close();
     }
 
     private void performFirstAppendOnRestoredStream(ProtoRows protoRows, long rowCount) {
         try {
-            // Connectrion pool can be enabled only for default stream.
+            // Connection pool (method parameter below) can be enabled only for default stream.
             createStreamWriter(false);
         } catch (BigQueryConnectorException e) {
             // If StreamWriter could not be created for this write stream, then discard it.
@@ -268,7 +270,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     private void discardStream(Exception e) {
         logger.info(
                 String.format(
-                        "Writer %d cannot use stream %s. Discarding this stream and creating new one.",
+                        "Writer %d cannot use stream %s. Discarding this stream.",
                         subtaskId, streamName),
                 e);
         finalizeStream();

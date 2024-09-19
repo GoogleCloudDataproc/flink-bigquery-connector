@@ -823,7 +823,7 @@ public class BigQueryBufferedWriterTest {
 
     private void checkStreamlessWriterAttributes(BigQueryBufferedWriter bufferedWriter) {
         assertNull(bufferedWriter.streamWriter);
-        assertNull(bufferedWriter.streamName);
+        assertEquals("", bufferedWriter.streamName);
         assertEquals("", bufferedWriter.getStreamNameInState());
         assertEquals(0, bufferedWriter.getStreamOffset());
         assertEquals(0, bufferedWriter.getStreamOffsetInState());
