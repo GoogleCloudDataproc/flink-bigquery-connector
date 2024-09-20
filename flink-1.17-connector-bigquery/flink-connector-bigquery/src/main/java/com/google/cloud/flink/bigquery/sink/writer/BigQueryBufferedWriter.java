@@ -159,7 +159,8 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             // Throttle stream creation to ensure proper usage of BigQuery createWriteStream API.
             logger.info("Throttling creation of BigQuery write stream in subtask {}", subtaskId);
             writeStreamCreationThrottler.throttle();
-            createWriteStreamAndStreamWriter(WriteStream.Type.BUFFERED, false);
+            createWriteStream(WriteStream.Type.BUFFERED);
+            createStreamWriter(false);
         }
         ApiFuture<AppendRowsResponse> future = streamWriter.append(protoRows, streamOffset);
         postAppendOps(future, rowCount);
@@ -274,7 +275,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                         subtaskId, streamName),
                 e);
         finalizeStream();
-        // Empty streamName will prompt following sendAppendRequest method to create a new write
+        // Empty streamName will prompt following sendAppendRequest invocation to create anew write
         // stream.
         streamName = "";
         // Also discard the offset.

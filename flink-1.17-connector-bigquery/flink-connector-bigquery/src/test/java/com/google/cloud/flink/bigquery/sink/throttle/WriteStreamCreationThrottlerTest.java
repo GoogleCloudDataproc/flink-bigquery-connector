@@ -28,11 +28,30 @@ public class WriteStreamCreationThrottlerTest {
 
     @Test
     public void testThrottle() {
-        WriteStreamCreationThrottler throttler = new WriteStreamCreationThrottler(3);
+        Duration duration = invokeThrottle(3);
+        assertTrue(duration.toMillis() >= 3000L);
+    }
+
+    @Test
+    public void testThrottle_withInterruptedException() {
+        // Force interruption
+        Thread.currentThread().interrupt();
+        Duration duration = invokeThrottle(3);
+        assertTrue(duration.toMillis() < 3000L);
+    }
+
+    @Test
+    public void testThrottle_withInvalidWriterId_expectNoThrottling() {
+        Duration duration = invokeThrottle(-1);
+        long waitSeconds = duration.toMillis() / 1000;
+        assertTrue(waitSeconds == 0);
+    }
+
+    private Duration invokeThrottle(int writerId) {
+        WriteStreamCreationThrottler throttler = new WriteStreamCreationThrottler(writerId);
         Instant start = Instant.now();
         throttler.throttle();
         Instant end = Instant.now();
-        Duration duration = Duration.between(start, end);
-        assertTrue(duration.toMillis() >= 3000L);
+        return Duration.between(start, end);
     }
 }

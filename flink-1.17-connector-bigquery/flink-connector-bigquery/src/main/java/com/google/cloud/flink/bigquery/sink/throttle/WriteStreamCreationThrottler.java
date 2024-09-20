@@ -34,10 +34,11 @@ import java.util.concurrent.TimeUnit;
  * <p>Note that actual separation between CreateWriteStream invocations across all writers will not
  * ensure exact QPS of 3, because neither all writers are initialized at the same instant, nor do
  * they all identify the need to create a write stream after some uniform fixed duration. Given
- * these uncontrolled variations, this throttler aims to achieve ~3 QPS on a best effort basis.
+ * these uncontrollable factors, this throttler aims to achieve 3 QPS on a best effort basis.
  */
 public class WriteStreamCreationThrottler implements Throttler {
 
+    // MAX_SINK_PARALLELISM is set as 128.
     public static final int MAX_BUCKETS = BigQueryExactlyOnceSink.MAX_SINK_PARALLELISM / 3;
     private static final Logger LOG = LoggerFactory.getLogger(WriteStreamCreationThrottler.class);
     private final int writerId;
@@ -48,6 +49,7 @@ public class WriteStreamCreationThrottler implements Throttler {
 
     public void throttle() {
         int waitSeconds = writerId % MAX_BUCKETS;
+        LOG.debug("Throttling writer {} for {} second", writerId, waitSeconds);
         try {
             // Sleep does nothing if input is 0 or less.
             TimeUnit.SECONDS.sleep(waitSeconds);

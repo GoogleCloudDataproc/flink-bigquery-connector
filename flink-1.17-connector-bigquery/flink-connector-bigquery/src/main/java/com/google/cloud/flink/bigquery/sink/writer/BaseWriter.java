@@ -158,32 +158,37 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Creates a StreamWriter for appending to BigQuery table. */
     void createStreamWriter(boolean enableConnectionPool) {
         try {
-            logger.debug("Creating BigQuery StreamWriter in subtask {}", subtaskId);
             if (writeClient == null) {
                 writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
             }
+            logger.info(
+                    "Creating BigQuery StreamWriter for write stream {} in subtask {}",
+                    streamName,
+                    subtaskId);
             streamWriter =
                     writeClient.createStreamWriter(streamName, protoSchema, enableConnectionPool);
         } catch (IOException e) {
-            logger.error("Unable to create StreamWriter for stream {}", streamName);
-            throw new BigQueryConnectorException("Unable to create StreamWriter", e);
+            logger.error(
+                    String.format(
+                            "Unable to create StreamWriter for stream %s in subtask %d",
+                            streamName, subtaskId),
+                    e);
+            throw new BigQueryConnectorException("Unable to connect to BigQuery", e);
         }
     }
 
-    /** Creates a write stream and StreamWriter for appending to BigQuery table. */
-    void createWriteStreamAndStreamWriter(
-            WriteStream.Type streamType, boolean enableConnectionPool) {
-        logger.info("Creating BigQuery write stream and StreamWriter in subtask {}", subtaskId);
+    /** Creates a write stream for appending to BigQuery table. */
+    void createWriteStream(WriteStream.Type streamType) {
         try {
             if (writeClient == null) {
                 writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();
             }
+            logger.info("Creating BigQuery write stream in subtask {}", subtaskId);
             streamName = writeClient.createWriteStream(tablePath, streamType).getName();
-            streamWriter =
-                    writeClient.createStreamWriter(streamName, protoSchema, enableConnectionPool);
         } catch (IOException e) {
-            logger.error("Unable to connect to BigQuery in subtask {}", streamName);
-            throw new BigQueryConnectorException("Unable to create write stream", e);
+            logger.error(
+                    String.format("Unable to create write stream in subtask %d", subtaskId), e);
+            throw new BigQueryConnectorException("Unable to connect to BigQuery", e);
         }
     }
 
