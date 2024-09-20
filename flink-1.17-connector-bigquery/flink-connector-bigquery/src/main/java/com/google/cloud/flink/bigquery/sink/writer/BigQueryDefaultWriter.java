@@ -20,7 +20,6 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
@@ -43,7 +42,7 @@ import java.util.concurrent.ExecutionException;
  * <p>Depending on the checkpointing mode, this writer offers the following consistency guarantees:
  * <li>{@link CheckpointingMode#EXACTLY_ONCE}: at-least-once write consistency.
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
- * <li>{Checkpointing disabled}: no write consistency.
+ * <li>Checkpointing disabled: no write consistency.
  *
  * @param <IN> Type of records to be written to BigQuery.
  */
@@ -51,17 +50,25 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
     public BigQueryDefaultWriter(
             int subtaskId,
+            String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer,
-            String tablePath) {
-        super(subtaskId, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer) {
+        super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
         streamName = String.format("%s/streams/_default", tablePath);
+        totalRecordsSeen = 0L;
+        totalRecordsWritten = 0L;
     }
 
-    /** Accept record for writing to BigQuery table. */
+    /**
+     * Accept record for writing to BigQuery table.
+     *
+     * @param element Record to write
+     * @param context {@link Context} for input record
+     */
     @Override
     public void write(IN element, Context context) {
+        totalRecordsSeen++;
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -76,37 +83,30 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
     /** Asynchronously append to BigQuery table's default stream. */
     @Override
-    ApiFuture sendAppendRequest(ProtoRows protoRows) {
+    void sendAppendRequest(ProtoRows protoRows) {
         if (streamWriter == null) {
-            streamWriter = createStreamWriter(true);
+            createStreamWriter(true);
         }
-        return streamWriter.append(protoRows);
+        ApiFuture<AppendRowsResponse> response = streamWriter.append(protoRows);
+        appendResponseFuturesQueue.add(
+                new AppendInfo(response, -1L, Long.valueOf(protoRows.getSerializedRowsCount())));
     }
 
     /** Throws a RuntimeException if an error is found with append response. */
     @Override
-    void validateAppendResponse(ApiFuture<AppendRowsResponse> appendResponseFuture) {
+    void validateAppendResponse(AppendInfo appendInfo) {
+        // Offset has no relevance when appending to the default write stream.
+        ApiFuture<AppendRowsResponse> appendResponseFuture = appendInfo.getFuture();
+        long recordsAppended = appendInfo.getRecordsAppended();
         AppendRowsResponse response;
         try {
             response = appendResponseFuture.get();
+            if (response.hasError()) {
+                logAndThrowFatalException(response.getError().getMessage());
+            }
+            totalRecordsWritten += recordsAppended;
         } catch (ExecutionException | InterruptedException e) {
-            logger.error(
-                    String.format(
-                            "Exception while retrieving AppendRowsResponse in subtask %s",
-                            subtaskId),
-                    e);
-            throw new BigQueryConnectorException(
-                    "Error getting response for BigQuery write API", e);
-        }
-        if (response.hasError()) {
-            logger.error(
-                    String.format(
-                            "Request to AppendRows failed in subtask %s with error %s",
-                            subtaskId, response.getError().getMessage()));
-            throw new BigQueryConnectorException(
-                    String.format(
-                            "Exception while writing to BigQuery table: %s",
-                            response.getError().getMessage()));
+            logAndThrowFatalException(e);
         }
     }
 }

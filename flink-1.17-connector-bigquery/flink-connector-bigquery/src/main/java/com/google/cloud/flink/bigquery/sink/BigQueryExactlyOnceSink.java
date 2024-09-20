@@ -31,7 +31,7 @@ import java.util.Collection;
  * <p>Depending on the checkpointing mode, this writer offers the following consistency guarantees:
  * <li>{@link CheckpointingMode#EXACTLY_ONCE}: exactly-once write consistency.
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
- * <li>Checkpointing disabled: no consistency guarantee.
+ * <li>Checkpointing disabled (NOT RECOMMENDED!): no consistency guarantee.
  *
  * @param <IN> Type of records written to BigQuery
  */

@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.fakes;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.SerializableFunction;
 
+import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobStatistics;
@@ -58,6 +59,7 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.util.RandomData;
 import org.mockito.Mockito;
+import org.mockito.stubbing.OngoingStubbing;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -313,11 +315,40 @@ public class StorageClientFaker {
         public static class FakeBigQueryStorageWriteClient implements StorageWriteClient {
 
             private final StreamWriter mockedWriter;
+            private final WriteStream writeStream;
+            private final FlushRowsResponse flushResponse;
+            private final FinalizeWriteStreamResponse finalizeResponse;
+
+            private int createWriteStreamInvocations;
+            private int finalizeWriteStreamInvocations;
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
                 Mockito.when(mockedWriter.append(Mockito.any()))
                         .thenReturn(ApiFutures.immediateFuture(appendResponse));
+                writeStream = null;
+                flushResponse = null;
+                finalizeResponse = null;
+            }
+
+            public FakeBigQueryStorageWriteClient(
+                    ApiFuture[] appendResponseFutures,
+                    WriteStream writeStream,
+                    FlushRowsResponse flushResponse,
+                    FinalizeWriteStreamResponse finalizeResponse) {
+                mockedWriter = Mockito.mock(StreamWriter.class);
+                // Mockito cannot unbox "any()" for primitive types, throwing the dreaded
+                // NullPointerException. Hence, use primitive variants for argument matching.
+                OngoingStubbing stubbing =
+                        Mockito.when(mockedWriter.append(Mockito.any(), Mockito.anyLong()));
+                for (ApiFuture future : appendResponseFutures) {
+                    stubbing = stubbing.thenReturn(future);
+                }
+                this.writeStream = writeStream;
+                this.flushResponse = flushResponse;
+                this.finalizeResponse = finalizeResponse;
+                createWriteStreamInvocations = 0;
+                finalizeWriteStreamInvocations = 0;
             }
 
             @Override
@@ -328,22 +359,47 @@ public class StorageClientFaker {
 
             @Override
             public WriteStream createWriteStream(String tablePath, WriteStream.Type streamType) {
-                throw new UnsupportedOperationException("fake createWriteStream not supported");
+                createWriteStreamInvocations++;
+                assert streamType == WriteStream.Type.BUFFERED;
+                if (writeStream == null) {
+                    throw new RuntimeException("testing error scenario");
+                }
+                return writeStream;
             }
 
             @Override
             public FlushRowsResponse flushRows(String streamName, long offset) {
-                throw new UnsupportedOperationException("fake flushRows not supported");
+                if (flushResponse == null) {
+                    throw new RuntimeException("testing error scenario");
+                }
+                return flushResponse;
             }
 
             @Override
             public FinalizeWriteStreamResponse finalizeWriteStream(String streamName) {
-                throw new UnsupportedOperationException("fake finalizeWriteStream not supported");
+                finalizeWriteStreamInvocations++;
+                if (finalizeResponse == null) {
+                    throw new RuntimeException("testing error scenario");
+                }
+                return finalizeResponse;
             }
 
             @Override
             public void close() {
                 Mockito.when(mockedWriter.isUserClosed()).thenReturn(true);
+            }
+
+            public int getCreateWriteStreamInvocations() {
+                return createWriteStreamInvocations;
+            }
+
+            public int getFinalizeWriteStreamInvocations() {
+                return finalizeWriteStreamInvocations;
+            }
+
+            public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
+                Mockito.verify(mockedWriter, Mockito.times(expectedInvocations))
+                        .append(Mockito.any(), Mockito.anyLong());
             }
         }
     }
@@ -713,6 +769,31 @@ public class StorageClientFaker {
                                     null,
                                     new StorageClientFaker.FakeBigQueryServices
                                             .FakeBigQueryStorageWriteClient(appendResponse));
+                        })
+                .build();
+    }
+
+    public static BigQueryConnectOptions createConnectOptionsForWrite(
+            ApiFuture[] appendResponseFutures,
+            WriteStream writeStream,
+            FlushRowsResponse flushResponse,
+            FinalizeWriteStreamResponse finalizeResponse)
+            throws IOException {
+        return BigQueryConnectOptions.builder()
+                .setDataset("dataset")
+                .setProjectId("project")
+                .setTable("table")
+                .setCredentialsOptions(null)
+                .setTestingBigQueryServices(
+                        () -> {
+                            return FakeBigQueryServices.getInstance(
+                                    null,
+                                    new StorageClientFaker.FakeBigQueryServices
+                                            .FakeBigQueryStorageWriteClient(
+                                            appendResponseFutures,
+                                            writeStream,
+                                            flushResponse,
+                                            finalizeResponse));
                         })
                 .build();
     }
