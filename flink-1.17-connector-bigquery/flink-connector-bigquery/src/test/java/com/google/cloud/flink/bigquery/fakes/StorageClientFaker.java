@@ -21,6 +21,8 @@ import org.apache.flink.util.function.SerializableFunction;
 
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
+import com.google.api.gax.rpc.ApiException;
+import com.google.api.gax.rpc.StatusCode;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobStatistics;
 import com.google.api.services.bigquery.model.JobStatistics2;
@@ -370,7 +372,10 @@ public class StorageClientFaker {
             @Override
             public FlushRowsResponse flushRows(String streamName, long offset) {
                 if (flushResponse == null) {
-                    throw new RuntimeException("testing error scenario");
+                    throw new ApiException(
+                            new RuntimeException("testing error scenario"),
+                            new TestStatusCode(),
+                            false);
                 }
                 return flushResponse;
             }
@@ -400,6 +405,19 @@ public class StorageClientFaker {
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
                 Mockito.verify(mockedWriter, Mockito.times(expectedInvocations))
                         .append(Mockito.any(), Mockito.anyLong());
+            }
+        }
+
+        static class TestStatusCode implements StatusCode {
+
+            @Override
+            public Code getCode() {
+                return null;
+            }
+
+            @Override
+            public Object getTransportCode() {
+                return null;
             }
         }
     }

@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink.committer;
 
 import org.apache.flink.api.connector.sink2.Committer;
 
+import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
@@ -27,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.Collection;
 
 /**
@@ -69,8 +71,8 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
                             String.format("Commit operation failed for producer %d", producerId));
                 }
             }
-        } catch (Exception e) {
-            throw new BigQueryConnectorException("Commit operation failed");
+        } catch (IOException | ApiException e) {
+            throw new BigQueryConnectorException("Commit operation failed", e);
         }
     }
 
