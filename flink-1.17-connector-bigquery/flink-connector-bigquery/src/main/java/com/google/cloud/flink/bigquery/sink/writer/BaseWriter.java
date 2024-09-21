@@ -17,10 +17,8 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -37,9 +35,6 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.protobuf.ByteString;
-
-import org.apache.flink.metrics.Counter;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,8 +57,9 @@ import java.util.Queue;
  * validated lazily.
  *
  * <p>Serializer's "init" method is called in the writer's constructor because the resulting {@link
- * Descriptor} is not serializable and cannot be propagated to machines hosting writer instances.
- * Hence, this derivation of descriptors must be performed during writer initialization.
+ * com.google.protobuf.Descriptors.Descriptor} is not serializable and cannot be propagated to
+ * machines hosting writer instances. Hence, this derivation of descriptors must be performed during
+ * writer initialization.
  *
  * @param <IN> Type of records to be written to BigQuery.
  */
@@ -95,20 +91,17 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     // the records in a stream get committed to the table. Hence, records written to BigQuery
     // table is equal to this "totalRecordsWritten" only upon checkpoint completion.
     long totalRecordsWritten;
-
     // Counters for metric reporting
-    final Counter successfullyAppendedRecordsCounter;
-    private final Counter numBytesSendCounter;
-    final Counter successfullyAppendedRecordsSinceChkptCounter;
-    final Counter numRecordsInSinceChkptCounter;
+    Counter successfullyAppendedRecordsCounter;
+    Counter successfullyAppendedRecordsSinceChkptCounter;
+    Counter numRecordsInSinceChkptCounter;
 
     BaseWriter(
             int subtaskId,
             String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer,
-            Sink.InitContext context) {
+            BigQueryProtoSerializer serializer) {
         this.subtaskId = subtaskId;
         this.tablePath = tablePath;
         this.connectOptions = connectOptions;
@@ -118,14 +111,6 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();
-        SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
-        // Count of records which are successfully appended to BQ.
-        successfullyAppendedRecordsCounter =
-                sinkWriterMetricGroup.counter("successfullyAppendedRecords");
-        numRecordsInSinceChkptCounter = sinkWriterMetricGroup.counter("numRecordsInSinceChkpt");
-        successfullyAppendedRecordsSinceChkptCounter =
-                sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceChkpt");
-        numBytesSendCounter = sinkWriterMetricGroup.getNumBytesSendCounter();
     }
 
     /** Append pending records and validate all remaining append responses. */
@@ -176,7 +161,6 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Send append request to BigQuery storage and prepare for next append request. */
     void append() {
         sendAppendRequest(protoRowsBuilder.build());
-        numBytesSendCounter.inc(getAppendRequestSizeBytes());
         protoRowsBuilder.clear();
         appendRequestSizeBytes = 0L;
     }

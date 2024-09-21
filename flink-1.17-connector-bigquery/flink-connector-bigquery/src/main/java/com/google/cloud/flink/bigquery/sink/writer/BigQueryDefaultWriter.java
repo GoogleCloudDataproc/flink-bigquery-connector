@@ -16,6 +16,9 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
+
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
@@ -53,11 +56,20 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
+            BigQueryProtoSerializer serializer,
+            Sink.InitContext context) {
         super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;
         totalRecordsWritten = 0L;
+
+        SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
+        // Count of records which are successfully appended to BQ.
+        successfullyAppendedRecordsCounter =
+                sinkWriterMetricGroup.counter("successfullyAppendedRecords");
+        numRecordsInSinceChkptCounter = sinkWriterMetricGroup.counter("numRecordsInSinceChkpt");
+        successfullyAppendedRecordsSinceChkptCounter =
+                sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceChkpt");
     }
 
     /**
@@ -69,6 +81,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
+        numRecordsInSinceChkptCounter.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {

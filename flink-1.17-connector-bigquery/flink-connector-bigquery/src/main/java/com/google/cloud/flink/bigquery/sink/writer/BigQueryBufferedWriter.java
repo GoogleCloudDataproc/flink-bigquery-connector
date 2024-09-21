@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.util.StringUtils;
 
 import com.google.api.core.ApiFuture;
@@ -31,6 +32,7 @@ import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.TwoPhaseCommittingStatefulSink;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
+import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
@@ -98,7 +100,8 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             long totalRecordsWritten,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
+            BigQueryProtoSerializer serializer,
+            Sink.InitContext context) {
         super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
@@ -108,6 +111,16 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         this.totalRecordsWritten = totalRecordsWritten;
         writeStreamCreationThrottler = new WriteStreamCreationThrottler(subtaskId);
         appendRequestRowCount = 0L;
+        // Initialize the metric counters.
+        successfullyAppendedRecordsCounter =
+                context.metricGroup().counter("successfullyAppendedRecords");
+        // Update the metrics to values saved at checkpoint.
+        successfullyAppendedRecordsCounter.inc(totalRecordsWritten);
+        context.metricGroup().getIOMetricGroup().getNumRecordsInCounter().inc(totalRecordsSeen);
+        // ..SinceChkpt Counters restart at 0.
+        numRecordsInSinceChkptCounter = context.metricGroup().counter("numRecordsInSinceChkpt");
+        successfullyAppendedRecordsSinceChkptCounter =
+                context.metricGroup().counter("successfullyAppendedRecordsSinceChkpt");
     }
 
     /**
@@ -119,6 +132,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
+        numRecordsInSinceChkptCounter.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -186,6 +200,8 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                                 offset, expectedOffset));
             }
             totalRecordsWritten += recordsAppended;
+            successfullyAppendedRecordsCounter.inc(recordsAppended);
+            successfullyAppendedRecordsSinceChkptCounter.inc(recordsAppended);
         } catch (ExecutionException | InterruptedException e) {
             if (e.getCause().getClass() == OffsetAlreadyExists.class) {
                 logger.info(
