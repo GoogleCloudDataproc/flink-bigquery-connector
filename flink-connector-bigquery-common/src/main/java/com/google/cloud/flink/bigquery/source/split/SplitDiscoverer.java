@@ -34,8 +34,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.google.cloud.flink.bigquery.services.BigQueryServicesImpl.TRACE_ID;
-
 /**
  * In charge of discovering read splits (or read stream in BigQuery realm) to be processed. It can
  * be set to discover only once (Bounded use case) or to periodically check (Unbounded use case).
@@ -91,7 +89,8 @@ public class SplitDiscoverer {
                     ReadSession.newBuilder()
                             .setTable(srcTable)
                             .setDataFormat(format)
-//                            .setTraceId(TRACE_ID)  // Set Trace ID for Read API once support is added.
+                            //                            .setTraceId(TRACE_ID)  // Set Trace ID for
+                            // Read API once support is added.
                             .setReadOptions(options);
 
             // Optionally specify the snapshot time.  When unspecified, snapshot time is "now".
