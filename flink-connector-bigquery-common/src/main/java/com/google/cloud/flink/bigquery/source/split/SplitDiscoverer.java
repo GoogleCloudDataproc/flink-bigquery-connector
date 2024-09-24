@@ -89,8 +89,6 @@ public class SplitDiscoverer {
                     ReadSession.newBuilder()
                             .setTable(srcTable)
                             .setDataFormat(format)
-                            //                            .setTraceId(TRACE_ID)  // Set Trace ID for
-                            // Read API once support is added.
                             .setReadOptions(options);
 
             // Optionally specify the snapshot time.  When unspecified, snapshot time is "now".
