@@ -139,7 +139,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
-                                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                                             .build());
 
             UnaryCallSettings.Builder<CreateReadSessionRequest, ReadSession>
@@ -199,7 +198,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
-                                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                                             .build());
 
             UnaryCallSettings.Builder<CreateWriteStreamRequest, WriteStream>
