@@ -61,6 +61,10 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
                 String streamName = committable.getStreamName();
                 long streamOffset = committable.getStreamOffset();
                 LOG.info("Committing records appended by producer {}", producerId);
+                LOG.debug(
+                        "Invoking flushRows API on stream {} till offset {}",
+                        streamName,
+                        streamOffset);
                 FlushRowsResponse response = writeClient.flushRows(streamName, streamOffset);
                 if (response.getOffset() != streamOffset) {
                     LOG.error(
