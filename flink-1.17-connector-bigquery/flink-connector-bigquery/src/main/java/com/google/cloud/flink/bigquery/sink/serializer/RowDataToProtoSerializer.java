@@ -114,6 +114,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                             element.getDecimal(fieldNumber, precision, scale).toBigDecimal();
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
+                    return (int) element.getByte(fieldNumber);
                 case SMALLINT:
                     return (int) element.getShort(fieldNumber);
                 case INTEGER:
