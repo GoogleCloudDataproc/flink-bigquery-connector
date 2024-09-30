@@ -207,26 +207,38 @@ public class BigQueryServicesImpl implements BigQueryServices {
                     createWriteStreamSettings
                             .getRetrySettings()
                             .toBuilder()
-                            .setMaxAttempts(10)
+                            .setMaxAttempts(5)
+                            .setInitialRpcTimeout(Duration.ofSeconds(60))
+                            .setRpcTimeoutMultiplier(1.2)
+                            .setInitialRetryDelay(Duration.ofSeconds(2))
+                            .setRetryDelayMultiplier(1.2)
                             .build());
 
             UnaryCallSettings.Builder<FlushRowsRequest, FlushRowsResponse> flushRowsSettings =
                     settingsBuilder.getStubSettingsBuilder().flushRowsSettings();
             flushRowsSettings.setRetrySettings(
-                    createWriteStreamSettings
+                    flushRowsSettings
                             .getRetrySettings()
                             .toBuilder()
-                            .setMaxAttempts(10)
+                            .setMaxAttempts(5)
+                            .setInitialRpcTimeout(Duration.ofSeconds(30))
+                            .setRpcTimeoutMultiplier(1)
+                            .setInitialRetryDelay(Duration.ofSeconds(1))
+                            .setRetryDelayMultiplier(1.2)
                             .build());
 
             UnaryCallSettings.Builder<FinalizeWriteStreamRequest, FinalizeWriteStreamResponse>
                     finalizeWriteStreamSettings =
                             settingsBuilder.getStubSettingsBuilder().finalizeWriteStreamSettings();
             finalizeWriteStreamSettings.setRetrySettings(
-                    createWriteStreamSettings
+                    finalizeWriteStreamSettings
                             .getRetrySettings()
                             .toBuilder()
-                            .setMaxAttempts(10)
+                            .setMaxAttempts(5)
+                            .setInitialRpcTimeout(Duration.ofSeconds(30))
+                            .setRpcTimeoutMultiplier(1)
+                            .setInitialRetryDelay(Duration.ofSeconds(1))
+                            .setRetryDelayMultiplier(1.2)
                             .build());
 
             this.client = BigQueryWriteClient.create(settingsBuilder.build());
@@ -249,8 +261,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .setMaxAttempts(5) // maximum number of retries
                             .setTotalTimeout(
                                     Duration.ofMinutes(5)) // total duration of retry process
-                            .setInitialRpcTimeout(
-                                    Duration.ofSeconds(30)) // delay before first retry
+                            .setInitialRpcTimeout(Duration.ofSeconds(30)) // intial timeout
                             .setMaxRpcTimeout(Duration.ofMinutes(2)) // maximum RPC timeout
                             .setRpcTimeoutMultiplier(1.6) // change in RPC timeout
                             .setRetryDelayMultiplier(1.6) // change in delay before next retry

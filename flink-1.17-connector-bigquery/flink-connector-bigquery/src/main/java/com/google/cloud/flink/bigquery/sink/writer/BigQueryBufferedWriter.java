@@ -206,8 +206,11 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             logger.info("No new data appended in subtask {}. Nothing to commit.", subtaskId);
             return Collections.EMPTY_LIST;
         }
+        // The value of streamOffset in writer represents the next available offset where append
+        // should be performed. However, committer needs to know the offset up to which data can be
+        // committed. That latest committable offset is `streamOffset - 1`.
         return Collections.singletonList(
-                new BigQueryCommittable(subtaskId, streamName, streamOffset));
+                new BigQueryCommittable(subtaskId, streamName, streamOffset - 1));
     }
 
     @Override
