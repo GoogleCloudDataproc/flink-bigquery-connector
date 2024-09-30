@@ -79,6 +79,13 @@ import java.util.stream.StreamSupport;
 public class BigQueryServicesImpl implements BigQueryServices {
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryServicesImpl.class);
 
+    private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
+            FixedHeaderProvider.create(
+                    "User-Agent", "flink-bigquery-connector/" + FlinkVersion.current().toString());
+
+    public static final String TRACE_ID =
+            String.format("Flink:%s", FlinkVersion.current().toString());
+
     @Override
     public StorageReadClient createStorageReadClient(CredentialsOptions credentialsOptions)
             throws IOException {
@@ -122,10 +129,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
     /** Implementation of a BigQuery read client wrapper. */
     public static class StorageReadClientImpl implements StorageReadClient {
-        private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
-                FixedHeaderProvider.create(
-                        "user-agent", "Apache_Flink_Java/" + FlinkVersion.current().toString());
-
         private final BigQueryReadClient client;
 
         private StorageReadClientImpl(CredentialsOptions options) throws IOException {
@@ -133,9 +136,9 @@ public class BigQueryServicesImpl implements BigQueryServices {
                     BigQueryReadSettings.newBuilder()
                             .setCredentialsProvider(
                                     FixedCredentialsProvider.create(options.getCredentials()))
+                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
-                                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                                             .build());
 
             UnaryCallSettings.Builder<CreateReadSessionRequest, ReadSession>
@@ -185,10 +188,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
     /** Implementation of a BigQuery write client wrapper. */
     public static class StorageWriteClientImpl implements StorageWriteClient {
-        private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
-                FixedHeaderProvider.create(
-                        "user-agent", "Apache_Flink_Java/" + FlinkVersion.current().toString());
-
         private final BigQueryWriteClient client;
 
         private StorageWriteClientImpl(CredentialsOptions options) throws IOException {
@@ -196,9 +195,9 @@ public class BigQueryServicesImpl implements BigQueryServices {
                     BigQueryWriteSettings.newBuilder()
                             .setCredentialsProvider(
                                     FixedCredentialsProvider.create(options.getCredentials()))
+                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
-                                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                                             .build());
 
             UnaryCallSettings.Builder<CreateWriteStreamRequest, WriteStream>
@@ -261,6 +260,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .build();
             return StreamWriter.newBuilder(streamName, client)
                     .setEnableConnectionPool(enableConnectionPool)
+                    .setTraceId(TRACE_ID)
                     .setRetrySettings(retrySettings)
                     .setWriterSchema(protoSchema)
                     .build();
@@ -304,6 +304,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
             bigQuery =
                     BigQueryOptions.newBuilder()
                             .setCredentials(options.getCredentials())
+                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .build()
                             .getService();
             bigquery = BigQueryUtils.newBigqueryBuilder(options).build();
