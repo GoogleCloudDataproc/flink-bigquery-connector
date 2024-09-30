@@ -71,7 +71,7 @@ public interface BigQueryDeserializationSchema<IN, OUT>
                             "Failed to forward the deserialized record %s to the next operator.%nError %s%nCause %s",
                             deserialize, e.getMessage(), e.getCause()));
             throw new BigQueryConnectorException(
-                    "Failed to forward the deserialized record to the next operator.");
+                    "Failed to forward the deserialized record to the next operator.", e);
         }
     }
 }
