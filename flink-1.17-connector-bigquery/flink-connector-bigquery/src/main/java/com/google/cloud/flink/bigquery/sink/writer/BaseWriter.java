@@ -21,7 +21,6 @@ import org.apache.flink.api.connector.sink2.SinkWriter;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ProtoSchemaConverter;
@@ -242,18 +241,6 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                 break;
             }
         }
-    }
-
-    void logAppendSerializationError(Throwable error) {
-        Exceptions.AppendSerializationError appendSerializationError =
-                (Exceptions.AppendSerializationError) error.getCause();
-        logger.info(
-                String.format(
-                        "AppendSerializationError%nCause: %s%nMessage: %s%nRowIndexToErrorMessage: %s%nStreamName: %s",
-                        appendSerializationError.getCause(),
-                        appendSerializationError.getMessage(),
-                        appendSerializationError.getRowIndexToErrorMessage(),
-                        appendSerializationError.getStreamName()));
     }
 
     void logAndThrowFatalException(Throwable error) {

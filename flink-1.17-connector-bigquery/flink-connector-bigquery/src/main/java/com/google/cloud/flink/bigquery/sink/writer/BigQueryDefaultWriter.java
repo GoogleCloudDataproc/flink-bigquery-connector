@@ -72,7 +72,6 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
         totalRecordsSeen++;
         try {
             ByteString protoRow = getProtoRow(element);
-            logger.info("protoRow" + protoRow);
             if (!fitsInAppendRequest(protoRow)) {
                 validateAppendResponses(false);
                 append();
@@ -109,7 +108,15 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             totalRecordsWritten += recordsAppended;
         } catch (ExecutionException | InterruptedException e) {
             if (e.getCause() instanceof Exceptions.AppendSerializationError) {
-                logAppendSerializationError(e);
+                Exceptions.AppendSerializationError appendSerializationError =
+                        (Exceptions.AppendSerializationError) e.getCause();
+                logger.info(
+                        String.format(
+                                "AppendSerializationError%nCause: %s%nMessage: %s%nRowIndexToErrorMessage: %s%nStreamName: %s",
+                                appendSerializationError.getCause(),
+                                appendSerializationError.getMessage(),
+                                appendSerializationError.getRowIndexToErrorMessage(),
+                                appendSerializationError.getStreamName()));
             }
             logAndThrowFatalException(e);
         }
