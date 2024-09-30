@@ -20,10 +20,15 @@ import org.apache.flink.api.connector.sink2.Committer;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
+import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittableSerializer;
+import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
+import com.google.cloud.flink.bigquery.sink.writer.BigQueryBufferedWriter;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterState;
+import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterStateSerializer;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Comparator;
 
 /**
  * Sink to write data into a BigQuery table using {@link BigQueryBufferedWriter}.
@@ -45,28 +50,47 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
     @Override
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
             createWriter(InitContext context) throws IOException {
-        throw new UnsupportedOperationException("createWriter not implemented");
+        checkParallelism(context.getNumberOfParallelSubtasks());
+        return new BigQueryBufferedWriter(
+                context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
     }
 
     @Override
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
             restoreWriter(InitContext context, Collection<BigQueryWriterState> recoveredState)
                     throws IOException {
-        throw new UnsupportedOperationException("restoreWriter not implemented");
+        if (recoveredState == null || recoveredState.isEmpty()) {
+            return createWriter(context);
+        }
+        // If multiple states are found, restore one with the latest checkpoint.
+        BigQueryWriterState stateToRestore =
+                recoveredState.stream()
+                        .max(Comparator.comparingLong(state -> state.getCheckpointId()))
+                        .get();
+        return new BigQueryBufferedWriter(
+                context.getSubtaskId(),
+                stateToRestore.getStreamName(),
+                stateToRestore.getStreamOffset(),
+                tablePath,
+                stateToRestore.getTotalRecordsSeen(),
+                stateToRestore.getTotalRecordsWritten(),
+                connectOptions,
+                schemaProvider,
+                serializer);
     }
 
     @Override
     public Committer<BigQueryCommittable> createCommitter() throws IOException {
-        throw new UnsupportedOperationException("createCommitter not implemented");
+        return new BigQueryCommitter(connectOptions);
     }
 
     @Override
     public SimpleVersionedSerializer<BigQueryCommittable> getCommittableSerializer() {
-        throw new UnsupportedOperationException("getCommittableSerializer not implemented");
+        return new BigQueryCommittableSerializer();
     }
 
     @Override
     public SimpleVersionedSerializer<BigQueryWriterState> getWriterStateSerializer() {
-        throw new UnsupportedOperationException("getWriterStateSerializer not implemented");
+        return new BigQueryWriterStateSerializer();
     }
 }

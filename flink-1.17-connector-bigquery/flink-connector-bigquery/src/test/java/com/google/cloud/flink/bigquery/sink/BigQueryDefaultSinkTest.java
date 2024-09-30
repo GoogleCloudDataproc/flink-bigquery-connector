@@ -47,7 +47,7 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testConstructorWithoutConnectOptions() throws IOException {
+    public void testConstructor_withoutConnectOptions() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(null)
@@ -61,7 +61,7 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testConstructorWithoutSerializer() throws IOException {
+    public void testConstructor_withoutSerializer() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
@@ -75,7 +75,7 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testConstructorWithoutSchemaProvider() throws IOException {
+    public void testConstructor_withoutSchemaProvider() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
@@ -104,7 +104,7 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testCreateMoreWritersThanAllowed() throws IOException {
+    public void testCreate_withMoreWritersThanAllowed() throws IOException {
         InitContext mockedContext = Mockito.mock(InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);

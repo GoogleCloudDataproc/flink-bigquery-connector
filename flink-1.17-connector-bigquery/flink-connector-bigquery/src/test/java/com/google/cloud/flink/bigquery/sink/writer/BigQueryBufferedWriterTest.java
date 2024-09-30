@@ -581,6 +581,7 @@ public class BigQueryBufferedWriterTest {
         assertEquals("new_stream", writerState.getStreamName());
         assertEquals(3, writerState.getTotalRecordsSeen());
         assertEquals(3, writerState.getTotalRecordsWritten());
+        assertEquals(1, writerState.getCheckpointId());
         assertEquals("new_stream", bufferedWriter.getStreamNameInState());
         assertEquals(3, bufferedWriter.getStreamOffsetInState());
     }
@@ -631,6 +632,7 @@ public class BigQueryBufferedWriterTest {
         assertEquals("restored_stream", writerState.getStreamName());
         assertEquals(213, writerState.getTotalRecordsSeen());
         assertEquals(203, writerState.getTotalRecordsWritten());
+        assertEquals(1, writerState.getCheckpointId());
         assertEquals("restored_stream", bufferedWriter.getStreamNameInState());
         assertEquals(103, bufferedWriter.getStreamOffsetInState());
     }
@@ -676,6 +678,7 @@ public class BigQueryBufferedWriterTest {
         assertEquals("new_stream", writerState.getStreamName());
         assertEquals(213, writerState.getTotalRecordsSeen());
         assertEquals(203, writerState.getTotalRecordsWritten());
+        assertEquals(1, writerState.getCheckpointId());
         assertEquals("new_stream", bufferedWriter.getStreamNameInState());
         assertEquals(3, bufferedWriter.getStreamOffsetInState());
     }

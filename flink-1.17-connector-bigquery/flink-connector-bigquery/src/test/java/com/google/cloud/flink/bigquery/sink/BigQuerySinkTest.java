@@ -32,7 +32,7 @@ import static org.junit.Assert.assertNotNull;
 public class BigQuerySinkTest {
 
     @Test
-    public void testGetWithAtLeastOnce() throws IOException {
+    public void testGet_withAtLeastOnceDeliveryGuarantee() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
@@ -43,25 +43,25 @@ public class BigQuerySinkTest {
         assertNotNull(BigQuerySink.get(sinkConfig, null));
     }
 
-    @Test(expected = UnsupportedOperationException.class)
-    public void testGetWithNoneDeliveryGuarantee() throws IOException {
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
-                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
-                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
-                        .deliveryGuarantee(DeliveryGuarantee.NONE)
-                        .build();
-        assertNotNull(BigQuerySink.get(sinkConfig, null));
-    }
-
-    public void testExactlyOnceNotSupported() throws IOException {
+    public void testGet_withExactlyOnceDeliveryGuarantee() throws IOException {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                        .build();
+        assertNotNull(BigQuerySink.get(sinkConfig, null));
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testGet_withNoneDeliveryGuarantee() throws IOException {
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.NONE)
                         .build();
         assertNotNull(BigQuerySink.get(sinkConfig, null));
     }
