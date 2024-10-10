@@ -16,6 +16,9 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+
 import com.google.api.core.ApiFutures;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
@@ -249,11 +252,15 @@ public class BigQueryDefaultWriterTest {
     private BigQueryDefaultWriter createDefaultWriter(
             BigQueryProtoSerializer mockSerializer, AppendRowsResponse appendResponse)
             throws IOException {
+        Sink.InitContext mockInitContext = Mockito.mock(Sink.InitContext.class);
+        Mockito.when(mockInitContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         return new BigQueryDefaultWriter(
                 0,
                 "/projects/project/datasets/dataset/tables/table",
                 StorageClientFaker.createConnectOptionsForWrite(appendResponse),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
-                mockSerializer);
+                mockSerializer,
+                mockInitContext);
     }
 }

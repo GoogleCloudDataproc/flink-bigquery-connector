@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.metrics.Counter;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -56,15 +57,15 @@ import java.util.Queue;
  * validated lazily.
  *
  * <p>Serializer's "init" method is called in the writer's constructor because the resulting {@link
- * Descriptor} is not serializable and cannot be propagated to machines hosting writer instances.
- * Hence, this derivation of descriptors must be performed during writer initialization.
+ * com.google.protobuf.Descriptors.Descriptor} is not serializable and cannot be propagated to
+ * machines hosting writer instances. Hence, this derivation of descriptors must be performed during
+ * writer initialization.
  *
  * @param <IN> Type of records to be written to BigQuery.
  */
 abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
-
+    protected final Logger logger = LoggerFactory.getLogger(BaseWriter.class);
     // Multiply 0.95 to keep a buffer from exceeding payload limits.
     private static final long MAX_APPEND_REQUEST_BYTES =
             (long) (StreamWriter.getApiMaxRequestBytes() * 0.95);
@@ -90,6 +91,10 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     // the records in a stream get committed to the table. Hence, records written to BigQuery
     // table is equal to this "totalRecordsWritten" only upon checkpoint completion.
     long totalRecordsWritten;
+    // Counters for metric reporting
+    Counter successfullyAppendedRecordsCounter;
+    Counter successfullyAppendedRecordsSinceChkptCounter;
+    Counter numRecordsInSinceChkptCounter;
 
     BaseWriter(
             int subtaskId,
@@ -116,6 +121,11 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         }
         logger.info("Validating all pending append responses in subtask {}", subtaskId);
         validateAppendResponses(true);
+        // .flush() is called at checkpoint, resetting the counters after all tasks are done.
+        // Set to 0.
+        numRecordsInSinceChkptCounter.dec(numRecordsInSinceChkptCounter.getCount());
+        successfullyAppendedRecordsSinceChkptCounter.dec(
+                successfullyAppendedRecordsSinceChkptCounter.getCount());
     }
 
     /** Close resources maintained by this writer. */
