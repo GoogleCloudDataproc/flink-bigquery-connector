@@ -65,7 +65,7 @@ import java.util.Queue;
  */
 abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
-    protected final Logger logger = LoggerFactory.getLogger(BaseWriter.class);
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
     // Multiply 0.95 to keep a buffer from exceeding payload limits.
     private static final long MAX_APPEND_REQUEST_BYTES =
             (long) (StreamWriter.getApiMaxRequestBytes() * 0.95);
