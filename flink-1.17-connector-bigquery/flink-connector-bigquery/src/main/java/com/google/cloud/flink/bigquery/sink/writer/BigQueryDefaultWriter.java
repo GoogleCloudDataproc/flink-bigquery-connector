@@ -65,10 +65,11 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
         SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
         // Count of records which are successfully appended to BQ.
-        successfullyAppendedRecordsCounter =
+        this.successfullyAppendedRecordsCounter =
                 sinkWriterMetricGroup.counter("successfullyAppendedRecords");
-        numRecordsInSinceChkptCounter = sinkWriterMetricGroup.counter("numRecordsInSinceChkpt");
-        successfullyAppendedRecordsSinceChkptCounter =
+        this.numRecordsInSinceChkptCounter =
+                sinkWriterMetricGroup.counter("numRecordsInSinceChkpt");
+        this.successfullyAppendedRecordsSinceChkptCounter =
                 sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceChkpt");
     }
 
@@ -81,7 +82,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
-        numRecordsInSinceChkptCounter.inc();
+        this.numRecordsInSinceChkptCounter.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {

@@ -32,7 +32,6 @@ import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.TwoPhaseCommittingStatefulSink;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
-import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
@@ -132,7 +131,6 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
-        numRecordsInSinceChkptCounter.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -200,8 +198,6 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                                 offset, expectedOffset));
             }
             totalRecordsWritten += recordsAppended;
-            successfullyAppendedRecordsCounter.inc(recordsAppended);
-            successfullyAppendedRecordsSinceChkptCounter.inc(recordsAppended);
         } catch (ExecutionException | InterruptedException e) {
             if (e.getCause().getClass() == OffsetAlreadyExists.class) {
                 logger.info(

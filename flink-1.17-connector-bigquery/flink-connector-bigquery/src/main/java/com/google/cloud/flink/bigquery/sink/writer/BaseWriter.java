@@ -123,9 +123,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         validateAppendResponses(true);
         // .flush() is called at checkpoint, resetting the counters after all tasks are done.
         // Set to 0.
-        numRecordsInSinceChkptCounter.dec(numRecordsInSinceChkptCounter.getCount());
-        successfullyAppendedRecordsSinceChkptCounter.dec(
-                successfullyAppendedRecordsSinceChkptCounter.getCount());
+        this.numRecordsInSinceChkptCounter.dec(this.numRecordsInSinceChkptCounter.getCount());
+        this.successfullyAppendedRecordsSinceChkptCounter.dec(
+                this.successfullyAppendedRecordsSinceChkptCounter.getCount());
     }
 
     /** Close resources maintained by this writer. */
