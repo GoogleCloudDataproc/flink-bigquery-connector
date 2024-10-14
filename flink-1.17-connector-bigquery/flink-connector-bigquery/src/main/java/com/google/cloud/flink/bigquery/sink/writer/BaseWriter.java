@@ -35,6 +35,7 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors.Descriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,9 +58,8 @@ import java.util.Queue;
  * validated lazily.
  *
  * <p>Serializer's "init" method is called in the writer's constructor because the resulting {@link
- * com.google.protobuf.Descriptors.Descriptor} is not serializable and cannot be propagated to
- * machines hosting writer instances. Hence, this derivation of descriptors must be performed during
- * writer initialization.
+ * Descriptor} is not serializable and cannot be propagated to machines hosting writer instances.
+ * Hence, this derivation of descriptors must be performed during writer initialization.
  *
  * @param <IN> Type of records to be written to BigQuery.
  */
@@ -92,9 +92,9 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     // table is equal to this "totalRecordsWritten" only upon checkpoint completion.
     long totalRecordsWritten;
     // Counters for metric reporting
-    Counter successfullyAppendedRecordsCounter;
-    Counter successfullyAppendedRecordsSinceChkptCounter;
-    Counter numRecordsInSinceChkptCounter;
+    Counter successfullyAppendedRecords;
+    Counter successfullyAppendedRecordsSinceCheckpoint;
+    Counter numRecordsSinceCheckpoint;
 
     BaseWriter(
             int subtaskId,
@@ -121,11 +121,11 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         }
         logger.info("Validating all pending append responses in subtask {}", subtaskId);
         validateAppendResponses(true);
-        // .flush() is called at checkpoint, resetting the counters after all tasks are done.
-        // Set to 0.
-        this.numRecordsInSinceChkptCounter.dec(this.numRecordsInSinceChkptCounter.getCount());
-        this.successfullyAppendedRecordsSinceChkptCounter.dec(
-                this.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        // Writer's flush() is called at checkpoint, resetting the counters after all tasks are
+        // done. Set to 0.
+        this.numRecordsSinceCheckpoint.dec(this.numRecordsSinceCheckpoint.getCount());
+        this.successfullyAppendedRecordsSinceCheckpoint.dec(
+                this.successfullyAppendedRecordsSinceCheckpoint.getCount());
     }
 
     /** Close resources maintained by this writer. */
@@ -144,14 +144,14 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         if (writeClient != null) {
             writeClient.close();
         }
-        if (numRecordsInSinceChkptCounter != null) {
-            numRecordsInSinceChkptCounter = null;
+        if (numRecordsSinceCheckpoint != null) {
+            numRecordsSinceCheckpoint = null;
         }
-        if (successfullyAppendedRecordsSinceChkptCounter != null) {
-            successfullyAppendedRecordsSinceChkptCounter = null;
+        if (successfullyAppendedRecordsSinceCheckpoint != null) {
+            successfullyAppendedRecordsSinceCheckpoint = null;
         }
-        if (successfullyAppendedRecordsCounter != null) {
-            successfullyAppendedRecordsCounter = null;
+        if (successfullyAppendedRecords != null) {
+            successfullyAppendedRecords = null;
         }
     }
 

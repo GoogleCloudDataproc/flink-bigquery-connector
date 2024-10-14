@@ -792,8 +792,8 @@ public class BigQueryBufferedWriterTest {
         Sink.InitContext mockSinkContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockSinkContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+        Mockito.when(mockSinkContext.getSubtaskId()).thenReturn(1);
         return new BigQueryBufferedWriter(
-                1,
                 streamName,
                 streamOffset,
                 "/projects/project/datasets/dataset/tables/table",
@@ -818,8 +818,8 @@ public class BigQueryBufferedWriterTest {
         Sink.InitContext mockSinkContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockSinkContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+        Mockito.when(mockSinkContext.getSubtaskId()).thenReturn(1);
         return new BigQueryBufferedWriter(
-                1,
                 streamName,
                 streamOffset,
                 "/projects/project/datasets/dataset/tables/table",
