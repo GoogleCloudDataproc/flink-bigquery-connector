@@ -66,9 +66,9 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
         // Count of records which are successfully appended to BQ.
         this.successfullyAppendedRecords =
                 sinkWriterMetricGroup.counter("successfullyAppendedRecords");
-        this.numRecordsSinceCheckpoint = sinkWriterMetricGroup.counter("numRecordsInSinceChkpt");
+        this.numRecordsSinceCheckpoint = sinkWriterMetricGroup.counter("numRecordsSinceCheckpoint");
         this.successfullyAppendedRecordsSinceCheckpoint =
-                sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceChkpt");
+                sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceCheckpoint");
     }
 
     /**
