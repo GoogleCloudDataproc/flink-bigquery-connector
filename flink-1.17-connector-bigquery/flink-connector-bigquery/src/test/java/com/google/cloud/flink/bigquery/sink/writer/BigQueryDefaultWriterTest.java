@@ -75,6 +75,10 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getProtoRows().getSerializedRowsList().isEmpty());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(0, defaultWriter.numRecordsInSinceChkptCounter.getCount());
     }
 
     @Test
@@ -93,6 +97,10 @@ public class BigQueryDefaultWriterTest {
                 ByteString.copyFromUtf8("foo"),
                 defaultWriter.getProtoRows().getSerializedRowsList().get(0));
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(1, defaultWriter.numRecordsInSinceChkptCounter.getCount());
     }
 
     @Test
@@ -116,6 +124,10 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.getAppendRequestSizeBytes());
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertEquals(1, defaultWriter.getAppendResponseFuturesQueue().size());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(1, defaultWriter.numRecordsInSinceChkptCounter.getCount());
     }
 
     @Test
@@ -128,12 +140,20 @@ public class BigQueryDefaultWriterTest {
         assertEquals(1, defaultWriter.totalRecordsSeen);
         assertEquals(0, defaultWriter.totalRecordsWritten);
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(1, defaultWriter.numRecordsInSinceChkptCounter.getCount());
         // Second element will exceed append request's size, so append will be called with
         // first element in request.
         defaultWriter.write(new Object(), null);
         assertEquals(2, defaultWriter.totalRecordsSeen);
         assertEquals(0, defaultWriter.totalRecordsWritten);
         assertEquals(1, defaultWriter.getAppendResponseFuturesQueue().size());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(2, defaultWriter.numRecordsInSinceChkptCounter.getCount());
         // Third element will again exceed append request's size, so append will be called with
         // second element in request. Response future from first AppendRows request will be
         // validated, incrementing totalRecordsWritten.
@@ -141,6 +161,10 @@ public class BigQueryDefaultWriterTest {
         assertEquals(3, defaultWriter.totalRecordsSeen);
         assertEquals(1, defaultWriter.totalRecordsWritten);
         assertEquals(1, defaultWriter.getAppendResponseFuturesQueue().size());
+        // Test for metric values.
+        assertEquals(1, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(1, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(3, defaultWriter.numRecordsInSinceChkptCounter.getCount());
     }
 
     @Test
@@ -154,12 +178,20 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.totalRecordsWritten);
         assertEquals(1, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(1, defaultWriter.numRecordsInSinceChkptCounter.getCount());
         defaultWriter.write(new Object(), null);
         // AppendRows invoked, response future stored.
         assertEquals(2, defaultWriter.totalRecordsSeen);
         assertEquals(0, defaultWriter.totalRecordsWritten);
         assertEquals(1, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertEquals(1, defaultWriter.getAppendResponseFuturesQueue().size());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(2, defaultWriter.numRecordsInSinceChkptCounter.getCount());
         // Flush will send append request for pending records, and validate all pending append
         // responses.
         defaultWriter.flush(false);
@@ -167,6 +199,9 @@ public class BigQueryDefaultWriterTest {
         assertEquals(2, defaultWriter.totalRecordsWritten);
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        assertEquals(2, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(0, defaultWriter.numRecordsInSinceChkptCounter.getCount());
     }
 
     @Test
@@ -179,14 +214,26 @@ public class BigQueryDefaultWriterTest {
         assertEquals(1, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
         assertNull(defaultWriter.streamWriter);
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(1, defaultWriter.numRecordsInSinceChkptCounter.getCount());
         defaultWriter.write(new Object(), null);
         assertEquals(1, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertEquals(1, defaultWriter.getAppendResponseFuturesQueue().size());
         assertFalse(defaultWriter.streamWriter.isUserClosed());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(2, defaultWriter.numRecordsInSinceChkptCounter.getCount());
         defaultWriter.close();
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
         assertTrue(defaultWriter.streamWriter.isUserClosed());
+        // Test for metric values.
+        assertNull(defaultWriter.successfullyAppendedRecordsCounter);
+        assertNull(defaultWriter.successfullyAppendedRecordsSinceChkptCounter);
+        assertNull(defaultWriter.numRecordsInSinceChkptCounter);
     }
 
     @Test
@@ -199,6 +246,10 @@ public class BigQueryDefaultWriterTest {
         defaultWriter.write(new Object(), null);
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(1, defaultWriter.numRecordsInSinceChkptCounter.getCount());
     }
 
     @Test(expected = BigQuerySerializationException.class)
@@ -224,6 +275,10 @@ public class BigQueryDefaultWriterTest {
         defaultWriter.write(new Object(), null);
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test for metric values.
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsCounter.getCount());
+        assertEquals(0, defaultWriter.successfullyAppendedRecordsSinceChkptCounter.getCount());
+        assertEquals(1, defaultWriter.numRecordsInSinceChkptCounter.getCount());
     }
 
     @Test(expected = BigQueryConnectorException.class)
