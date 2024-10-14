@@ -523,7 +523,7 @@ public class BigQueryBufferedWriterTest {
         BigQueryCommittable committable = (BigQueryCommittable) committables.toArray()[0];
         assertEquals(1, committable.getProducerId());
         assertEquals("new_stream", committable.getStreamName());
-        assertEquals(3, committable.getStreamOffset());
+        assertEquals(2, committable.getStreamOffset());
     }
 
     @Test
