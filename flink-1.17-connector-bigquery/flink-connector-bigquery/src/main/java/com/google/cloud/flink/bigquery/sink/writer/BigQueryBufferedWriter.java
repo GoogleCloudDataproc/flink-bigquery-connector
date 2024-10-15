@@ -223,7 +223,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     }
 
     @Override
-    public List<BigQueryWriterState> snapshotState(long checkpointId) throws IOException {
+    public List<BigQueryWriterState> snapshotState(long checkpointId) {
         logger.info("Snapshotting state in subtask {} for checkpoint {}", subtaskId, checkpointId);
         streamNameInState = streamName;
         streamOffsetInState = streamOffset;

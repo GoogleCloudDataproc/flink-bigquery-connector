@@ -16,7 +16,10 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
@@ -24,10 +27,11 @@ import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryBufferedWriter;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterState;
 import com.google.protobuf.ByteString;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import java.io.IOException;
 import java.util.Collections;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -38,24 +42,39 @@ import static org.junit.Assert.assertThrows;
 /** Tests for {@link BigQueryExactlyOnceSink}. */
 public class BigQueryExactlyOnceSinkTest {
 
+    private StreamExecutionEnvironment env;
+
+    @Before
+    public void setUp() {
+        env = new StreamExecutionEnvironment();
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, Time.seconds(3)));
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        env.close();
+    }
+
     @Test
-    public void testConstructor() throws IOException {
+    public void testConstructor() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         assertNotNull(new BigQueryExactlyOnceSink(sinkConfig));
     }
 
     @Test
-    public void testConstructor_withoutConnectOptions() throws IOException {
+    public void testConstructor_withoutConnectOptions() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(null)
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
@@ -65,7 +84,7 @@ public class BigQueryExactlyOnceSinkTest {
     }
 
     @Test
-    public void testCreateWriter() throws IOException {
+    public void testCreateWriter() {
         Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
@@ -74,13 +93,14 @@ public class BigQueryExactlyOnceSinkTest {
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
-        Sink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
+        BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
         assertNotNull(exactlyOnceSink.createWriter(mockedContext));
     }
 
     @Test
-    public void testCreate_withMoreWritersThanAllowed() throws IOException {
+    public void testCreate_withMoreWritersThanAllowed() {
         Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
@@ -89,6 +109,7 @@ public class BigQueryExactlyOnceSinkTest {
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         IllegalStateException exception =
                 assertThrows(
@@ -100,7 +121,7 @@ public class BigQueryExactlyOnceSinkTest {
     }
 
     @Test
-    public void testRestoreWriter() throws IOException {
+    public void testRestoreWriter() {
         Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
@@ -109,6 +130,7 @@ public class BigQueryExactlyOnceSinkTest {
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
         BigQueryBufferedWriter restoredWriter =
@@ -126,36 +148,39 @@ public class BigQueryExactlyOnceSinkTest {
     }
 
     @Test
-    public void testCreateCommitter() throws IOException {
+    public void testCreateCommitter() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
         assertNotNull(exactlyOnceSink.createCommitter());
     }
 
     @Test
-    public void testGetCommittableSerializer() throws IOException {
+    public void testGetCommittableSerializer() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
         assertNotNull(exactlyOnceSink.getCommittableSerializer());
     }
 
     @Test
-    public void testGetWriterStateSerializer() throws IOException {
+    public void testGetWriterStateSerializer() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
         assertNotNull(exactlyOnceSink.getWriterStateSerializer());

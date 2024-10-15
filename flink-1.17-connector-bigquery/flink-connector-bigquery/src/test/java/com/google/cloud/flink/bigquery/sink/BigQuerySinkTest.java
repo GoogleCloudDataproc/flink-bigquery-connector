@@ -16,53 +16,95 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies.RestartStrategyConfiguration;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
 import com.google.protobuf.ByteString;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
-
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQuerySink}. */
 public class BigQuerySinkTest {
 
+    private StreamExecutionEnvironment env;
+
+    private static final RestartStrategyConfiguration NO_RESTART_STRATEGY =
+            RestartStrategies.noRestart();
+    private static final RestartStrategyConfiguration INVALID_FIXED_DELAY_RESTART_STRATEGY =
+            RestartStrategies.fixedDelayRestart(20, Time.seconds(5));
+
+    @Before
+    public void setUp() {
+        env = new StreamExecutionEnvironment();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        env.close();
+    }
+
     @Test
-    public void testGet_withAtLeastOnceDeliveryGuarantee() throws IOException {
+    public void testGet_withAtLeastOnce() {
+        env.setRestartStrategy(NO_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .streamExecutionEnvironment(env)
                         .build();
-        assertNotNull(BigQuerySink.get(sinkConfig, null));
+        assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryDefaultSink);
     }
 
-    public void testGet_withExactlyOnceDeliveryGuarantee() throws IOException {
+    @Test
+    public void testGet_withExactlyOnce() {
+        env.setRestartStrategy(NO_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                        .streamExecutionEnvironment(env)
                         .build();
-        assertNotNull(BigQuerySink.get(sinkConfig, null));
+        assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryExactlyOnceSink);
     }
 
     @Test(expected = UnsupportedOperationException.class)
-    public void testGet_withNoneDeliveryGuarantee() throws IOException {
+    public void testGet_withNoneDeliveryGuarantee() {
+        env.setRestartStrategy(NO_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .deliveryGuarantee(DeliveryGuarantee.NONE)
+                        .streamExecutionEnvironment(env)
                         .build();
-        assertNotNull(BigQuerySink.get(sinkConfig, null));
+        BigQuerySink.get(sinkConfig);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGet_withInvalidRestartStrategy() {
+        env.setRestartStrategy(INVALID_FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                        .streamExecutionEnvironment(env)
+                        .build();
+        assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryExactlyOnceSink);
     }
 }
