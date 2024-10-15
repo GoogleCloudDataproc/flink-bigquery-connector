@@ -144,15 +144,6 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         if (writeClient != null) {
             writeClient.close();
         }
-        if (numRecordsSinceCheckpoint != null) {
-            numRecordsSinceCheckpoint = null;
-        }
-        if (successfullyAppendedRecordsSinceCheckpoint != null) {
-            successfullyAppendedRecordsSinceCheckpoint = null;
-        }
-        if (successfullyAppendedRecords != null) {
-            successfullyAppendedRecords = null;
-        }
     }
 
     /** Invoke BigQuery storage API for appending data to a table. */

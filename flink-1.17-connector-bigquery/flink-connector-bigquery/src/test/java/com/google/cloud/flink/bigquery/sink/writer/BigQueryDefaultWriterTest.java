@@ -230,10 +230,6 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
         assertTrue(defaultWriter.streamWriter.isUserClosed());
-        // Test for metric values.
-        assertNull(defaultWriter.successfullyAppendedRecords);
-        assertNull(defaultWriter.successfullyAppendedRecordsSinceCheckpoint);
-        assertNull(defaultWriter.numRecordsSinceCheckpoint);
     }
 
     @Test
