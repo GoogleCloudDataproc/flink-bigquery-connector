@@ -17,7 +17,10 @@
 package com.google.cloud.flink.bigquery.table.config;
 
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableDescriptor;
+
+import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
 
 /**
  * Configurations for a BigQuery Table API Write.
@@ -83,6 +86,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
 
         private DeliveryGuarantee deliveryGuarantee;
         private Integer sinkParallelism;
+        private StreamExecutionEnvironment env;
 
         @Override
         public BigQuerySinkTableConfig.Builder project(String project) {
@@ -127,11 +131,14 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
         }
 
         /**
-         * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink
-         * job. Can be <code>DeliveryGuarantee.AT_LEAST_ONCE</code> or <code>
+         * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink.
+         * Can be <code>DeliveryGuarantee.AT_LEAST_ONCE</code> or <code>
          * DeliveryGuarantee.EXACTLY_ONCE
          * </code><br>
          * Default: <code>DeliveryGuarantee.AT_LEAST_ONCE</code> - At-least Once Mode.
+         *
+         * @param deliveryGuarantee
+         * @return Updated BigQuerySinkTableConfig builder
          */
         public BigQuerySinkTableConfig.Builder deliveryGuarantee(
                 DeliveryGuarantee deliveryGuarantee) {
@@ -139,13 +146,33 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             return this;
         }
 
-        /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink job. */
+        /**
+         * [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink.
+         *
+         * @param sinkParallelism
+         * @return Updated BigQuerySinkTableConfig builder
+         */
         public BigQuerySinkTableConfig.Builder sinkParallelism(Integer sinkParallelism) {
             this.sinkParallelism = sinkParallelism;
             return this;
         }
 
+        /**
+         * [Required, Sink Configuration] StreamExecutionEnvironment associated with the Flink job.
+         *
+         * @param streamExecutionEnvironment
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public BigQuerySinkTableConfig.Builder streamExecutionEnvironment(
+                StreamExecutionEnvironment streamExecutionEnvironment) {
+            this.env = streamExecutionEnvironment;
+            return this;
+        }
+
         public BigQuerySinkTableConfig build() {
+            if (deliveryGuarantee == DeliveryGuarantee.EXACTLY_ONCE) {
+                BigQuerySinkConfig.validateStreamExecutionEnvironment(env);
+            }
             return new BigQuerySinkTableConfig(
                     project,
                     dataset,

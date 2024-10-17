@@ -25,7 +25,6 @@ import com.google.cloud.flink.bigquery.services.BigQueryServices;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -86,14 +85,13 @@ public abstract class BigQueryConnectOptions implements Serializable {
      * Creates a builder for the instance.
      *
      * @return A Builder instance.
-     * @throws java.io.IOException
      */
-    public static Builder builder() throws IOException {
+    public static Builder builder() {
         return new AutoValue_BigQueryConnectOptions.Builder()
                 .setCredentialsOptions(CredentialsOptions.builder().build());
     }
 
-    public static Builder builderForQuerySource() throws IOException {
+    public static Builder builderForQuerySource() {
         return new AutoValue_BigQueryConnectOptions.Builder()
                 .setCredentialsOptions(CredentialsOptions.builder().build())
                 .setProjectId("")

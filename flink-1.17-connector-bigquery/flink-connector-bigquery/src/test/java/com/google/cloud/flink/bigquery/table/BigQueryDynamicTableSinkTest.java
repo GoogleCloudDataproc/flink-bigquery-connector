@@ -27,23 +27,22 @@ import org.apache.flink.test.junit5.MiniClusterExtension;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
-import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.apache.avro.Schema;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 
-import java.io.IOException;
-
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /** Class to test {@link BigQueryDynamicTableSink}. */
 public class BigQueryDynamicTableSinkTest {
-    static BigQueryDynamicTableSink bigQueryDynamicTableSink = null;
-    static LogicalType logicalTypeSchema = null;
-    static BigQuerySinkConfig bigQuerySinkConfig = null;
+
+    static LogicalType logicalTypeSchema =
+            DataTypes.ROW(DataTypes.FIELD("number", DataTypes.BIGINT().notNull()))
+                    .notNull()
+                    .getLogicalType();
 
     private static final int PARALLELISM = 5;
 
@@ -54,24 +53,14 @@ public class BigQueryDynamicTableSinkTest {
                             .setNumberTaskManagers(PARALLELISM)
                             .build());
 
-    @BeforeAll
-    public static void beforeTest() throws IOException {
-        logicalTypeSchema =
-                DataTypes.ROW(DataTypes.FIELD("number", DataTypes.BIGINT().notNull()))
-                        .notNull()
-                        .getLogicalType();
-        bigQuerySinkConfig =
-                BigQuerySinkConfig.newBuilder()
-                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
-                        .serializer(new RowDataToProtoSerializer())
-                        .build();
-        bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, PARALLELISM);
-    }
-
     @Test
     public void testConstructor() {
+        BigQueryDynamicTableSink bigQueryDynamicTableSink =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        logicalTypeSchema,
+                        PARALLELISM);
         BigQuerySinkConfig obtainedSinkConfig = bigQueryDynamicTableSink.getSinkConfig();
         assertEquals(logicalTypeSchema, bigQueryDynamicTableSink.getLogicalType());
         assertEquals(DeliveryGuarantee.AT_LEAST_ONCE, obtainedSinkConfig.getDeliveryGuarantee());
@@ -88,34 +77,41 @@ public class BigQueryDynamicTableSinkTest {
     @Test
     public void testCopy() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
-        BigQueryDynamicTableSink bigQueryDynamicTableSinkCopy =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
-
-        assertEquals(bigQueryDynamicTableSinkCopy, bigQueryDynamicTableSink.copy());
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        logicalTypeSchema);
+        assertTrue(bigQueryDynamicTableSink.equals(bigQueryDynamicTableSink.copy()));
     }
 
     @Test
     public void testCopyWithParallelism() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, PARALLELISM);
-        BigQueryDynamicTableSink bigQueryDynamicTableSinkCopy =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema, PARALLELISM);
-
-        assertEquals(bigQueryDynamicTableSinkCopy, bigQueryDynamicTableSink.copy());
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        logicalTypeSchema,
+                        PARALLELISM);
+        assertTrue(bigQueryDynamicTableSink.equals(bigQueryDynamicTableSink.copy()));
     }
 
     @Test
     public void testSummaryString() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        logicalTypeSchema);
         assertEquals("BigQuery", bigQueryDynamicTableSink.asSummaryString());
     }
 
     @Test
     public void testChangelogMode() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        logicalTypeSchema);
         assertEquals(
                 ChangelogMode.insertOnly(),
                 bigQueryDynamicTableSink.getChangelogMode(Mockito.mock(ChangelogMode.class)));
@@ -124,7 +120,10 @@ public class BigQueryDynamicTableSinkTest {
     @Test
     public void testSinkRuntimeProvider() {
         BigQueryDynamicTableSink bigQueryDynamicTableSink =
-                new BigQueryDynamicTableSink(bigQuerySinkConfig, logicalTypeSchema);
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        logicalTypeSchema);
         assertInstanceOf(
                 SinkV2Provider.class,
                 bigQueryDynamicTableSink.getSinkRuntimeProvider(

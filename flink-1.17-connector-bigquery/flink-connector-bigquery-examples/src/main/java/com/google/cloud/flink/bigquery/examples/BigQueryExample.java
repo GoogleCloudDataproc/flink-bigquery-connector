@@ -320,7 +320,7 @@ public class BigQueryExample {
                         .serializer(new AvroToProtoSerializer())
                         .build();
 
-        Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig, env);
+        Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig);
 
         env.fromSource(
                         source,

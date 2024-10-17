@@ -411,7 +411,7 @@ public class BigQueryIntegrationTest {
                         .returns(
                                 new GenericRecordAvroTypeInfo(
                                         sinkConfig.getSchemaProvider().getAvroSchema()))
-                        .sinkTo(BigQuerySink.get(sinkConfig, env));
+                        .sinkTo(BigQuerySink.get(sinkConfig));
         if (sinkParallelism != null) {
             boundedStreamSink.setParallelism(sinkParallelism);
         }
@@ -505,7 +505,7 @@ public class BigQueryIntegrationTest {
                         .returns(
                                 new GenericRecordAvroTypeInfo(
                                         sinkConfig.getSchemaProvider().getAvroSchema()))
-                        .sinkTo(BigQuerySink.get(sinkConfig, env));
+                        .sinkTo(BigQuerySink.get(sinkConfig));
 
         if (sinkParallelism != null) {
             unboundedStreamSink.setParallelism(sinkParallelism);
