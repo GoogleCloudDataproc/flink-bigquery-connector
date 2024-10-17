@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.sink2.Sink.InitContext;
 import org.apache.flink.util.StringUtils;
 
 import com.google.api.core.ApiFuture;
@@ -90,7 +91,6 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     private long appendRequestRowCount;
 
     public BigQueryBufferedWriter(
-            int subtaskId,
             String streamName,
             long streamOffset,
             String tablePath,
@@ -98,8 +98,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             long totalRecordsWritten,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
-        super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer,
+            InitContext context) {
+        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;
@@ -108,6 +109,15 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         this.totalRecordsWritten = totalRecordsWritten;
         writeStreamCreationThrottler = new WriteStreamCreationThrottler(subtaskId);
         appendRequestRowCount = 0L;
+        // Initialize the metric counters.
+        successfullyAppendedRecords = context.metricGroup().counter("successfullyAppendedRecords");
+        // Update the metrics to values saved at checkpoint.
+        successfullyAppendedRecords.inc(totalRecordsWritten);
+        context.metricGroup().getIOMetricGroup().getNumRecordsInCounter().inc(totalRecordsSeen);
+        // ..SinceChkpt Counters restart at 0.
+        numRecordsSinceCheckpoint = context.metricGroup().counter("numRecordsInSinceChkpt");
+        successfullyAppendedRecordsSinceCheckpoint =
+                context.metricGroup().counter("successfullyAppendedRecordsSinceChkpt");
     }
 
     /**

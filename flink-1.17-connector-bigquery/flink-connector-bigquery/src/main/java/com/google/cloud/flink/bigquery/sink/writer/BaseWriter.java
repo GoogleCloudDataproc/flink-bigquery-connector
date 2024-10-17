@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.metrics.Counter;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -34,6 +35,7 @@ import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationExce
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors.Descriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,7 +66,6 @@ import java.util.Queue;
 abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-
     // Multiply 0.95 to keep a buffer from exceeding payload limits.
     private static final long MAX_APPEND_REQUEST_BYTES =
             (long) (StreamWriter.getApiMaxRequestBytes() * 0.95);
@@ -90,6 +91,10 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     // the records in a stream get committed to the table. Hence, records written to BigQuery
     // table is equal to this "totalRecordsWritten" only upon checkpoint completion.
     long totalRecordsWritten;
+    // Counters for metric reporting
+    Counter successfullyAppendedRecords;
+    Counter successfullyAppendedRecordsSinceCheckpoint;
+    Counter numRecordsSinceCheckpoint;
 
     BaseWriter(
             int subtaskId,
@@ -116,6 +121,11 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         }
         logger.info("Validating all pending append responses in subtask {}", subtaskId);
         validateAppendResponses(true);
+        // Writer's flush() is called at checkpoint, resetting the counters after all tasks are
+        // done. Set to 0.
+        this.numRecordsSinceCheckpoint.dec(this.numRecordsSinceCheckpoint.getCount());
+        this.successfullyAppendedRecordsSinceCheckpoint.dec(
+                this.successfullyAppendedRecordsSinceCheckpoint.getCount());
     }
 
     /** Close resources maintained by this writer. */

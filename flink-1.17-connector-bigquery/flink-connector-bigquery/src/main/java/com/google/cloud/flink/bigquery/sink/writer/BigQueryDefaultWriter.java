@@ -16,6 +16,9 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
+
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
@@ -49,15 +52,23 @@ import java.util.concurrent.ExecutionException;
 public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
 
     public BigQueryDefaultWriter(
-            int subtaskId,
             String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
-        super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer,
+            InitContext context) {
+        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;
         totalRecordsWritten = 0L;
+
+        SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
+        // Count of records which are successfully appended to BQ.
+        this.successfullyAppendedRecords =
+                sinkWriterMetricGroup.counter("successfullyAppendedRecords");
+        this.numRecordsSinceCheckpoint = sinkWriterMetricGroup.counter("numRecordsSinceCheckpoint");
+        this.successfullyAppendedRecordsSinceCheckpoint =
+                sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceCheckpoint");
     }
 
     /**
@@ -69,6 +80,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
+        this.numRecordsSinceCheckpoint.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -105,6 +117,9 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                 logAndThrowFatalException(response.getError().getMessage());
             }
             totalRecordsWritten += recordsAppended;
+            // the request succeeded without errors (records are in BQ)
+            this.successfullyAppendedRecords.inc(recordsAppended);
+            this.successfullyAppendedRecordsSinceCheckpoint.inc(recordsAppended);
         } catch (ExecutionException | InterruptedException e) {
             logAndThrowFatalException(e);
         }
