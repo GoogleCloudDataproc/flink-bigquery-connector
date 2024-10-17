@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink.writer;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
@@ -106,6 +107,17 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             }
             totalRecordsWritten += recordsAppended;
         } catch (ExecutionException | InterruptedException e) {
+            if (e.getCause() instanceof Exceptions.AppendSerializationError) {
+                Exceptions.AppendSerializationError appendSerializationError =
+                        (Exceptions.AppendSerializationError) e.getCause();
+                logger.info(
+                        String.format(
+                                "AppendSerializationError%nCause: %s%nMessage: %s%nRowIndexToErrorMessage: %s%nStreamName: %s",
+                                appendSerializationError.getCause(),
+                                appendSerializationError.getMessage(),
+                                appendSerializationError.getRowIndexToErrorMessage(),
+                                appendSerializationError.getStreamName()));
+            }
             logAndThrowFatalException(e);
         }
     }
