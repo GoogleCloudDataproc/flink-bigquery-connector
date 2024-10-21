@@ -16,18 +16,20 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
-import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
 import com.google.protobuf.ByteString;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
-
-import java.io.IOException;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertNotNull;
@@ -36,24 +38,43 @@ import static org.junit.Assert.assertThrows;
 /** Tests for {@link BigQueryDefaultSink}. */
 public class BigQueryDefaultSinkTest {
 
+    private static final RestartStrategies.RestartStrategyConfiguration
+            FIXED_DELAY_RESTART_STRATEGY = RestartStrategies.fixedDelayRestart(5, Time.seconds(3));
+
+    private StreamExecutionEnvironment env;
+
+    @Before
+    public void setUp() {
+        env = new StreamExecutionEnvironment();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        env.close();
+    }
+
     @Test
-    public void testConstructor() throws IOException {
+    public void testConstructor() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         assertNotNull(new BigQueryDefaultSink(sinkConfig));
     }
 
     @Test
-    public void testConstructorWithoutConnectOptions() throws IOException {
+    public void testConstructor_withoutConnectOptions() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(null)
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
@@ -62,12 +83,14 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testConstructorWithoutSerializer() throws IOException {
+    public void testConstructor_withoutSerializer() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(null)
+                        .streamExecutionEnvironment(env)
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
@@ -76,12 +99,14 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testConstructorWithoutSchemaProvider() throws IOException {
+    public void testConstructor_withoutSchemaProvider() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(null)
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
@@ -90,7 +115,8 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testCreateWriter() throws IOException {
+    public void testCreateWriter() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         InitContext mockedContext = Mockito.mock(InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
@@ -101,13 +127,15 @@ public class BigQueryDefaultSinkTest {
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
-        Sink defaultSink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink defaultSink = new BigQueryDefaultSink(sinkConfig);
         assertNotNull(defaultSink.createWriter(mockedContext));
     }
 
     @Test
-    public void testCreateMoreWritersThanAllowed() throws IOException {
+    public void testCreateWriter_withMoreWritersThanAllowed() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         InitContext mockedContext = Mockito.mock(InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
@@ -116,6 +144,7 @@ public class BigQueryDefaultSinkTest {
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
                         .build();
         IllegalStateException exception =
                 assertThrows(

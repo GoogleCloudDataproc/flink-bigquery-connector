@@ -24,14 +24,13 @@ import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.Collections;
 
 /** Tests for {@link BigQueryCommitter}. */
 public class BigQueryCommitterTest {
 
     @Test
-    public void testCommit_withEmptyCommitRequest() throws IOException {
+    public void testCommit_withEmptyCommitRequest() {
         BigQueryCommitter committer = createCommitter(null);
         // BQ write client used in this test throws a RuntimeException if flushRows is invoked with
         // flushRowsResponse set as null. Since flush should not be called, this commit should not
@@ -40,7 +39,7 @@ public class BigQueryCommitterTest {
     }
 
     @Test
-    public void testCommit() throws IOException {
+    public void testCommit() {
         BigQueryCommitter committer =
                 createCommitter(FlushRowsResponse.newBuilder().setOffset(10L).build());
         committer.commit(
@@ -49,7 +48,7 @@ public class BigQueryCommitterTest {
     }
 
     @Test(expected = BigQueryConnectorException.class)
-    public void testCommit_withOffsetMismatch() throws IOException {
+    public void testCommit_withOffsetMismatch() {
         BigQueryCommitter committer =
                 createCommitter(FlushRowsResponse.newBuilder().setOffset(5L).build());
         committer.commit(
@@ -58,7 +57,7 @@ public class BigQueryCommitterTest {
     }
 
     @Test(expected = BigQueryConnectorException.class)
-    public void testCommit_withFlushRowsApiFailure() throws IOException {
+    public void testCommit_withFlushRowsApiFailure() {
         // BQ write client used in this test throws a RuntimeException if flushRows is invoked with
         // flushRowsResponse set as null. The committer should wrap client errors in a
         // BigQueryConnectorException.
@@ -68,8 +67,7 @@ public class BigQueryCommitterTest {
                         new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L))));
     }
 
-    private BigQueryCommitter createCommitter(FlushRowsResponse flushRowsResponse)
-            throws IOException {
+    private BigQueryCommitter createCommitter(FlushRowsResponse flushRowsResponse) {
         return new BigQueryCommitter(
                 StorageClientFaker.createConnectOptionsForWrite(
                         new ApiFuture[] {null}, null, flushRowsResponse, null));

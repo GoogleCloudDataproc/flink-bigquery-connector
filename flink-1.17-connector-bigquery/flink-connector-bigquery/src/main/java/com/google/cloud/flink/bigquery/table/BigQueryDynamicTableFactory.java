@@ -145,7 +145,8 @@ public class BigQueryDynamicTableFactory
         }
 
         return new BigQueryDynamicTableSink(
-                configProvider.toSinkConfig(),
+                configProvider.translateBigQueryConnectOptions(),
+                configProvider.translateDeliveryGuarantee(),
                 context.getPhysicalRowDataType().getLogicalType(),
                 configProvider.getParallelism().orElse(null));
     }

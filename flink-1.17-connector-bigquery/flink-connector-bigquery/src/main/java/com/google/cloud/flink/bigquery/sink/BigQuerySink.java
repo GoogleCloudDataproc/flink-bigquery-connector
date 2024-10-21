@@ -18,7 +18,6 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.base.DeliveryGuarantee;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +40,7 @@ public class BigQuerySink {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
 
-    public static Sink get(BigQuerySinkConfig sinkConfig, StreamExecutionEnvironment env) {
+    public static Sink get(BigQuerySinkConfig sinkConfig) {
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
             return new BigQueryDefaultSink(sinkConfig);
         }
