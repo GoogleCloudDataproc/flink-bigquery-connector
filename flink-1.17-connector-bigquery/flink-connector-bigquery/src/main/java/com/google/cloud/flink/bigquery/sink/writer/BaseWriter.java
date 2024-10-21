@@ -94,9 +94,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     long totalRecordsWritten;
     // Counters for metric reporting
     Counter numberOfRecordsWrittenToBigQuery;
-
     Counter numberOfRecordsSeenByWriter;
-
     Counter numberOfRecordsSeenByWriterSinceCheckpoint;
 
     BaseWriter(
@@ -114,16 +112,6 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();
-    }
-
-    void initializeMetrics(SinkWriterMetricGroup sinkWriterMetricGroup) {
-        this.numberOfRecordsSeenByWriter =
-                sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriter");
-        // Count of records which are successfully appended to BQ.
-        this.numberOfRecordsWrittenToBigQuery =
-                sinkWriterMetricGroup.counter("numberOfRecordsWrittenToBigQuery");
-        this.numberOfRecordsSeenByWriterSinceCheckpoint =
-                sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriterSinceCheckpoint");
     }
 
     /** Append pending records and validate all remaining append responses. */
@@ -272,6 +260,21 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                         "AppendRows request failed in subtask %d\n%s", subtaskId, errorMessage));
         throw new BigQueryConnectorException(
                 String.format("Error while writing to BigQuery\n%s", errorMessage));
+    }
+
+    /**
+     * Method to initialize flink metrics which are common across at-least-once and exactly-once
+     * approach.
+     *
+     * @param sinkWriterMetricGroup Metric Group to register the counters.
+     */
+    void initializeMetrics(SinkWriterMetricGroup sinkWriterMetricGroup) {
+        numberOfRecordsSeenByWriter = sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriter");
+        // Count of records which are successfully appended to BQ.
+        numberOfRecordsWrittenToBigQuery =
+                sinkWriterMetricGroup.counter("numberOfRecordsWrittenToBigQuery");
+        numberOfRecordsSeenByWriterSinceCheckpoint =
+                sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriterSinceCheckpoint");
     }
 
     static class AppendInfo {

@@ -199,10 +199,17 @@ public class BigQuerySinkConfig {
             if (strategy.getDelayBetweenAttemptsInterval().toMilliseconds()
                             < MILLISECONDS_PER_SECOND
                     || strategy.getRestartAttempts() > 10) {
+                LOG.error(
+                        "Invalid FixedDelayRestartStrategyConfiguration: found restart delay {},"
+                                + " milliseconds, and {} restart attempts. Should be used with"
+                                + " restart delay at least 1 second, and at most 10 restart"
+                                + " attempts.",
+                        strategy.getDelayBetweenAttemptsInterval().toMilliseconds(),
+                        strategy.getRestartAttempts());
                 throw new IllegalArgumentException(
                         "Invalid restart strategy: FixedDelayRestartStrategyConfiguration should"
-                                + " be used with minimum restart delay 1 second,"
-                                + " and maximum 10 restart attempts.");
+                                + " be used with at least restart delay 1 second, and at most 10"
+                                + " restart attempts.");
             }
         } else if (restartStrategy instanceof ExponentialDelayRestartStrategyConfiguration) {
             ExponentialDelayRestartStrategyConfiguration strategy =
@@ -212,11 +219,22 @@ public class BigQuerySinkConfig {
                     || strategy.getMaxBackoff().toMilliseconds() < (5L * MILLISECONDS_PER_MINUTE)
                     || strategy.getResetBackoffThreshold().toMilliseconds()
                             < MILLISECONDS_PER_HOUR) {
+                LOG.error(
+                        "Invalid ExponentialDelayRestartStrategyConfiguration: found backoff"
+                                + " multiplier {}, initial backoff {} milliseconds, maximum backoff"
+                                + " {} milliseconds, and reset threshold {} milliseconds. Should be"
+                                + " used with backoff multiplier at least 2, initial backoff at"
+                                + " least 1 second, maximum backoff at least 5 minutes, and reset"
+                                + " threshold at least 1 hour",
+                        strategy.getBackoffMultiplier(),
+                        strategy.getInitialBackoff().toMilliseconds(),
+                        strategy.getMaxBackoff().toMilliseconds(),
+                        strategy.getResetBackoffThreshold().toMilliseconds());
                 throw new IllegalArgumentException(
                         "Invalid restart strategy: ExponentialDelayRestartStrategyConfiguration"
-                                + " should be used with minimum backoff multiplier 2,"
-                                + " minimum initial backoff 1 second, maximum backoff at-least"
-                                + " 5 minutes, and minimum reset threshold 1 hour");
+                                + " should be used with backoff multiplier at least 2, initial"
+                                + " backoff at least 1 second, maximum backoff at-least 5 minutes,"
+                                + " and reset threshold at least 1 hour");
             }
         } else if (restartStrategy instanceof FailureRateRestartStrategyConfiguration) {
             FailureRateRestartStrategyConfiguration strategy =
@@ -229,13 +247,21 @@ public class BigQuerySinkConfig {
             if (strategy.getDelayBetweenAttemptsInterval().toMilliseconds()
                             < MILLISECONDS_PER_SECOND
                     || allowedFailuresPerMinute > 1.0) {
+                LOG.error(
+                        "Invalid FailureRateRestartStrategyConfiguration: found restart delay {}"
+                                + " milliseconds, and allowed failure rate {} per minute. Should be"
+                                + " used with restart delay at least 1 second, and allowed failure"
+                                + " rate at most 1 per minute.",
+                        strategy.getDelayBetweenAttemptsInterval().toMilliseconds(),
+                        allowedFailuresPerMinute);
                 throw new IllegalArgumentException(
                         "Invalid restart strategy: FailureRateRestartStrategyConfiguration should"
-                                + " be used with minimum restart delay 1 second, and maximum"
-                                + " failure rate of 1 per minute.");
+                                + " be used with restart delay at least 1 second, and allowed"
+                                + " failure rate at most 1 per minute.");
             }
         } else if (restartStrategy instanceof NoRestartStrategyConfiguration) {
-            // This is fine! No validation needed.
+            // This is fine!
+            LOG.debug("Found NoRestartStrategyConfiguration. No validation needed.");
         } else {
             // Can be either FallbackRestartStrategyConfiguration, or a custom implementation. We
             // don't know how to verify these two possibilities, so we let them pass. If you,
