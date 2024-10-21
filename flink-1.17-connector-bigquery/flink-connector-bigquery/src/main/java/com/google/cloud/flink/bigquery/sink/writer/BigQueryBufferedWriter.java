@@ -91,6 +91,15 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
 
     public BigQueryBufferedWriter(
             int subtaskId,
+            String tablePath,
+            BigQueryConnectOptions connectOptions,
+            BigQuerySchemaProvider schemaProvider,
+            BigQueryProtoSerializer serializer) {
+        this(subtaskId, "", 0L, tablePath, 0L, 0L, connectOptions, schemaProvider, serializer);
+    }
+
+    public BigQueryBufferedWriter(
+            int subtaskId,
             String streamName,
             long streamOffset,
             String tablePath,
@@ -214,7 +223,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     }
 
     @Override
-    public List<BigQueryWriterState> snapshotState(long checkpointId) throws IOException {
+    public List<BigQueryWriterState> snapshotState(long checkpointId) {
         logger.info("Snapshotting state in subtask {} for checkpoint {}", subtaskId, checkpointId);
         streamNameInState = streamName;
         streamOffsetInState = streamOffset;
@@ -222,7 +231,11 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                 // Note that it's possible to store the associated checkpointId in writer's state.
                 // For now, we're not leveraging this due to absence of a use case.
                 new BigQueryWriterState(
-                        streamName, streamOffset, totalRecordsSeen, totalRecordsWritten));
+                        streamName,
+                        streamOffset,
+                        totalRecordsSeen,
+                        totalRecordsWritten,
+                        checkpointId));
     }
 
     @Override
