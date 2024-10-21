@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.sink.writer;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -92,9 +93,11 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     // table is equal to this "totalRecordsWritten" only upon checkpoint completion.
     long totalRecordsWritten;
     // Counters for metric reporting
-    Counter successfullyAppendedRecords;
-    Counter successfullyAppendedRecordsSinceCheckpoint;
-    Counter numRecordsSinceCheckpoint;
+    Counter numberOfRecordsWrittenToBigQuery;
+
+    Counter numberOfRecordsSeenByWriter;
+
+    Counter numberOfRecordsSeenByWriterSinceCheckpoint;
 
     BaseWriter(
             int subtaskId,
@@ -113,6 +116,16 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         protoRowsBuilder = ProtoRows.newBuilder();
     }
 
+    void initializeMetrics(SinkWriterMetricGroup sinkWriterMetricGroup) {
+        this.numberOfRecordsSeenByWriter =
+                sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriter");
+        // Count of records which are successfully appended to BQ.
+        this.numberOfRecordsWrittenToBigQuery =
+                sinkWriterMetricGroup.counter("numberOfRecordsWrittenToBigQuery");
+        this.numberOfRecordsSeenByWriterSinceCheckpoint =
+                sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriterSinceCheckpoint");
+    }
+
     /** Append pending records and validate all remaining append responses. */
     @Override
     public void flush(boolean endOfInput) {
@@ -121,11 +134,6 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         }
         logger.info("Validating all pending append responses in subtask {}", subtaskId);
         validateAppendResponses(true);
-        // Writer's flush() is called at checkpoint, resetting the counters after all tasks are
-        // done. Set to 0.
-        this.numRecordsSinceCheckpoint.dec(this.numRecordsSinceCheckpoint.getCount());
-        this.successfullyAppendedRecordsSinceCheckpoint.dec(
-                this.successfullyAppendedRecordsSinceCheckpoint.getCount());
     }
 
     /** Close resources maintained by this writer. */

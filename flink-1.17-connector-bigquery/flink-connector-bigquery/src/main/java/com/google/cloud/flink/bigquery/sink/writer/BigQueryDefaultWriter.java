@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 
 import com.google.api.core.ApiFuture;
@@ -50,6 +51,10 @@ import java.util.concurrent.ExecutionException;
  * @param <IN> Type of records to be written to BigQuery.
  */
 public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
+    // Counter specific to at-least-once Implementation since records are written after
+    // checkpointing
+    // in Exactly Once mode.
+    Counter numberOfRecordsWrittenToBigQuerySinceCheckpoint;
 
     public BigQueryDefaultWriter(
             String tablePath,
@@ -61,14 +66,20 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;
         totalRecordsWritten = 0L;
+        initializeAtleastOnceFlinkMetrics(context);
+    }
 
+    /**
+     * Initialize Flink Metrics for at-least-once approach.
+     *
+     * @param context Sink Context to derive the Metric Group.ß
+     */
+    void initializeAtleastOnceFlinkMetrics(InitContext context) {
         SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
-        // Count of records which are successfully appended to BQ.
-        this.successfullyAppendedRecords =
-                sinkWriterMetricGroup.counter("successfullyAppendedRecords");
-        this.numRecordsSinceCheckpoint = sinkWriterMetricGroup.counter("numRecordsSinceCheckpoint");
-        this.successfullyAppendedRecordsSinceCheckpoint =
-                sinkWriterMetricGroup.counter("successfullyAppendedRecordsSinceCheckpoint");
+        // Call BaseWriter's initializeMetrics() for common metrics.
+        super.initializeMetrics(sinkWriterMetricGroup);
+        this.numberOfRecordsWrittenToBigQuerySinceCheckpoint =
+                sinkWriterMetricGroup.counter("numberOfRecordsWrittenToBigQuerySinceCheckpoint");
     }
 
     /**
@@ -80,7 +91,8 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
-        this.numRecordsSinceCheckpoint.inc();
+        this.numberOfRecordsSeenByWriter.inc();
+        this.numberOfRecordsSeenByWriterSinceCheckpoint.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -91,6 +103,18 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
         } catch (BigQuerySerializationException e) {
             logger.error(String.format("Unable to serialize record %s. Dropping it!", element), e);
         }
+    }
+
+    /** Overwriting flush() method for updating Flink Metrics in at-least-once Approach. */
+    @Override
+    public void flush(boolean endOfInput) {
+        super.flush(endOfInput);
+        // Writer's flush() is called at checkpoint,
+        // resetting the counters to 0 after all operations in BaseWriter's flush() are complete.
+        this.numberOfRecordsSeenByWriterSinceCheckpoint.dec(
+                this.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        this.numberOfRecordsWrittenToBigQuerySinceCheckpoint.dec(
+                this.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
     }
 
     /** Asynchronously append to BigQuery table's default stream. */
@@ -118,8 +142,8 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             }
             totalRecordsWritten += recordsAppended;
             // the request succeeded without errors (records are in BQ)
-            this.successfullyAppendedRecords.inc(recordsAppended);
-            this.successfullyAppendedRecordsSinceCheckpoint.inc(recordsAppended);
+            this.numberOfRecordsWrittenToBigQuery.inc(recordsAppended);
+            this.numberOfRecordsWrittenToBigQuerySinceCheckpoint.inc(recordsAppended);
         } catch (ExecutionException | InterruptedException e) {
             logAndThrowFatalException(e);
         }
