@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Committer;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.streaming.api.CheckpointingMode;
 
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittableSerializer;
@@ -51,7 +52,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
             createWriter(InitContext context) {
         checkParallelism(context.getNumberOfParallelSubtasks());
         return new BigQueryBufferedWriter(
-                context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
+                tablePath, connectOptions, schemaProvider, serializer, context);
     }
 
     @Override
@@ -66,7 +67,6 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
                         .max(Comparator.comparingLong(state -> state.getCheckpointId()))
                         .get();
         return new BigQueryBufferedWriter(
-                context.getSubtaskId(),
                 stateToRestore.getStreamName(),
                 stateToRestore.getStreamOffset(),
                 tablePath,
@@ -74,7 +74,8 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
                 stateToRestore.getTotalRecordsWritten(),
                 connectOptions,
                 schemaProvider,
-                serializer);
+                serializer,
+                context);
     }
 
     @Override

@@ -16,6 +16,9 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -788,8 +791,11 @@ public class BigQueryBufferedWriterTest {
             long totalRecordsSeen,
             long totalRecordsWritten,
             BigQueryProtoSerializer mockSerializer) {
+        InitContext context = Mockito.mock(InitContext.class);
+        Mockito.when(context.getSubtaskId()).thenReturn(1);
+        Mockito.when(context.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         return new BigQueryBufferedWriter(
-                1,
                 streamName,
                 streamOffset,
                 "/projects/project/datasets/dataset/tables/table",
@@ -797,7 +803,8 @@ public class BigQueryBufferedWriterTest {
                 totalRecordsWritten,
                 StorageClientFaker.createConnectOptionsForWrite(null),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
-                mockSerializer);
+                mockSerializer,
+                context);
     }
 
     private BigQueryBufferedWriter createBufferedWriter(
@@ -809,8 +816,11 @@ public class BigQueryBufferedWriterTest {
             ApiFuture[] appendResponseFutures,
             WriteStream writeStream,
             FinalizeWriteStreamResponse finalizeResponse) {
+        InitContext context = Mockito.mock(InitContext.class);
+        Mockito.when(context.getSubtaskId()).thenReturn(1);
+        Mockito.when(context.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         return new BigQueryBufferedWriter(
-                1,
                 streamName,
                 streamOffset,
                 "/projects/project/datasets/dataset/tables/table",
@@ -819,7 +829,8 @@ public class BigQueryBufferedWriterTest {
                 StorageClientFaker.createConnectOptionsForWrite(
                         appendResponseFutures, writeStream, null, finalizeResponse),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
-                mockSerializer);
+                mockSerializer,
+                context);
     }
 
     private void checkStreamlessWriterAttributes(BigQueryBufferedWriter bufferedWriter) {

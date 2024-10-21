@@ -72,7 +72,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     /**
      * Initialize Flink Metrics for at-least-once approach.
      *
-     * @param context Sink Context to derive the Metric Group.ß
+     * @param context Sink Context to derive the Metric Group.
      */
     void initializeAtleastOnceFlinkMetrics(InitContext context) {
         SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();

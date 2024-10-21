@@ -17,6 +17,9 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 import org.apache.flink.util.StringUtils;
 
 import com.google.api.core.ApiFuture;
@@ -88,18 +91,25 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
 
     // Number of rows appended by this writer to current stream.
     private long appendRequestRowCount;
+    // Define counter which counts the number of records buffered by BigQuery Write API before
+    // actually sending them to the table.
+    // For these records in the writer, append() is called but are still
+    // awaiting flushRows() before being available in BQ.
+    // This count is maintained since the previous checkpoint,
+    // as total buffered records serve no practical value to the users.
+    Counter numberOfRecordsBufferedByBigQuerySinceCheckpoint;
 
     public BigQueryBufferedWriter(
-            int subtaskId,
             String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
-        this(subtaskId, "", 0L, tablePath, 0L, 0L, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer,
+            InitContext context) {
+        this("", 0L, tablePath, 0L, 0L,
+                connectOptions, schemaProvider, serializer, context);
     }
 
     public BigQueryBufferedWriter(
-            int subtaskId,
             String streamName,
             long streamOffset,
             String tablePath,
@@ -107,8 +117,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             long totalRecordsWritten,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
-        super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer,
+            InitContext context) {
+        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;
@@ -117,6 +128,22 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         this.totalRecordsWritten = totalRecordsWritten;
         writeStreamCreationThrottler = new WriteStreamCreationThrottler(subtaskId);
         appendRequestRowCount = 0L;
+        initializeExactlyOnceMetrics(context);
+    }
+
+    /**
+     * Function to initialize Flink Metrics for Exactly Once Metrics approach.
+     *
+     * @param context Sink Context to derive the Metric Group.
+     */
+    private void initializeExactlyOnceMetrics(InitContext context) {
+        SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
+        initializeMetrics(sinkWriterMetricGroup);
+        numberOfRecordsBufferedByBigQuerySinceCheckpoint =
+                sinkWriterMetricGroup.counter("numberOfRecordsBufferedByBigQuerySinceCheckpoint");
+        // Update the saved values incase of restore.
+        numberOfRecordsSeenByWriter.inc(totalRecordsSeen);
+        numberOfRecordsWrittenToBigQuery.inc(totalRecordsWritten);
     }
 
     /**
@@ -128,6 +155,8 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
+        this.numberOfRecordsSeenByWriter.inc();
+        this.numberOfRecordsSeenByWriterSinceCheckpoint.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
