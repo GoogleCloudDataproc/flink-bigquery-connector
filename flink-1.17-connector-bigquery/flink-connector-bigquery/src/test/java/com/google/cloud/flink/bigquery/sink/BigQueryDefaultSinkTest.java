@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
@@ -119,6 +120,8 @@ public class BigQueryDefaultSinkTest {
         InitContext mockedContext = Mockito.mock(InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        Mockito.when(mockedContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
