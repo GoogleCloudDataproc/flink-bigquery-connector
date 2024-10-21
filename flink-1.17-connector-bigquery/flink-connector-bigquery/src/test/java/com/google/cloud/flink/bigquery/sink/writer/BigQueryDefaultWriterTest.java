@@ -36,8 +36,6 @@ import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
-import java.io.IOException;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -58,10 +56,11 @@ public class BigQueryDefaultWriterTest {
     @After
     public void tearDown() throws Exception {
         streamWriterStaticMock.close();
+        streamWriterStaticMock = null;
     }
 
     @Test
-    public void testConstructor() throws IOException {
+    public void testConstructor() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         assertNotNull(defaultWriter);
@@ -83,7 +82,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testWrite_withoutAppend() throws IOException {
+    public void testWrite_withoutAppend() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")), null);
@@ -106,7 +105,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testAppend() throws IOException {
+    public void testAppend() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
@@ -134,7 +133,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testWrite_withAppend() throws IOException {
+    public void testWrite_withAppend() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
@@ -174,7 +173,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testFlush() throws IOException {
+    public void testFlush() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
@@ -214,7 +213,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testClose() throws IOException {
+    public void testClose() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
@@ -244,7 +243,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testWrite_withSerializationException() throws IOException {
+    public void testWrite_withSerializationException() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getErringSerializer(), null);
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
@@ -262,7 +261,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test(expected = BigQuerySerializationException.class)
     public void testGetProtoRow_withMaxAppendRequestSizeViolation()
-            throws IOException, BigQuerySerializationException {
+            throws BigQuerySerializationException {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")), null);
@@ -273,7 +272,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testWrite_withLargeElement() throws IOException {
+    public void testWrite_withLargeElement() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")), null);
@@ -291,7 +290,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test(expected = BigQueryConnectorException.class)
-    public void testValidateAppendResponse_withResponseError() throws IOException {
+    public void testValidateAppendResponse_withResponseError() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         defaultWriter.validateAppendResponse(
@@ -305,7 +304,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test(expected = BigQueryConnectorException.class)
-    public void testValidateAppendResponse_withExecutionException() throws IOException {
+    public void testValidateAppendResponse_withExecutionException() {
         BigQueryDefaultWriter defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         defaultWriter.validateAppendResponse(
@@ -314,8 +313,7 @@ public class BigQueryDefaultWriterTest {
     }
 
     private BigQueryDefaultWriter createDefaultWriter(
-            BigQueryProtoSerializer mockSerializer, AppendRowsResponse appendResponse)
-            throws IOException {
+            BigQueryProtoSerializer mockSerializer, AppendRowsResponse appendResponse) {
         Sink.InitContext mockInitContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockInitContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
