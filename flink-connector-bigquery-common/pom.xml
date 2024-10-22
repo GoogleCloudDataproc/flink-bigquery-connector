@@ -55,6 +55,13 @@ under the License.
             <artifactId>google-cloud-bigquery</artifactId>
         </dependency>
 
+        <!-- Not directly consumed, kept for shading -->
+        <!-- This will be a different version of guava than the one used by Flink -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
         <!-- org.apache.avro - used by SchemaTransform -->
         <dependency>
             <groupId>org.apache.avro</groupId>
