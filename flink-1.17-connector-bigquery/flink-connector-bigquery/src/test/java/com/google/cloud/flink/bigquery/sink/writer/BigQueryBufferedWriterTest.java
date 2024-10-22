@@ -80,22 +80,29 @@ public class BigQueryBufferedWriterTest {
     @Test
     public void testConstructor_withNewWriter() {
         BigQueryBufferedWriter bufferedWriter =
-                createBufferedWriter(null, 0L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
+                createBufferedWriter(
+                        null, 0L, 0L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         assertNotNull(bufferedWriter);
         checkStreamlessWriterAttributes(bufferedWriter);
         assertEquals(0, bufferedWriter.totalRecordsSeen);
         assertEquals(0, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         assertEquals(0, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(0, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getProtoRows().getSerializedRowsList().isEmpty());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
     public void testConstructor_withRestoredWriter() {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
-                        "foo", 100L, 210L, 200L, FakeBigQuerySerializer.getEmptySerializer());
+                        "foo", 100L, 210L, 200L, 100L, FakeBigQuerySerializer.getEmptySerializer());
         assertNotNull(bufferedWriter);
         assertNull(bufferedWriter.streamWriter);
         assertEquals("foo", bufferedWriter.streamName);
@@ -103,10 +110,16 @@ public class BigQueryBufferedWriterTest {
         assertEquals(100, bufferedWriter.getStreamOffsetInState());
         assertEquals(210, bufferedWriter.totalRecordsSeen);
         assertEquals(200, bufferedWriter.totalRecordsWritten);
+        assertEquals(100, bufferedWriter.totalRecordsCommitted);
         assertEquals(0, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(0, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getProtoRows().getSerializedRowsList().isEmpty());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(210, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(100, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -117,6 +130,7 @@ public class BigQueryBufferedWriterTest {
                         0L,
                         0L,
                         0L,
+                        0L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("hi")));
         // ByteString for "hi" will be 2 bytes in size, and serialization overhead of 2 will be
         // added.
@@ -124,17 +138,29 @@ public class BigQueryBufferedWriterTest {
         checkStreamlessWriterAttributes(bufferedWriter);
         assertEquals(1, bufferedWriter.totalRecordsSeen);
         assertEquals(0, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         assertEquals(4, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         bufferedWriter.write(new Object(), null);
         checkStreamlessWriterAttributes(bufferedWriter);
         assertEquals(2, bufferedWriter.totalRecordsSeen);
         assertEquals(0, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(2, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         ProtoRows protoRows = bufferedWriter.getProtoRows();
         assertEquals(ByteString.copyFromUtf8("hi"), protoRows.getSerializedRowsList().get(0));
@@ -146,6 +172,7 @@ public class BigQueryBufferedWriterTest {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
                         null,
+                        0L,
                         0L,
                         0L,
                         0L,
@@ -169,9 +196,15 @@ public class BigQueryBufferedWriterTest {
         checkStreamlessWriterAttributes(bufferedWriter);
         assertEquals(1, bufferedWriter.totalRecordsSeen);
         assertEquals(0, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         // Second element will exceed append request's size, so append will be called with
         // first element in request.
@@ -187,10 +220,16 @@ public class BigQueryBufferedWriterTest {
         assertEquals(2, bufferedWriter.totalRecordsSeen);
         // The totalRecordsWritten attribute is incremented after response validation.
         assertEquals(0, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         // Second element was added to new request.
         assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertEquals(1, bufferedWriter.getAppendResponseFuturesQueue().size());
+        // Test Flink Metrics
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         // Third write, second append, first response validation.
         bufferedWriter.write(new Object(), null);
@@ -198,8 +237,14 @@ public class BigQueryBufferedWriterTest {
         assertEquals(3, bufferedWriter.totalRecordsSeen);
         // Upon successful response validation, totalRecordsWritten is incremented.
         assertEquals(1, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         // One future was added by latest append, and one was removed for validation.
         assertEquals(1, bufferedWriter.getAppendResponseFuturesQueue().size());
+        // Test Flink Metrics
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                 .verifytAppendWithOffsetInvocations(2);
@@ -219,6 +264,7 @@ public class BigQueryBufferedWriterTest {
                         100L,
                         210L,
                         200L,
+                        100L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         new ApiFuture[] {
                             ApiFutures.immediateFuture(
@@ -244,9 +290,16 @@ public class BigQueryBufferedWriterTest {
         assertEquals(100, bufferedWriter.getStreamOffset());
         assertEquals(211, bufferedWriter.totalRecordsSeen);
         assertEquals(200, bufferedWriter.totalRecordsWritten);
+        // First write after a checkpoint.
+        assertEquals(200, bufferedWriter.totalRecordsCommitted);
         assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(211, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         // Second element will exceed append request's size, so append will be called with
         // first element in request.
@@ -256,16 +309,28 @@ public class BigQueryBufferedWriterTest {
         assertEquals(101, bufferedWriter.getStreamOffset());
         assertEquals(212, bufferedWriter.totalRecordsSeen);
         assertEquals(200, bufferedWriter.totalRecordsWritten);
+        assertEquals(200, bufferedWriter.totalRecordsCommitted);
         assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertEquals(1, bufferedWriter.getAppendResponseFuturesQueue().size());
+        // Test Flink Metrics
+        assertEquals(212, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         // Third write, second append, first response validation.
         bufferedWriter.write(new Object(), null);
         assertEquals(102, bufferedWriter.getStreamOffset());
         assertEquals(213, bufferedWriter.totalRecordsSeen);
         assertEquals(201, bufferedWriter.totalRecordsWritten);
+        assertEquals(200, bufferedWriter.totalRecordsCommitted);
         assertEquals(1, bufferedWriter.getAppendResponseFuturesQueue().size());
+        // Test Flink Metrics
+        assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                 .verifytAppendWithOffsetInvocations(2);
@@ -299,6 +364,7 @@ public class BigQueryBufferedWriterTest {
                             100L,
                             210L,
                             200L,
+                            100L,
                             new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                             new ApiFuture[] {
                                 ApiFutures.immediateFailedFuture(storageException),
@@ -317,9 +383,17 @@ public class BigQueryBufferedWriterTest {
             assertEquals(100, bufferedWriter.getStreamOffset());
             assertEquals(211, bufferedWriter.totalRecordsSeen);
             assertEquals(200, bufferedWriter.totalRecordsWritten);
+            // First write after checkpoint.
+            assertEquals(200, bufferedWriter.totalRecordsCommitted);
             assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
             assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
             assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+            // Test Flink Metrics
+            assertEquals(211, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+            assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+            assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+            assertEquals(
+                    0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
             bufferedWriter.write(new Object(), null);
             // Existing stream was finalized.
@@ -336,15 +410,29 @@ public class BigQueryBufferedWriterTest {
             assertEquals(1, bufferedWriter.getStreamOffset());
             assertEquals(212, bufferedWriter.totalRecordsSeen);
             assertEquals(200, bufferedWriter.totalRecordsWritten);
+            assertEquals(200, bufferedWriter.totalRecordsCommitted);
             assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
             assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
             assertEquals(1, bufferedWriter.getAppendResponseFuturesQueue().size());
+            // Test Flink Metrics
+            assertEquals(212, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+            assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+            assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+            assertEquals(
+                    0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
             bufferedWriter.write(new Object(), null);
             assertEquals(2, bufferedWriter.getStreamOffset());
             assertEquals(213, bufferedWriter.totalRecordsSeen);
             assertEquals(201, bufferedWriter.totalRecordsWritten);
+            assertEquals(200, bufferedWriter.totalRecordsCommitted);
             assertEquals(1, bufferedWriter.getAppendResponseFuturesQueue().size());
+            // Test Flink Metrics
+            assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+            assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+            assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+            assertEquals(
+                    1, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
             // First invocation on existing stream, which failed.
             // Second invocation on appending same request to new stream.
@@ -372,6 +460,7 @@ public class BigQueryBufferedWriterTest {
                         100L,
                         210L,
                         200L,
+                        100L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         new ApiFuture[] {ApiFutures.immediateFailedFuture(new RuntimeException())},
                         WriteStream.newBuilder().setName("new_stream").build(),
@@ -382,17 +471,29 @@ public class BigQueryBufferedWriterTest {
         assertEquals(100, bufferedWriter.getStreamOffset());
         assertEquals(211, bufferedWriter.totalRecordsSeen);
         assertEquals(200, bufferedWriter.totalRecordsWritten);
+        // First write after checkpoint.
+        assertEquals(200, bufferedWriter.totalRecordsCommitted);
         assertEquals(8, bufferedWriter.getAppendRequestSizeBytes());
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(211, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
         bufferedWriter.write(new Object(), null);
+        // Test Flink Metrics
+        assertEquals(212, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
     public void testValidateAppendResponse_withOffsetAlreadyExists() {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
-                        null, 0L, 10L, 0L, FakeBigQuerySerializer.getEmptySerializer());
+                        null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
                 new BigQueryDefaultWriter.AppendInfo(
                         ApiFutures.immediateFailedFuture(mock(OffsetAlreadyExists.class)), 0L, 0L));
@@ -403,7 +504,7 @@ public class BigQueryBufferedWriterTest {
     public void testValidateAppendResponse_withResponseError() {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
-                        null, 0L, 10L, 0L, FakeBigQuerySerializer.getEmptySerializer());
+                        null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
                 new BigQueryDefaultWriter.AppendInfo(
                         ApiFutures.immediateFuture(
@@ -418,7 +519,7 @@ public class BigQueryBufferedWriterTest {
     public void testValidateAppendResponse_withOffsetMismatch() {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
-                        null, 0L, 10L, 0L, FakeBigQuerySerializer.getEmptySerializer());
+                        null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
                 new BigQueryDefaultWriter.AppendInfo(
                         ApiFutures.immediateFuture(
@@ -436,7 +537,7 @@ public class BigQueryBufferedWriterTest {
     public void testValidateAppendResponse_withUnexpectedError() {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
-                        null, 0L, 10L, 0L, FakeBigQuerySerializer.getEmptySerializer());
+                        null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
                 new BigQueryDefaultWriter.AppendInfo(
                         ApiFutures.immediateFailedFuture(mock(OffsetOutOfRange.class)), 0L, 0L));
@@ -447,6 +548,7 @@ public class BigQueryBufferedWriterTest {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
                         null,
+                        0L,
                         0L,
                         0L,
                         0L,
@@ -466,21 +568,41 @@ public class BigQueryBufferedWriterTest {
         bufferedWriter.write(new Object(), null);
         assertEquals(1, bufferedWriter.totalRecordsSeen);
         assertEquals(0, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+
         bufferedWriter.write(new Object(), null);
         // AppendRows invoked, response future stored.
         assertEquals(2, bufferedWriter.totalRecordsSeen);
         assertEquals(0, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         assertEquals(1, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertEquals(1, bufferedWriter.getAppendResponseFuturesQueue().size());
+        // Test Flink Metrics
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+
         // Flush will send append request for pending records, and validate all pending append
         // responses.
         bufferedWriter.flush(false);
         assertEquals(2, bufferedWriter.totalRecordsSeen);
         assertEquals(2, bufferedWriter.totalRecordsWritten);
+        assertEquals(0, bufferedWriter.totalRecordsCommitted);
         assertEquals(0, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        // Test Flink Metrics
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(2, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
         ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                 .verifytAppendWithOffsetInvocations(2);
@@ -491,6 +613,7 @@ public class BigQueryBufferedWriterTest {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
                         null,
+                        0L,
                         0L,
                         0L,
                         0L,
@@ -524,6 +647,11 @@ public class BigQueryBufferedWriterTest {
         assertEquals(1, committable.getProducerId());
         assertEquals("new_stream", committable.getStreamName());
         assertEquals(2, committable.getStreamOffset());
+        // Test Flink Metrics
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -531,6 +659,7 @@ public class BigQueryBufferedWriterTest {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
                         null,
+                        0L,
                         0L,
                         0L,
                         0L,
@@ -542,6 +671,11 @@ public class BigQueryBufferedWriterTest {
         bufferedWriter.flush(false);
         Collection<BigQueryCommittable> committables = bufferedWriter.prepareCommit();
         assertTrue(committables.isEmpty());
+        // Test Flink Metrics
+        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -549,6 +683,7 @@ public class BigQueryBufferedWriterTest {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
                         null,
+                        0L,
                         0L,
                         0L,
                         0L,
@@ -584,9 +719,64 @@ public class BigQueryBufferedWriterTest {
         assertEquals("new_stream", writerState.getStreamName());
         assertEquals(3, writerState.getTotalRecordsSeen());
         assertEquals(3, writerState.getTotalRecordsWritten());
+        assertEquals(0, writerState.getTotalRecordsCommitted());
         assertEquals(1, writerState.getCheckpointId());
         assertEquals("new_stream", bufferedWriter.getStreamNameInState());
         assertEquals(3, bufferedWriter.getStreamOffsetInState());
+        // Test Flink Metrics
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+    }
+
+    @Test
+    public void testSnapshotState_withNewWriter_metrics() {
+        BigQueryBufferedWriter bufferedWriter =
+                createBufferedWriter(
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            ApiFutures.immediateFuture(AppendRowsResponse.newBuilder().build()),
+                            ApiFutures.immediateFuture(
+                                    AppendRowsResponse.newBuilder()
+                                            .setAppendResult(
+                                                    AppendResult.newBuilder()
+                                                            .setOffset(Int64Value.of(1))
+                                                            .build())
+                                            .build()),
+                            ApiFutures.immediateFuture(
+                                    AppendRowsResponse.newBuilder()
+                                            .setAppendResult(
+                                                    AppendResult.newBuilder()
+                                                            .setOffset(Int64Value.of(2))
+                                                            .build())
+                                            .build())
+                        },
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.flush(false);
+        Collection<BigQueryWriterState> writerStates = bufferedWriter.snapshotState(1);
+        BigQueryWriterState writerState = (BigQueryWriterState) writerStates.toArray()[0];
+        // Test Flink Metrics
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        // Updated at first write after checkpoint.
+        assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        bufferedWriter.write(new Object(), null);
+        // Test Flink Metrics
+        assertEquals(4, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(1, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -597,6 +787,66 @@ public class BigQueryBufferedWriterTest {
                         100L,
                         210L,
                         200L,
+                        100L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            ApiFutures.immediateFuture(
+                                    AppendRowsResponse.newBuilder()
+                                            .setAppendResult(
+                                                    AppendResult.newBuilder()
+                                                            .setOffset(Int64Value.of(100))
+                                                            .build())
+                                            .build()),
+                            ApiFutures.immediateFuture(
+                                    AppendRowsResponse.newBuilder()
+                                            .setAppendResult(
+                                                    AppendResult.newBuilder()
+                                                            .setOffset(Int64Value.of(101))
+                                                            .build())
+                                            .build()),
+                            ApiFutures.immediateFuture(
+                                    AppendRowsResponse.newBuilder()
+                                            .setAppendResult(
+                                                    AppendResult.newBuilder()
+                                                            .setOffset(Int64Value.of(102))
+                                                            .build())
+                                            .build())
+                        },
+                        null,
+                        null);
+        // First write after restore.
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.flush(false);
+        assertEquals("restored_stream", bufferedWriter.getStreamNameInState());
+        assertEquals(100, bufferedWriter.getStreamOffsetInState());
+        Collection<BigQueryWriterState> writerStates = bufferedWriter.snapshotState(1);
+        BigQueryWriterState writerState = (BigQueryWriterState) writerStates.toArray()[0];
+        assertEquals(1, writerStates.size());
+        assertEquals("restored_stream", writerState.getStreamName());
+        assertEquals(213, writerState.getTotalRecordsSeen());
+        assertEquals(203, writerState.getTotalRecordsWritten());
+        assertEquals(200, writerState.getTotalRecordsCommitted());
+        assertEquals(1, writerState.getCheckpointId());
+        assertEquals("restored_stream", bufferedWriter.getStreamNameInState());
+        assertEquals(103, bufferedWriter.getStreamOffsetInState());
+        // Test Flink Metrics
+        assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+    }
+
+    @Test
+    public void testSnapshotState_withRestoredWriter_withUsableStream_testMetrics() {
+        BigQueryBufferedWriter bufferedWriter =
+                createBufferedWriter(
+                        "restored_stream",
+                        100L,
+                        210L,
+                        200L,
+                        100L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         new ApiFuture[] {
                             ApiFutures.immediateFuture(
@@ -627,17 +877,18 @@ public class BigQueryBufferedWriterTest {
         bufferedWriter.write(new Object(), null);
         bufferedWriter.write(new Object(), null);
         bufferedWriter.flush(false);
-        assertEquals("restored_stream", bufferedWriter.getStreamNameInState());
-        assertEquals(100, bufferedWriter.getStreamOffsetInState());
         Collection<BigQueryWriterState> writerStates = bufferedWriter.snapshotState(1);
-        BigQueryWriterState writerState = (BigQueryWriterState) writerStates.toArray()[0];
-        assertEquals(1, writerStates.size());
-        assertEquals("restored_stream", writerState.getStreamName());
-        assertEquals(213, writerState.getTotalRecordsSeen());
-        assertEquals(203, writerState.getTotalRecordsWritten());
-        assertEquals(1, writerState.getCheckpointId());
-        assertEquals("restored_stream", bufferedWriter.getStreamNameInState());
-        assertEquals(103, bufferedWriter.getStreamOffsetInState());
+        // Test Flink Metrics
+        assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.write(new Object(), null);
+        assertEquals(215, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(2, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(203, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -648,6 +899,7 @@ public class BigQueryBufferedWriterTest {
                         100L,
                         210L,
                         200L,
+                        100L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         new ApiFuture[] {
                             ApiFutures.immediateFailedFuture(mock(StreamFinalizedException.class)),
@@ -681,9 +933,15 @@ public class BigQueryBufferedWriterTest {
         assertEquals("new_stream", writerState.getStreamName());
         assertEquals(213, writerState.getTotalRecordsSeen());
         assertEquals(203, writerState.getTotalRecordsWritten());
+        assertEquals(200, writerState.getTotalRecordsCommitted());
         assertEquals(1, writerState.getCheckpointId());
         assertEquals("new_stream", bufferedWriter.getStreamNameInState());
         assertEquals(3, bufferedWriter.getStreamOffsetInState());
+        // Test Flink Metrics
+        assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -691,6 +949,7 @@ public class BigQueryBufferedWriterTest {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
                         null,
+                        0L,
                         0L,
                         0L,
                         0L,
@@ -724,6 +983,7 @@ public class BigQueryBufferedWriterTest {
                         0L,
                         0L,
                         0L,
+                        0L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         new ApiFuture[] {},
                         WriteStream.newBuilder().setName("new_stream").build(),
@@ -743,7 +1003,7 @@ public class BigQueryBufferedWriterTest {
     public void testWrite_withSerializationException() {
         BigQueryBufferedWriter bufferedWriter =
                 createBufferedWriter(
-                        null, 0L, 10L, 0L, FakeBigQuerySerializer.getErringSerializer());
+                        null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getErringSerializer());
         assertEquals(0, bufferedWriter.getProtoRows().getSerializedRowsCount());
         // If write experiences a serialization exception, then the element is ignored and no
         // action is taken.
@@ -761,6 +1021,7 @@ public class BigQueryBufferedWriterTest {
                         0L,
                         10L,
                         0L,
+                        0L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")));
         // The serializer.serialize method will return ByteString with 14 bytes, exceeding the
         // maximum request size, causing getProtoRow method to throw
@@ -776,6 +1037,7 @@ public class BigQueryBufferedWriterTest {
                         0L,
                         10L,
                         0L,
+                        0L,
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")));
         assertEquals(0, bufferedWriter.getProtoRows().getSerializedRowsCount());
         // This will add 14 bytes to append request, which exceeds the maximum request size,
@@ -790,6 +1052,7 @@ public class BigQueryBufferedWriterTest {
             long streamOffset,
             long totalRecordsSeen,
             long totalRecordsWritten,
+            long totalRecordsCommitted,
             BigQueryProtoSerializer mockSerializer) {
         InitContext context = Mockito.mock(InitContext.class);
         Mockito.when(context.getSubtaskId()).thenReturn(1);
@@ -801,6 +1064,7 @@ public class BigQueryBufferedWriterTest {
                 "/projects/project/datasets/dataset/tables/table",
                 totalRecordsSeen,
                 totalRecordsWritten,
+                totalRecordsCommitted,
                 StorageClientFaker.createConnectOptionsForWrite(null),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
@@ -812,6 +1076,7 @@ public class BigQueryBufferedWriterTest {
             long streamOffset,
             long totalRecordsSeen,
             long totalRecordsWritten,
+            long totalRecordsCommitted,
             BigQueryProtoSerializer mockSerializer,
             ApiFuture[] appendResponseFutures,
             WriteStream writeStream,
@@ -826,6 +1091,7 @@ public class BigQueryBufferedWriterTest {
                 "/projects/project/datasets/dataset/tables/table",
                 totalRecordsSeen,
                 totalRecordsWritten,
+                totalRecordsCommitted,
                 StorageClientFaker.createConnectOptionsForWrite(
                         appendResponseFutures, writeStream, null, finalizeResponse),
                 TestBigQuerySchemas.getSimpleRecordSchema(),

@@ -251,6 +251,7 @@ public class BigQueryTableExample {
                             .project(destGcpProjectName)
                             .dataset(destDatasetName)
                             .testMode(false)
+                            .streamExecutionEnvironment(env)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .build();
         }
@@ -350,6 +351,7 @@ public class BigQueryTableExample {
                             .project(destGcpProjectName)
                             .dataset(destDatasetName)
                             .testMode(false)
+                            .streamExecutionEnvironment(env)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .build();
         }
@@ -454,6 +456,7 @@ public class BigQueryTableExample {
                             .project(destGcpProjectName)
                             .dataset(destDatasetName)
                             .testMode(false)
+                            .streamExecutionEnvironment(env)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .build();
         }

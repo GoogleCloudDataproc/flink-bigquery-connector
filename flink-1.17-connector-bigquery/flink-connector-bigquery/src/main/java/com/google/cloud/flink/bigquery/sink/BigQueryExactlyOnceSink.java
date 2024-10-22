@@ -51,7 +51,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
             createWriter(InitContext context) {
         checkParallelism(context.getNumberOfParallelSubtasks());
         return new BigQueryBufferedWriter(
-                context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
+                tablePath, connectOptions, schemaProvider, serializer, context);
     }
 
     @Override
@@ -66,15 +66,16 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
                         .max(Comparator.comparingLong(state -> state.getCheckpointId()))
                         .get();
         return new BigQueryBufferedWriter(
-                context.getSubtaskId(),
                 stateToRestore.getStreamName(),
                 stateToRestore.getStreamOffset(),
                 tablePath,
                 stateToRestore.getTotalRecordsSeen(),
                 stateToRestore.getTotalRecordsWritten(),
+                stateToRestore.getTotalRecordsCommitted(),
                 connectOptions,
                 schemaProvider,
-                serializer);
+                serializer,
+                context);
     }
 
     @Override
