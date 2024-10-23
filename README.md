@@ -4,16 +4,15 @@
 [![codecov](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector)
 
 The connector supports streaming data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink, 
-and writing results back to BigQuery tables.
-This is supported via [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/overview/) as well as [Flink's Table API and SQL](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/table/overview/)
-to communicate with BigQuery.
+and writing results back to BigQuery tables. 
+This data exchange with BigQuery is supported via [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/overview/) 
+as well as [Flink's Table API and SQL](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/table/overview/).
 
 ## Public Preview
 
-This connector is a work in progress, and here we’re providing a preview of its capabilities. It currently offers 
-the feature to read data from a BigQuery table into a Flink application, and the ability to write results of Flink jobs 
-to BigQuery tables with at-least-once write consistency. Exactly-once consistency will be offered soon. Users 
-should note this is an experimental instrument, and we guarantee no SLOs at this stage.
+This connector is in public preview stage, with GA planned for Q1 2025. It offers the feature to read data 
+from a BigQuery table into a Flink application, and the ability to write results of Flink jobs 
+to BigQuery tables. The BigQuery sink supports at-least-once and exactly-once write consistencies.
 
 ## Apache Flink
 
@@ -39,8 +38,7 @@ asynchronous with guaranteed ordering.
 
 #### Exactly-once delivery semantics
 
-The Storage Write API supports exactly-once semantics through the use of stream offsets. This will be used when 
-offering an exactly-once Sink for BigQuery.
+The Storage Write API supports exactly-once semantics through the use of stream offsets.
 
 ### Read API
 
@@ -85,7 +83,7 @@ granted.
 * Unix-like environment (we use Linux, Mac OS X)
 * Git
 * Maven (we recommend version 3.8.6)
-* Java 8
+* Java 11
 
 ### Downloading the Connector
 
@@ -98,8 +96,9 @@ repository.
 
 | Flink version | Connector Artifact                                           | Key Features                |
 |---------------|--------------------------------------------------------------|-----------------------------| 
-| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.2.0` | At-least Once Write Support | 
+| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.2.0` | At-least Once Sink Support  | 
 | Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.3.0` | Table API Support           |
+| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.4.0` | Exactly Once Sink Support   |
 
 #### GitHub
 
@@ -110,7 +109,7 @@ Users can obtain the connector artifact from our [GitHub repository](https://git
 ```shell
 git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
 cd flink-bigquery-connector
-git checkout tags/0.3.0
+git checkout tags/0.4.0
 mvn clean install -DskipTests -Pflink_1.17
 ```
 
@@ -131,6 +130,7 @@ If only the jars are needed, then execute maven `package` instead of `install`.
 | 0.2.0-preview                 | ✓      | ✓      |
 | 0.2.0                         | ✓      | ✓      |
 | 0.3.0                         | ✓      | ✓      |
+| 0.4.0                         | ✓      | ✓      |
 
 ### Create a Google Cloud Dataproc cluster (Optional)
 
@@ -153,6 +153,7 @@ Follow [this document](https://cloud.google.com/dataproc/docs/concepts/component
 | 0.2.0-preview                  | ✓   | ✓   |
 | 0.2.0                          | ✓   | ✓   |
 | 0.3.0                          | ✓   | ✓   |
+| 0.4.0                          | ✓   | ✓   |
 
 ## Usage
 The connector can be used with Flink's Datastream and Table APIs in Java applications.
@@ -167,21 +168,90 @@ The sink offers at-least-once delivery guarantee.
 <dependency>
   <groupId>com.google.cloud.flink</groupId>
   <artifactId>flink-1.17-connector-bigquery</artifactId>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
 </dependency>
 ```
 
 #### Relevant Files
 
-* Sink factory methods are defined at `com.google.cloud.flink.bigquery.sink.BigQuerySink`.
-* Sink configs are defined at `com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig`.
+* Sink can be created using `get` method at `com.google.cloud.flink.bigquery.sink.BigQuerySink`.
+* Sink configuration is defined at `com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig`.
 * Source factory methods are defined at `com.google.cloud.flink.bigquery.source.BigQuerySource`.
-* Source configs are defined at `com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions`.
-* BigQuery connection config is defined at `com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions`.
-* Sample Flink application using connector is defined at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API
+* Source configuration is defined at `com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions`.
+* BigQuery connection configuration is defined at `com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions`.
+* Sample Flink application using connector is defined at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API,
   and at `com.google.cloud.flink.bigquery.examples.BigQueryTableExample` for the Table API and SQL.
 
 ### Datastream API
+
+#### Sink
+
+Flink [Sink](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/Sink.html)
+is the base interface for developing a sink. With checkpointing enabled, it can offer at-least-once consistency. Our
+implementation uses BigQuery Storage's [default write stream](https://cloud.google.com/bigquery/docs/write-api#default_stream)
+in Sink's [Writers](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/SinkWriter.html).
+
+```java
+StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+env.enableCheckpointing(checkpointInterval);
+
+// Via DataStream API
+
+BigQueryConnectOptions sinkConnectOptions =
+        BigQueryConnectOptions.builder()
+                .setProjectId(...) // REQUIRED
+                .setDataset(...) // REQUIRED
+                .setTable(...) // REQUIRED
+                .build();
+BigQuerySchemaProvider schemaProvider = new BigQuerySchemaProviderImpl(sinkConnectOptions);
+DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE; // or DeliveryGuarantee.EXACTLY_ONCE
+BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig.newBuilder()
+                .connectOptions(sinkConnectOptions) // REQUIRED
+                .streamExecutionEnvironment(env) // REQUIRED
+                .deliveryGuarantee(deliveryGuarantee) // REQUIRED
+                .schemaProvider(schemaProvider) // REQUIRED
+                .serializer(new AvroToProtoSerializer()) // REQUIRED
+                .build();
+
+Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig, env);
+```
+
+* BigQuery sinks require that checkpoint is enabled.
+* Delivery guarantee can be [at-least-once](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE) or 
+  [exactly-once](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#EXACTLY_ONCE).
+* [BigQueryConnectOptions](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-connector-bigquery-common/src/main/java/com/google/cloud/flink/bigquery/common/config/BigQueryConnectOptions.java)
+  stores information needed to connect to a BigQuery table.
+* [AvroToProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/AvroToProtoSerializer.java)
+  is the only out-of-the-box serializer offered for now. It expects data to arrive at the sink as avro's GenericRecord. Other
+  relevant data formats will be supported soon. Also, users can create their own implementation of
+  [BigQueryProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQueryProtoSerializer.java)
+  for other data formats.
+* [BigQuerySchemaProvider](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQuerySchemaProvider.java)
+  exposes schema related information about the BigQuery table. This is needed by the sink to write data to BigQuery tables. It
+  can also be used by the serializer if needed (for instance, the AvroToProtoSerializer uses BigQuery table's schema).
+* Flink cannot automatically serialize avro's GenericRecord, hence users must explicitly specify type information
+  when using the AvroToProtoSerializer. Check Flink's [blog on non-trivial serialization](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
+  Note that the avro schema needed here can be obtained from BigQuerySchemaProvider.
+* The maximum parallelism of BigQuery sinks has been capped at 128. This is to respect BigQuery storage
+  [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while adhering to
+  [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices). Users should either set
+  [sink level parallelism](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/execution/parallel/#operator-level)
+  explicitly, or ensure that default job level parallelism is under 128.
+* BigQuerySinkConfig requires the StreamExecutionEnvironment if delivery guarantee is exactly-once. This is to [validate](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/92db3690c741fb2cdb99e28c575e19affb5c8b69/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/BigQuerySinkConfig.java#L185) 
+  the [restart strategy](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/ops/state/task_failure_recovery/). 
+  Users are recommended to choose their application's restart strategy wisely, to avoid incessant retries which can potentially 
+  disrupt the BigQuery Storage API backend. Regardless of which strategy is adopted, the restarts must be finite and graciously 
+  spaced.
+* BigQuery sink's exactly-once mode follows the `Two Phase Commit` protocol. This means the data will be written to the 
+  BigQuery table only at checkpoints. All data between two checkpoints is buffered in BigQuery's write streams, and committed 
+  to the destination BigQuery table upon successful checkpoint completion.
+* If a data record cannot be serialized by BigQuery sink, then the record is dropped with a warning getting logged. In future,
+  we plan to use dead letter queues to capture such data.
+
+**Important:** Please refer to [data ingestion pricing](https://cloud.google.com/bigquery/pricing#data_ingestion_pricing) to
+understand the BigQuery Storage Write API pricing.
+
 #### Source: Unbounded
 
 A timestamp [partitioned table](https://cloud.google.com/bigquery/docs/partitioned-tables) will be continuously checked for
@@ -197,14 +267,14 @@ BigQuerySource<GenericRecord> source =
                     .setDataset(...)
                     .setTable(...)
                     .build())
-            .setColumnNames(...)
-            .setLimit(...)
-            .setMaxRecordsPerSplitFetch(...)
-            .setMaxStreamCount(...)
-            .setOldestPartitionId(...)
-            .setPartitionDiscoveryRefreshIntervalInMinutes(...)
-            .setRowRestriction(...)
-            .setSnapshotTimestampInMillis(...)
+            .setColumnNames(...) // OPTIONAL
+            .setLimit(...) // OPTIONAL
+            .setMaxRecordsPerSplitFetch(...) // OPTIONAL
+            .setMaxStreamCount(...) // OPTIONAL
+            .setOldestPartitionId(...) // OPTIONAL
+            .setPartitionDiscoveryRefreshIntervalInMinutes(...) // OPTIONAL
+            .setRowRestriction(...) // OPTIONAL
+            .setSnapshotTimestampInMillis(...) // OPTIONAL
             .build());
 ```
 
@@ -216,8 +286,6 @@ BigQuerySource<GenericRecord> source =
   partition’s end in future releases.
 
 #### Source: Bounded
-
-##### Table
 
 A table will be read once, and its rows at the time will be streamed into the Flink application.
 
@@ -308,76 +376,43 @@ All the current BigQuery datatypes are being handled when transforming data from
 | `TIME`             | `STRING`, `LONG`        |
 | `JSON`             | `STRING`                |
 
-
-#### Sink: At Least Once
-
-Flink [Sink](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/Sink.html)
-is the base interface for developing a sink. With checkpointing enabled, it can offer at-least-once consistency. Our
-implementation uses BigQuery Storage's [default write stream](https://cloud.google.com/bigquery/docs/write-api#default_stream)
-in Sink's [Writers](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/SinkWriter.html).
-
-```java
-// StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-// env.enableCheckpointing(checkpointInterval);
-
-// Via DataStream API
-
-BigQueryConnectOptions sinkConnectOptions =
-        BigQueryConnectOptions.builder()
-                .setProjectId(...)
-                .setDataset(...)
-                .setTable(...)
-                .build();
-BigQuerySchemaProvider schemaProvider = new BigQuerySchemaProviderImpl(sinkConnectOptions);
-BigQuerySinkConfig sinkConfig =
-        BigQuerySinkConfig.newBuilder()
-                .connectOptions(sinkConnectOptions)
-                .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
-                .schemaProvider(schemaProvider)
-                .serializer(new AvroToProtoSerializer())
-                .build();
-
-Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig, env);
-```
-
-* BigQuery sinks require that checkpoint is enabled for at-least-once consistency.
-* Delivery guarantee must be [at-least-once](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
-* [BigQueryConnectOptions](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-connector-bigquery-common/src/main/java/com/google/cloud/flink/bigquery/common/config/BigQueryConnectOptions.java)
-  stores information needed to connect to a BigQuery table.
-* [AvroToProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/AvroToProtoSerializer.java)
-  is the only out-of-the-box serializer offered for now. It expects data to arrive at the sink as avro's GenericRecord. Other
-  relevant data formats will be supported soon. Also, users can create their own implementation of
-  [BigQueryProtoSerializer](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQueryProtoSerializer.java)
-  for other data formats.
-* [BigQuerySchemaProvider](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQuerySchemaProvider.java)
-  exposes schema related information about the BigQuery table. This is needed by the sink to write data to BigQuery tables. It
-  can also be used by the serializer if needed (for instance, the AvroToProtoSerializer uses BigQuery table's schema).
-* Flink cannot automatically serialize avro's GenericRecord, hence users must explicitly specify type information
-  when using the AvroToProtoSerializer. Check Flink's [blog on non-trivial serialization](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
-  Note that the avro schema needed here can be obtained from BigQuerySchemaProvider.
-* The maximum parallelism of BigQuery sinks has been capped at 128. This is to respect BigQuery storage
-  [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while adhering to
-  [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices). Users should either set
-  [sink level parallelism](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/execution/parallel/#operator-level)
-  explicitly, or ensure that default job level parallelism is under 128.
-* Users are recommended to choose their application's [restart strategy](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/ops/state/task_failure_recovery/)
-  wisely, so as to avoid incessant retries which can potentially disrupt the BigQuery Storage API backend. Regardless of which
-  strategy is adopted, the restarts must be finite and graciously spaced.
-* If a data record cannot be serialized by BigQuery sink, then the record is dropped with a warning getting logged. Moving on,
-  we plan to introduce a Flink metric for tracking such data. Additionally, a dead letter queue will be introduced in the future
-  to store this data.
-
-**Important:** Please refer to [data ingestion pricing](https://cloud.google.com/bigquery/pricing#data_ingestion_pricing) to
-understand the BigQuery Storage Write API pricing.
-
 ### Table API Support
- * Table API is a high-level declarative API that allows users to describe what they want to do 
-rather than how to do it. 
- * This results in simpler customer code and higher level pipelines that are more easily optimized in a managed service.
+* Table API is a high-level declarative API that allows users to describe what they want to do rather than how to do it. 
+* This results in simpler customer code and higher level pipelines that are more easily optimized in a managed service.
 * The Table API is a superset of the SQL language and is specially designed for working with Apache Flink.
 * It also allows language-embedded style support for queries in Java, Scala or Python besides the always available String values as queries in SQL.
-  
-#### Source: Bounded and Unbounded
+
+#### Sink
+```java
+// Note: Users must create and register a catalog table before reading and writing to them.
+// Schema of the source and sink catalog table must be the same
+
+// final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+// env.enableCheckpointing(CHECKPOINT_INTERVAL);
+// final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
+// Create the Config.
+BigQueryTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
+        .table(...) // REQUIRED
+        .project(...) // REQUIRED
+        .dataset(...) // REQUIRED
+        .streamExecutionEnvironment(env) // REQUIRED if deliveryGuarantee is EXACTLY_ONCE
+        .sinkParallelism(...) // OPTIONAL; Should be atmost 128
+        .deliveryGuarantee(...) // OPTIONAL; Default is AT_LEAST_ONCE
+        .build();
+
+// Register the Sink Table
+tEnv.createTable(
+        "bigQuerySinkTable",
+        BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+
+// Insert entries in this sinkTable
+sourceTable.executeInsert("bigQuerySinkTable");
+```
+Note: For jobs running on a dataproc cluster, via "gcloud dataproc submit", explicitly call `await()` after `executeInsert` to 
+wait for the job to complete.
+
+#### Source
 ```java
 // Note: Users must create and register a catalog table before reading and writing to them.
 
@@ -391,7 +426,7 @@ BigQueryTableConfig readTableConfig =  new BigQueryReadTableConfig.Builder()
         .project(...) // REQUIRED
         .dataset(...) // REQUIRED
         .partitionDiscoveryInterval(...) // OPTIONAL; only in CONTINUOUS_UNBOUNDED source
-        .boundedness(...) // OPTIONAL; Boundedness.CONTINUOUS_UNBOUNDED or Boundedness.BOUNDED
+        .boundedness(...) // OPTIONAL; Defaults to Boundedness.BOUNDED
         .limit(...) // OPTIONAL
         .columnProjection(...) // OPTIONAL
         .snapshotTimestamp(...) // OPTIONAL
@@ -407,46 +442,7 @@ Table sourceTable = tEnv.from("bigQuerySourceTable");
 // Fetch entries in this sourceTable
 sourceTable = sourceTable.select($("*"));
 ```
-#### Sink: At-least Once
-```java
-// Note: Users must create and register a catalog table before reading and writing to them.
-// Schema of the source and sink catalog table must be the same
 
-// final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-// env.enableCheckpointing(CHECKPOINT_INTERVAL);
-// final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-
-// Create the Config.
-BigQueryTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
-        .table(...) // REQUIRED
-        .project(...) // REQUIRED
-        .dataset(...) // REQUIRED
-        .testMode(...) // OPTIONAL
-        .credentialAccessToken(...) // OPTIONAL
-        .credentialFile(...) // OPTIONAL
-        .credentialKey(...) // OPTIONAL
-        .sinkParallelism(...) // OPTIONAL; Should be atmost 128
-        .deliveryGuarantee(...) // OPTIONAL
-        .build();
-
-// Register the Sink Table
-tEnv.createTable(
-        "bigQuerySinkTable",
-        BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
-
-// Insert entries in this sinkTable
-sourceTable.executeInsert("bigQuerySinkTable");
-```
-Note: While running the above code sample for insert on a dataproc cluster via the `gcloud dataproc submit` command, add an `.await()` after the `.executeInsert()` method to prevent untimely job termination.
-Application works expected when submitted via Flink CLI on the master node in both application and per-job mode. 
-Code modification is as follows:
-```java
-// Insert entries in this sinkTable
-TableResult res = sourceTable.executeInsert("bigQuerySinkTable");
-// wait for the job to complete 
-// (for jobs running on dataproc cluster via "gcloud dataproc submit" command only) 
-res.await();
-```
 #### More Details:
 * Input and Output tables (catalog tables) must be registered in the TableEnvironment.
 * The schema of the registered table must match the schema of the query.</b>

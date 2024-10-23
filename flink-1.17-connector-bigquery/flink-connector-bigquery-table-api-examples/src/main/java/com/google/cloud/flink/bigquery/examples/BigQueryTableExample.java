@@ -48,10 +48,10 @@ import static org.apache.flink.table.api.Expressions.call;
  *
  * <ul>
  *   <li>Specify the BQ dataset and table with an optional row restriction. Users can configure a
- *       source mode, i.e bounded or unbounded. Bounded implies that the BQ table will be read and
- *       written once at the time of execution, analogous to a batch job.
- *   <li>Unbounded source implies that the BQ table will be periodically polled for new data which
- *       is then sink. <br>
+ *       source mode, i.e bounded or unbounded. Bounded implies that the BQ table will be read once
+ *       at the time of execution, analogous to a batch job. Unbounded source implies that the BQ
+ *       table will be periodically polled for new data. Resulting records can be written to another
+ *       BQ table, with allowed delivery (write) guarantees at-least-once or exactly-once. <br>
  *       The sequence of operations in both pipelines is: <i>source > flatMap > sink</i> <br>
  *       Flink command line format is: <br>
  *       <code> flink run {additional runtime params} {path to this jar}/BigQueryTableExample.jar
@@ -64,19 +64,13 @@ import static org.apache.flink.table.api.Expressions.call;
  *       --bq-sink-table {required; name of table to write to} <br>
  *       --mode {optional; source read type. Allowed values are bounded (default) or unbounded or
  *       hybrid} <br>
- *       --ts-prop {required for unbounded/hybrid mode; property record for timestamp} <br>
- *       --oldest-partition-id {optional; oldest partition id to read. Used in unbounded/hybrid
- *       mode} <br>
  *       --restriction {optional; SQL filter applied at the BigQuery table before reading} <br>
  *       --limit {optional; maximum records to read from BigQuery table} <br>
  *       --checkpoint-interval {optional; milliseconds between state checkpoints} <br>
  *       --partition-discovery-interval {optional; minutes between polling table for new data. Used
  *       in unbounded/hybrid mode} <br>
- *       --out-of-order-tolerance {optional; out of order event tolerance in minutes. Used in
- *       unbounded/hybrid mode} <br>
- *       --max-idleness {optional; minutes to wait before marking a stream partition idle. Used in
- *       unbounded/hybrid mode} <br>
- *       --window-size {optional; window size in minutes. Used in unbounded/hybrid mode}
+ *       --delivery-guarantee {optional; sink consistency. Allowed values are <i>at-least-once</i>
+ *       (default) or <i>exactly-once</i>}
  * </ul>
  */
 public class BigQueryTableExample {
@@ -101,11 +95,8 @@ public class BigQueryTableExample {
                             + " --restriction <row filter predicate>"
                             + " --limit <limit on records returned>"
                             + " --checkpoint-interval <milliseconds between state checkpoints>"
-                            + " --ts-prop <timestamp property>"
-                            + " --oldest-partition-id <oldest partition to read>"
                             + " --partition-discovery-interval <minutes between checking new data>"
-                            + " --out-of-order-tolerance <maximum idle minutes for read stream>"
-                            + " --max-idleness <maximum idle minutes for read stream>");
+                            + " --delivery-guarantee <sink's write consistency>");
             return;
         }
         /**
@@ -122,19 +113,29 @@ public class BigQueryTableExample {
         Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 60000L);
         String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
         String mode = parameterTool.get("mode", "bounded");
-        String oldestPartition = parameterTool.get("oldest-partition-id", "");
         // Unbounded specific options.
         Integer partitionDiscoveryInterval =
                 parameterTool.getInt("partition-discovery-interval", 10);
-        Integer maxOutOfOrder = parameterTool.getInt("out-of-order-tolerance", 10);
-        Integer maxIdleness = parameterTool.getInt("max-idleness", 20);
         // Sink Parameters
         String destGcpProjectName = parameterTool.getRequired("gcp-sink-project");
         String destDatasetName = parameterTool.getRequired("bq-sink-dataset");
         String destTableName = parameterTool.getRequired("bq-sink-table");
-        boolean isExactlyOnce = parameterTool.getBoolean("is-exactly-once", false);
+        String deliveryGuarantee = parameterTool.get("delivery-guarantee", "at-least-once");
+        DeliveryGuarantee sinkMode;
+        switch (deliveryGuarantee) {
+            case "at-least-once":
+                sinkMode = DeliveryGuarantee.AT_LEAST_ONCE;
+                break;
+            case "exactly-once":
+                sinkMode = DeliveryGuarantee.EXACTLY_ONCE;
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Allowed values for delivery-guarantee are at-least-once or exactly-once. Found %s",
+                                deliveryGuarantee));
+        }
 
-        String recordPropertyForTimestamps;
         switch (mode) {
             case "bounded":
                 runBoundedTableAPIFlinkJob(
@@ -144,13 +145,12 @@ public class BigQueryTableExample {
                         destGcpProjectName,
                         destDatasetName,
                         destTableName,
-                        isExactlyOnce,
+                        sinkMode,
                         rowRestriction,
                         recordLimit,
                         checkpointInterval);
                 break;
             case "unbounded":
-                recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
                 runStreamingTableAPIFlinkJob(
                         sourceGcpProjectName,
                         sourceDatasetName,
@@ -158,15 +158,11 @@ public class BigQueryTableExample {
                         destGcpProjectName,
                         destDatasetName,
                         destTableName,
-                        isExactlyOnce,
-                        recordPropertyForTimestamps,
+                        sinkMode,
                         rowRestriction,
                         recordLimit,
                         checkpointInterval,
-                        oldestPartition,
-                        partitionDiscoveryInterval,
-                        maxOutOfOrder,
-                        maxIdleness);
+                        partitionDiscoveryInterval);
                 break;
             default:
                 throw new IllegalArgumentException(
@@ -187,7 +183,7 @@ public class BigQueryTableExample {
      * @param destGcpProjectName The GCP Project name of the destination table.
      * @param destDatasetName Dataset name of the destination table.
      * @param destTableName Destination Table Name.
-     * @param isExactlyOnce Boolean value, True if exactly-once mode, false otherwise.
+     * @param sinkMode At-least-once or exactly-once write consistency.
      * @param rowRestriction String value, filtering the rows to be read.
      * @param limit Integer value, Number of rows to limit the read result.
      * @param checkpointInterval Long value, Interval between two check points (milliseconds)
@@ -200,7 +196,7 @@ public class BigQueryTableExample {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
-            boolean isExactlyOnce,
+            DeliveryGuarantee sinkMode,
             String rowRestriction,
             Integer limit,
             Long checkpointInterval)
@@ -241,19 +237,10 @@ public class BigQueryTableExample {
                         .dataset(destDatasetName)
                         .table(destTableName)
                         .sinkParallelism(2)
+                        .deliveryGuarantee(sinkMode)
+                        .streamExecutionEnvironment(env)
                         .testMode(false)
                         .build();
-
-        if (isExactlyOnce) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .build();
-        }
 
         // Register the Sink Table
         tEnv.createTable(
@@ -277,15 +264,10 @@ public class BigQueryTableExample {
      * @param destGcpProjectName The GCP Project name of the destination table.
      * @param destDatasetName Dataset name of the destination table.
      * @param destTableName Destination Table Name.
-     * @param isExactlyOnceEnabled Boolean value, True if exactly-once mode, false otherwise.
-     * @param recordPropertyForTimestamps Required String indicating the column name along which
-     *     BigQuery Table is partitioned.
+     * @param sinkMode At-least-once or exactly-once write consistency.
      * @param rowRestriction String value, filtering the rows to be read.
      * @param limit Integer value, Number of rows to limit the read result.
      * @param checkpointInterval Long value, Interval between two check points (milliseconds).
-     * @param oldestPartition Oldest partition to read.
-     * @param maxOutOfOrder Maximum idle minutes for read stream.
-     * @param maxIdleness Maximum idle minutes for read stream.
      * @throws Exception in a case of error, obtaining Table Descriptor.
      */
     private static void runStreamingTableAPIFlinkJob(
@@ -295,15 +277,11 @@ public class BigQueryTableExample {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
-            boolean isExactlyOnceEnabled,
-            String recordPropertyForTimestamps,
+            DeliveryGuarantee sinkMode,
             String rowRestriction,
             Integer limit,
             Long checkpointInterval,
-            String oldestPartition,
-            Integer partitionDiscoveryInterval,
-            Integer maxOutOfOrder,
-            Integer maxIdleness)
+            Integer partitionDiscoveryInterval)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -340,19 +318,10 @@ public class BigQueryTableExample {
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
                         .sinkParallelism(2)
+                        .deliveryGuarantee(sinkMode)
+                        .streamExecutionEnvironment(env)
                         .testMode(false)
                         .build();
-
-        if (isExactlyOnceEnabled) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .build();
-        }
 
         // Register the Sink Table
         tEnv.createTable(
@@ -371,9 +340,10 @@ public class BigQueryTableExample {
     /**
      * Bounded read > join and sink operation via Flink's Table API. The function is responsible for
      * reading a BigQuery table (having schema <i>id</i> <code>STRING</code>, <i>name_left</i>
-     * <code>
-     * STRING</code>) in bounded mode and then writes the modified records back to another BigQuery
-     * table.
+     * <code>STRING</code>) in bounded mode and then writes the modified records back to another
+     * BigQuery table.
+     *
+     * <p>This example is for reference only, and cannot be invoked from this class's main method.
      *
      * @param sourceGcpProjectName The GCP Project name of the source table.
      * @param sourceDatasetName Dataset name of the source table.
@@ -388,7 +358,7 @@ public class BigQueryTableExample {
      * @param checkpointInterval Long value, Interval between two check points (milliseconds)
      * @throws Exception in a case of error, obtaining Table Descriptor.
      */
-    private static void runBoundedJoinFlinkJob(
+    public static void runBoundedJoinFlinkJob(
             String sourceGcpProjectName,
             String sourceDatasetName,
             String leftSourceTableName,
@@ -425,7 +395,7 @@ public class BigQueryTableExample {
 
         readTableConfig =
                 BigQueryReadTableConfig.newBuilder()
-                        .table("right_table")
+                        .table(rightSourceTableName)
                         .project(sourceGcpProjectName)
                         .dataset(sourceDatasetName)
                         .testMode(false)
