@@ -95,14 +95,14 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     // actually sending them to the table.
     // For these records in the writer, append() is called but are still
     // awaiting flushRows() before being available in BQ.
-    // This count is maintained since the previous checkpoint,
-    // as total buffered records serve no practical value to the users.
+    // This count is maintained since the previous checkpoint.
     Counter numberOfRecordsBufferedByBigQuerySinceCheckpoint;
 
     // Count the number of records that have been witten to BigQuery (using flushRows()) via commit.
     long totalRecordsCommitted;
-    // Flag variable to indicate the first write after commit
-    // This is set true once snapshot is completed indicating that checkpoint is complete.
+
+    // Flag variable to indicate the first write after checkpoint.
+    // This is set true once the snapshot is completed, indicating that the checkpoint is complete.
     private boolean isFirstWriteAfterCheckpoint;
 
     public BigQueryBufferedWriter(
@@ -168,9 +168,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
 
     /** This is the method called just after checkpoint is complete, and the next writing begins. */
     private void preWriteOpsAfterCommit() {
-        // Change the flag until the next commit.
+        // Change the flag until the next checkpoint.
         isFirstWriteAfterCheckpoint = false;
-        // Update the number of records written to BigQuery since commit just completed.
+        // Update the number of records written to BigQuery since the checkpoint just completed.
         long numberOfRecordsWrittenInLastCommit = totalRecordsWritten - totalRecordsCommitted;
         totalRecordsCommitted = totalRecordsWritten;
         numberOfRecordsWrittenToBigQuery.inc(numberOfRecordsWrittenInLastCommit);
@@ -268,7 +268,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         logger.info("Snapshotting state in subtask {} for checkpoint {}", subtaskId, checkpointId);
         // Since we are moving towards checkpointing and write() for previous checkpoint is
         // completed,
-        // reset the flag isFirstWriteAfterCommit
+        // reset the flag isFirstWriteAfterCheckpoint
         isFirstWriteAfterCheckpoint = true;
         streamNameInState = streamName;
         streamOffsetInState = streamOffset;
