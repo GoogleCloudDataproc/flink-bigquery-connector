@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -59,10 +60,12 @@ import java.time.Duration;
  *       read once at the time of execution, analogous to a batch job. Unbounded source implies that
  *       the BQ table will be periodically polled for new data. Hybrid source allows defining
  *       multiple sources, and in this example, we show a combination of bounded and unbounded
- *       sources. <br>
+ *       sources. The resulting records can be written to another BQ table, with allowed delivery
+ *       guarantees at-least-once or exactly-once. <br>
  *       The sequence of operations in bounded and hybrid pipelines are: <i>source > flatMap > keyBy
- *       > sum > print</i> <br>
- *       The sequence of operations in the unbounded pipeline is: <i>source > map > sink</i> <br>
+ *       > sum > print</i>. Hybrid pipeline also includes a window operation. <br>
+ *       The sequence of operations in the unbounded pipeline is: <i>source > keyBy > map > sink</i>
+ *       <br>
  *       Flink command line format is: <br>
  *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
  *       --gcp-source-project {required; project ID containing the source table} <br>
@@ -71,8 +74,8 @@ import java.time.Duration;
  *       --gcp-sink-project {required; project ID containing the sink table} <br>
  *       --bq-sink-dataset {required; name of dataset containing the sink table} <br>
  *       --bq-sink-table {required; name of table to write to} <br>
- *       --mode {optional; source read type. Allowed values are bounded (default) or unbounded or
- *       hybrid} <br>
+ *       --mode {optional; source read type. Allowed values are <i>bounded</i> (default),
+ *       <i>unbounded</i> or <i>hybrid</i>} <br>
  *       --agg-prop {required; record property to aggregate in Flink job. Value must be string} <br>
  *       --ts-prop {required for unbounded/hybrid mode; property record for timestamp} <br>
  *       --oldest-partition-id {optional; oldest partition id to read. Used in unbounded/hybrid
@@ -87,6 +90,8 @@ import java.time.Duration;
  *       --max-idleness {optional; minutes to wait before marking a stream partition idle. Used in
  *       unbounded/hybrid mode} <br>
  *       --window-size {optional; window size in minutes. Used in unbounded/hybrid mode}
+ *       --delivery-guarantee {optional; sink consistency. Allowed values are <i>at-least-once</i>
+ *       (default) or <i>exactly-once</i>}
  *   <li>Specify SQL query to fetch data from BQ dataset. For example, "SELECT * FROM
  *       some_dataset.INFORMATION_SCHEMA.PARTITIONS". This approach can only be used as a bounded
  *       source. <br>
@@ -134,7 +139,8 @@ public class BigQueryExample {
                             + " --partition-discovery-interval <minutes between checking new data>"
                             + " --out-of-order-tolerance <minutes to accpet out of order records>"
                             + " --max-idleness <maximum idle minutes for read stream>"
-                            + " --window-size <Flink's window size in minutes>");
+                            + " --window-size <Flink's window size in minutes>"
+                            + " --delivery-guarantee <sink's write consistency>");
             return;
         }
         /**
@@ -162,6 +168,21 @@ public class BigQueryExample {
         Integer maxOutOfOrder = parameterTool.getInt("out-of-order-tolerance", 10);
         Integer maxIdleness = parameterTool.getInt("max-idleness", 20);
         Integer windowSize = parameterTool.getInt("window-size", 1);
+        String deliveryGuarantee = parameterTool.get("delivery-guarantee", "at-least-once");
+        DeliveryGuarantee sinkMode;
+        switch (deliveryGuarantee) {
+            case "at-least-once":
+                sinkMode = DeliveryGuarantee.AT_LEAST_ONCE;
+                break;
+            case "exactly-once":
+                sinkMode = DeliveryGuarantee.EXACTLY_ONCE;
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Allowed values for delivery-guarantee are at-least-once or exactly-once. Found %s",
+                                deliveryGuarantee));
+        }
 
         String recordPropertyForTimestamps;
         switch (mode) {
@@ -195,7 +216,8 @@ public class BigQueryExample {
                         oldestPartition,
                         partitionDiscoveryInterval,
                         maxOutOfOrder,
-                        maxIdleness);
+                        maxIdleness,
+                        sinkMode);
                 break;
             case "hybrid":
                 recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
@@ -283,7 +305,8 @@ public class BigQueryExample {
             String oldestPartition,
             Integer partitionDiscoveryInterval,
             Integer maxOutOfOrder,
-            Integer maxIdleness)
+            Integer maxIdleness,
+            DeliveryGuarantee sinkMode)
             throws Exception {
 
         BigQuerySource<GenericRecord> source =
@@ -304,6 +327,7 @@ public class BigQueryExample {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(checkpointInterval);
+        env.setRestartStrategy(RestartStrategies.noRestart());
 
         BigQueryConnectOptions sinkConnectOptions =
                 BigQueryConnectOptions.builder()
@@ -315,7 +339,8 @@ public class BigQueryExample {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(sinkConnectOptions)
-                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .streamExecutionEnvironment(env)
+                        .deliveryGuarantee(sinkMode)
                         .schemaProvider(schemaProvider)
                         .serializer(new AvroToProtoSerializer())
                         .build();
