@@ -187,9 +187,10 @@ The sink offers at-least-once delivery guarantee.
 #### Sink
 
 Flink [Sink](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/Sink.html)
-is the base interface for developing a sink. With checkpointing enabled, it can offer at-least-once consistency. Our
-implementation uses BigQuery Storage's [default write stream](https://cloud.google.com/bigquery/docs/write-api#default_stream)
-in Sink's [Writers](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/SinkWriter.html).
+is the base interface for developing a sink. With checkpointing enabled, it can offer at-least-once or exactly-once 
+consistency. It uses BigQuery Storage's [default write stream](https://cloud.google.com/bigquery/docs/write-api#default_stream) 
+for at-least-once, and [buffered write stream](https://cloud.google.com/bigquery/docs/write-api#buffered_type) for 
+exactly-once.
 
 ```java
 StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -204,7 +205,7 @@ BigQueryConnectOptions sinkConnectOptions =
                 .setTable(...) // REQUIRED
                 .build();
 BigQuerySchemaProvider schemaProvider = new BigQuerySchemaProviderImpl(sinkConnectOptions);
-DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE; // or DeliveryGuarantee.EXACTLY_ONCE
+DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE; // or EXACTLY_ONCE
 BigQuerySinkConfig sinkConfig =
         BigQuerySinkConfig.newBuilder()
                 .connectOptions(sinkConnectOptions) // REQUIRED
@@ -233,16 +234,19 @@ Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig, env);
 * Flink cannot automatically serialize avro's GenericRecord, hence users must explicitly specify type information
   when using the AvroToProtoSerializer. Check Flink's [blog on non-trivial serialization](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
   Note that the avro schema needed here can be obtained from BigQuerySchemaProvider.
-* The maximum parallelism of BigQuery sinks has been capped at 128. This is to respect BigQuery storage
+* The maximum parallelism of BigQuery sinks has been capped at **128**. This is to respect BigQuery storage
   [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while adhering to
   [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices). Users should either set
   [sink level parallelism](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/execution/parallel/#operator-level)
   explicitly, or ensure that default job level parallelism is under 128.
-* BigQuerySinkConfig requires the StreamExecutionEnvironment if delivery guarantee is exactly-once. This is to [validate](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/92db3690c741fb2cdb99e28c575e19affb5c8b69/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/BigQuerySinkConfig.java#L185) 
+* BigQuerySinkConfig requires the StreamExecutionEnvironment if delivery guarantee is exactly-once. 
+  **Restart strategy must be explicitly set in the StreamExecutionEnvironment**. 
+  This is to [validate](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/92db3690c741fb2cdb99e28c575e19affb5c8b69/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/BigQuerySinkConfig.java#L185) 
   the [restart strategy](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/ops/state/task_failure_recovery/). 
   Users are recommended to choose their application's restart strategy wisely, to avoid incessant retries which can potentially 
-  disrupt the BigQuery Storage API backend. Regardless of which strategy is adopted, the restarts must be finite and graciously 
-  spaced.
+  exhaust your BigQuery resource quota, and disrupt the BigQuery Storage API backend. Regardless of which strategy is 
+  adopted, the restarts must be finite and graciously spaced.
+  **Using fixed delay restart is strongly discouraged, as a potential crash loop can quickly evaporate your Biguery resource quota.**
 * BigQuery sink's exactly-once mode follows the `Two Phase Commit` protocol. All data between two checkpoints is buffered in 
   BigQuery's write streams, and committed to the destination BigQuery table upon successful checkpoint completion. This means 
   that new data will be visible in the BigQuery table only at checkpoints.
@@ -557,20 +561,27 @@ for yarn applications.
 The maximum parallelism of BigQuery sinks has been capped at 100. Please set sink level parallelism or default job level 
 parallelism as 100 or less.
 
-### Why are certain records missing despite at-least-once or exactly-once consistency guarantee?
+### Why are certain records missing despite at-least-once or exactly-once consistency guarantee in the sink?
 
 Records that cannot be serialized to BigQuery protobuf format are dropped with a warning being logged. In future, dead letter 
 queues will be supported to store such records.
 
-### Why is Flink checkpoint timing out with exactly-once consistency guarantee?
+### Why is Flink checkpoint timing out with exactly-once consistency guarantee in the sink?
+
 Exactly-once sink uses BigQuery's buffered write streams, which must be created at a rate of 3 per second. This requires 
 throttling the sink's writers before they can send data to BigQuery. A result of this throttling is a delay in the first 
 checkpoint's completion. The recommended solution here is to increase the checkpoint timeout, to accommodate this slow start.
 
-### Why is data not visible in BigQuery table with exactly-once consistency guarantee?
+### Why is data not visible in BigQuery table with exactly-once consistency guarantee in the sink?
+
 Exactly-once sink used the Two Phase Commit protocol, where data is committed to BigQuery tables only at checkpoints. A high 
 level view of the architecture is:
 - data between two checkpoints (say, n-1 and n) is buffered in BigQuery write streams, and
 - this buffered data is committed to the BigQuery table when checkpoint (here, n) is successfully completed.
 The first phase can be viewed as buffering all the data between two checkpoints, and second phase is committing that data 
 upon confirmation of first phase's success.
+
+### Why does the exactly-once sink require explicitly setting the restart strategy?
+Users are recommended to choose their application's restart strategy wisely and explicitly, to avoid incessant retries 
+which can potentially eat up your BigQuery resource quota, and disrupt the BigQuery Storage API backend. Regardless of 
+which strategy is adopted, the restarts must be finite and graciously spaced.
