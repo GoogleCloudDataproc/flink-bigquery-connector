@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
@@ -88,6 +89,8 @@ public class BigQueryExactlyOnceSinkTest {
         Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        Mockito.when(mockedContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
@@ -104,6 +107,8 @@ public class BigQueryExactlyOnceSinkTest {
         Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
+        Mockito.when(mockedContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
@@ -125,6 +130,8 @@ public class BigQueryExactlyOnceSinkTest {
         Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        Mockito.when(mockedContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
@@ -139,12 +146,13 @@ public class BigQueryExactlyOnceSinkTest {
                                 mockedContext,
                                 Collections.singletonList(
                                         new BigQueryWriterState(
-                                                "some_stream", 100L, 210L, 200L, 3L)));
+                                                "some_stream", 100L, 210L, 200L, 100L, 3L)));
         BigQueryWriterState state = (BigQueryWriterState) restoredWriter.snapshotState(4).get(0);
         assertEquals("some_stream", state.getStreamName());
         assertEquals(100, state.getStreamOffset());
         assertEquals(210, state.getTotalRecordsSeen());
         assertEquals(200, state.getTotalRecordsWritten());
+        assertEquals(100, state.getTotalRecordsCommitted());
     }
 
     @Test

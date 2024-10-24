@@ -710,6 +710,7 @@ public class BigQueryIntegrationTest {
                             .dataset(destDatasetName)
                             .testMode(false)
                             .sinkParallelism(sinkParallelism)
+                            .streamExecutionEnvironment(env)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .build();
         }
@@ -804,6 +805,7 @@ public class BigQueryIntegrationTest {
                             .project(destGcpProjectName)
                             .dataset(destDatasetName)
                             .testMode(false)
+                            .streamExecutionEnvironment(env)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .sinkParallelism(sinkParallelism)
                             .build();
