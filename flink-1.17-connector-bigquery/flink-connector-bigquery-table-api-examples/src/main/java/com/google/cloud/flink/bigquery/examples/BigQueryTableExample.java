@@ -352,7 +352,7 @@ public class BigQueryTableExample {
      * @param destGcpProjectName The GCP Project name of the destination table.
      * @param destDatasetName Dataset name of the destination table.
      * @param destTableName Destination Table Name.
-     * @param isExactlyOnce Boolean value, True if exactly-once mode, false otherwise.
+     * @param sinkMode At-least-once or exactly-once write consistency.
      * @param rowRestriction String value, filtering the rows to be read.
      * @param limit Integer value, Number of rows to limit the read result.
      * @param checkpointInterval Long value, Interval between two check points (milliseconds)
