@@ -496,7 +496,21 @@ BigQuery would result in incorrect value being written to BigQuery as Flink's Ro
     'dataset' = '<bigquery_dataset_name>',
     'table' = '<bigquery_table_name>');
   ```
-  
+### Flink Metrics
+Apache Flink allows collecting metrics internally to better understand the status of jobs and 
+clusters during the development process.
+Each operator in Flink maintains its own set of metrics,
+which are collected by the Task Manager where the operator is running.
+Currently, the Flink-BigQuery Connector supports collection and reporting of the following metrics:
+
+| Metric Name                                        | Metric Description                                                                                                                                                                                                                                   | Supported By (At-least Once/Exactly Once) |
+|----------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|
+| `numberOfRecordsSeenByWriter`                      | Counter to keep track of the total number of records seen by the writer.                                                                                                                                                                             | At-least Once, Exactly Once               |
+| `numberOfRecordsSeenByWriterSinceCheckpoint `      | Counter to keep track of the number of records seen by the writer since the past checkpoint.                                                                                                                                                         | At-least Once, Exactly Once               |
+| `numberOfRecordsWrittenToBigQuery`                 | Counter to keep track of the number of records successfully appended to BigQuery until now.                                                                                                                                                          | At-least Once, Exactly Once               |
+| `numberOfRecordsWrittenToBigQuerySinceCheckpoint`  | Counter to keep track of the number of records successfully appended since the past checkpoint.                                                                                                                                                      | At-least Once                             |
+| `numberOfRecordsBufferedByBigQuerySinceCheckpoint` | Counter to keep track of the number of records currently buffered by the Storage Write API stream before flushing them to the BigQuery Table. These records will be added to the Table following `flushRows()` invocation after the next checkpoint. | Exactly Once                              |
+
 ## Example Application
 
 The `flink-1.17-connector-bigquery-examples`  and `flink-1.17-connector-bigquery-table-api-examples` modules offer a sample Flink application powered by the connector.
