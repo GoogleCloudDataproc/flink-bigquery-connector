@@ -215,7 +215,6 @@ public class BigQueryTableExample {
                         .table(sourceTableName)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
-                        .testMode(false)
                         .boundedness(Boundedness.BOUNDED)
                         .build();
 
@@ -239,7 +238,6 @@ public class BigQueryTableExample {
                         .sinkParallelism(2)
                         .deliveryGuarantee(sinkMode)
                         .streamExecutionEnvironment(env)
-                        .testMode(false)
                         .build();
 
         // Register the Sink Table
@@ -395,7 +393,6 @@ public class BigQueryTableExample {
                         .table(rightSourceTableName)
                         .project(sourceGcpProjectName)
                         .dataset(sourceDatasetName)
-                        .testMode(false)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
                         .boundedness(Boundedness.BOUNDED)
@@ -413,7 +410,6 @@ public class BigQueryTableExample {
                         .dataset(destDatasetName)
                         .deliveryGuarantee(sinkMode)
                         .streamExecutionEnvironment(env)
-                        .testMode(false)
                         .build();
 
         // Register the Sink Table
