@@ -205,7 +205,7 @@ BigQueryConnectOptions sinkConnectOptions =
                 .setTable(...) // REQUIRED
                 .build();
 BigQuerySchemaProvider schemaProvider = new BigQuerySchemaProviderImpl(sinkConnectOptions);
-DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE; // or DeliveryGuarantee.EXACTLY_ONCE
+DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE; // or EXACTLY_ONCE
 BigQuerySinkConfig sinkConfig =
         BigQuerySinkConfig.newBuilder()
                 .connectOptions(sinkConnectOptions) // REQUIRED
