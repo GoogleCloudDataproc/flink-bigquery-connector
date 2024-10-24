@@ -41,6 +41,7 @@ public class BigQueryWriterStateSerializer
             out.writeLong(state.getStreamOffset());
             out.writeLong(state.getTotalRecordsSeen());
             out.writeLong(state.getTotalRecordsWritten());
+            out.writeLong(state.getTotalRecordsCommitted());
             out.writeLong(state.getCheckpointId());
             out.flush();
             return baos.toByteArray();
@@ -55,9 +56,15 @@ public class BigQueryWriterStateSerializer
             final long streamOffset = in.readLong();
             final long totalRecordsSeen = in.readLong();
             final long totalRecordsWritten = in.readLong();
+            final long totalRecordsCommitted = in.readLong();
             final long checkpointId = in.readLong();
             return new BigQueryWriterState(
-                    streamName, streamOffset, totalRecordsSeen, totalRecordsWritten, checkpointId);
+                    streamName,
+                    streamOffset,
+                    totalRecordsSeen,
+                    totalRecordsWritten,
+                    totalRecordsCommitted,
+                    checkpointId);
         }
     }
 }

@@ -366,7 +366,7 @@ public class BigQueryTableExample {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
-            boolean isExactlyOnce,
+            DeliveryGuarantee sinkMode,
             String rowRestriction,
             Integer limit,
             Long checkpointInterval)
@@ -414,19 +414,10 @@ public class BigQueryTableExample {
                         .table(destTableName)
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
+                        .deliveryGuarantee(sinkMode)
+                        .streamExecutionEnvironment(env)
                         .testMode(false)
                         .build();
-
-        if (isExactlyOnce) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .build();
-        }
 
         // Register the Sink Table
         tEnv.createTable(
