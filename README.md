@@ -244,7 +244,7 @@ Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig, env);
   This is to [validate](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/92db3690c741fb2cdb99e28c575e19affb5c8b69/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/BigQuerySinkConfig.java#L185) 
   the [restart strategy](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/ops/state/task_failure_recovery/). 
   Users are recommended to choose their application's restart strategy wisely, to avoid incessant retries which can potentially 
-  eat up your BigQuery resource quota, and disrupt the BigQuery Storage API backend. Regardless of which strategy is 
+  exhaust your BigQuery resource quota, and disrupt the BigQuery Storage API backend. Regardless of which strategy is 
   adopted, the restarts must be finite and graciously spaced.
   **Using fixed delay restart is strongly discouraged, as a potential crash loop can quickly evaporate your Biguery resource quota.**
 * BigQuery sink's exactly-once mode follows the `Two Phase Commit` protocol. All data between two checkpoints is buffered in 
