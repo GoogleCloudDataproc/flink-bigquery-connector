@@ -243,9 +243,14 @@ Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig, env);
   Users are recommended to choose their application's restart strategy wisely, to avoid incessant retries which can potentially 
   disrupt the BigQuery Storage API backend. Regardless of which strategy is adopted, the restarts must be finite and graciously 
   spaced.
-* BigQuery sink's exactly-once mode follows the `Two Phase Commit` protocol. This means the data will be written to the 
-  BigQuery table only at checkpoints. All data between two checkpoints is buffered in BigQuery's write streams, and committed 
-  to the destination BigQuery table upon successful checkpoint completion.
+* BigQuery sink's exactly-once mode follows the `Two Phase Commit` protocol. All data between two checkpoints is buffered in 
+  BigQuery's write streams, and committed to the destination BigQuery table upon successful checkpoint completion. This means 
+  that new data will be visible in the BigQuery table only at checkpoints.
+* For exactly-once write consistency, checkpoint timeout should be liberal. This is because sink writers are [throttled](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/05fe7b14f2dc688bc808f553c3f863ba2380e317/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/throttle/WriteStreamCreationThrottler.java#L26) 
+  before they start sending data to BigQuery. Depending on the sink's parallelism, this throttling can be as high as 40 seconds. 
+  The reason being BigQuery's storage write APIs require a "slow start", where write streams are created at a steady rate of 
+  3 per second, and existing write streams should have reasonable utilization before new write streams are created. Note that 
+  this applies to the initial checkpoint only, when sink writers start sending data to BigQuery for the first time.
 * If a data record cannot be serialized by BigQuery sink, then the record is dropped with a warning getting logged. In future,
   we plan to use dead letter queues to capture such data.
 
@@ -383,6 +388,8 @@ All the current BigQuery datatypes are being handled when transforming data from
 * It also allows language-embedded style support for queries in Java, Scala or Python besides the always available String values as queries in SQL.
 
 #### Sink
+Please check sink's [documentation](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/README.md#datastream-api) 
+under Datastream API before proceeding.
 ```java
 // Note: Users must create and register a catalog table before reading and writing to them.
 // Schema of the source and sink catalog table must be the same
@@ -496,6 +503,7 @@ BigQuery would result in incorrect value being written to BigQuery as Flink's Ro
     'dataset' = '<bigquery_dataset_name>',
     'table' = '<bigquery_table_name>');
   ```
+
 ### Flink Metrics
 Apache Flink allows collecting metrics internally to better understand the status of jobs and 
 clusters during the development process.
@@ -548,7 +556,20 @@ for yarn applications.
 The maximum parallelism of BigQuery sinks has been capped at 100. Please set sink level parallelism or default job level 
 parallelism as 100 or less.
 
-### Why are certain records missing even with at-least-once consistency guarantee?
+### Why are certain records missing despite at-least-once or exactly-once consistency guarantee?
 
-Records that cannot be serialized to BigQuery protobuf format are dropped with a warning being logged. In future, a Flink metric 
-and dead letter queues will be supported to better track such records.
+Records that cannot be serialized to BigQuery protobuf format are dropped with a warning being logged. In future, dead letter 
+queues will be supported to store such records.
+
+### Why is Flink checkpoint timing out with exactly-once consistency guarantee?
+Exactly-once sink uses BigQuery's buffered write streams, which must be created at a rate of 3 per second. This requires 
+throttling the sink's writers before they can send data to BigQuery. A result of this throttling is a delay in the first 
+checkpoint's completion. The recommended solution here is to increase the checkpoint timeout, to accommodate this slow start.
+
+### Why is data not visible in BigQuery table with exactly-once consistency guarantee?
+Exactly-once sink used the Two Phase Commit protocol, where data is committed to BigQuery tables only at checkpoints. A high 
+level view of the architecture is:
+- data between two checkpoints (say, n-1 and n) is buffered in BigQuery write streams, and
+- this buffered data is committed to the BigQuery table when checkpoint (here, n) is successfully completed.
+The first phase can be viewed as buffering all the data between two checkpoints, and second phase is committing that data 
+upon confirmation of first phase's success.
