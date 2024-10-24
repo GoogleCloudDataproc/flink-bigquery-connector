@@ -215,7 +215,6 @@ public class BigQueryTableExample {
                         .table(sourceTableName)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
-                        .testMode(false)
                         .boundedness(Boundedness.BOUNDED)
                         .build();
 
@@ -239,7 +238,6 @@ public class BigQueryTableExample {
                         .sinkParallelism(2)
                         .deliveryGuarantee(sinkMode)
                         .streamExecutionEnvironment(env)
-                        .testMode(false)
                         .build();
 
         // Register the Sink Table
@@ -350,7 +348,7 @@ public class BigQueryTableExample {
      * @param destGcpProjectName The GCP Project name of the destination table.
      * @param destDatasetName Dataset name of the destination table.
      * @param destTableName Destination Table Name.
-     * @param isExactlyOnce Boolean value, True if exactly-once mode, false otherwise.
+     * @param sinkMode At-least-once or exactly-once write consistency.
      * @param rowRestriction String value, filtering the rows to be read.
      * @param limit Integer value, Number of rows to limit the read result.
      * @param checkpointInterval Long value, Interval between two check points (milliseconds)
@@ -364,7 +362,7 @@ public class BigQueryTableExample {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
-            boolean isExactlyOnce,
+            DeliveryGuarantee sinkMode,
             String rowRestriction,
             Integer limit,
             Long checkpointInterval)
@@ -395,7 +393,6 @@ public class BigQueryTableExample {
                         .table(rightSourceTableName)
                         .project(sourceGcpProjectName)
                         .dataset(sourceDatasetName)
-                        .testMode(false)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
                         .boundedness(Boundedness.BOUNDED)
@@ -411,20 +408,9 @@ public class BigQueryTableExample {
                         .table(destTableName)
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
-                        .testMode(false)
+                        .deliveryGuarantee(sinkMode)
+                        .streamExecutionEnvironment(env)
                         .build();
-
-        if (isExactlyOnce) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .streamExecutionEnvironment(env)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .build();
-        }
 
         // Register the Sink Table
         tEnv.createTable(

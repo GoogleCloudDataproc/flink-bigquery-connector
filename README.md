@@ -503,7 +503,23 @@ BigQuery would result in incorrect value being written to BigQuery as Flink's Ro
     'dataset' = '<bigquery_dataset_name>',
     'table' = '<bigquery_table_name>');
   ```
-  
+
+### Flink Metrics
+Apache Flink allows collecting metrics internally to better understand the status of jobs and 
+clusters during the development process.
+Each operator in Flink maintains its own set of metrics,
+which are collected by the Task Manager where the operator is running.
+Currently, the Flink-BigQuery Connector 
+supports collection and reporting of the following metrics in BigQuery sink:
+
+| Metric Name                                        | Metric Description                                                                                                                                                                                                                                                                                                                                                               | Supported By (At-least Once Sink /Exactly Once Sink) |
+|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
+| `numberOfRecordsSeenByWriter`                      | Counter to keep track of the total number of records seen by the writer.                                                                                                                                                                                                                                                                                                         | At-least Once Sink, Exactly Once Sink                |
+| `numberOfRecordsSeenByWriterSinceCheckpoint `      | Counter to keep track of the number of records seen by the writer since the last checkpoint.                                                                                                                                                                                                                                                                                     | At-least Once Sink, Exactly Once Sink                |
+| `numberOfRecordsWrittenToBigQuery`                 | Counter to keep track of the number of records successfully written to BigQuery until now.                                                                                                                                                                                                                                                                                       | At-least Once Sink, Exactly Once Sink                |
+| `numberOfRecordsWrittenToBigQuerySinceCheckpoint`  | Counter to keep track of the number of records successfully written to BigQuery since the last checkpoint.                                                                                                                                                                                                                                                                       | At-least Once Sink                                   |
+| `numberOfRecordsBufferedByBigQuerySinceCheckpoint` | Counter to keep track of the number of records currently buffered by the Storage Write API stream before committing them to the BigQuery Table. These records will be added to the Table following [Two Phase Commit Protocol's](https://nightlies.apache.org/flink/flink-docs-release-1.20/api/java/org/apache/flink/api/connector/sink2/Committer.html) `commit()` invocation. | Exactly Once Sink                                    |
+
 ## Example Application
 
 The `flink-1.17-connector-bigquery-examples`  and `flink-1.17-connector-bigquery-table-api-examples` modules offer a sample Flink application powered by the connector.
