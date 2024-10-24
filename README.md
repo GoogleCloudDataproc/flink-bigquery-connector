@@ -187,9 +187,10 @@ The sink offers at-least-once delivery guarantee.
 #### Sink
 
 Flink [Sink](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/Sink.html)
-is the base interface for developing a sink. With checkpointing enabled, it can offer at-least-once consistency. Our
-implementation uses BigQuery Storage's [default write stream](https://cloud.google.com/bigquery/docs/write-api#default_stream)
-in Sink's [Writers](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/SinkWriter.html).
+is the base interface for developing a sink. With checkpointing enabled, it can offer at-least-once or exactly-once 
+consistency. It uses BigQuery Storage's [default write stream](https://cloud.google.com/bigquery/docs/write-api#default_stream) 
+for at-least-once, and [buffered write stream](https://cloud.google.com/bigquery/docs/write-api#buffered_type) for 
+exactly-once.
 
 ```java
 StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
