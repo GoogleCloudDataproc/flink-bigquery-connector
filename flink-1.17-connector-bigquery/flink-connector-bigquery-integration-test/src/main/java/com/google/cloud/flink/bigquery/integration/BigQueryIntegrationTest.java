@@ -411,7 +411,7 @@ public class BigQueryIntegrationTest {
                         .returns(
                                 new GenericRecordAvroTypeInfo(
                                         sinkConfig.getSchemaProvider().getAvroSchema()))
-                        .sinkTo(BigQuerySink.get(sinkConfig, env));
+                        .sinkTo(BigQuerySink.get(sinkConfig));
         if (sinkParallelism != null) {
             boundedStreamSink.setParallelism(sinkParallelism);
         }
@@ -505,7 +505,7 @@ public class BigQueryIntegrationTest {
                         .returns(
                                 new GenericRecordAvroTypeInfo(
                                         sinkConfig.getSchemaProvider().getAvroSchema()))
-                        .sinkTo(BigQuerySink.get(sinkConfig, env));
+                        .sinkTo(BigQuerySink.get(sinkConfig));
 
         if (sinkParallelism != null) {
             unboundedStreamSink.setParallelism(sinkParallelism);
@@ -710,6 +710,7 @@ public class BigQueryIntegrationTest {
                             .dataset(destDatasetName)
                             .testMode(false)
                             .sinkParallelism(sinkParallelism)
+                            .streamExecutionEnvironment(env)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .build();
         }
@@ -804,6 +805,7 @@ public class BigQueryIntegrationTest {
                             .project(destGcpProjectName)
                             .dataset(destDatasetName)
                             .testMode(false)
+                            .streamExecutionEnvironment(env)
                             .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
                             .sinkParallelism(sinkParallelism)
                             .build();

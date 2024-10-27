@@ -17,34 +17,27 @@
 package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.connector.base.DeliveryGuarantee;
-import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedSchema;
-import org.apache.flink.test.junit5.MiniClusterExtension;
 import org.apache.flink.util.function.SerializableFunction;
 import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
-import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
-import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
-import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -52,27 +45,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.google.cloud.flink.bigquery.fakes.StorageClientFaker.createConnectOptionsForWrite;
+import static org.junit.Assert.assertEquals;
 
 /** An integration test for the SQL interface of the BigQuery connector. */
 public class BigQueryDynamicTableSinkIntegrationTestCase {
 
-    private static final int PARALLELISM = 1;
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;
     private static final Integer STREAM_COUNT = 2;
     private static final Schema AVRO_SCHEMA = StorageClientFaker.SIMPLE_AVRO_SCHEMA;
 
-    static BigQuerySinkConfig bigQuerySinkConfig;
-
-    @RegisterExtension
-    static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
-            new MiniClusterExtension(
-                    new MiniClusterResourceConfiguration.Builder()
-                            .setNumberTaskManagers(PARALLELISM)
-                            .build());
-
-    @BeforeAll
-    public static void beforeTest() throws Exception {
+    static {
         // create a data generator based on the test schema
         SerializableFunction<StorageClientFaker.RecordGenerationParams, List<GenericRecord>>
                 dataGenerator =
@@ -103,14 +85,6 @@ public class BigQueryDynamicTableSinkIntegrationTestCase {
                         .getBigQueryConnectOptions()
                         .getTestingBigQueryServices();
 
-        bigQuerySinkConfig =
-                BigQuerySinkConfig.newBuilder()
-                        .connectOptions(createConnectOptionsForWrite(appendRowsResponse))
-                        .serializer(new RowDataToProtoSerializer())
-                        .schemaProvider(new BigQuerySchemaProviderImpl(AVRO_SCHEMA))
-                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
-                        .build();
-
         // init the testing services and inject them into the table factory
         BigQueryDynamicTableFactory.setTestingServices(testingServices);
         BigQueryTableSchemaProvider.setTestingServices(testingServices);
@@ -119,10 +93,16 @@ public class BigQueryDynamicTableSinkIntegrationTestCase {
     public static StreamExecutionEnvironment env;
     public static StreamTableEnvironment tEnv;
 
-    @BeforeEach
+    @Before
     public void before() {
         env = StreamExecutionEnvironment.getExecutionEnvironment();
         tEnv = StreamTableEnvironment.create(env);
+    }
+
+    @After
+    public void tearDown() {
+        env = null;
+        tEnv = null;
     }
 
     @Test
@@ -135,7 +115,7 @@ public class BigQueryDynamicTableSinkIntegrationTestCase {
                         Column.physical("name", DataTypes.STRING().notNull()),
                         Column.physical("number", DataTypes.BIGINT().notNull()),
                         Column.physical("ts", DataTypes.TIMESTAMP(6).notNull()));
-        Assertions.assertEquals(expectedResolvedSchema, resolvedSchema);
+        assertEquals(expectedResolvedSchema, resolvedSchema);
     }
 
     private static TableDescriptor createTestDDl(DeliveryGuarantee deliveryGuarantee)
@@ -148,6 +128,7 @@ public class BigQueryDynamicTableSinkIntegrationTestCase {
                         .testMode(true)
                         .deliveryGuarantee(deliveryGuarantee)
                         .sinkParallelism(4)
+                        .streamExecutionEnvironment(env)
                         .build();
         return BigQueryTableSchemaProvider.getTableDescriptor(tableConfig);
     }

@@ -21,6 +21,8 @@ import org.apache.flink.util.function.SerializableFunction;
 
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
+import com.google.api.gax.rpc.ApiException;
+import com.google.api.gax.rpc.StatusCode;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobStatistics;
 import com.google.api.services.bigquery.model.JobStatistics2;
@@ -370,7 +372,10 @@ public class StorageClientFaker {
             @Override
             public FlushRowsResponse flushRows(String streamName, long offset) {
                 if (flushResponse == null) {
-                    throw new RuntimeException("testing error scenario");
+                    throw new ApiException(
+                            new RuntimeException("testing error scenario"),
+                            new TestStatusCode(),
+                            false);
                 }
                 return flushResponse;
             }
@@ -400,6 +405,19 @@ public class StorageClientFaker {
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
                 Mockito.verify(mockedWriter, Mockito.times(expectedInvocations))
                         .append(Mockito.any(), Mockito.anyLong());
+            }
+        }
+
+        static class TestStatusCode implements StatusCode {
+
+            @Override
+            public Code getCode() {
+                return null;
+            }
+
+            @Override
+            public Object getTransportCode() {
+                return null;
             }
         }
     }
@@ -569,8 +587,7 @@ public class StorageClientFaker {
             Integer expectedRowCount,
             Integer expectedReadStreamCount,
             String avroSchemaString,
-            Integer readLimit)
-            throws IOException {
+            Integer readLimit) {
         return createReadOptions(
                 expectedRowCount,
                 expectedReadStreamCount,
@@ -581,8 +598,7 @@ public class StorageClientFaker {
     }
 
     public static BigQueryReadOptions createReadOptions(
-            Integer expectedRowCount, Integer expectedReadStreamCount, String avroSchemaString)
-            throws IOException {
+            Integer expectedRowCount, Integer expectedReadStreamCount, String avroSchemaString) {
         return createReadOptions(
                 expectedRowCount,
                 expectedReadStreamCount,
@@ -596,8 +612,7 @@ public class StorageClientFaker {
             Integer expectedRowCount,
             Integer expectedReadStreamCount,
             String avroSchemaString,
-            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator)
-            throws IOException {
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator) {
         return createReadOptions(
                 expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D, -1);
     }
@@ -607,8 +622,7 @@ public class StorageClientFaker {
             Integer expectedReadStreamCount,
             String avroSchemaString,
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
-            Double errorPercentage)
-            throws IOException {
+            Double errorPercentage) {
         return createReadOptions(
                 expectedRowCount,
                 expectedReadStreamCount,
@@ -624,8 +638,7 @@ public class StorageClientFaker {
             String avroSchemaString,
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
             Double errorPercentage,
-            Integer readLimit)
-            throws IOException {
+            Integer readLimit) {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
                 .setLimit(readLimit)
@@ -659,8 +672,7 @@ public class StorageClientFaker {
             Integer expectedReadStreamCount,
             String avroSchemaString,
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
-            AppendRowsResponse appendRowsResponse)
-            throws IOException {
+            AppendRowsResponse appendRowsResponse) {
         return createReadAndWriteOptions(
                 expectedRowCount,
                 expectedReadStreamCount,
@@ -678,8 +690,7 @@ public class StorageClientFaker {
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
             AppendRowsResponse appendRowsResponse,
             Double errorPercentage,
-            Integer readLimit)
-            throws IOException {
+            Integer readLimit) {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
                 .setLimit(readLimit)
@@ -714,8 +725,7 @@ public class StorageClientFaker {
             Integer expectedRowCount,
             Integer expectedReadStreamCount,
             String avroSchemaString,
-            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator)
-            throws IOException {
+            SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator) {
         return createTableReadOptions(
                 expectedRowCount, expectedReadStreamCount, avroSchemaString, dataGenerator, 0D, -1);
     }
@@ -726,8 +736,7 @@ public class StorageClientFaker {
             String avroSchemaString,
             SerializableFunction<RecordGenerationParams, List<GenericRecord>> dataGenerator,
             Double errorPercentage,
-            Integer readLimit)
-            throws IOException {
+            Integer readLimit) {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
                 .setLimit(readLimit)
@@ -757,7 +766,7 @@ public class StorageClientFaker {
     }
 
     public static BigQueryConnectOptions createConnectOptionsForWrite(
-            AppendRowsResponse appendResponse) throws IOException {
+            AppendRowsResponse appendResponse) {
         return BigQueryConnectOptions.builder()
                 .setDataset("dataset")
                 .setProjectId("project")
@@ -777,8 +786,7 @@ public class StorageClientFaker {
             ApiFuture[] appendResponseFutures,
             WriteStream writeStream,
             FlushRowsResponse flushResponse,
-            FinalizeWriteStreamResponse finalizeResponse)
-            throws IOException {
+            FinalizeWriteStreamResponse finalizeResponse) {
         return BigQueryConnectOptions.builder()
                 .setDataset("dataset")
                 .setProjectId("project")

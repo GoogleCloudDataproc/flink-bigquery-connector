@@ -24,12 +24,21 @@ public class BigQueryWriterState extends BigQueryStreamState {
     // Used for Flink metrics.
     private final long totalRecordsSeen;
     private final long totalRecordsWritten;
+    private final long totalRecordsCommitted;
+    private final long checkpointId;
 
     public BigQueryWriterState(
-            String streamName, long streamOffset, long totalRecordsSeen, long totalRecordsWritten) {
+            String streamName,
+            long streamOffset,
+            long totalRecordsSeen,
+            long totalRecordsWritten,
+            long totalRecordsCommitted,
+            long checkpointId) {
         super(streamName, streamOffset);
         this.totalRecordsSeen = totalRecordsSeen;
         this.totalRecordsWritten = totalRecordsWritten;
+        this.totalRecordsCommitted = totalRecordsCommitted;
+        this.checkpointId = checkpointId;
     }
 
     public long getTotalRecordsSeen() {
@@ -38,5 +47,13 @@ public class BigQueryWriterState extends BigQueryStreamState {
 
     public long getTotalRecordsWritten() {
         return totalRecordsWritten;
+    }
+
+    public long getTotalRecordsCommitted() {
+        return totalRecordsCommitted;
+    }
+
+    public long getCheckpointId() {
+        return checkpointId;
     }
 }

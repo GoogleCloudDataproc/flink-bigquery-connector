@@ -16,6 +16,10 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
+import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
+
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.Exceptions;
@@ -48,17 +52,22 @@ import java.util.concurrent.ExecutionException;
  * @param <IN> Type of records to be written to BigQuery.
  */
 public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
+    // Counter specific to at-least-once Implementation since records are written after
+    // checkpointing
+    // in Exactly Once mode.
+    Counter numberOfRecordsWrittenToBigQuerySinceCheckpoint;
 
     public BigQueryDefaultWriter(
-            int subtaskId,
             String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
-        super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer,
+            InitContext context) {
+        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;
         totalRecordsWritten = 0L;
+        initializeAtleastOnceFlinkMetrics(context);
     }
 
     /**
@@ -70,6 +79,8 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
     @Override
     public void write(IN element, Context context) {
         totalRecordsSeen++;
+        numberOfRecordsSeenByWriter.inc();
+        numberOfRecordsSeenByWriterSinceCheckpoint.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -80,6 +91,18 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
         } catch (BigQuerySerializationException e) {
             logger.error(String.format("Unable to serialize record %s. Dropping it!", element), e);
         }
+    }
+
+    /** Overwriting flush() method for updating Flink Metrics in at-least-once Approach. */
+    @Override
+    public void flush(boolean endOfInput) {
+        super.flush(endOfInput);
+        // Writer's flush() is called at checkpoint,
+        // resetting the counters to 0 after all operations in BaseWriter's flush() are complete.
+        numberOfRecordsSeenByWriterSinceCheckpoint.dec(
+                numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        numberOfRecordsWrittenToBigQuerySinceCheckpoint.dec(
+                numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
     }
 
     /** Asynchronously append to BigQuery table's default stream. */
@@ -106,6 +129,9 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                 logAndThrowFatalException(response.getError().getMessage());
             }
             totalRecordsWritten += recordsAppended;
+            // the request succeeded without errors (records are in BQ)
+            numberOfRecordsWrittenToBigQuery.inc(recordsAppended);
+            numberOfRecordsWrittenToBigQuerySinceCheckpoint.inc(recordsAppended);
         } catch (ExecutionException | InterruptedException e) {
             if (e.getCause() instanceof Exceptions.AppendSerializationError) {
                 Exceptions.AppendSerializationError appendSerializationError =
@@ -120,5 +146,18 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             }
             logAndThrowFatalException(e);
         }
+    }
+
+    /**
+     * Initialize Flink Metrics for at-least-once approach.
+     *
+     * @param context Sink Context to derive the Metric Group.
+     */
+    private void initializeAtleastOnceFlinkMetrics(InitContext context) {
+        SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
+        // Call BaseWriter's initializeMetrics() for common metrics.
+        initializeMetrics(sinkWriterMetricGroup);
+        numberOfRecordsWrittenToBigQuerySinceCheckpoint =
+                sinkWriterMetricGroup.counter("numberOfRecordsWrittenToBigQuerySinceCheckpoint");
     }
 }
