@@ -17,6 +17,9 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 import org.apache.flink.util.StringUtils;
 
 import com.google.api.core.ApiFuture;
@@ -88,26 +91,52 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
 
     // Number of rows appended by this writer to current stream.
     private long appendRequestRowCount;
+    // Define counter which counts the number of records buffered by BigQuery Write API before
+    // actually sending them to the table.
+    // For these records in the writer, append() is called but are still
+    // awaiting flushRows() before being available in BQ.
+    // This count is maintained since the previous checkpoint.
+    Counter numberOfRecordsBufferedByBigQuerySinceCheckpoint;
+
+    // Count the number of records that have been witten to BigQuery (using flushRows()) via commit.
+    long totalRecordsCommitted;
+
+    // Flag variable to indicate the first write after checkpoint.
+    // This is set true once the snapshot is completed, indicating that the checkpoint is complete.
+    private boolean isFirstWriteAfterCheckpoint;
 
     public BigQueryBufferedWriter(
-            int subtaskId,
+            String tablePath,
+            BigQueryConnectOptions connectOptions,
+            BigQuerySchemaProvider schemaProvider,
+            BigQueryProtoSerializer serializer,
+            InitContext context) {
+        this("", 0L, tablePath, 0L, 0L, 0L, connectOptions, schemaProvider, serializer, context);
+    }
+
+    public BigQueryBufferedWriter(
             String streamName,
             long streamOffset,
             String tablePath,
             long totalRecordsSeen,
             long totalRecordsWritten,
+            long totalRecordsCommitted,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
-        super(subtaskId, tablePath, connectOptions, schemaProvider, serializer);
+            BigQueryProtoSerializer serializer,
+            InitContext context) {
+        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;
         this.streamOffset = streamOffset;
         this.totalRecordsSeen = totalRecordsSeen;
         this.totalRecordsWritten = totalRecordsWritten;
+        this.totalRecordsCommitted = totalRecordsCommitted;
         writeStreamCreationThrottler = new WriteStreamCreationThrottler(subtaskId);
         appendRequestRowCount = 0L;
+        isFirstWriteAfterCheckpoint = true;
+        initializeExactlyOnceMetrics(context);
     }
 
     /**
@@ -118,7 +147,12 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
      */
     @Override
     public void write(IN element, Context context) {
+        if (isFirstWriteAfterCheckpoint) {
+            preWriteOpsAfterCommit();
+        }
         totalRecordsSeen++;
+        numberOfRecordsSeenByWriter.inc();
+        numberOfRecordsSeenByWriterSinceCheckpoint.inc();
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -130,6 +164,21 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         } catch (BigQuerySerializationException e) {
             logger.error(String.format("Unable to serialize record %s. Dropping it!", element), e);
         }
+    }
+
+    /** This is the method called just after checkpoint is complete, and the next writing begins. */
+    private void preWriteOpsAfterCommit() {
+        // Change the flag until the next checkpoint.
+        isFirstWriteAfterCheckpoint = false;
+        // Update the number of records written to BigQuery since the checkpoint just completed.
+        long numberOfRecordsWrittenInLastCommit = totalRecordsWritten - totalRecordsCommitted;
+        totalRecordsCommitted = totalRecordsWritten;
+        numberOfRecordsWrittenToBigQuery.inc(numberOfRecordsWrittenInLastCommit);
+        // Reset the "Since Checkpoint" values to 0.
+        numberOfRecordsBufferedByBigQuerySinceCheckpoint.dec(
+                numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        numberOfRecordsSeenByWriterSinceCheckpoint.dec(
+                numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
     }
 
     /**
@@ -186,6 +235,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                                 offset, expectedOffset));
             }
             totalRecordsWritten += recordsAppended;
+            numberOfRecordsBufferedByBigQuerySinceCheckpoint.inc(recordsAppended);
         } catch (ExecutionException | InterruptedException e) {
             if (e.getCause().getClass() == OffsetAlreadyExists.class) {
                 logger.info(
@@ -206,20 +256,32 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             logger.info("No new data appended in subtask {}. Nothing to commit.", subtaskId);
             return Collections.EMPTY_LIST;
         }
+        // The value of streamOffset in writer represents the next available offset where append
+        // should be performed. However, committer needs to know the offset up to which data can be
+        // committed. That latest committable offset is `streamOffset - 1`.
         return Collections.singletonList(
-                new BigQueryCommittable(subtaskId, streamName, streamOffset));
+                new BigQueryCommittable(subtaskId, streamName, streamOffset - 1));
     }
 
     @Override
-    public List<BigQueryWriterState> snapshotState(long checkpointId) throws IOException {
+    public List<BigQueryWriterState> snapshotState(long checkpointId) {
         logger.info("Snapshotting state in subtask {} for checkpoint {}", subtaskId, checkpointId);
+        // Since we are moving towards checkpointing and write() for previous checkpoint is
+        // completed,
+        // reset the flag isFirstWriteAfterCheckpoint
+        isFirstWriteAfterCheckpoint = true;
         streamNameInState = streamName;
         streamOffsetInState = streamOffset;
         return Collections.singletonList(
                 // Note that it's possible to store the associated checkpointId in writer's state.
                 // For now, we're not leveraging this due to absence of a use case.
                 new BigQueryWriterState(
-                        streamName, streamOffset, totalRecordsSeen, totalRecordsWritten));
+                        streamName,
+                        streamOffset,
+                        totalRecordsSeen,
+                        totalRecordsWritten,
+                        totalRecordsCommitted,
+                        checkpointId));
     }
 
     @Override
@@ -301,6 +363,21 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         appendResponseFuturesQueue.add(new AppendInfo(future, streamOffset, rowCount));
         streamOffset += appendRequestRowCount;
         appendRequestRowCount = 0L;
+    }
+
+    /**
+     * Function to initialize Flink Metrics for Exactly Once Metrics approach.
+     *
+     * @param context Sink Context to derive the Metric Group.
+     */
+    private void initializeExactlyOnceMetrics(InitContext context) {
+        SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
+        initializeMetrics(sinkWriterMetricGroup);
+        numberOfRecordsBufferedByBigQuerySinceCheckpoint =
+                sinkWriterMetricGroup.counter("numberOfRecordsBufferedByBigQuerySinceCheckpoint");
+        // Update the saved values incase of restore.
+        numberOfRecordsSeenByWriter.inc(totalRecordsSeen);
+        numberOfRecordsWrittenToBigQuery.inc(totalRecordsCommitted);
     }
 
     /**

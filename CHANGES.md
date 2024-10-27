@@ -2,6 +2,10 @@
 
 ## Next
 
+* Support exactly-once consistency in BigQuery sink. This is integrated with Datastream and Table/SQL API.
+* Add Flink metrics for monitoring BigQuery sink.
+* Package unshaded guava dependency for enforcing the correct version used by BigQuery client.
+
 ## 0.3.0 - 2024-08-07
 
 * Support BigQuery sink in Flink's Table API.

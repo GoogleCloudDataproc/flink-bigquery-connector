@@ -73,7 +73,7 @@ under the License.
     </distributionManagement>
 
     <properties>
-        <revision>0.3-SNAPSHOT</revision>
+        <revision>0.4-SNAPSHOT</revision>
         <flink.version>1.17.1</flink.version>
         <google-lib-bom.version>26.33.0</google-lib-bom.version>
 
@@ -278,7 +278,7 @@ under the License.
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
-                <version>1.11.3</version>
+                <version>1.11.4</version>
                 <scope>compile</scope>
             </dependency>
 
