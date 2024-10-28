@@ -3,13 +3,14 @@ from collections.abc import Sequence
 
 from absl import app
 from google.cloud import bigquery
+from google.cloud import storage
 from absl import logging
 
 
-def execute_query(client, table_name, query):
+def execute_query(bq_client, table_name, query):
     logging.info(f"Query: {query}")
     try:
-        job = client.query(query, location='US')
+        job = bq_client.query(query, location='US')
         rows = job.result()  # Start the job and wait for it to complete and get the result.
         for row in rows:
             return row['unique_key_count']
@@ -17,30 +18,46 @@ def execute_query(client, table_name, query):
         raise RuntimeError(f'Could not obtain the count of unique keys from table: {table_name}')
 
 
-def get_unique_key_count(client, project_name, dataset_name, table_name):
+def get_unique_key_count(bq_client, project_name, dataset_name, table_name):
     table_id = f"{project_name}.{dataset_name}.{table_name}"
     query = (
         "SELECT COUNT(DISTINCT(unique_key)) as unique_key_count FROM `" + table_id + "`;"
     )
-    return execute_query(client, table_name, query)
+    return execute_query(bq_client, table_name, query)
 
 
-def get_total_row_count(client, project_name, dataset_name, table_name):
+def get_total_row_count(bq_client, project_name, dataset_name, table_name):
     table_id = f"{project_name}.{dataset_name}.{table_name}"
     query = (
         "SELECT COUNT(*) as unique_key_count FROM `" + table_id + "`;"
     )
-    return execute_query(client, table_name, query)
+    return execute_query(bq_client, table_name, query)
 
 
-def assert_total_row_count(client, project_name, dataset_name, source_table_name,
-                           destination_table_name, is_exactly_once):
-    source_total_row_count = get_total_row_count(client, project_name, dataset_name,
-                                                 source_table_name)
-    logging.info(f"Total Row Count for Source Table {source_table_name}:"
+def get_total_row_count_unbounded(storage_client, source_gcs_uri):
+    path_to_csv = source_gcs_uri + "fullSource.csv"
+    bucket_name = path_to_csv.split("/")[2]
+    blob_path = '/'.join(path_to_csv.split('/')[3:])
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(blob_path)
+    content = blob.download_as_string().decode('utf-8')
+    row_count = len(content.splitlines())
+
+    return row_count
+
+
+def assert_total_row_count(bq_client, storage_client, project_name, dataset_name, source,
+                           destination_table_name, mode, is_exactly_once):
+    source_total_row_count = 0
+    if mode == "unbounded":
+        source_total_row_count = get_total_row_count_unbounded(storage_client, source)
+    else:
+        source_total_row_count = get_total_row_count(bq_client, project_name, dataset_name,
+                                                 source)
+    logging.info(f"Total Row Count for Source {source}:"
                  f" {source_total_row_count}")
 
-    destination_total_row_count = get_total_row_count(client, project_name, dataset_name,
+    destination_total_row_count = get_total_row_count(bq_client, project_name, dataset_name,
                                                       destination_table_name)
     logging.info(f"Total Row Count for Destination Table {destination_table_name}:"
                  f" {destination_total_row_count}")
@@ -52,14 +69,19 @@ def assert_total_row_count(client, project_name, dataset_name, source_table_name
             raise AssertionError("Destination Row count is less than Source Row Count")
 
 
-def assert_unique_key_count(client, project_name, dataset_name, source_table_name,
+def assert_unique_key_count(bq_client, storage_client, project_name, dataset_name, source,
                             destination_table_name,
+                            mode,
                             is_exactly_once):
-    source_unique_key_count = get_unique_key_count(client, project_name, dataset_name,
-                                                   source_table_name)
+    source_unique_key_count = 0
+    if mode == "unbounded":
+            source_unique_key_count = get_total_row_count_unbounded(storage_client, source)
+    else:
+            source_unique_key_count = get_unique_key_count(bq_client, project_name, dataset_name,
+                                                   source)
     logging.info(
-        f"Unique Key Count for Source Table {source_table_name}: {source_unique_key_count}")
-    destination_unique_key_count = get_unique_key_count(client, project_name, dataset_name,
+        f"Unique Key Count for Source Table {source}: {source_unique_key_count}")
+    destination_unique_key_count = get_unique_key_count(bq_client, project_name, dataset_name,
                                                         destination_table_name)
     logging.info(
         f"Unique Key Count for Destination Table {destination_table_name}:"
@@ -78,7 +100,7 @@ def main(argv: Sequence[str]) -> None:
     parser.add_argument(
         '--project_name',
         dest='project_name',
-        help='Project Id which contains the table to be read.',
+        help='Project Id which contains the table and GCS bucket to be read.',
         type=str,
         default='',
         required=True,
@@ -86,15 +108,15 @@ def main(argv: Sequence[str]) -> None:
     parser.add_argument(
         '--dataset_name',
         dest='dataset_name',
-        help='Dataset Name which contains the table to be read.',
+        help='Dataset Name which contains the BigQuery Tables.',
         type=str,
         default='',
         required=True,
     )
     parser.add_argument(
-        '--source_table_name',
-        dest='source_table_name',
-        help='Table Name of the table which is source for write test.',
+        '--source',
+        dest='source',
+        help='Table Name or GCS URI which is source for write test.',
         type=str,
         default='',
         required=True,
@@ -118,21 +140,32 @@ def main(argv: Sequence[str]) -> None:
         required=False,
     )
 
+    parser.add_argument(
+            '--mode',
+            dest='mode',
+            help='Source Type',
+            type=str,
+            default='',
+            required=True,
+    )
+
     args = parser.parse_args(argv[1:])
 
     # Providing the values.
     project_name = args.project_name
     dataset_name = args.dataset_name
-    source_table_name = args.source_table_name
+    source = args.source
     destination_table_name = args.destination_table_name
     is_exactly_once = args.is_exactly_once
+    mode = args.mode
 
-    client = bigquery.Client(project=project_name)
-    assert_total_row_count(client, project_name, dataset_name, source_table_name,
-                           destination_table_name, is_exactly_once)
+    bq_client = bigquery.Client(project=project_name)
+    storage_client = storage.Client(project=project_name)
+    assert_total_row_count(bq_client, storage_client, project_name, dataset_name, source,
+                           destination_table_name, mode, is_exactly_once)
 
-    assert_unique_key_count(client, project_name, dataset_name, source_table_name,
-                            destination_table_name, is_exactly_once)
+    assert_unique_key_count(bq_client, storage_client, project_name, dataset_name, source,
+                            destination_table_name, mode, is_exactly_once)
 
 
 if __name__ == '__main__':
