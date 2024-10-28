@@ -23,8 +23,12 @@ import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies.RestartStrategyConfiguration;
+import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
@@ -65,6 +69,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -170,6 +175,8 @@ public class BigQueryIntegrationTest {
     private static final Long CHECKPOINT_INTERVAL = 60000L;
     private static final Integer MAX_OUT_OF_ORDER = 10;
     private static final Integer MAX_IDLENESS = 20;
+    private static final RestartStrategyConfiguration RESTART_STRATEGY =
+            RestartStrategies.fixedDelayRestart(5, Time.seconds(10L));
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
@@ -356,6 +363,7 @@ public class BigQueryIntegrationTest {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        env.setRestartStrategy(RESTART_STRATEGY);
 
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.readAvros(
@@ -378,19 +386,17 @@ public class BigQueryIntegrationTest {
         BigQuerySchemaProvider destSchemaProvider =
                 new BigQuerySchemaProviderImpl(sinkConnectOptions);
 
-        BigQuerySinkConfig sinkConfig;
-
-        if (!exactlyOnce) {
-            sinkConfig =
-                    BigQuerySinkConfig.newBuilder()
-                            .connectOptions(sinkConnectOptions)
-                            .schemaProvider(destSchemaProvider)
-                            .serializer(new AvroToProtoSerializer())
-                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
-                            .build();
-        } else {
-            throw new IllegalArgumentException("EXACTLY ONCE is not supported yet ");
-        }
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(sinkConnectOptions)
+                        .schemaProvider(destSchemaProvider)
+                        .serializer(new AvroToProtoSerializer())
+                        .deliveryGuarantee(
+                                exactlyOnce
+                                        ? DeliveryGuarantee.EXACTLY_ONCE
+                                        : DeliveryGuarantee.AT_LEAST_ONCE)
+                        .streamExecutionEnvironment(env)
+                        .build();
 
         DataStreamSink boundedStreamSink =
                 env.fromSource(
@@ -433,6 +439,10 @@ public class BigQueryIntegrationTest {
             Integer timeoutTimePeriod)
             throws Exception {
 
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        env.setRestartStrategy(RESTART_STRATEGY);
+
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.streamAvros(
                         BigQueryReadOptions.builder()
@@ -455,39 +465,19 @@ public class BigQueryIntegrationTest {
         BigQuerySchemaProvider destSchemaProvider =
                 new BigQuerySchemaProviderImpl(sinkConnectOptions);
 
-        BigQuerySinkConfig sinkConfig;
-        if (!exactlyOnce) {
-            sinkConfig =
-                    BigQuerySinkConfig.newBuilder()
-                            .connectOptions(sinkConnectOptions)
-                            .schemaProvider(destSchemaProvider)
-                            .serializer(new AvroToProtoSerializer())
-                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
-                            .build();
-        } else {
-            throw new IllegalArgumentException("EXACTLY ONCE is not supported yet ");
-        }
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(sinkConnectOptions)
+                        .schemaProvider(destSchemaProvider)
+                        .serializer(new AvroToProtoSerializer())
+                        .deliveryGuarantee(
+                                exactlyOnce
+                                        ? DeliveryGuarantee.EXACTLY_ONCE
+                                        : DeliveryGuarantee.AT_LEAST_ONCE)
+                        .streamExecutionEnvironment(env)
+                        .build();
 
-        runJobWithSink(
-                source,
-                sinkConfig,
-                source.getProducedType(),
-                recordPropertyForTimestamps,
-                timeoutTimePeriod,
-                sinkParallelism);
-    }
-
-    private static void runJobWithSink(
-            Source<GenericRecord, ?, ?> source,
-            BigQuerySinkConfig sinkConfig,
-            TypeInformation<GenericRecord> typeInfo,
-            String recordPropertyForTimestamps,
-            Integer timeoutTimePeriod,
-            Integer sinkParallelism)
-            throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        TypeInformation<GenericRecord> typeInfo = source.getProducedType();
 
         DataStreamSink unboundedStreamSink =
                 env.fromSource(
@@ -502,6 +492,10 @@ public class BigQueryIntegrationTest {
                                         .withIdleness(Duration.ofMinutes(MAX_IDLENESS)),
                                 "BigQueryStreamingSource",
                                 typeInfo)
+                        .returns(
+                                new GenericRecordAvroTypeInfo(
+                                        sinkConfig.getSchemaProvider().getAvroSchema()))
+                        .map(new FailingMapper()) // Fails on checkpoint with 20% probability
                         .returns(
                                 new GenericRecordAvroTypeInfo(
                                         sinkConfig.getSchemaProvider().getAvroSchema()))
@@ -670,6 +664,7 @@ public class BigQueryIntegrationTest {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        env.setRestartStrategy(RESTART_STRATEGY);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
 
         // Declare Read Options.
@@ -699,21 +694,12 @@ public class BigQueryIntegrationTest {
                         .dataset(destDatasetName)
                         .table(destTableName)
                         .sinkParallelism(sinkParallelism)
-                        .testMode(false)
+                        .streamExecutionEnvironment(env)
+                        .deliveryGuarantee(
+                                isExactlyOnce
+                                        ? DeliveryGuarantee.EXACTLY_ONCE
+                                        : DeliveryGuarantee.AT_LEAST_ONCE)
                         .build();
-
-        if (isExactlyOnce) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .sinkParallelism(sinkParallelism)
-                            .streamExecutionEnvironment(env)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .build();
-        }
 
         // Register the Sink Table
         tEnv.createTable(
@@ -759,6 +745,7 @@ public class BigQueryIntegrationTest {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
+        env.setRestartStrategy(RESTART_STRATEGY);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
         tEnv.createTemporarySystemFunction("func", MySQLFlatMapFunction.class);
 
@@ -791,25 +778,16 @@ public class BigQueryIntegrationTest {
         // Declare Write Options.
         BigQueryTableConfig sinkTableConfig =
                 BigQuerySinkTableConfig.newBuilder()
-                        .table(destTableName)
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
-                        .testMode(false)
+                        .table(destTableName)
                         .sinkParallelism(sinkParallelism)
+                        .streamExecutionEnvironment(env)
+                        .deliveryGuarantee(
+                                isExactlyOnceEnabled
+                                        ? DeliveryGuarantee.EXACTLY_ONCE
+                                        : DeliveryGuarantee.AT_LEAST_ONCE)
                         .build();
-
-        if (isExactlyOnceEnabled) {
-            sinkTableConfig =
-                    BigQuerySinkTableConfig.newBuilder()
-                            .table(destTableName)
-                            .project(destGcpProjectName)
-                            .dataset(destDatasetName)
-                            .testMode(false)
-                            .streamExecutionEnvironment(env)
-                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-                            .sinkParallelism(sinkParallelism)
-                            .build();
-        }
 
         // Register the Sink Table
         tEnv.createTable(
@@ -940,6 +918,23 @@ public class BigQueryIntegrationTest {
                                 "%d number of records have been processed", this.expectedValue));
             }
             out.collect(this.numRecords.value());
+        }
+    }
+
+    static class FailingMapper
+            implements MapFunction<GenericRecord, GenericRecord>, CheckpointListener {
+
+        @Override
+        public GenericRecord map(GenericRecord value) {
+            return value;
+        }
+
+        @Override
+        public void notifyCheckpointComplete(long checkpointId) throws Exception {
+            int seed = new Random().nextInt(5);
+            if (seed % 5 == 2) {
+                throw new RuntimeException("Intentional failure in map");
+            }
         }
     }
 }
