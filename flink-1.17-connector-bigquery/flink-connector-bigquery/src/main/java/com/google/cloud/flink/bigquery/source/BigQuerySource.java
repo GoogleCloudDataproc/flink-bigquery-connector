@@ -313,7 +313,8 @@ public abstract class BigQuerySource<OUT>
                                                         "%s.%s.%s",
                                                         connectOptions.getProjectId(),
                                                         connectOptions.getDataset(),
-                                                        connectOptions.getTable()),
+                                                        sanitizeAvroSchemaName(
+                                                                connectOptions.getTable())),
                                                 tableSchema.getFields())
                                         .toString()))
                 .setReadOptions(readOptions)
@@ -351,12 +352,40 @@ public abstract class BigQuerySource<OUT>
                                                         "%s.%s.%s",
                                                         connectOptions.getProjectId(),
                                                         connectOptions.getDataset(),
-                                                        connectOptions.getTable()),
+                                                        sanitizeAvroSchemaName(
+                                                                connectOptions.getTable())),
                                                 tableSchema.getFields())
                                         .toString()))
                 .setReadOptions(readOptions)
                 .setSourceBoundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                 .build();
+    }
+
+    /** Replaces invalid characters with underscore. */
+    private static String sanitizeAvroSchemaName(String name) {
+        if (name == null) {
+            return name;
+        }
+        int length = name.length();
+        if (length == 0) {
+            return name;
+        }
+        String newName = "";
+        char first = name.charAt(0);
+        if (Character.isLetter(first) || first == '_') {
+            newName += first;
+        } else {
+            newName += '_';
+        }
+        for (int i = 1; i < length; i++) {
+            char c = name.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '_') {
+                newName += c;
+            } else {
+                newName += '_';
+            }
+        }
+        return newName;
     }
 
     /**
