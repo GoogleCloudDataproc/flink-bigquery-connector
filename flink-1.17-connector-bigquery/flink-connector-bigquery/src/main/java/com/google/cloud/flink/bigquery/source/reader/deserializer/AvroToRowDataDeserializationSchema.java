@@ -48,9 +48,9 @@ public class AvroToRowDataDeserializationSchema
         } catch (RuntimeException e) {
             LOG.error(
                     String.format(
-                            "Error deserializing Avro Generic Record %s to Row Data.%nError: %s.%nCause:%s ",
+                            "Error in converting Avro Generic Record %s to Row Data.%nError: %s.%nCause:%s ",
                             record.toString(), e.getMessage(), e.getCause()));
-            throw new BigQueryConnectorException("Error in deserializing to Row Data", e);
+            throw new BigQueryConnectorException("Error in converting to Row Data", e);
         }
     }
 

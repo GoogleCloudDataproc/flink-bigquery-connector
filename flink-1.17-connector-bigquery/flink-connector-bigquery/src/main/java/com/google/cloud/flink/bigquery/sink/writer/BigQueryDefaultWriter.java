@@ -136,7 +136,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             if (e.getCause() instanceof Exceptions.AppendSerializationError) {
                 Exceptions.AppendSerializationError appendSerializationError =
                         (Exceptions.AppendSerializationError) e.getCause();
-                logger.info(
+                logger.error(
                         String.format(
                                 "AppendSerializationError%nCause: %s%nMessage: %s%nRowIndexToErrorMessage: %s%nStreamName: %s",
                                 appendSerializationError.getCause(),

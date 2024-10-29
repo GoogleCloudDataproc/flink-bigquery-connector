@@ -43,16 +43,7 @@ public class AvroDeserializationSchema
 
     @Override
     public GenericRecord deserialize(GenericRecord record) throws BigQueryConnectorException {
-        try {
-            return record;
-        } catch (RuntimeException e) {
-            LOG.error(
-                    String.format(
-                            "Error deserializing Avro Generic Record %s to Avro Generic Record.%nError: %s.%nCause:%s ",
-                            record.toString(), e.getMessage(), e.getCause()));
-            throw new BigQueryConnectorException(
-                    "Error in deserializing to Avro Generic Record", e);
-        }
+        return record;
     }
 
     @Override

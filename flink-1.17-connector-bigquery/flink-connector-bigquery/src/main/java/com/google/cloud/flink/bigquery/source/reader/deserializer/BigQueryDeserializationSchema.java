@@ -65,7 +65,7 @@ public interface BigQueryDeserializationSchema<IN, OUT>
             if (deserialize != null) {
                 out.collect(deserialize);
             }
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             LOG.error(
                     String.format(
                             "Failed to forward the deserialized record %s to the next operator.%nError %s%nCause %s",
