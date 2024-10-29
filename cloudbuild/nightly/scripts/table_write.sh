@@ -46,13 +46,21 @@ then
   if [ "$IS_SQL" == True ]
   then
     echo "SQL Mode is Enabled!"
-    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-"$IS_SQL"
+    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-SQL
   fi
-  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL"
+  if [ "$IS_EXACTLY_ONCE_ENABLED" == True ]
+  then
+    echo "Exactly once is Enabled!"
+    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-EXO
+  else
+    echo "At least once is Enabled!"
+    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-ALO
+  fi
+  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL" "$IS_EXACTLY_ONCE_ENABLED"
 elif [ "$MODE" == "unbounded" ]
 then
   echo "Unbounded Mode!"
-  source cloudbuild/nightly/scripts/unbounded_table_write.sh "$PROPERTIES" "$timestamp" "$SINK_PARALLELISM" "$IS_SQL"
+  source cloudbuild/nightly/scripts/unbounded_table_write.sh "$PROPERTIES" "$timestamp" "$SINK_PARALLELISM" "$IS_SQL" "$IS_EXACTLY_ONCE_ENABLED"
 else
   echo "Invalid 'MODE' provided. Please provide 'bounded' or 'unbounded'!"
   exit 1
@@ -62,10 +70,10 @@ fi
 # Mode helps in checking for unbounded job separately.
 if [ "$IS_EXACTLY_ONCE_ENABLED" == True ]
 then
-  echo "Exactly Once!"
+  echo "Asserting Exactly Once Result"
   python3 cloudbuild/nightly/scripts/python-scripts/assert_table_count.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --source_table_name "$SOURCE_TABLE_NAME" --destination_table_name "$DESTINATION_TABLE_NAME" --is_exactly_once
 else
-  echo "At-least Once!"
+  echo "Asserting At-least Once Result"
   python3 cloudbuild/nightly/scripts/python-scripts/assert_table_count.py -- --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --source_table_name "$SOURCE_TABLE_NAME" --destination_table_name "$DESTINATION_TABLE_NAME"
 fi
 ret=$?
