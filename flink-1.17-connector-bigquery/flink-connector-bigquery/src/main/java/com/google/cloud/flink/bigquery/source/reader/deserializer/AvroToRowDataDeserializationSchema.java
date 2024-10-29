@@ -45,7 +45,7 @@ public class AvroToRowDataDeserializationSchema
     public RowData deserialize(GenericRecord record) throws BigQueryConnectorException {
         try {
             return (GenericRowData) converter.convert(record);
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             LOG.error(
                     String.format(
                             "Error in converting Avro Generic Record %s to Row Data.%nError: %s.%nCause:%s ",
