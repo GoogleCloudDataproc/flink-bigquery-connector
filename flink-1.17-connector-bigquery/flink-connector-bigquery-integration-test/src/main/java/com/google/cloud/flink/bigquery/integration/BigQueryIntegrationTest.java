@@ -742,7 +742,7 @@ public class BigQueryIntegrationTest {
     @FunctionHint(
             input =
                     @DataTypeHint(
-                            "ROW<`unique_key` STRING, `name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"),
+                            "ROW<`unique_key` STRING, `name` STRING, `number` BIGINT, `ts` STRING>"),
             output =
                     @DataTypeHint(
                             "ROW<`unique_key` STRING, `name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"))
