@@ -46,7 +46,7 @@ then
   if [ "$IS_SQL" == True ]
   then
     echo "SQL Mode is Enabled!"
-    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-"$IS_SQL"
+    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-SQL
   fi
   source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL"
 elif [ "$MODE" == "unbounded" ]
