@@ -48,7 +48,15 @@ then
     echo "SQL Mode is Enabled!"
     DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-SQL
   fi
-  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL"
+  if [ "$IS_EXACTLY_ONCE_ENABLED" == True ]
+  then
+    echo "Exactly once is Enabled!"
+    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-EXO
+  else
+    echo "At least once is Enabled!"
+    DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-ALO
+  fi
+  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL" "$IS_EXACTLY_ONCE_ENABLED"
 elif [ "$MODE" == "unbounded" ]
 then
   echo "Unbounded Mode!"
