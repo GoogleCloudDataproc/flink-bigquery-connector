@@ -182,9 +182,8 @@ public class BigQueryIntegrationTest {
 
     private static final Long CHECKPOINT_INTERVAL = 60000L;
     private static final RestartStrategyConfiguration RESTART_STRATEGY =
-            RestartStrategies.fixedDelayRestart(5, Time.seconds(10L));
-    private static final RestartStrategyConfiguration RESTART_STRATEGY_LONG_RUNNING_JOBS =
-            RestartStrategies.fixedDelayRestart(9, Time.seconds(10L));
+            RestartStrategies.exponentialDelayRestart(
+                    Time.seconds(5), Time.minutes(10), 2.0, Time.hours(2), 0);
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
@@ -436,7 +435,7 @@ public class BigQueryIntegrationTest {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY_LONG_RUNNING_JOBS);
+        env.setRestartStrategy(RESTART_STRATEGY);
 
         FileSource<String> source =
                 FileSource.forRecordStreamFormat(new TextLineInputFormat(), new Path(gcsSourceUri))
@@ -677,9 +676,8 @@ public class BigQueryIntegrationTest {
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY_LONG_RUNNING_JOBS);
+        env.setRestartStrategy(RESTART_STRATEGY);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
         tEnv.createTemporarySystemFunction("func", MySQLFlatMapFunction.class);
 
@@ -715,9 +713,9 @@ public class BigQueryIntegrationTest {
         // Declare Write Options.
         BigQueryTableConfig sinkTableConfig =
                 BigQuerySinkTableConfig.newBuilder()
-                        .table(destTableName)
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
+                        .table(destTableName)
                         .sinkParallelism(sinkParallelism)
                         .streamExecutionEnvironment(env)
                         .deliveryGuarantee(
