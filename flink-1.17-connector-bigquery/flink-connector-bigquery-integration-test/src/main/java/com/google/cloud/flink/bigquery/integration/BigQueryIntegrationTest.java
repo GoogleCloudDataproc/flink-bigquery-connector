@@ -176,7 +176,8 @@ public class BigQueryIntegrationTest {
     private static final Integer MAX_OUT_OF_ORDER = 10;
     private static final Integer MAX_IDLENESS = 20;
     private static final RestartStrategyConfiguration RESTART_STRATEGY =
-            RestartStrategies.fixedDelayRestart(5, Time.seconds(10L));
+            RestartStrategies.exponentialDelayRestart(
+                    Time.seconds(5), Time.minutes(10), 2.0, Time.hours(2), 0);
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
