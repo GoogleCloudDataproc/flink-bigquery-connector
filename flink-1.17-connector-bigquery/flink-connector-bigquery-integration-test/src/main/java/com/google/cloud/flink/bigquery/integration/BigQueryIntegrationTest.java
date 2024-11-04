@@ -183,6 +183,8 @@ public class BigQueryIntegrationTest {
     private static final Long CHECKPOINT_INTERVAL = 60000L;
     private static final RestartStrategyConfiguration RESTART_STRATEGY =
             RestartStrategies.fixedDelayRestart(5, Time.seconds(10L));
+    private static final RestartStrategyConfiguration RESTART_STRATEGY_LONG_RUNNING_JOBS =
+            RestartStrategies.fixedDelayRestart(9, Time.seconds(10L));
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
@@ -434,7 +436,7 @@ public class BigQueryIntegrationTest {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY);
+        env.setRestartStrategy(RESTART_STRATEGY_LONG_RUNNING_JOBS);
 
         FileSource<String> source =
                 FileSource.forRecordStreamFormat(new TextLineInputFormat(), new Path(gcsSourceUri))
@@ -675,8 +677,9 @@ public class BigQueryIntegrationTest {
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY);
+        env.setRestartStrategy(RESTART_STRATEGY_LONG_RUNNING_JOBS);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
         tEnv.createTemporarySystemFunction("func", MySQLFlatMapFunction.class);
 
