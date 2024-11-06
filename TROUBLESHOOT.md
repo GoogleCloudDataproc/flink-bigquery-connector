@@ -20,7 +20,7 @@ collect and report Flink Metrics for a Flink Application.
 The details of the metrics supported so far are available in the 
 [README](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/README.md#flink-metrics).
 
-An overview of records seen by the writer, number of records successfully written to 
+An overview of records seen by the writer and number of records successfully written to 
 BigQuery would enable users to track the flow of records through their application. 
 Comparison of the counts would help troubleshoot if records are being seen by the Sink (Writer) 
 at all, are being serialized and send to the Write API and if BigQuery is able to write 
@@ -32,20 +32,22 @@ to deploy the reporter most conveniently as per user’s need.
 
 ## General Debugging
 ### Records are not being written to BigQuery
-With the help of metrics available as a part of 0.4.0 release of the connector. 
-Users should be able to track the number of records that enter the sink(writer) and the 
+With the help of metrics available as a part of 0.4.0 release of the connector, 
+users should be able to track the number of records that enter the sink(writer) and the 
 number of records successfully written to BigQuery. 
 If records are not being written to BigQuery, then records are stuck in either of the two phases:
 #### The records are not arriving at the sink
 - The problem lies with the pipeline, the previous chain of subtasks that are performed before 
 sink is called.
-- The pipeline is not processing the passing the records forward for the sink to serialize and 
-write to BigQuery.
+- The pipeline is not processing and passing the records forward for the sink.
+
 #### The records are arriving at the sink but not being successfully written to BigQuery.
 - Check the logs or error message for the following errors:
      - #### `BigQuerySerializationException`
      - This message illustrates that the record(s) could not be serialized by the connector. 
      - The error message would also contain the actual cause for the same.
+     - Note: This error is not thrown but logged, 
+indicating that the connector was "Unable to serialize record" due to this error.
      - #### `BigQueryConnectorException`
      - Refer to Java Docs for the BigQuery Storage Write API proper usage and the errors that might
 arise from the same.
@@ -54,8 +56,8 @@ intervals can cause records to not be written for long periods of time.
 
 ## Known Issues/Limitations
 <b><i>Note: Users must go through the readme documentation for the connector first to 
-ensure proper usage of the connector, the connector also has certain limitations which are 
-documented in the readme.</i></b>
+ensure proper usage of the connector. 
+The connector also has certain limitations which are documented in the readme.</i></b>
 ### Flink Application with Windows
 - Windows are tricky to deal with in Flink. Flink relies on watermarks to close windows. 
 - In case no records are written to BigQuery, users can observe the flow of records through 
@@ -63,21 +65,20 @@ the application to ensure the sink (writer) is receiving records.
 - In case the sink is not receiving any records, then the windows are not being closed. 
 - The incoming records are windowed together by Flink Application that is continuously waiting 
 for closing events (as per the windowing condition) to arrive.
-- [Flink's Documentation on Debugging Windows](https://nightlies.apache.org/flink/flink-docs-release-1.19/docs/ops/debugging/debugging_event_time/)
+- [Flink's Documentation on Debugging Windows](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/ops/debugging/debugging_event_time/)
 
 ### BigQuery sink does not appear to be writing consistently
 - The Connector in At Least Once mode writes to BigQuery at two instances - when the append request 
 reaches its limit and when checkpoints are triggered. 
-So, the write to BigQuery would not be continuous; it would occur in stages where each write event 
-would coincide with the checkpoint time.
 - The write to BigQuery API would not be at a steady rate, it would contain spiking intervals 
 pertaining to each checkpoint event when data is being written to BigQuery.
+- This is applicable for exactly once mode.
 
 ### Misconfigured Table Schema goes uncaught
 - It must be ensured that the avro records passed via the connector have the correct schema or 
 compatible schema to that of the BigQuery Table.
 - It is also expected that the value passed in the Avro Generic Record follows the Schema.  
-Here the “records passed” indicates the modified records after passing through the series of 
+Here the "records passed" indicates the modified records after passing through the series of 
 subtasks defined in the application pipeline.
 - In case of a mismatch between the passed avro record value type and expected type,
 `BigQueryConnectorException` is thrown.
@@ -127,20 +128,19 @@ the described schema.
 
 ### Records are not available in the BigQuery Table when checkpointing is disabled.
 - The connector relies on checkpoints for triggering writes to the BigQuery table.
-- It is important to enable checkpointing and configure the interval suitably to ensure smooth 
-functioning of the connector.
+- It is important to enable checkpointing and configure the interval suitably.
 
 ### Problems related to unbounded reads
-- Users could be facing problems involving:
-    - Skipping of "completed" partitions. The connector is unable to re-read the partitions if it 
-has read partitions with greater timestamp after the previous read. This is because the connector 
-marks the partitions as "completed" and does not re-read them. 
-- The connector team is working on improving the unbounded read and to provide improved 
-functionality, previously supported unbounded read is going to be removed soon. 
-Improved unbounded read would be provided soon.
+- Unbounded reads currently have limitations, 
+and may not work as expected, so users should avoid using them for now.
+- It will be temporarily unavailable as we develop a significantly improved version.
+- Expect an enhanced feature in 2025!
 
 [//]: # (READ PROBLEMS)
-### Flink Bigquery Connector Fails to read record fields of type `RECORD` and MODE `NULLABLE`
+### Flink BigQuery Connector Fails to read record fields of type `RANGE`
+- The connector does not support reading from and writing to BigQuery's `RANGE` data type.
+
+### Flink BigQuery Connector Fails to read record fields of type `RECORD` and MODE `NULLABLE`
 - Reading a NULLABLE field of type `record` is not supported and throws an exception. 
 - The read works fine when the record field has the value null.
 - The above failure is due to the inbuilt `org.apache.flink.formats.avro.typeutils.AvroSerializer` 
