@@ -22,6 +22,14 @@ def sleep_for_seconds(duration):
 
 
 def main(argv: Sequence[str]) -> None:
+    """Main function to parse arguments and run the file insertion process.
+      This function simulates an unbounded data stream by periodically copying and
+      modifying a source CSV file in a GCS bucket. It introduces new unique keys
+      and uploads the modified copies with incremental names, triggering new
+      file discovery for flink source.
+      Args:
+        argv: A sequence of command-line arguments.
+     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--refresh_interval',

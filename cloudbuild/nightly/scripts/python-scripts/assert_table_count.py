@@ -16,6 +16,12 @@ from absl import logging
 
 
 def execute_query(bq_client, table_name, query):
+    """Executes a BigQuery query and returns the result.
+    Args:
+        bq_client: A BigQuery client object.
+        table_name: The name of the BigQuery table.
+        query: The SQL query to execute.
+    """
     logging.info(f"Query: {query}")
     try:
         job = bq_client.query(query, location='US')
@@ -27,6 +33,15 @@ def execute_query(bq_client, table_name, query):
 
 
 def get_unique_key_count(bq_client, project_name, dataset_name, table_name):
+    """Retrieves the count of distinct unique_key from a BigQuery table.
+    Args:
+        bq_client: A BigQuery client object.
+        project_name: The project ID.
+        dataset_name: The dataset name.
+        table_name: The table name.
+    Returns:
+        The count of distinct unique keys in the table.
+    """
     table_id = f"{project_name}.{dataset_name}.{table_name}"
     query = (
         "SELECT COUNT(DISTINCT(unique_key)) as unique_key_count FROM `" + table_id + "`;"
@@ -35,6 +50,15 @@ def get_unique_key_count(bq_client, project_name, dataset_name, table_name):
 
 
 def get_total_row_count_bigquery(bq_client, project_name, dataset_name, table_name):
+    """Retrieves the total row count from a BigQuery table.
+    Args:
+        bq_client: A BigQuery client object.
+        project_name: The project ID.
+        dataset_name: The dataset name.
+        table_name: The table name.
+    Returns:
+        The total number of rows in the table.
+    """
     table_id = f"{project_name}.{dataset_name}.{table_name}"
     query = (
         "SELECT COUNT(*) as unique_key_count FROM `" + table_id + "`;"
@@ -43,6 +67,13 @@ def get_total_row_count_bigquery(bq_client, project_name, dataset_name, table_na
 
 
 def get_total_row_count_gcs_file(storage_client, source_gcs_uri):
+    """Retrieves the total row count from a CSV file in GCS.
+    Args:
+        storage_client: A GCS client object.
+        source_gcs_uri: The GCS URI of the CSV file.
+    Returns:
+        The total number of rows in the CSV file.
+    """
     path_to_csv = source_gcs_uri + "fullSource.csv"
     bucket_name = path_to_csv.split("/")[2]
     blob_path = '/'.join(path_to_csv.split('/')[3:])
@@ -56,6 +87,18 @@ def get_total_row_count_gcs_file(storage_client, source_gcs_uri):
 
 def assert_total_row_count(bq_client, storage_client, project_name, dataset_name, source,
                            destination_table_name, mode, is_exactly_once):
+    """Asserts that the total row count in the source, either GCS bucket or BQ table
+    matches the destination BQ Table.
+    Args:
+        bq_client: A BigQuery client object.
+        storage_client: A GCS client object.
+        project_name: The project ID.
+        dataset_name: The dataset name.
+        source: The source table name or GCS URI.
+        destination_table_name: The destination table name.
+        mode: The mode of the Flink job ('bounded' or 'unbounded').
+        is_exactly_once: True if exactly-once processing is enabled.
+    """
     source_total_row_count = 0
     if mode == "unbounded":
         source_total_row_count = get_total_row_count_gcs_file(storage_client, source)
@@ -81,6 +124,18 @@ def assert_unique_key_count(bq_client, storage_client, project_name, dataset_nam
                             destination_table_name,
                             mode,
                             is_exactly_once):
+    """Asserts that the unique key count in the source, either GCS bucket or BQ table
+    matches the destination BQ Table.
+    Args:
+        bq_client: A BigQuery client object.
+        storage_client: A GCS client object.
+        project_name: The project ID.
+        dataset_name: The dataset name.
+        source: The source table name or GCS URI.
+        destination_table_name: The destination table name.
+        mode: The mode of the Flink job ('bounded' or 'unbounded').
+        is_exactly_once: True if exactly-once processing is enabled.
+    """
     source_unique_key_count = 0
     # The rows in the source for unbounded mode are unique
     if mode == "unbounded":

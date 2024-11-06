@@ -158,13 +158,13 @@ import static org.apache.flink.table.api.Expressions.concat;
  *       files to the GCS bucket folder to check the read correctness. Hence, after the job is
  *       created new files are added.<br>
  *       In unbounded mode, the SQL read and write is similar as described above for bounded mode.
- *       <code>select($(*))</code> method is responsible for reading a source table. These read
- *       records are then pass through a flat map which appends a string to the "name" field in the
- *       record. These modified records are written back to BigQuery using <code>
+ *       <code>select($(*))</code> method is responsible for reading a source csv file in GCS. These
+ *       read records are then pass through a flat map which appends a string to the "name" field in
+ *       the record. These modified records are written back to BigQuery using <code>
  *       .insertInto().execute()</code>. Overall, the execution pipeline for Table API is read >
  *       flatmap > sink. <br>
- *       New files being read and written in similar manner to BigQuery as per the described
- *       unbounded mode test in non-sql mode.<br>
+ *       New files being read from GCS Bucket and written in similar manner to BigQuery as per the
+ *       described unbounded mode test in non-sql mode.<br>
  *       Command to run unbounded tests on Dataproc Cluster is: <br>
  *       {@code gcloud dataproc jobs submit flink --id {JOB_ID} --jar= {GCS_JAR_LOCATION}
  *       --cluster={CLUSTER_NAME} --region={REGION} -- --gcp-source-project {GCP_SOURCE_PROJECT_ID}
@@ -463,6 +463,8 @@ public class BigQueryIntegrationTest {
                         .streamExecutionEnvironment(env)
                         .build();
 
+        // This is a hardcoded schema that parses the source STRING DataStream to the
+        // schema of the sink destination table
         String schemaString =
                 "{ \"type\": \"record\", \"name\": \"CSVRecord\", "
                         + "\"fields\": ["
@@ -489,6 +491,10 @@ public class BigQueryIntegrationTest {
                                                         .parse(schemaString);
                                     }
 
+                                    // This method maps a CSV string to a GenericRecord based on the
+                                    // defined hardcoded schema.
+                                    // It splits the CSV string, parses the values, increments the
+                                    // "number" field by 1, and populates the GenericRecord fields.
                                     @Override
                                     public GenericRecord map(String value) throws Exception {
                                         String[] csvColumns = value.split(",");

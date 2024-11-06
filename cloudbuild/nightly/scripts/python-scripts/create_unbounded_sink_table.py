@@ -13,6 +13,12 @@ from absl import logging
 from google.cloud.bigquery import DatasetReference
 
 def create_destination_table(project_name, dataset_name, destination_table_name):
+    """Function to create a BigQuery destination table with a hardcoded table schema.
+    Args:
+        project_name: The project ID where the table will be created.
+        dataset_name: The dataset name where the table will be created.
+        destination_table_name: The name of the destination table to be created.
+    """
     # Construct a BigQuery client object.
     client = bigquery.Client(project=project_name)
 
