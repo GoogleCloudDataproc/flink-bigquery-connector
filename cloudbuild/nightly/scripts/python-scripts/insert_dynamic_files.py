@@ -33,7 +33,7 @@ def main(argv: Sequence[str]) -> None:
     parser.add_argument(
         '--project_name',
         dest='project_name',
-        help='Project Id which contains the file to be read.',
+        help='Project Id which contains the GCS bucket files to be read.',
         type=str,
         required=True,
     )
@@ -46,34 +46,24 @@ def main(argv: Sequence[str]) -> None:
             required=True,
         )
 
-    # Flag that is set when the file is run for write IT.
-    parser.add_argument(
-        '--is_write_test',
-        dest='is_write_test',
-        help='Set the flag if the file would be run for write test.',
-        action='store_true',
-        default=False,
-        required=False,
-    )
 
     args = parser.parse_args(argv[1:])
     sleep_for_seconds(2.5*60)
 
     # Providing the values.
+    project_name = args.project_name
     gcs_source_uri = args.gcs_source_uri
-
     refresh_interval = int(args.refresh_interval)
-
     bucket_name = gcs_source_uri.split("/")[2]
 
     # Split the URI into parts
     parts = gcs_source_uri.split("/")
 
-    # Extract the relevant components
+    # Create the Storage Client
     source_blob_path = "/".join(parts[3:])
     destination_folder = "/".join(parts[3:-1]) + "/"
 
-    storage_client = storage.Client()
+    storage_client = storage.Client(project=project_name)
     bucket = storage_client.bucket(bucket_name)
     source_blob = bucket.blob(source_blob_path + "source.csv")
 

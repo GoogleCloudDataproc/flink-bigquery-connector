@@ -57,7 +57,7 @@ bq update --expiration 3600 "$DATASET_NAME"."$DESTINATION_TABLE_NAME"
 gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" --async -- --gcp-source-project "$PROJECT_NAME" --gcs-source-uri "$NEW_GCS_SOURCE_URI" --mode unbounded --file-discovery-interval "$FILE_DISCOVERY_INTERVAL" --gcp-dest-project "$PROJECT_NAME" --bq-dest-dataset "$DATASET_NAME" --bq-dest-table "$DESTINATION_TABLE_NAME" --sink-parallelism "$UNBOUNDED_JOB_SINK_PARALLELISM" --is-sql "$IS_SQL" --exactly-once "$IS_EXACTLY_ONCE_ENABLED"
 
 # Dynamically adding new files. This is timed 2.5 min wait for read and 5 min refresh time.
-python3 cloudbuild/nightly/scripts/python-scripts/insert_dynamic_files.py -- --project_name "$PROJECT_NAME" --gcs_source_uri "$NEW_GCS_SOURCE_URI" --refresh_interval "$FILE_DISCOVERY_INTERVAL" --is_write_test
+python3 cloudbuild/nightly/scripts/python-scripts/insert_dynamic_files.py -- --project_name "$PROJECT_NAME" --gcs_source_uri "$NEW_GCS_SOURCE_URI" --refresh_interval "$FILE_DISCOVERY_INTERVAL"
 
 # Now the Dataproc job will automatically succeed after stipulated time (18 minutes hardcoded).
 # we wait for it to succeed or finish.

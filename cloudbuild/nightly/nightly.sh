@@ -76,6 +76,7 @@ run_read_write_test(){
   CLUSTER_FILE=$3
   PROJECT_NAME=$4
   DATASET_NAME=$5
+  # SOURCE is Source Table Name in case of bounded mode and GCS URI in case of unbounded mode
   SOURCE=$6
   DESTINATION_TABLE_NAME=$7
   IS_EXACTLY_ONCE_ENABLED=$8

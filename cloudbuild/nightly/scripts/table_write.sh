@@ -39,8 +39,7 @@ JOB_ID="$JOB_ID"_"$timestamp"
 
 if [ "$MODE" == "bounded" ]
 then
-  echo "Bounded Mode!"
-  echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$SOURCE" Write Test] Created JOB ID: "$JOB_ID"
+  echo [LOGS: "$PROJECT_NAME"."$DATASET_NAME"."$SOURCE" Write Test in Bounded mode] Created JOB ID: "$JOB_ID"
   # Modify the destination table name.
   DESTINATION_TABLE_NAME="$SOURCE"-"$timestamp"
   if [ "$IS_SQL" == True ]
@@ -59,8 +58,7 @@ then
   source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL" "$IS_EXACTLY_ONCE_ENABLED"
 elif [ "$MODE" == "unbounded" ]
 then
-  echo "Unbounded Mode!"
-  echo [LOGS: "$PROJECT_NAME" "$SOURCE" Write Test] Created JOB ID: "$JOB_ID"
+  echo [LOGS: "$PROJECT_NAME" "$SOURCE" Write Test in Unbounded Mode] Created JOB ID: "$JOB_ID"
   source cloudbuild/nightly/scripts/unbounded_table_write.sh "$PROPERTIES" "$timestamp" "$SINK_PARALLELISM" "$IS_SQL" "$IS_EXACTLY_ONCE_ENABLED"
 else
   echo "Invalid 'MODE' provided. Please provide 'bounded' or 'unbounded'!"

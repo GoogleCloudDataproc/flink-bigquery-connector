@@ -6,13 +6,19 @@ from google.cloud import bigquery
 from absl import logging
 from google.cloud.bigquery import DatasetReference
 
+# The following operations are performed for internal, unbounded read-write tests:
+# 1. Copying source files to a temporary GCS directory which acts as a new source.
+# 2. Creating a destination table with a hardcoded schema.
+# 3. Running the Flink job in unbounded mode while dynamically adding new files to the source.
 
 def create_destination_table(project_name, dataset_name, destination_table_name):
     # Construct a BigQuery client object.
     client = bigquery.Client(project=project_name)
 
     table_id = f"{project_name}.{dataset_name}.{destination_table_name}"
-    # Define the BigQuery schema
+    # This is a hardcoded schema specifically for internal, unbounded read-write tests only.
+    # It defines the schema of the BigQuery table used in the test,
+    # with fields for a unique key, name, number, and timestamp.
     table_schema = [
         bigquery.SchemaField("unique_key", "STRING", mode="REQUIRED"),
         bigquery.SchemaField("name", "STRING", mode="REQUIRED"),
@@ -34,7 +40,7 @@ def main(argv: Sequence[str]) -> None:
     parser.add_argument(
         '--project_name',
         dest='project_name',
-        help='Project Id which contains the table to be read.',
+        help='Project Id for creation of the destination table.',
         type=str,
         default='',
         required=True,
@@ -42,7 +48,7 @@ def main(argv: Sequence[str]) -> None:
     parser.add_argument(
         '--dataset_name',
         dest='dataset_name',
-        help='Dataset Name which contains the table to be read.',
+        help='Dataset Name for creation of the destination table.',
         type=str,
         default='',
         required=True,
