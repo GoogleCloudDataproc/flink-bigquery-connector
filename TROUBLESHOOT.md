@@ -160,6 +160,3 @@ application beyond what is mentioned above.
     - Users can then parse these logs for constructing dashboards
 - [Flamegraphs](https://nightlies.apache.org/flink/flink-docs-master/docs/ops/debugging/flame_graphs/)
 
-
-
-
