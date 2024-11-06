@@ -1,3 +1,8 @@
+# The following operations are performed for internal, unbounded read-write tests:
+# 1. Copying source files to a temporary GCS directory which acts as a new source.
+# 2. Creating a destination table with a hardcoded schema.
+# 3. Running the Flink job in unbounded mode while dynamically adding new files to the source.
+
 import argparse
 from collections.abc import Sequence
 
@@ -5,11 +10,6 @@ from absl import app
 from google.cloud import bigquery
 from absl import logging
 from google.cloud.bigquery import DatasetReference
-
-# The following operations are performed for internal, unbounded read-write tests:
-# 1. Copying source files to a temporary GCS directory which acts as a new source.
-# 2. Creating a destination table with a hardcoded schema.
-# 3. Running the Flink job in unbounded mode while dynamically adding new files to the source.
 
 def create_destination_table(project_name, dataset_name, destination_table_name):
     # Construct a BigQuery client object.
