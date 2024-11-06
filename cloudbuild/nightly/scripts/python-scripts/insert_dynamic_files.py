@@ -97,7 +97,7 @@ def main(argv: Sequence[str]) -> None:
 
         blob.upload_from_string(output, content_type='text/csv')
 
-        print(f"Copied and modified file uploaded to gs://{bucket_name}/{destination_blob_name}")
+        logging.info(f"Copied and modified file uploaded to gs://{bucket_name}/{destination_blob_name}")
         copy_count += 1
 
         sleep_for_seconds(refresh_interval*60)

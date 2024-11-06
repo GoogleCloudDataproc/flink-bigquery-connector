@@ -34,7 +34,7 @@ def get_unique_key_count(bq_client, project_name, dataset_name, table_name):
     return execute_query(bq_client, table_name, query)
 
 
-def get_total_row_count(bq_client, project_name, dataset_name, table_name):
+def get_total_row_count_bigquery(bq_client, project_name, dataset_name, table_name):
     table_id = f"{project_name}.{dataset_name}.{table_name}"
     query = (
         "SELECT COUNT(*) as unique_key_count FROM `" + table_id + "`;"
@@ -42,7 +42,7 @@ def get_total_row_count(bq_client, project_name, dataset_name, table_name):
     return execute_query(bq_client, table_name, query)
 
 
-def get_total_row_count_unbounded(storage_client, source_gcs_uri):
+def get_total_row_count_gcs_file(storage_client, source_gcs_uri):
     path_to_csv = source_gcs_uri + "fullSource.csv"
     bucket_name = path_to_csv.split("/")[2]
     blob_path = '/'.join(path_to_csv.split('/')[3:])
@@ -58,14 +58,14 @@ def assert_total_row_count(bq_client, storage_client, project_name, dataset_name
                            destination_table_name, mode, is_exactly_once):
     source_total_row_count = 0
     if mode == "unbounded":
-        source_total_row_count = get_total_row_count_unbounded(storage_client, source)
+        source_total_row_count = get_total_row_count_gcs_file(storage_client, source)
     else:
-        source_total_row_count = get_total_row_count(bq_client, project_name, dataset_name,
+        source_total_row_count = get_total_row_count_bigquery(bq_client, project_name, dataset_name,
                                                  source)
     logging.info(f"Total Row Count for Source {source}:"
                  f" {source_total_row_count}")
 
-    destination_total_row_count = get_total_row_count(bq_client, project_name, dataset_name,
+    destination_total_row_count = get_total_row_count_bigquery(bq_client, project_name, dataset_name,
                                                       destination_table_name)
     logging.info(f"Total Row Count for Destination Table {destination_table_name}:"
                  f" {destination_total_row_count}")
@@ -84,7 +84,7 @@ def assert_unique_key_count(bq_client, storage_client, project_name, dataset_nam
     source_unique_key_count = 0
     # The rows in the source for unbounded mode are unique
     if mode == "unbounded":
-            source_unique_key_count = get_total_row_count_unbounded(storage_client, source)
+            source_unique_key_count = get_total_row_count_gcs_file(storage_client, source)
     else:
             source_unique_key_count = get_unique_key_count(bq_client, project_name, dataset_name,
                                                    source)
