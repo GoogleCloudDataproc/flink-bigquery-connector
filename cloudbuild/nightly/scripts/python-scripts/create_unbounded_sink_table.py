@@ -1,7 +1,8 @@
-# The following operations are performed for internal, unbounded read-write tests:
-# 1. Copying source files to a temporary GCS directory which acts as a new source.
-# 2. Creating a destination table with a hardcoded schema.
-# 3. Running the Flink job in unbounded mode while dynamically adding new files to the source.
+"""The following operations are performed for internal, unbounded read-write tests:
+1. Copying source files to a temporary GCS directory which acts as a new source.
+2. Creating a destination table with a hardcoded schema.
+3. Running the Flink job in unbounded mode while dynamically adding new files to the source.
+"""
 
 import argparse
 from collections.abc import Sequence

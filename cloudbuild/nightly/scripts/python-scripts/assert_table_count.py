@@ -1,3 +1,11 @@
+"""Python script that validates the data written to a BigQuery table by
+the Flink job.
+It compares the total row count and unique key count in the source
+(either a BigQuery table or a GCS URI) with the destination BigQuery table.
+The source is a BigQuery Table for bounded read-write tests and GCS file for
+unbounded read-write tests.
+"""
+
 import argparse
 from collections.abc import Sequence
 
@@ -74,13 +82,14 @@ def assert_unique_key_count(bq_client, storage_client, project_name, dataset_nam
                             mode,
                             is_exactly_once):
     source_unique_key_count = 0
+    # The rows in the source for unbounded mode are unique
     if mode == "unbounded":
             source_unique_key_count = get_total_row_count_unbounded(storage_client, source)
     else:
             source_unique_key_count = get_unique_key_count(bq_client, project_name, dataset_name,
                                                    source)
     logging.info(
-        f"Unique Key Count for Source Table {source}: {source_unique_key_count}")
+        f"Unique Key Count for Source {source}: {source_unique_key_count}")
     destination_unique_key_count = get_unique_key_count(bq_client, project_name, dataset_name,
                                                         destination_table_name)
     logging.info(
