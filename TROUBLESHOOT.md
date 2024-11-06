@@ -42,17 +42,88 @@ sink is called.
 - The pipeline is not processing and passing the records forward for the sink.
 
 #### The records are arriving at the sink but not being successfully written to BigQuery.
-- Check the logs or error message for the following errors:
-     - #### `BigQuerySerializationException`
-     - This message illustrates that the record(s) could not be serialized by the connector. 
-     - The error message would also contain the actual cause for the same.
-     - Note: This error is not thrown but logged, 
+Check the logs or error message for the following errors:
+#### `BigQuerySerializationException`
+- This message illustrates that the record(s) could not be serialized by the connector. 
+- The error message would also contain the actual cause for the same.
+- Note: This error is not thrown but logged, 
 indicating that the connector was "Unable to serialize record" due to this error.
-     - #### `BigQueryConnectorException`
-     - Refer to Java Docs for the BigQuery Storage Write API proper usage and the errors that might
-arise from the same.
-- Ensure checkpointing is enabled and properly configured. Setting too large checkpointing 
-intervals can cause records to not be written for long periods of time.
+#### `BigQueryConnectorException`
+<b><i>
+- Users are requested to:
+    - Refer to [Write API Documentation](https://cloud.google.com/bigquery/docs/write-api) for proper usage of the BigQuery Storage Write API
+      and the errors that might arise from violation of the same.
+    - Ensure checkpointing is enabled and properly configured. Setting too large checkpointing
+      intervals can cause records to not be written for long periods of time. 
+</b> </i>
+
+
+There are multiple instances under which the connector throws a `BigQueryConnectorException`.
+The exception contains an error message that indicates the problem causing the exception.
+<br>
+Few reasons are documented below along with steps to mitigate the issue.
+##### Source
+- `Failed to forward the deserialized record to the next operator.` - Flink pipelines may 
+be subjected to incompatible record schemas and values. 
+This error is thrown when flink is unable to read a record field value corresponding to 
+its schema. 
+This is detailed in [section below](#misconfigured-table-schema-goes-uncaught)
+
+- `Problems creating the BigQuery Storage Read session` - The SplitDiscoverer throws this 
+exception when unable to form the Storage Read Client while attempting to create 
+the Storage Read Session.
+Ensure proper auth permissions, 
+correct credentials, and internet connectivity to prevent this error. 
+
+- `Error in converting Avro Generic Record to Row Data` -When reading records from BigQuery 
+via Table API, records read via Storage Read API in Avro format need to be converted to 
+RowData format. This error is thrown when the application cannot convert 
+(deserialize) Avro Generic Record format to RowData records. Users should provide records with 
+supported RowData and Generic Record formats. Record values should match the record schema.
+
+- `The provided Flink expression is not supported` - Thrown by application when unable to 
+resolve the provided SQL expressions (e.g. ">", "<", etc) while using the SQL mode to 
+read records. Users are requested to provide SQL queries containing only the 
+[supported expressions](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/ae7950613190b2d878bac736331ebb0032fd4d1f/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/table/restrictions/BigQueryRestriction.java#L54).
+
+- `Can't read query results without setting a SQL query.` or 
+`Can't read query results without setting a GCP project.` - Thrown by 
+[BigQuerySource](flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/source/BigQuerySource.java) 
+when reading records from a query (via Datastream API) in case the SQL Query or GCP Project is not provided.
+Please provide the SQL Query (this is the query to be executed) and GCP Project 
+(project which runs the query) to read records from a query.
+
+ ##### Sink
+- `Error while writing to BigQuery` - Thrown by the Sink Writer in case it is unable to 
+write records to BigQuery. 
+This error is thrown when the API responsible for 
+writing records (Default Stream in at-least-once mode and Buffered Stream in 
+exactly once mode `append()` request) fails and for 
+exactly-once when response has an error or offset mismatch.
+Users are requested to consult the 
+[Java Documentation](https://cloud.google.com/java/docs/reference/google-cloud-bigquerystorage/3.5.0/com.google.cloud.bigquery.storage.v1.Exceptions) 
+for various exceptions thrown by the Storage Write APIs.
+
+- `Unable to connect to BigQuery` - Thrown by the Sink Writer
+  in case it is unable to form the Write Client while attempting to write records to BigQuery.
+Failing of StreamWriter creation causes this error. 
+Ensure proper auth permissions, correct credentials,
+internet connectivity along with suitable table schema to prevent this error.
+
+- `Commit operation failed` - Thrown by the Commiter(part of Flink's two-phase commit protocol) 
+in case it is unable to form the Write Client 
+while attempting to add rows to BQ via Storage Write API.
+Ensure proper auth permissions, correct credentials, 
+and internet connectivity to prevent this error.
+
+- `Could not obtain Descriptor from Descriptor Proto` - 
+Thrown by the [BigQuerySchemaProvider](flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQuerySchemaProviderImpl.java) 
+when unable to convert the Descriptor Proto to Descriptor. 
+This error might arise when building descriptors fails because the source DescriptorProto is not a
+valid Descriptor. 
+Since the connector handles formation of DescriptorProto (for writing Avro Records to Proto), 
+users should not face this error.
+Users might face this error in case custom serializer is used.
 
 ## Known Issues/Limitations
 <b><i>Note: Users must go through the readme documentation for the connector first to 
