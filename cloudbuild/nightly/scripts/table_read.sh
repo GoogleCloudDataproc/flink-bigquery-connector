@@ -46,10 +46,7 @@ then
 elif [ "$MODE" == "unbounded" ]
 then
   echo "Unbounded Mode!"
-  source cloudbuild/nightly/scripts/unbounded_table_read.sh "$PROPERTIES"
-  # Add more sleep time. as IO might take time.
-  # Logs take some time to be saved and be available.
-  sleep 60
+  echo "Invalid 'MODE' provided. Unbounded table read is not supported!"
 else
   echo "Invalid 'MODE' provided. Please provide 'bounded' or 'unbounded'!"
   exit 1
