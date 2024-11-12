@@ -20,11 +20,10 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 
-import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 /**
  * A simple Identity de-serialization for pipelines that just want {@link GenericRecord} as response
@@ -35,14 +34,13 @@ public class AvroDeserializationSchema
         implements BigQueryDeserializationSchema<GenericRecord, GenericRecord> {
 
     private final String avroSchemaString;
-    private static final Logger LOG = LoggerFactory.getLogger(AvroDeserializationSchema.class);
 
     public AvroDeserializationSchema(String avroSchemaString) {
         this.avroSchemaString = avroSchemaString;
     }
 
     @Override
-    public GenericRecord deserialize(GenericRecord record) throws BigQueryConnectorException {
+    public GenericRecord deserialize(GenericRecord record) throws IOException {
         return record;
     }
 

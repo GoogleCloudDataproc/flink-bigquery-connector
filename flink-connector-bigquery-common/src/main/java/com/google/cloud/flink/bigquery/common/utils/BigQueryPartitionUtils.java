@@ -264,7 +264,7 @@ public class BigQueryPartitionUtils {
                     // extract a datetime from the value and restrict
                     // between previous and next hour
                     DateTimeFormatter hourFormatter =
-                            DateTimeFormatter.ofPattern(SQL_HOUR_FORMAT_STRING).withZone(UTC_ZONE);
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -277,7 +277,7 @@ public class BigQueryPartitionUtils {
                     // extract a date from the value and restrict
                     // between previous and next day
                     DateTimeFormatter dayFormatter =
-                            DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING).withZone(UTC_ZONE);
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -290,7 +290,7 @@ public class BigQueryPartitionUtils {
                     // extract a date from the value and restrict
                     // between previous and next month
                     DateTimeFormatter monthFormatter =
-                            DateTimeFormatter.ofPattern(SQL_MONTH_FORMAT_STRING).withZone(UTC_ZONE);
+                            DateTimeFormatter.ofPattern("yyyy-MM-01 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
@@ -303,7 +303,7 @@ public class BigQueryPartitionUtils {
                     // extract a date from the value and restrict
                     // between previous and next year
                     DateTimeFormatter yearFormatter =
-                            DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING).withZone(UTC_ZONE);
+                            DateTimeFormatter.ofPattern("yyyy-01-01 00:00:00").withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,

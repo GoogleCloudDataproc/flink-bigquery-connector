@@ -78,7 +78,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
     public Descriptor getDescriptor() {
         try {
             return getDescriptorFromDescriptorProto(descriptorProto);
-        } catch (DescriptorValidationException | IllegalArgumentException e) {
+        } catch (DescriptorValidationException e) {
             throw new BigQueryConnectorException(
                     String.format(
                             "Could not obtain Descriptor from Descriptor Proto.%nError: %s",

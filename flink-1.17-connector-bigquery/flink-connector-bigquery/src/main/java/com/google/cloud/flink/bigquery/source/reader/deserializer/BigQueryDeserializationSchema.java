@@ -20,10 +20,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.util.Collector;
 
-import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.io.IOException;
 import java.io.Serializable;
 
 /**
@@ -37,16 +34,14 @@ import java.io.Serializable;
 public interface BigQueryDeserializationSchema<IN, OUT>
         extends Serializable, ResultTypeQueryable<OUT> {
 
-    Logger LOG = LoggerFactory.getLogger(BigQueryDeserializationSchema.class);
-
     /**
      * De-serializes the IN type record.
      *
      * @param record The BSON document to de-serialize.
      * @return The de-serialized message as an object (null if the message cannot be de-serialized).
-     * @throws BigQueryConnectorException In case of problems while de-serializing.
+     * @throws java.io.IOException In case of problems while de-serializing.
      */
-    OUT deserialize(IN record) throws BigQueryConnectorException;
+    OUT deserialize(IN record) throws IOException;
 
     /**
      * De-serializes the IN type record.
@@ -59,19 +54,10 @@ public interface BigQueryDeserializationSchema<IN, OUT>
      * @param record The IN document to de-serialize.
      * @param out The collector to put the resulting messages.
      */
-    default void deserialize(IN record, Collector<OUT> out) throws BigQueryConnectorException {
+    default void deserialize(IN record, Collector<OUT> out) throws IOException {
         OUT deserialize = deserialize(record);
-        try {
-            if (deserialize != null) {
-                out.collect(deserialize);
-            }
-        } catch (Exception e) {
-            LOG.error(
-                    String.format(
-                            "Failed to forward the deserialized record %s to the next operator.%nError %s%nCause %s",
-                            deserialize, e.getMessage(), e.getCause()));
-            throw new BigQueryConnectorException(
-                    "Failed to forward the deserialized record to the next operator.", e);
+        if (deserialize != null) {
+            out.collect(deserialize);
         }
     }
 }
