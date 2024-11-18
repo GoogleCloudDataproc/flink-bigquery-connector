@@ -43,6 +43,7 @@ import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.util.Utf8;
+import org.joda.time.Days;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
