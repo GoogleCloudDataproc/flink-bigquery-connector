@@ -514,6 +514,11 @@ public class BigQueryServicesImpl implements BigQueryServices {
             }
         }
 
+        @Override
+        public Boolean tableExists(String dataset, String table) {
+            return BigQueryTableInfo.tableExists(bigQuery, dataset, table);
+        }
+
         static List<String> processErrorMessages(List<ErrorProto> errors) {
             return errors.stream()
                     .map(

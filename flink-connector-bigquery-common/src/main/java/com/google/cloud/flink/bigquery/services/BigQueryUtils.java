@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.services;
 
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
 
@@ -186,5 +188,11 @@ public class BigQueryUtils {
                                 .get(projectId, datasetId, tableId)
                                 .setPrettyPrint(false)
                                 .execute());
+    }
+
+    public static boolean tableExists(BigQueryConnectOptions connectOptions) {
+        BigQueryServices.QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient();
+        return queryDataClient.tableExists(connectOptions.getDataset(), connectOptions.getTable());
     }
 }

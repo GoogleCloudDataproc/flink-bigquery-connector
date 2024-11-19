@@ -186,6 +186,11 @@ public class StorageClientFaker {
                                                 BigQueryPartitionUtils.PartitionStatus.COMPLETED))
                         .collect(Collectors.toList());
             }
+
+            @Override
+            public Boolean tableExists(String dataset, String table) {
+                return Boolean.TRUE;
+            }
         }
 
         static class FaultyIterator<T> implements Iterator<T> {
@@ -905,6 +910,11 @@ public class StorageClientFaker {
             @Override
             public TableSchema getTableSchema(String project, String dataset, String table) {
                 return SIMPLE_BQ_TABLE_SCHEMA_TABLE;
+            }
+
+            @Override
+            public Boolean tableExists(String dataset, String table) {
+                return Boolean.TRUE;
             }
         }
     }
