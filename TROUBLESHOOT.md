@@ -148,8 +148,6 @@ pertaining to each checkpoint event when data is being written to BigQuery.
 - It must be ensured that the avro records passed via the connector have the correct schema or 
 compatible schema to that of the BigQuery Table.
 - It is also expected that the value passed in the Avro Generic Record follows the Schema.  
-Here the "records passed" indicates the modified records after passing through the series of 
-subtasks defined in the application pipeline.
 - In case of a mismatch between the passed avro record value type and expected type,
 `BigQueryConnectorException` is thrown.
 - Flink does not impose a check on the value of a Generic Record, which means that the Avro 
