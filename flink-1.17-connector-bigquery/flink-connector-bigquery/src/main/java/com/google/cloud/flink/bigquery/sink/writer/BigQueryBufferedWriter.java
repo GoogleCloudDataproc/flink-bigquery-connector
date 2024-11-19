@@ -174,6 +174,11 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         long numberOfRecordsWrittenInLastCommit = totalRecordsWritten - totalRecordsCommitted;
         totalRecordsCommitted = totalRecordsWritten;
         numberOfRecordsWrittenToBigQuery.inc(numberOfRecordsWrittenInLastCommit);
+        // Reset the "Since Checkpoint" values to 0.
+        numberOfRecordsBufferedByBigQuerySinceCheckpoint.dec(
+                numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        numberOfRecordsSeenByWriterSinceCheckpoint.dec(
+                numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
     }
 
     /**
@@ -267,11 +272,6 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         isFirstWriteAfterCheckpoint = true;
         streamNameInState = streamName;
         streamOffsetInState = streamOffset;
-        // Reset the "Since Checkpoint" values to 0.
-        numberOfRecordsBufferedByBigQuerySinceCheckpoint.dec(
-                numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
-        numberOfRecordsSeenByWriterSinceCheckpoint.dec(
-                numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         return Collections.singletonList(
                 // Note that it's possible to store the associated checkpointId in writer's state.
                 // For now, we're not leveraging this due to absence of a use case.

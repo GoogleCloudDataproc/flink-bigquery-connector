@@ -725,9 +725,9 @@ public class BigQueryBufferedWriterTest {
         assertEquals(3, bufferedWriter.getStreamOffsetInState());
         // Test Flink Metrics
         assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -767,10 +767,10 @@ public class BigQueryBufferedWriterTest {
         BigQueryWriterState writerState = (BigQueryWriterState) writerStates.toArray()[0];
         // Test Flink Metrics
         assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         // Updated at first write after checkpoint.
         assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
         bufferedWriter.write(new Object(), null);
         // Test Flink Metrics
         assertEquals(4, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
@@ -833,9 +833,9 @@ public class BigQueryBufferedWriterTest {
         assertEquals(103, bufferedWriter.getStreamOffsetInState());
         // Test Flink Metrics
         assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
@@ -880,9 +880,9 @@ public class BigQueryBufferedWriterTest {
         Collection<BigQueryWriterState> writerStates = bufferedWriter.snapshotState(1);
         // Test Flink Metrics
         assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
         bufferedWriter.write(new Object(), null);
         bufferedWriter.write(new Object(), null);
         assertEquals(215, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
@@ -939,9 +939,9 @@ public class BigQueryBufferedWriterTest {
         assertEquals(3, bufferedWriter.getStreamOffsetInState());
         // Test Flink Metrics
         assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
-        assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+        assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
     }
 
     @Test
