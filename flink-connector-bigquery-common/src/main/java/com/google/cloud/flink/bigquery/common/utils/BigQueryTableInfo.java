@@ -34,6 +34,7 @@ public class BigQueryTableInfo {
                                                 "The provided table %s.%s.%s does not exists.",
                                                 project, dataset, table)));
     }
+
     /**
      * Function to identify if a BigQuery table exists.
      *

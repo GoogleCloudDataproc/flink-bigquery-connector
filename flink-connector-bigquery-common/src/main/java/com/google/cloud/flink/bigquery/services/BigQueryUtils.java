@@ -16,8 +16,6 @@
 
 package com.google.cloud.flink.bigquery.services;
 
-import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
 
@@ -33,6 +31,7 @@ import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.Table;
 import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
