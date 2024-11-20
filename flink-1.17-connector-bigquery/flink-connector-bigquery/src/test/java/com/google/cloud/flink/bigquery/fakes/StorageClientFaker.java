@@ -158,6 +158,16 @@ public class StorageClientFaker {
             }
 
             @Override
+            public Boolean datasetExists(String project, String dataset) {
+                return Boolean.TRUE;
+            }
+
+            @Override
+            public void createDataset(String project, String dataset, String region) {
+                // no-op
+            }
+
+            @Override
             public Optional<QueryResultInfo> runQuery(String projectId, String query) {
                 return Optional.of(
                         QueryResultInfo.succeed("some-project", "some-dataset", "some-table"));

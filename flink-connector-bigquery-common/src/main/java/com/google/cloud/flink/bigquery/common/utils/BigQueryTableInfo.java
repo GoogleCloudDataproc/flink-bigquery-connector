@@ -13,7 +13,7 @@ public class BigQueryTableInfo {
     private BigQueryTableInfo() {}
 
     /**
-     * Function to Obtain a Bigquery Table Schema.
+     * Function to obtain a BigQuery Table Schema.
      *
      * @param client {@link BigQuery} Object containing the BigQuery Client.
      * @param project Project ID containing the Table.
