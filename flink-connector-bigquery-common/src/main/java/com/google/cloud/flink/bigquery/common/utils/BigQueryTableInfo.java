@@ -4,6 +4,7 @@ import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 
 import java.util.Optional;
 
@@ -39,19 +40,22 @@ public class BigQueryTableInfo {
      * Function to identify if a BigQuery table exists.
      *
      * @param client {@link BigQuery} Object containing the BigQuery Client.
-     * @param dataset Dataset ID containing the Table.
+     * @param projectName Project name of the BigQuery dataset.
+     * @param datasetName Dataset ID containing the Table.
      * @param tableName Table Name.
      * @return Boolean {@code TRUE} if the table exists or {@code FALSE} if it does not.
      */
-    public static Boolean tableExists(BigQuery client, String dataset, String tableName) {
+    public static Boolean tableExists(
+            BigQuery client, String projectName, String datasetName, String tableName) {
         try {
-            Table table = client.getTable(TableId.of(dataset, tableName));
+            Table table = client.getTable(TableId.of(datasetName, tableName));
             return (table != null && table.exists());
         } catch (Exception e) {
-            throw new IllegalArgumentException(
+            throw new BigQueryConnectorException(
                     String.format(
-                            "The provided Bigquery table %s.%s not found with exception: %s",
-                            dataset, tableName, e.toString()));
+                            "Could not determine existence of BigQuery table %s.%s.%s",
+                            projectName, datasetName, tableName),
+                    e);
         }
     }
 }

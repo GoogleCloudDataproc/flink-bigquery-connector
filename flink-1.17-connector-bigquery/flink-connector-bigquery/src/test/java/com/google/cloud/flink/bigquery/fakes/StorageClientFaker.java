@@ -188,7 +188,7 @@ public class StorageClientFaker {
             }
 
             @Override
-            public Boolean tableExists(String dataset, String table) {
+            public Boolean tableExists(String projectName, String datasetName, String tableName) {
                 return Boolean.TRUE;
             }
         }
@@ -910,11 +910,6 @@ public class StorageClientFaker {
             @Override
             public TableSchema getTableSchema(String project, String dataset, String table) {
                 return SIMPLE_BQ_TABLE_SCHEMA_TABLE;
-            }
-
-            @Override
-            public Boolean tableExists(String dataset, String table) {
-                return Boolean.TRUE;
             }
         }
     }

@@ -31,7 +31,6 @@ import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.Table;
 import com.google.auth.http.HttpCredentialsAdapter;
-import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
@@ -187,11 +186,5 @@ public class BigQueryUtils {
                                 .get(projectId, datasetId, tableId)
                                 .setPrettyPrint(false)
                                 .execute());
-    }
-
-    public static boolean tableExists(BigQueryConnectOptions connectOptions) {
-        BigQueryServices.QueryDataClient queryDataClient =
-                BigQueryServicesFactory.instance(connectOptions).queryClient();
-        return queryDataClient.tableExists(connectOptions.getDataset(), connectOptions.getTable());
     }
 }

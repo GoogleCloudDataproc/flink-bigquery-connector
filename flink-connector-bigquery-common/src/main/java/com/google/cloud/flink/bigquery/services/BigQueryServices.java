@@ -236,10 +236,11 @@ public interface BigQueryServices extends Serializable {
         /**
          * Function to identify if a BigQuery table exists.
          *
-         * @param dataset The BigQuery dataset.
-         * @param table The BigQuery table name.
+         * @param projectName The project ID of the BigQuery dataset
+         * @param datasetName The BigQuery dataset.
+         * @param tableName The BigQuery table name.
          * @return Boolean {@code TRUE} if the table exists or {@code FALSE} if it does not.
          */
-        Boolean tableExists(String dataset, String table);
+        Boolean tableExists(String projectName, String datasetName, String tableName);
     }
 }
