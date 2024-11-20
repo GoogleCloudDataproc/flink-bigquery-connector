@@ -149,6 +149,7 @@ public class AvroToBigQuerySchemaTransform {
      * <ul>
      *   <li>["null"] - Only null type is not supported.
      *   <li>[datatype1, datatype2, ...] - Unions without a null type are not supported.
+     *   <li>["null", array] Arrays in BigQuery cannot be nullable
      * </ul>
      *
      * <p>If the UNION schema is valid, this method returns a BigQuery field with the schema of the
@@ -214,8 +215,7 @@ public class AvroToBigQuerySchemaTransform {
      *
      * <ul>
      *   <li>Arrays of arrays are not supported.
-     *   <li>Repeated fields cannot have nullable elements.
-     *   <li>Repeated fields cannot be unions (i.e., have multiple data types).
+     *   <li>Repeated fields cannot be unions with multiple data types.
      * </ul>
      *
      * <p>If any of these restrictions are violated, an {@link UnsupportedOperationException} is

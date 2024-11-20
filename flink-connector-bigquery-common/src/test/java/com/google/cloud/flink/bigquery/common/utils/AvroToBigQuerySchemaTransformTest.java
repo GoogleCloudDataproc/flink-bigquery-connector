@@ -36,7 +36,7 @@ import static org.junit.Assert.assertThrows;
 /** Unit tests for {@link AvroToBigQuerySchemaTransform}. */
 public class AvroToBigQuerySchemaTransformTest {
 
-    /** Tests Avro Schema with all Primitive Data Types */
+    /** Tests Avro Schema with all Primitive Data Types. */
     @Test
     public void testAllTypesSchemaSuccessful() {
         org.apache.avro.Schema allTypesSchema =
@@ -186,7 +186,7 @@ public class AvroToBigQuerySchemaTransformTest {
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
-    /** Tests Avro Schema with all Logical Data Types */
+    /** Tests Avro Schema with all Logical Data Types. */
     @Test
     public void testLogicalTypesSuccessful() {
         // Create an Avro schema with logical types
@@ -271,7 +271,7 @@ public class AvroToBigQuerySchemaTransformTest {
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
-    /** Tests Avro record schema with nesting upto 15 levels */
+    /** Tests Avro record schema with nesting upto 15 levels. */
     @Test
     public void testDeeplyNestedSchemaSuccessful() {
         org.apache.avro.Schema currentSchema = null;
@@ -336,7 +336,7 @@ public class AvroToBigQuerySchemaTransformTest {
 
     /**
      * Tests Avro Schema: {"type": "record", "name": "LongList", "fields" : [{"name": "value",
-     * "type": "long"}, {"name": "next", "type": ["null", "LongList"]}]}
+     * "type": "long"}, {"name": "next", "type": ["null", "LongList"]}]}.
      *
      * <p>This should throw Exception as this is an infinite recursion and is not supported by
      * BigQuery
@@ -395,8 +395,8 @@ public class AvroToBigQuerySchemaTransformTest {
 
     /**
      * Tests Avro schema: { "type": "record", "name": "ArrayRecord", "fields": [ { "name":
-     * "arrayField", "type": { "type": "array", "items": { "type": "array", "items": "int" } } } ] }
-     * It should throw an exception since recursive Arrays are not supported by BigQuery
+     * "arrayField", "type": { "type": "array", "items": { "type": "array", "items": "int" } } } ]
+     * }. It should throw an exception since recursive Arrays are not supported by BigQuery
      */
     @Test
     public void testArrayOfArraysThrowsException() {
@@ -420,7 +420,7 @@ public class AvroToBigQuerySchemaTransformTest {
     /**
      * Avro Schema: {"type": "record", "name": "RecordWithNullableArray", "fields": [{"name":
      * "nullableArray", "type": ["null", {"type": "array", "items": "int"}]}]} Tests that an
-     * exception is thrown because BigQuery doesn't support nullable array types
+     * exception is thrown because BigQuery doesn't support nullable array types.
      */
     @Test
     public void testNullableArrayThrowsException() {
@@ -445,7 +445,7 @@ public class AvroToBigQuerySchemaTransformTest {
     /**
      * Tests Avro schema: { "type": "record", "name": "ArrayRecord", "fields": [ { "name":
      * "arrayMultipleDataTypesField", "type": { "type": "array", "items": [ "int", "string", "float"
-     * ] } } ] }
+     * ] } } ] }.
      */
     @Test
     public void testArrayWithMultipleDatatypesThrowsException() {
@@ -474,7 +474,7 @@ public class AvroToBigQuerySchemaTransformTest {
      * "stringField", "type": "string" }, { "name": "arrayField", "type": { "type": "array",
      * "items": { "type": "record", "name": "InnerRecord", "fields": [ { "name": "stringField",
      * "type": "string" }, { "name": "intField", "type": "int" } ] } } }, { "name": "tsField",
-     * "type": { "type": "long", "logicalType": "timestamp-micros" } } ] }
+     * "type": { "type": "long", "logicalType": "timestamp-micros" } } ] }.
      */
     @Test
     public void testArrayOfRecordsDatatypeSuccessful() {
@@ -529,7 +529,7 @@ public class AvroToBigQuerySchemaTransformTest {
 
     /**
      * Tests Avro Schema: {"type": "record", "name": "Record", "fields": [{"name": "nullableField",
-     * "type": ["null"]}]}
+     * "type": ["null"]}]}.
      */
     @Test
     public void testNullableFieldWithOnlyNullTypeThrowsException() {
@@ -550,7 +550,7 @@ public class AvroToBigQuerySchemaTransformTest {
 
     /**
      * Tests Avro Schema: {"type": "record", "name": "Record", "fields": [{"name": "unionField",
-     * "type": ["int", "string"]}]}
+     * "type": ["int", "string"]}]}.
      */
     @Test
     public void testUnionFieldWithMultipleNonNullTypesThrowsException() {
@@ -572,7 +572,7 @@ public class AvroToBigQuerySchemaTransformTest {
 
     /**
      * Tests Avro Schema: {"type": "record", "name": "Record", "fields": [{"name":
-     * "nullableStringField", "type": ["null", "string"]}]}
+     * "nullableStringField", "type": ["null", "string"]}]}.
      */
     @Test
     public void testNullableFieldWithValidUnion() {
@@ -599,7 +599,7 @@ public class AvroToBigQuerySchemaTransformTest {
 
     /**
      * Tested Avro schema tested: "string" It should throw an Exception since this schema has no
-     * property as "name"
+     * property as "name".
      */
     @Test
     public void testSchemaWithoutNamedFieldsThrowsException() {
@@ -612,7 +612,7 @@ public class AvroToBigQuerySchemaTransformTest {
 
     /**
      * Tested Avro schema: { "type": "enum", "name": "EnumSchema", "symbols": [ "enumValue" ] } This
-     * should be successful as even without "fields", this schema has "name" and a "type" property
+     * should be successful as even without "fields", this schema has "name" and a "type" property.
      */
     @Test
     public void testSchemaWithoutFieldsSuccessful() {
