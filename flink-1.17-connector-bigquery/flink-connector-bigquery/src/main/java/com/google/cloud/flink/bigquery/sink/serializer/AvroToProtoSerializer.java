@@ -107,6 +107,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         Schema recordSchema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         // Get a record's field schema and find the field descriptor for each field one by one.
+        // TODO: Allow Avro schema to be of other named types apart from RECORD: ENUM and FIXED
         for (Schema.Field field : recordSchema.getFields()) {
             // In case no field descriptor exists for the field, throw an error as we have
             // incompatible schemas.
