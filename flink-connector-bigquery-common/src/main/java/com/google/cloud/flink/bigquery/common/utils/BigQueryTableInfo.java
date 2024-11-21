@@ -48,7 +48,7 @@ public class BigQueryTableInfo {
     public static Boolean tableExists(
             BigQuery client, String projectName, String datasetName, String tableName) {
         try {
-            Table table = client.getTable(TableId.of(datasetName, tableName));
+            Table table = client.getTable(TableId.of(projectName, datasetName, tableName));
             return (table != null && table.exists());
         } catch (Exception e) {
             throw new BigQueryConnectorException(
