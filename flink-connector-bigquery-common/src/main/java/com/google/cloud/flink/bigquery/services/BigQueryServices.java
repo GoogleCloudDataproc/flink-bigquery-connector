@@ -232,5 +232,15 @@ public interface BigQueryServices extends Serializable {
          * @return The dry run job's information.
          */
         Job dryRunQuery(String projectId, String query);
+
+        /**
+         * Function to identify if a BigQuery table exists.
+         *
+         * @param projectName The project ID of the BigQuery dataset
+         * @param datasetName The BigQuery dataset.
+         * @param tableName The BigQuery table name.
+         * @return Boolean {@code TRUE} if the table exists or {@code FALSE} if it does not.
+         */
+        Boolean tableExists(String projectName, String datasetName, String tableName);
     }
 }

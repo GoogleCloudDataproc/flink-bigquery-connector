@@ -186,6 +186,11 @@ public class StorageClientFaker {
                                                 BigQueryPartitionUtils.PartitionStatus.COMPLETED))
                         .collect(Collectors.toList());
             }
+
+            @Override
+            public Boolean tableExists(String projectName, String datasetName, String tableName) {
+                return Boolean.TRUE;
+            }
         }
 
         static class FaultyIterator<T> implements Iterator<T> {
