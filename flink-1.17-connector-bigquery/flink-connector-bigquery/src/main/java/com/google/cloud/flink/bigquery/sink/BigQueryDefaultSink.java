@@ -38,6 +38,11 @@ class BigQueryDefaultSink extends BigQueryBaseSink {
     public SinkWriter createWriter(InitContext context) {
         checkParallelism(context.getNumberOfParallelSubtasks());
         return new BigQueryDefaultWriter(
-                tablePath, connectOptions, schemaProvider, serializer, context);
+                tablePath,
+                connectOptions,
+                schemaProvider,
+                serializer,
+                createTableOptions(),
+                context);
     }
 }

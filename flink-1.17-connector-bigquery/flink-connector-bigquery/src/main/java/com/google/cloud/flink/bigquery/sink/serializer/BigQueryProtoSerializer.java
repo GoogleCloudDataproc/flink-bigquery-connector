@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
+import org.apache.avro.Schema;
 
 import java.io.Serializable;
 
@@ -46,4 +47,13 @@ public abstract class BigQueryProtoSerializer<IN> implements Serializable {
      * @param schemaProvider BigQuery table's schema information.
      */
     public void init(BigQuerySchemaProvider schemaProvider) {}
+
+    /**
+     * Derives Avro {@link Schema} describing the data record. This is primarily used by the sink to
+     * infer schema for creating new destination BigQuery table if one doesn't already exist.
+     *
+     * @param record Record to check for schema
+     * @return Schema.
+     */
+    public abstract Schema getAvroSchema(IN record);
 }

@@ -21,9 +21,9 @@ import org.apache.flink.api.connector.sink2.Committer;
 import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
-import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

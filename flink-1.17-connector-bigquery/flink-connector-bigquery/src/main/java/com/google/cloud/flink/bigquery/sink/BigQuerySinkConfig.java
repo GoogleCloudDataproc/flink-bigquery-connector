@@ -277,7 +277,7 @@ public class BigQuerySinkConfig {
                 deliveryGuarantee,
                 new BigQuerySchemaProviderImpl(
                         BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(logicalType)),
-                new RowDataToProtoSerializer(),
+                new RowDataToProtoSerializer(logicalType),
                 enableTableCreation,
                 partitionField,
                 partitionType,
