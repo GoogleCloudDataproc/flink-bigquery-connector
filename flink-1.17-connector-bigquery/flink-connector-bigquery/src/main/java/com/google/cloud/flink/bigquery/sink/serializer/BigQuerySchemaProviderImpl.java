@@ -42,6 +42,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -90,6 +91,29 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
     @Override
     public Schema getAvroSchema() {
         return this.avroSchema;
+    }
+
+    @Override
+    public int hashCode() {
+        Schema thisAvroSchema = getAvroSchema();
+        if (thisAvroSchema == null) {
+            return Integer.MIN_VALUE;
+        }
+        return thisAvroSchema.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        return Objects.equals(getAvroSchema(), ((BigQuerySchemaProviderImpl) obj).getAvroSchema());
     }
 
     // ----------- Initialize Maps between Avro Schema to Descriptor Proto schema -------------

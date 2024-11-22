@@ -22,6 +22,8 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 
+import com.google.cloud.bigquery.TimePartitioning;
+
 /**
  * Base options for the BigQuery connector. Needs to be public so that the {@link
  * org.apache.flink.table.api.TableDescriptor} can access it.
@@ -169,11 +171,11 @@ public class BigQueryConnectorOptions {
             ConfigOptions.key("read.discovery-interval")
                     .intType()
                     .defaultValue(10)
-                    .withDescription("Partition Discovery interval(in minutes)");
+                    .withDescription("Partition discovery interval(in minutes)");
 
     /**
-     * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink job.
-     * Can be <code>DeliveryGuarantee.AT_LEAST_ONCE</code> or <code>DeliveryGuarantee.EXACTLY_ONCE
+     * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink. Can
+     * be <code>DeliveryGuarantee.AT_LEAST_ONCE</code> or <code>DeliveryGuarantee.EXACTLY_ONCE
      * </code><br>
      * Default: <code>DeliveryGuarantee.AT_LEAST_ONCE</code> - At-least Once Mode.
      */
@@ -183,10 +185,57 @@ public class BigQueryConnectorOptions {
                     .defaultValue(DeliveryGuarantee.AT_LEAST_ONCE)
                     .withDescription("Delivery Guarantee (AT_LEAST_ONCE or EXACTLY_ONCE");
 
-    /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink job. */
+    /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink. */
     public static final ConfigOption<Integer> SINK_PARALLELISM =
             ConfigOptions.key("write.parallelism")
                     .intType()
                     .noDefaultValue()
-                    .withDescription("Sink Parallelism");
+                    .withDescription("Sink parallelism");
+
+    /** [OPTIONAL, Sink Configuration] Boolean flag controlling table creation in the sink. */
+    public static final ConfigOption<Boolean> ENABLE_TABLE_CREATION =
+            ConfigOptions.key("write.enable-table-creation")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Enable table creation in sink");
+
+    /** [OPTIONAL, Sink Configuration] Name of partitioning field. */
+    public static final ConfigOption<String> PARTITION_FIELD =
+            ConfigOptions.key("write.partition-field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Field for partitioning destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Enum value indicating the partitioning frequency. */
+    public static final ConfigOption<TimePartitioning.Type> PARTITION_TYPE =
+            ConfigOptions.key("write.partition-type")
+                    .enumType(TimePartitioning.Type.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "Time based partitioning frequency in destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Long value indicating the partition expiration. */
+    public static final ConfigOption<Long> PARTITION_EXPIRATION_MILLIS =
+            ConfigOptions.key("write.partition-expiration-millis")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Partition expiration in destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Names of clustered fields, comma separated. */
+    public static final ConfigOption<String> CLUSTERED_FIELDS =
+            ConfigOptions.key("write.clustered-fields")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Comma separated fields for clustering destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] GCP region of destination BigQuery table. */
+    public static final ConfigOption<String> REGION =
+            ConfigOptions.key("write.region")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCP region of destination BigQuery table (used if new table is created)");
 }

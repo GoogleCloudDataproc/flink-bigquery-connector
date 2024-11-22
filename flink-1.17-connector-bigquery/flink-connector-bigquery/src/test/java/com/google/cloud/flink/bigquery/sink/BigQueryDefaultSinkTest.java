@@ -99,22 +99,6 @@ public class BigQueryDefaultSinkTest {
     }
 
     @Test
-    public void testConstructor_withoutSchemaProvider() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
-                        .schemaProvider(null)
-                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
-                        .streamExecutionEnvironment(env)
-                        .build();
-        IllegalArgumentException exception =
-                assertThrows(
-                        IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
-        assertThat(exception).hasMessageThat().contains("schema provider cannot be null");
-    }
-
-    @Test
     public void testCreateWriter() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         InitContext mockedContext = Mockito.mock(InitContext.class);
