@@ -20,8 +20,13 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
+import org.apache.flink.util.StringUtils;
 
 import com.google.api.core.ApiFuture;
+import com.google.cloud.bigquery.Clustering;
+import com.google.cloud.bigquery.StandardTableDefinition;
+import com.google.cloud.bigquery.TableDefinition;
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
@@ -29,20 +34,25 @@ import com.google.cloud.bigquery.storage.v1.ProtoSchemaConverter;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
-import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
+import com.google.cloud.flink.bigquery.sink.client.BigQueryClientWithErrorHandling;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
+import org.apache.avro.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
+
+import static com.google.cloud.flink.bigquery.common.utils.AvroToBigQuerySchemaTransform.getBigQuerySchema;
 
 /**
  * Base class for developing a BigQuery writer.
@@ -76,10 +86,14 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     protected final int subtaskId;
     private final String tablePath;
     private final BigQueryConnectOptions connectOptions;
-    private final ProtoSchema protoSchema;
     private final BigQueryProtoSerializer serializer;
     private final ProtoRows.Builder protoRowsBuilder;
 
+    private BigQuerySchemaProvider schemaProvider;
+    private ProtoSchema protoSchema;
+    private boolean firstWritePostConstructor = true;
+
+    final CreateTableOptions createTableOptions;
     final Queue<AppendInfo> appendResponseFuturesQueue;
     // Initialization of writeClient has been deferred to first append call. BigQuery's best
     // practices suggest that client connections should be opened when needed.
@@ -87,6 +101,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     StreamWriter streamWriter;
     String streamName;
     long totalRecordsSeen;
+    // In at-least-once mode, "totalRecordsWritten" represents records written to BigQuery table.
     // In exactly-once mode, "totalRecordsWritten" actually represents records appended to a
     // write stream by this writer. Only at a checkpoint, when sink's commit is invoked, will
     // the records in a stream get committed to the table. Hence, records written to BigQuery
@@ -102,13 +117,14 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             String tablePath,
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
+            BigQueryProtoSerializer serializer,
+            CreateTableOptions createTableOptions) {
         this.subtaskId = subtaskId;
         this.tablePath = tablePath;
         this.connectOptions = connectOptions;
-        this.protoSchema = getProtoSchema(schemaProvider);
+        this.schemaProvider = schemaProvider;
         this.serializer = serializer;
-        this.serializer.init(schemaProvider);
+        this.createTableOptions = createTableOptions;
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();
@@ -148,6 +164,31 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Checks append response for errors. */
     abstract void validateAppendResponse(AppendInfo appendInfo);
 
+    void preWrite(IN element) {
+        if (firstWritePostConstructor) {
+            ensureSchemaAwareness(element);
+            firstWritePostConstructor = false;
+        }
+        totalRecordsSeen++;
+        numberOfRecordsSeenByWriter.inc();
+        numberOfRecordsSeenByWriterSinceCheckpoint.inc();
+    }
+
+    void ensureSchemaAwareness(IN record) {
+        if (schemaProvider.schemaUnknown()) {
+            // Try getting destination table schema from BigQuery table
+            schemaProvider = new BigQuerySchemaProviderImpl(connectOptions);
+            if (schemaProvider.schemaUnknown()) {
+                // Derive schema from the record
+                Schema avroSchema = serializer.getAvroSchema(record);
+                // Create new schema provider with known schema
+                schemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+            }
+        }
+        protoSchema = getProtoSchema(schemaProvider);
+        serializer.init(schemaProvider);
+    }
+
     /** Add serialized record to append request. */
     void addToAppendRequest(ByteString protoRow) {
         protoRowsBuilder.addSerializedRows(protoRow);
@@ -156,9 +197,37 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
 
     /** Send append request to BigQuery storage and prepare for next append request. */
     void append() {
+        // Before sending data to BigQuery, check if new table needs to be created.
+        if (totalRecordsWritten == 0) {
+            ensureTableExists();
+        }
         sendAppendRequest(protoRowsBuilder.build());
         protoRowsBuilder.clear();
         appendRequestSizeBytes = 0L;
+    }
+
+    void ensureTableExists() {
+        if (BigQueryClientWithErrorHandling.tableExists(connectOptions)) {
+            return;
+        }
+        if (!createTableOptions.enableTableCreation()) {
+            logger.error(
+                    "Enable table creation flag in BigQuerySinkConfig is destination BigQuery table doesn't already exist");
+            throw new IllegalStateException(
+                    "Destination BigQuery table does not exist and table creation is not enabled in sink config");
+        }
+        logger.debug(
+                "Attempting to create BigQuery dataset {}.{}",
+                connectOptions.getProjectId(),
+                connectOptions.getDataset());
+        BigQueryClientWithErrorHandling.createDataset(
+                connectOptions, createTableOptions.getRegion());
+        logger.debug(
+                "Attempting to create BigQuery table {}.{}.{}",
+                connectOptions.getProjectId(),
+                connectOptions.getDataset(),
+                connectOptions.getTable());
+        BigQueryClientWithErrorHandling.createTable(connectOptions, getTableDefinition());
     }
 
     /** Creates a StreamWriter for appending to BigQuery table. */
@@ -275,6 +344,36 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                 sinkWriterMetricGroup.counter("numberOfRecordsWrittenToBigQuery");
         numberOfRecordsSeenByWriterSinceCheckpoint =
                 sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriterSinceCheckpoint");
+    }
+
+    TableDefinition getTableDefinition() {
+        StandardTableDefinition.Builder tableDefinitionBuilder =
+                StandardTableDefinition.newBuilder();
+        if (createTableOptions.getPartitionType() != null) {
+            // Set partitioning
+            TimePartitioning.Builder partitioningBuilder =
+                    TimePartitioning.newBuilder(createTableOptions.getPartitionType());
+            if (!StringUtils.isNullOrWhitespaceOnly(createTableOptions.getPartitionField())) {
+                partitioningBuilder.setField(createTableOptions.getPartitionField());
+            }
+            if (createTableOptions.getPartitionExpirationMillis() > 0) {
+                partitioningBuilder.setExpirationMs(
+                        createTableOptions.getPartitionExpirationMillis());
+            }
+            tableDefinitionBuilder.setTimePartitioning(partitioningBuilder.build());
+        }
+        if (createTableOptions.getClusteredFields() != null
+                && !createTableOptions.getClusteredFields().isEmpty()) {
+            // Set clustering
+            Clustering clustering =
+                    Clustering.newBuilder()
+                            .setFields(createTableOptions.getClusteredFields())
+                            .build();
+            tableDefinitionBuilder.setClustering(clustering);
+        }
+        // Set BigQuery table schema
+        tableDefinitionBuilder.setSchema(getBigQuerySchema(schemaProvider.getAvroSchema()));
+        return tableDefinitionBuilder.build();
     }
 
     static class AppendInfo {

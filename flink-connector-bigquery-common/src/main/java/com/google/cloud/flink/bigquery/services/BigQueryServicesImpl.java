@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.StringUtils;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.retrying.RetrySettings;
@@ -34,10 +35,12 @@ import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.TableDefinition;
+import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
@@ -58,7 +61,6 @@ import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
 import com.google.protobuf.Int64Value;
@@ -79,6 +81,9 @@ import java.util.stream.StreamSupport;
 /** Implementation of the {@link BigQueryServices} interface that wraps the actual clients. */
 @Internal
 public class BigQueryServicesImpl implements BigQueryServices {
+
+    public static final int ALREADY_EXISTS_ERROR_CODE = 409;
+
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryServicesImpl.class);
 
     private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
@@ -450,29 +455,27 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
 
         @Override
-        public Boolean datasetExists(String project, String dataset) {
-            try {
-                return bigQuery.getDataset(DatasetId.of(project, dataset)) != null;
-            } catch (Exception e) {
-                throw new BigQueryConnectorException(
-                        String.format(
-                                "Could not determine existence of BigQuery dataset %s.%s",
-                                project, dataset),
-                        e);
+        public void createDataset(String project, String dataset, String region) {
+            DatasetInfo.Builder datasetInfo = DatasetInfo.newBuilder(project, dataset);
+            if (!StringUtils.isNullOrWhitespaceOnly(region)) {
+                datasetInfo.setLocation(region);
             }
+            bigQuery.create(datasetInfo.build());
         }
 
         @Override
-        public void createDataset(String project, String dataset, String region) {
-            DatasetInfo datasetInfo =
-                    DatasetInfo.newBuilder(project, dataset).setLocation(region).build();
-            try {
-                bigQuery.create(datasetInfo);
-            } catch (Exception e) {
-                throw new BigQueryConnectorException(
-                        String.format("Could not create BigQuery dataset %s.%s", project, dataset),
-                        e);
-            }
+        public Boolean tableExists(String projectName, String datasetName, String tableName) {
+            com.google.cloud.bigquery.Table table =
+                    bigQuery.getTable(TableId.of(projectName, datasetName, tableName));
+            return (table != null && table.exists());
+        }
+
+        @Override
+        public void createTable(
+                String project, String dataset, String table, TableDefinition tableDefinition) {
+            TableId tableId = TableId.of(project, dataset, table);
+            TableInfo tableInfo = TableInfo.of(tableId, tableDefinition);
+            bigQuery.create(tableInfo);
         }
 
         @Override
@@ -541,11 +544,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
                 throw new RuntimeException(
                         "Problems occurred while trying to run a BigQuery query job.", ex);
             }
-        }
-
-        @Override
-        public Boolean tableExists(String projectName, String datasetName, String tableName) {
-            return BigQueryTableInfo.tableExists(bigQuery, projectName, datasetName, tableName);
         }
 
         static List<String> processErrorMessages(List<ErrorProto> errors) {

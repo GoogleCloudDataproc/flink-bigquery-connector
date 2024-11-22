@@ -28,22 +28,28 @@ public class TestSchemaProvider implements BigQuerySchemaProvider {
     private final Schema schema;
     private final Descriptor descriptor;
 
-    TestSchemaProvider(Schema schema, Descriptor descriptor) {
+    public TestSchemaProvider(Schema schema, Descriptor descriptor) {
         this.schema = schema;
         this.descriptor = descriptor;
     }
 
     @Override
     public DescriptorProto getDescriptorProto() {
-        return this.getDescriptor().toProto();
+        return getDescriptor().toProto();
     }
 
     @Override
     public Descriptor getDescriptor() {
-        return this.descriptor;
+        return descriptor;
     }
 
+    @Override
     public Schema getAvroSchema() {
-        return this.schema;
+        return schema;
+    }
+
+    @Override
+    public boolean schemaUnknown() {
+        return schema == null;
     }
 }

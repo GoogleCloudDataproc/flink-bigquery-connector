@@ -32,9 +32,9 @@ import com.google.cloud.bigquery.storage.v1.Exceptions.StreamNotFound;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.TwoPhaseCommittingStatefulSink;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
-import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
@@ -110,8 +110,20 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
+            CreateTableOptions createTableOptions,
             InitContext context) {
-        this("", 0L, tablePath, 0L, 0L, 0L, connectOptions, schemaProvider, serializer, context);
+        this(
+                "",
+                0L,
+                tablePath,
+                0L,
+                0L,
+                0L,
+                connectOptions,
+                schemaProvider,
+                serializer,
+                createTableOptions,
+                context);
     }
 
     public BigQueryBufferedWriter(
@@ -124,8 +136,15 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
+            CreateTableOptions createTableOptions,
             InitContext context) {
-        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
+        super(
+                context.getSubtaskId(),
+                tablePath,
+                connectOptions,
+                schemaProvider,
+                serializer,
+                createTableOptions);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;
@@ -148,11 +167,11 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     @Override
     public void write(IN element, Context context) {
         if (isFirstWriteAfterCheckpoint) {
-            preWriteOpsAfterCommit();
+            resetMetrics();
+            // Change the flag until the next checkpoint.
+            isFirstWriteAfterCheckpoint = false;
         }
-        totalRecordsSeen++;
-        numberOfRecordsSeenByWriter.inc();
-        numberOfRecordsSeenByWriterSinceCheckpoint.inc();
+        preWrite(element);
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -166,10 +185,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         }
     }
 
-    /** This is the method called just after checkpoint is complete, and the next writing begins. */
-    private void preWriteOpsAfterCommit() {
-        // Change the flag until the next checkpoint.
-        isFirstWriteAfterCheckpoint = false;
+    private void resetMetrics() {
         // Update the number of records written to BigQuery since the checkpoint just completed.
         long numberOfRecordsWrittenInLastCommit = totalRecordsWritten - totalRecordsCommitted;
         totalRecordsCommitted = totalRecordsWritten;
@@ -192,8 +208,8 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     void sendAppendRequest(ProtoRows protoRows) {
         long rowCount = protoRows.getSerializedRowsCount();
         if (streamOffset == streamOffsetInState
-                && streamName.equals(streamNameInState)
-                && !StringUtils.isNullOrWhitespaceOnly(streamName)) {
+                && !StringUtils.isNullOrWhitespaceOnly(streamName)
+                && streamName.equals(streamNameInState)) {
             // Writer has an associated write stream and is invoking append for the first
             // time since re-initialization.
             performFirstAppendOnRestoredStream(protoRows, rowCount);

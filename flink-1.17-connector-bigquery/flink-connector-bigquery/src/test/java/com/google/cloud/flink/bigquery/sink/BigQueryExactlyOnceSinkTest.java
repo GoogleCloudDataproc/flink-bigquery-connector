@@ -81,7 +81,9 @@ public class BigQueryExactlyOnceSinkTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () -> new BigQueryExactlyOnceSink(sinkConfig));
-        assertThat(exception).hasMessageThat().contains("connect options cannot be null");
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("connect options in sink config cannot be null");
     }
 
     @Test
