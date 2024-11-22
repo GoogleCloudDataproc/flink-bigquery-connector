@@ -323,6 +323,7 @@ public class BigQueryDefaultWriterTest {
                 StorageClientFaker.createConnectOptionsForWrite(appendResponse),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
+                null,
                 mockInitContext);
     }
 }

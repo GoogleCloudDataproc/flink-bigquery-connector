@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -35,6 +36,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,8 +53,12 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
 
     private static final Logger LOG = LoggerFactory.getLogger(RowDataToProtoSerializer.class);
 
+    private final LogicalType type;
     private Descriptor descriptor;
-    private LogicalType type;
+
+    public RowDataToProtoSerializer(LogicalType type) {
+        this.type = type;
+    }
 
     /**
      * Prepares the serializer before its serialize method can be called. It allows contextual
@@ -72,8 +78,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
         this.descriptor = derivedDescriptor;
     }
 
-    public void setLogicalType(LogicalType type) {
-        this.type = type;
+    @Override
+    public Schema getAvroSchema(RowData record) {
+        // Doesn't actually depend on record
+        return AvroSchemaConverter.convertToSchema(this.type);
     }
 
     @Override

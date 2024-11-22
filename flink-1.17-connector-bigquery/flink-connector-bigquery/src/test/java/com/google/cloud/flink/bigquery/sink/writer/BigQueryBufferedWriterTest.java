@@ -1101,6 +1101,7 @@ public class BigQueryBufferedWriterTest {
                 StorageClientFaker.createConnectOptionsForWrite(null),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
+                null,
                 context);
     }
 
@@ -1129,6 +1130,7 @@ public class BigQueryBufferedWriterTest {
                         appendResponseFutures, writeStream, null, finalizeResponse),
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
+                null,
                 context);
     }
 

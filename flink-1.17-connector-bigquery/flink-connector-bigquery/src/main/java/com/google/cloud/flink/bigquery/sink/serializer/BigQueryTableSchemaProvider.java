@@ -25,15 +25,17 @@ import com.google.api.client.util.Preconditions;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
 import org.apache.avro.Schema;
 
 import java.io.IOException;
 
 /**
- * Default implementation of {@link BigQuerySchemaProvider} deriving Avro {@link Schema} from {@link
- * TableSchema}, which in turn is sourced from {@link BigQueryConnectOptions}.
+ * Static utilities to derive Flink's Table schema and descriptor. Not to be confused with {@link
+ * BigQuerySchemaProvider}.
  */
 public class BigQueryTableSchemaProvider {
     // To ensure no instantiation
@@ -85,11 +87,25 @@ public class BigQueryTableSchemaProvider {
             throws IOException {
         // Translate to connect Options
         BigQueryConnectOptions connectOptions = getConnectOptionsFromTableConfig(tableConfig);
+        BigQueryServices.QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient();
+        // Check if table exists
+        if (!queryDataClient.tableExists(
+                connectOptions.getProjectId(),
+                connectOptions.getDataset(),
+                connectOptions.getTable())) {
+            throw new IllegalStateException(
+                    "Cannot derive Flink TableDescriptor because destination BigQuery table doesn't exist. User must provide a TableDescriptor with appropriate schema.");
+        }
         // Obtain the desired BigQuery Table Schema
         TableSchema bigQueryTableSchema =
-                BigQuerySchemaProviderImpl.getTableSchemaFromOptions(connectOptions);
+                queryDataClient.getTableSchema(
+                        connectOptions.getProjectId(),
+                        connectOptions.getDataset(),
+                        connectOptions.getTable());
         // Obtain Avro Schema
-        Schema avroSchema = BigQuerySchemaProviderImpl.getAvroSchema(bigQueryTableSchema);
+        Schema avroSchema =
+                SchemaTransform.toGenericAvroSchema("root", bigQueryTableSchema.getFields());
         // Convert to Table API Schema
         org.apache.flink.table.api.Schema tableApiSchema =
                 getTableApiSchemaFromAvroSchema(avroSchema);

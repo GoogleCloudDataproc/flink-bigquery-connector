@@ -81,9 +81,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         byte[] byteArray = "Any String you want".getBytes();
         GenericRowData row = new GenericRowData(6);
@@ -135,9 +134,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         GenericRowData row = new GenericRowData(6);
         row.setField(0, null);
         row.setField(1, null);
@@ -180,9 +178,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         GenericRowData row = new GenericRowData(4);
         row.setField(0, 1234);
         row.setField(1, byteArray);
@@ -220,9 +217,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         GenericRowData row = new GenericRowData(4);
         row.setField(0, null);
         row.setField(1, null);
@@ -255,9 +251,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         GenericRowData row = new GenericRowData(6);
         row.setField(0, null);
         row.setField(1, null);
@@ -289,9 +284,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         GenericRowData row = new GenericRowData(6);
         row.setField(0, null);
         row.setField(1, null);
@@ -340,9 +334,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(nonNullSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         ByteString byteString = rowDataSerializer.serialize(row);
 
         // Check for the desired results.
@@ -400,9 +393,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(avroSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         BigDecimal bigDecimal = new BigDecimal("123456.7891011");
         byte[] bytes = bigDecimal.unscaledValue().toByteArray();
@@ -474,9 +466,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(nonNullSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         ByteString byteString = rowDataSerializer.serialize(row);
 
         // Check for the desired results.
@@ -504,9 +495,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
@@ -541,9 +531,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(4);
         row.setField(0, null);
@@ -569,9 +558,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         List<Boolean> arrayList = Arrays.asList(false, true, false);
 
         GenericRowData row = new GenericRowData(1);
@@ -623,9 +611,8 @@ public class RowDataToProtoSerializerTest {
         LogicalType logicalType =
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(nullableRecordSchema)
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         BigQuerySerializationException exception =
                 assertThrows(
@@ -653,9 +640,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(1);
@@ -689,9 +675,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(1);
@@ -723,9 +708,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(1);
@@ -757,9 +741,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(1);
@@ -802,9 +785,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(6);
@@ -859,9 +841,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(4);
@@ -902,9 +883,8 @@ public class RowDataToProtoSerializerTest {
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(4);
@@ -966,9 +946,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         BigQuerySerializationException exceptionForNullInUnion =
                 assertThrows(
@@ -1013,9 +992,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         BigQuerySerializationException exception =
                 assertThrows(
                         BigQuerySerializationException.class,
@@ -1042,9 +1020,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
 
         GenericRowData row = new GenericRowData(1);
         GenericRowData innerRow = new GenericRowData(2);
@@ -1097,9 +1074,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
 
         byte[] byteArray = "Hello".getBytes();
@@ -1209,9 +1185,8 @@ public class RowDataToProtoSerializerTest {
                 BigQueryTableSchemaProvider.getDataTypeSchemaFromAvroSchema(
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         // -- Initialising the RECORD.
         byte[] byteArray =
                 ByteBuffer.allocate(40)
@@ -1295,9 +1270,8 @@ public class RowDataToProtoSerializerTest {
                                 bigQuerySchemaProvider.getAvroSchema())
                         .getLogicalType();
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
-        rowDataSerializer.setLogicalType(logicalType);
         GenericRowData row = new GenericRowData(4);
         row.setField(
                 1, new GenericArrayData(Arrays.asList(45745727, 45745727, 45745727).toArray()));
@@ -1378,9 +1352,6 @@ public class RowDataToProtoSerializerTest {
         GenericRowData genericRowData = new GenericRowData(1);
         genericRowData.setField(
                 0, new GenericArrayData(Collections.singletonList(1234567L).toArray()));
-        // The Same schema provider so that descriptor is formed without error.
-        RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer();
-        rowDataSerializer.init(bigQuerySchemaProvider);
 
         // Now set the logical Type as NULLABLE ARRAY.
         LogicalType logicalTypeWithNullableArray =
@@ -1390,12 +1361,14 @@ public class RowDataToProtoSerializerTest {
                                         DataTypes.ARRAY(DataTypes.BIGINT().notNull()).nullable()))
                         .notNull()
                         .getLogicalType();
-        rowDataSerializer.setLogicalType(logicalTypeWithNullableArray);
+        RowDataToProtoSerializer rowDataSerializer1 =
+                new RowDataToProtoSerializer(logicalTypeWithNullableArray);
+        rowDataSerializer1.init(bigQuerySchemaProvider);
 
         BigQuerySerializationException exceptionForNullableArray =
                 assertThrows(
                         BigQuerySerializationException.class,
-                        () -> rowDataSerializer.serialize(genericRowData));
+                        () -> rowDataSerializer1.serialize(genericRowData));
         Assertions.assertThat(exceptionForNullableArray)
                 .hasMessageContaining("NULLABLE ARRAY is not supported.");
 
@@ -1407,12 +1380,14 @@ public class RowDataToProtoSerializerTest {
                                         DataTypes.ARRAY(DataTypes.NULL()).notNull()))
                         .notNull()
                         .getLogicalType();
-        rowDataSerializer.setLogicalType(logicalTypeWithNullInArray);
+        RowDataToProtoSerializer rowDataSerializer2 =
+                new RowDataToProtoSerializer(logicalTypeWithNullInArray);
+        rowDataSerializer2.init(bigQuerySchemaProvider);
 
         BigQuerySerializationException exceptionForNullInArray =
                 assertThrows(
                         BigQuerySerializationException.class,
-                        () -> rowDataSerializer.serialize(genericRowData));
+                        () -> rowDataSerializer2.serialize(genericRowData));
 
         Assertions.assertThat(exceptionForNullInArray)
                 .hasMessageContaining("ARRAY of type NULL is not supported.");
@@ -1437,9 +1412,9 @@ public class RowDataToProtoSerializerTest {
         row.setField(0, (short) 123);
         row.setField(1, 123);
 
-        RowDataToProtoSerializer rowDataToProtoSerializer = new RowDataToProtoSerializer();
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
         rowDataToProtoSerializer.init(bigQuerySchemaProvider);
-        rowDataToProtoSerializer.setLogicalType(logicalType);
 
         // Check for the desired results.
         DynamicMessage message =
@@ -1467,8 +1442,6 @@ public class RowDataToProtoSerializerTest {
         // Initialize the record.
         GenericRowData row = new GenericRowData(1);
         row.setField(0, "hello");
-        RowDataToProtoSerializer rowDataToProtoSerializer = new RowDataToProtoSerializer();
-        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
 
         LogicalType logicalType =
                 DataTypes.ROW(
@@ -1479,7 +1452,9 @@ public class RowDataToProtoSerializerTest {
                                                 DataTypes.STRING().notNull())))
                         .notNull()
                         .getLogicalType();
-        rowDataToProtoSerializer.setLogicalType(logicalType);
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
 
         BigQuerySerializationException exception =
                 assertThrows(

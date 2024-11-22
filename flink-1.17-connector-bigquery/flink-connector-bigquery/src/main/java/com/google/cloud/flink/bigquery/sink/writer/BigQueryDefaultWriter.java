@@ -62,8 +62,15 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
+            CreateTableOptions createTableOptions,
             InitContext context) {
-        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
+        super(
+                context.getSubtaskId(),
+                tablePath,
+                connectOptions,
+                schemaProvider,
+                serializer,
+                createTableOptions);
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;
         totalRecordsWritten = 0L;
@@ -78,9 +85,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
      */
     @Override
     public void write(IN element, Context context) {
-        totalRecordsSeen++;
-        numberOfRecordsSeenByWriter.inc();
-        numberOfRecordsSeenByWriterSinceCheckpoint.inc();
+        preWrite(element);
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -93,7 +98,11 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
         }
     }
 
-    /** Overwriting flush() method for updating Flink Metrics in at-least-once Approach. */
+    /**
+     * Overwriting flush() method for updating Flink Metrics in at-least-once Approach.
+     *
+     * @param endOfInput
+     */
     @Override
     public void flush(boolean endOfInput) {
         super.flush(endOfInput);
