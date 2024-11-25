@@ -24,7 +24,6 @@ import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema.Type;
-import org.apache.avro.SchemaBuilder;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -60,7 +59,7 @@ public class AvroToBigQuerySchemaTransformTest {
         org.apache.avro.Schema numericFieldSchema =
                 org.apache.avro.Schema.createUnion(
                         org.apache.avro.Schema.create(Type.NULL),
-                        LogicalTypes.decimal(38, 9)
+                        LogicalTypes.decimal(38)
                                 .addToSchema(org.apache.avro.Schema.create(Type.BYTES)));
         fields.add(new org.apache.avro.Schema.Field("numeric_field", numericFieldSchema, "", null));
 
@@ -160,9 +159,15 @@ public class AvroToBigQuerySchemaTransformTest {
                         createRequiredBigqueryField("bytes_field", StandardSQLTypeName.BYTES),
                         createRequiredBigqueryField("integer_field", StandardSQLTypeName.INT64),
                         createRepeatedBigqueryField("array_field", StandardSQLTypeName.FLOAT64),
-                        createNullableBigqueryField("numeric_field", StandardSQLTypeName.NUMERIC),
+                        createNullableBigqueryField("numeric_field", StandardSQLTypeName.NUMERIC)
+                                .toBuilder()
+                                .setPrecision(38L)
+                                .build(),
                         createNullableBigqueryField(
-                                "bignumeric_field", StandardSQLTypeName.BIGNUMERIC),
+                                        "bignumeric_field", StandardSQLTypeName.BIGNUMERIC)
+                                .toBuilder()
+                                .setPrecision(77L)
+                                .build(),
                         createNullableBigqueryField("boolean_field", StandardSQLTypeName.BOOL),
                         createNullableBigqueryField("ts_field", StandardSQLTypeName.TIMESTAMP),
                         createNullableBigqueryField("date_field", StandardSQLTypeName.DATE),
@@ -297,22 +302,6 @@ public class AvroToBigQuerySchemaTransformTest {
         org.apache.avro.Schema nestedSchema =
                 org.apache.avro.Schema.createRecord("nestedTypeIT", null, null, false);
         ArrayList<org.apache.avro.Schema.Field> recordFields = new ArrayList<>();
-        recordFields.add(
-                new org.apache.avro.Schema.Field(
-                        "unique_key", org.apache.avro.Schema.create(Type.STRING), null, null));
-        recordFields.add(
-                new org.apache.avro.Schema.Field(
-                        "name", org.apache.avro.Schema.create(Type.STRING), null, null));
-        recordFields.add(
-                new org.apache.avro.Schema.Field(
-                        "number", org.apache.avro.Schema.create(Type.LONG), null, null));
-        recordFields.add(
-                new org.apache.avro.Schema.Field(
-                        "ts",
-                        LogicalTypes.timestampMicros()
-                                .addToSchema(org.apache.avro.Schema.create(Type.LONG)),
-                        null,
-                        null));
         recordFields.add(new org.apache.avro.Schema.Field("level_0", level0Schema, null, null));
         nestedSchema.setFields(recordFields);
 
@@ -322,13 +311,7 @@ public class AvroToBigQuerySchemaTransformTest {
         }
         Field level0Field = currentField;
 
-        Schema expectedBqSchema =
-                Schema.of(
-                        createRequiredBigqueryField("unique_key", StandardSQLTypeName.STRING),
-                        createRequiredBigqueryField("name", StandardSQLTypeName.STRING),
-                        createRequiredBigqueryField("number", StandardSQLTypeName.INT64),
-                        createRequiredBigqueryField("ts", StandardSQLTypeName.TIMESTAMP),
-                        level0Field);
+        Schema expectedBqSchema = Schema.of(level0Field);
 
         Schema bqSchema = AvroToBigQuerySchemaTransform.getBigQuerySchema(nestedSchema);
         assertExactSchema(bqSchema, expectedBqSchema);
@@ -413,7 +396,7 @@ public class AvroToBigQuerySchemaTransformTest {
         arrayRecord.setFields(arrayFields);
 
         assertThrows(
-                UnsupportedOperationException.class,
+                IllegalStateException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecord));
     }
 
@@ -465,7 +448,7 @@ public class AvroToBigQuerySchemaTransformTest {
         arrayRecord.setFields(arrayFields);
 
         assertThrows(
-                UnsupportedOperationException.class,
+                IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecord));
     }
 
@@ -532,7 +515,7 @@ public class AvroToBigQuerySchemaTransformTest {
      * "type": ["null"]}]}.
      */
     @Test
-    public void testNullableFieldWithOnlyNullTypeThrowsException() {
+    public void testUnionFieldWithOnlyNullTypeThrowsException() {
         org.apache.avro.Schema nullableSchema =
                 org.apache.avro.Schema.createUnion(
                         org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL));
@@ -544,7 +527,7 @@ public class AvroToBigQuerySchemaTransformTest {
         recordSchema.setFields(fields);
 
         assertThrows(
-                UnsupportedOperationException.class,
+                IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema));
     }
 
@@ -566,7 +549,7 @@ public class AvroToBigQuerySchemaTransformTest {
         recordSchema.setFields(fields);
 
         assertThrows(
-                UnsupportedOperationException.class,
+                IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema));
     }
 
@@ -610,25 +593,6 @@ public class AvroToBigQuerySchemaTransformTest {
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(avroUnNamedSchema));
     }
 
-    /**
-     * Tested Avro schema: { "type": "enum", "name": "EnumSchema", "symbols": [ "enumValue" ] } This
-     * should be successful as even without "fields", this schema has "name" and a "type" property.
-     */
-    @Test
-    public void testSchemaWithoutFieldsSuccessful() {
-        // Create a simple enum schema without fields
-        org.apache.avro.Schema avroSchema =
-                SchemaBuilder.enumeration("EnumSchema").symbols("enumValue");
-
-        // Convert to BigQuery schema
-        Schema bqSchema = AvroToBigQuerySchemaTransform.getBigQuerySchema(avroSchema);
-
-        Schema expectedBqSchema =
-                Schema.of(createRequiredBigqueryField("EnumSchema", StandardSQLTypeName.STRING));
-
-        assertExactSchema(bqSchema, expectedBqSchema);
-    }
-
     // Helper function to assert equality of two BigQuery schemas
     private void assertExactSchema(Schema actual, Schema expected) {
         assertThat(actual.getFields().size()).isEqualTo(expected.getFields().size());
@@ -638,6 +602,9 @@ public class AvroToBigQuerySchemaTransformTest {
             assertThat(actualField.getName()).isEqualTo(expectedField.getName());
             assertThat(actualField.getType()).isEqualTo(expectedField.getType());
             assertThat(actualField.getMode()).isEqualTo(expectedField.getMode());
+            if (expectedField.getPrecision() != null) {
+                assertThat(actualField.getPrecision()).isEqualTo(expectedField.getPrecision());
+            }
             if (actualField.getType() == LegacySQLTypeName.RECORD) {
                 assertExactSchema(
                         Schema.of(actualField.getSubFields()),
