@@ -40,6 +40,9 @@ import java.util.stream.Collectors;
  */
 public class AvroToBigQuerySchemaTransform {
 
+    // Private Constructor to ensure no instantiation.
+    private AvroToBigQuerySchemaTransform() {}
+
     /**
      * Maximum nesting level for BigQuery schemas (15 levels). See <a
      * href="https://cloud.google.com/bigquery/docs/nested-repeated#limitations">BigQuery nested and
@@ -111,20 +114,25 @@ public class AvroToBigQuerySchemaTransform {
      * @return The converted BigQuery {@link Schema}.
      */
     public static Schema getBigQuerySchema(org.apache.avro.Schema avroSchema) {
-        Preconditions.checkNotNull(avroSchema);
-        Preconditions.checkNotNull(avroSchema.getType());
+        Preconditions.checkNotNull(avroSchema, "The avro schema of the record cannot be null.");
+        Preconditions.checkNotNull(
+                avroSchema.getType(), "The avro schema of the record must have a type.");
         if (avroSchema.getType() != org.apache.avro.Schema.Type.RECORD) {
             throw new IllegalArgumentException(
                     "The Avro Schema must be of RECORD type to convert to BigQuery columns. Found Schema: "
                             + avroSchema);
         }
-        Preconditions.checkState(!avroSchema.getFields().isEmpty());
+        Preconditions.checkState(
+                !avroSchema.getFields().isEmpty(),
+                "The avro record schema must have at least one field.");
         // Iterate over each record field and add them to the BigQuery schema.
         List<Field> fields =
                 avroSchema.getFields().stream()
                         .map(
                                 avroField -> {
-                                    Preconditions.checkNotNull(avroField.name());
+                                    Preconditions.checkNotNull(
+                                            avroField.name(),
+                                            "The avro field must have a name attribute.");
                                     Field.Builder bigQueryFieldBuilder =
                                             convertAvroFieldToBigQueryField(
                                                             avroField.schema(), avroField.name(), 0)
@@ -158,8 +166,8 @@ public class AvroToBigQuerySchemaTransform {
                             "BigQuery fields can only be nested 15 times. Found nesting level of: %s",
                             nestedLevel));
         }
-        Preconditions.checkNotNull(avroField);
-        Preconditions.checkNotNull(avroField.getType());
+        Preconditions.checkNotNull(avroField, "The avro field cannot be null.");
+        Preconditions.checkNotNull(avroField.getType(), "The avro field type cannot be null.");
         switch (avroField.getType()) {
             case RECORD:
                 return convertAvroRecordFieldToBigQueryField(avroField, name, nestedLevel);
@@ -190,7 +198,9 @@ public class AvroToBigQuerySchemaTransform {
     private static Field convertAvroRecordFieldToBigQueryField(
             org.apache.avro.Schema avroSchema, String name, int nestedLevel) {
         List<Field> fields = new ArrayList<>();
-        Preconditions.checkState(!avroSchema.getFields().isEmpty());
+        Preconditions.checkState(
+                !avroSchema.getFields().isEmpty(),
+                "The avro record schema must have at least one field.");
         // Iterate over each record field and obtain the nested record fields.
         for (int i = 0; i < avroSchema.getFields().size(); i++) {
             org.apache.avro.Schema nestedAvroSchema = avroSchema.getFields().get(i).schema();
@@ -398,7 +408,9 @@ public class AvroToBigQuerySchemaTransform {
     private static long validatePrecisionAndScale(org.apache.avro.Schema schema, String name) {
         LogicalTypes.Decimal decimalLogicalSchema =
                 ((LogicalTypes.Decimal) schema.getLogicalType());
-        Preconditions.checkNotNull(decimalLogicalSchema.getPrecision());
+        Preconditions.checkNotNull(
+                decimalLogicalSchema.getPrecision(),
+                "The avro schema of type \"decimal\" must have the precision attribute set.");
         long precision = decimalLogicalSchema.getPrecision();
         long scale = decimalLogicalSchema.getScale();
         if (precision <= 0) {

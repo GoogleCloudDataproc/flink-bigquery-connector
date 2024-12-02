@@ -23,6 +23,7 @@ import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
+import org.apache.avro.Schema.Parser;
 import org.apache.avro.Schema.Type;
 import org.junit.Test;
 
@@ -38,120 +39,34 @@ public class AvroToBigQuerySchemaTransformTest {
     /** Tests Avro Schema with all Primitive Data Types. */
     @Test
     public void testAllTypesSchemaSuccessful() {
-        org.apache.avro.Schema allTypesSchema =
-                org.apache.avro.Schema.createRecord("allTypes", "", "", false);
-
-        ArrayList<org.apache.avro.Schema.Field> fields = new ArrayList<>();
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "string_field", org.apache.avro.Schema.create(Type.STRING), "", null));
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "bytes_field", org.apache.avro.Schema.create(Type.BYTES), "", null));
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "integer_field", org.apache.avro.Schema.create(Type.LONG), "", null));
-
-        org.apache.avro.Schema arrayFieldSchema =
-                org.apache.avro.Schema.createArray(org.apache.avro.Schema.create(Type.DOUBLE));
-        fields.add(new org.apache.avro.Schema.Field("array_field", arrayFieldSchema, "", null));
-
-        org.apache.avro.Schema numericFieldSchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(Type.NULL),
-                        LogicalTypes.decimal(38)
-                                .addToSchema(org.apache.avro.Schema.create(Type.BYTES)));
-        fields.add(new org.apache.avro.Schema.Field("numeric_field", numericFieldSchema, "", null));
-
-        org.apache.avro.Schema bignumericFieldSchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(Type.NULL),
-                        LogicalTypes.decimal(77, 38)
-                                .addToSchema(org.apache.avro.Schema.create(Type.BYTES)));
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "bignumeric_field", bignumericFieldSchema, "", null));
-
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "boolean_field",
-                        org.apache.avro.Schema.createUnion(
-                                org.apache.avro.Schema.create(Type.NULL),
-                                org.apache.avro.Schema.create(Type.BOOLEAN)),
-                        "",
-                        null));
-
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "ts_field",
-                        org.apache.avro.Schema.createUnion(
-                                org.apache.avro.Schema.create(Type.NULL),
-                                LogicalTypes.timestampMicros()
-                                        .addToSchema(org.apache.avro.Schema.create(Type.LONG))),
-                        "",
-                        null));
-
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "date_field",
-                        org.apache.avro.Schema.createUnion(
-                                org.apache.avro.Schema.create(Type.NULL),
-                                LogicalTypes.date()
-                                        .addToSchema(org.apache.avro.Schema.create(Type.INT))),
-                        "",
-                        null));
-
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "time_field",
-                        org.apache.avro.Schema.createUnion(
-                                org.apache.avro.Schema.create(Type.NULL),
-                                LogicalTypes.timeMicros()
-                                        .addToSchema(org.apache.avro.Schema.create(Type.LONG))),
-                        "",
-                        null));
-
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "datetime_field",
-                        org.apache.avro.Schema.createUnion(
-                                org.apache.avro.Schema.create(Type.NULL),
-                                LogicalTypes.localTimestampMicros()
-                                        .addToSchema(org.apache.avro.Schema.create(Type.LONG))),
-                        "",
-                        null));
-
-        org.apache.avro.Schema geoSchema =
-                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING);
-        geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
-        org.apache.avro.Schema geographyFieldSchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(Type.NULL), geoSchema);
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "geography_field", geographyFieldSchema, "", null));
-
-        org.apache.avro.Schema jsonSchema =
-                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING);
-        jsonSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "Json");
-        org.apache.avro.Schema recordFieldSchema =
-                org.apache.avro.Schema.createRecord(
-                        "record_field",
-                        "Translated Avro Schema for record_field",
-                        "com.google.cloud.flink.bigquery",
-                        false);
-        ArrayList<org.apache.avro.Schema.Field> nestedFields = new ArrayList<>();
-        nestedFields.add(
-                new org.apache.avro.Schema.Field(
-                        "json_field",
-                        org.apache.avro.Schema.createUnion(
-                                org.apache.avro.Schema.create(Type.NULL), jsonSchema)));
-        nestedFields.add(
-                new org.apache.avro.Schema.Field(
-                        "geography_field", geographyFieldSchema, "", null));
-        recordFieldSchema.setFields(nestedFields);
-        fields.add(new org.apache.avro.Schema.Field("record_field", recordFieldSchema, "", null));
-        allTypesSchema.setFields(fields);
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"allTypes\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\"name\": \"string_field\", \"type\": \"string\"},\n"
+                        + "    {\"name\": \"bytes_field\", \"type\": \"bytes\"},\n"
+                        + "    {\"name\": \"integer_field\", \"type\": \"long\"},\n"
+                        + "    {\"name\": \"array_field\", \"type\": {\"type\": \"array\", \"items\": \"double\"}},\n"
+                        + "    {\"name\": \"numeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 38}]},\n"
+                        + "    {\"name\": \"bignumeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 77, \"scale\": 38}]},\n"
+                        + "    {\"name\": \"boolean_field\", \"type\": [\"null\", \"boolean\"]},\n"
+                        + "    {\"name\": \"ts_field\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}]},\n"
+                        + "    {\"name\": \"date_field\", \"type\": [\"null\", {\"type\": \"int\", \"logicalType\": \"date\"}]},\n"
+                        + "    {\"name\": \"time_field\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"time-micros\"}]},\n"
+                        + "    {\"name\": \"datetime_field\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}]},\n"
+                        + "    {\"name\": \"geography_field\", \"type\": [\"null\", {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}]},\n"
+                        + "    {\"name\": \"record_field\", \"type\": {\n"
+                        + "      \"type\": \"record\",\n"
+                        + "      \"name\": \"record_field\",\n"
+                        + "      \"fields\": [\n"
+                        + "        {\"name\": \"json_field\", \"type\": [\"null\", {\"type\": \"string\", \"logicalType\": \"Json\"}]},\n"
+                        + "        {\"name\": \"geography_field\", \"type\": [\"null\", {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}]}\n"
+                        + "      ]\n"
+                        + "    }}\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema allTypesSchema = new Parser().parse(avroSchemaString);
 
         Schema expectedBqSchema =
                 Schema.of(
@@ -383,114 +298,102 @@ public class AvroToBigQuerySchemaTransformTest {
      */
     @Test
     public void testArrayOfArraysThrowsException() {
-        org.apache.avro.Schema arrayOfArraysSchema =
-                org.apache.avro.Schema.createArray(
-                        org.apache.avro.Schema.createArray(
-                                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT)));
-
-        org.apache.avro.Schema arrayRecord =
-                org.apache.avro.Schema.createRecord("ArrayRecord", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> arrayFields = new ArrayList<>();
-        arrayFields.add(
-                new org.apache.avro.Schema.Field("arrayField", arrayOfArraysSchema, "", null));
-        arrayRecord.setFields(arrayFields);
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"ArrayRecord\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"arrayField\",\n"
+                        + "      \"type\": {\n"
+                        + "        \"type\": \"array\",\n"
+                        + "        \"items\": {\n"
+                        + "          \"type\": \"array\",\n"
+                        + "          \"items\": \"int\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema arrayRecord = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalStateException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecord));
     }
 
-    /**
-     * Avro Schema: {"type": "record", "name": "RecordWithNullableArray", "fields": [{"name":
-     * "nullableArray", "type": ["null", {"type": "array", "items": "int"}]}]} Tests that an
-     * exception is thrown because BigQuery doesn't support nullable array types.
-     */
+    /** Tests that an exception is thrown because BigQuery doesn't support nullable array types. */
     @Test
     public void testNullableArrayThrowsException() {
-        org.apache.avro.Schema intArraySchema =
-                org.apache.avro.Schema.createArray(org.apache.avro.Schema.create(Type.INT));
-        org.apache.avro.Schema nullableArraySchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(Type.NULL), intArraySchema);
-
-        org.apache.avro.Schema recordSchema =
-                org.apache.avro.Schema.createRecord("RecordWithNullableArray", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> fields = new ArrayList<>();
-        fields.add(
-                new org.apache.avro.Schema.Field("nullableArray", nullableArraySchema, "", null));
-        recordSchema.setFields(fields);
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"RecordWithNullableArray\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"nullableArray\",\n"
+                        + "      \"type\": [\"null\", {\"type\": \"array\", \"items\": \"int\"}]\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema));
     }
 
-    /**
-     * Tests Avro schema: { "type": "record", "name": "ArrayRecord", "fields": [ { "name":
-     * "arrayMultipleDataTypesField", "type": { "type": "array", "items": [ "int", "string", "float"
-     * ] } } ] }.
-     */
+    /** Tests that an Avro array with multiple datatypes throws an exception. */
     @Test
     public void testArrayWithMultipleDatatypesThrowsException() {
-        org.apache.avro.Schema unionArraySchema =
-                org.apache.avro.Schema.createArray(
-                        org.apache.avro.Schema.createUnion(
-                                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT),
-                                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING),
-                                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.FLOAT)));
-
-        org.apache.avro.Schema arrayRecord =
-                org.apache.avro.Schema.createRecord("ArrayRecord", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> arrayFields = new ArrayList<>();
-        arrayFields.add(
-                new org.apache.avro.Schema.Field(
-                        "arrayMultipleDataTypesField", unionArraySchema, "", null));
-        arrayRecord.setFields(arrayFields);
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"ArrayRecord\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"arrayMultipleDataTypesField\",\n"
+                        + "      \"type\": {\n"
+                        + "        \"type\": \"array\",\n"
+                        + "        \"items\": [\"int\", \"string\", \"float\"]\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema arrayRecord = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecord));
     }
 
-    /**
-     * Tests Avro Schema: { "type": "record", "name": "OuterRecord", "fields": [ { "name":
-     * "stringField", "type": "string" }, { "name": "arrayField", "type": { "type": "array",
-     * "items": { "type": "record", "name": "InnerRecord", "fields": [ { "name": "stringField",
-     * "type": "string" }, { "name": "intField", "type": "int" } ] } } }, { "name": "tsField",
-     * "type": { "type": "long", "logicalType": "timestamp-micros" } } ] }.
-     */
+    /** Tests that an Avro array of records is correctly converted to a BigQuery schema. */
     @Test
     public void testArrayOfRecordsDatatypeSuccessful() {
-        org.apache.avro.Schema innerRecordSchema =
-                org.apache.avro.Schema.createRecord("InnerRecord", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> innerFields = new ArrayList<>();
-        innerFields.add(
-                new org.apache.avro.Schema.Field(
-                        "stringField", org.apache.avro.Schema.create(Type.STRING), "", null));
-        innerFields.add(
-                new org.apache.avro.Schema.Field(
-                        "intField", org.apache.avro.Schema.create(Type.INT), "", null));
-        innerRecordSchema.setFields(innerFields);
-
-        org.apache.avro.Schema arrayOfRecordsSchema =
-                org.apache.avro.Schema.createArray(innerRecordSchema);
-
-        org.apache.avro.Schema arrayRecordSchema =
-                org.apache.avro.Schema.createRecord("OuterRecord", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> arrayFields = new ArrayList<>();
-        arrayFields.add(
-                new org.apache.avro.Schema.Field(
-                        "stringField", org.apache.avro.Schema.create(Type.STRING), "", null));
-        arrayFields.add(
-                new org.apache.avro.Schema.Field("arrayField", arrayOfRecordsSchema, "", null));
-        arrayFields.add(
-                new org.apache.avro.Schema.Field(
-                        "tsField",
-                        LogicalTypes.timestampMicros()
-                                .addToSchema(org.apache.avro.Schema.create(Type.LONG)),
-                        "",
-                        null));
-        arrayRecordSchema.setFields(arrayFields);
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"OuterRecord\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\"name\": \"stringField\", \"type\": \"string\"},\n"
+                        + "    {\n"
+                        + "      \"name\": \"arrayField\",\n"
+                        + "      \"type\": {\n"
+                        + "        \"type\": \"array\",\n"
+                        + "        \"items\": {\n"
+                        + "          \"type\": \"record\",\n"
+                        + "          \"name\": \"InnerRecord\",\n"
+                        + "          \"fields\": [\n"
+                        + "            {\"name\": \"stringField\", \"type\": \"string\"},\n"
+                        + "            {\"name\": \"intField\", \"type\": \"int\"}\n"
+                        + "          ]\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\"name\": \"tsField\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}}\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema arrayRecordSchema = new Parser().parse(avroSchemaString);
 
         ArrayList<Field> bqRecordFields = new ArrayList<>();
         bqRecordFields.add(createRequiredBigqueryField("stringField", StandardSQLTypeName.STRING));
@@ -510,67 +413,64 @@ public class AvroToBigQuerySchemaTransformTest {
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
-    /**
-     * Tests Avro Schema: {"type": "record", "name": "Record", "fields": [{"name": "nullableField",
-     * "type": ["null"]}]}.
-     */
+    /** Tests that an Avro union field with only a null type throws an exception. */
     @Test
     public void testUnionFieldWithOnlyNullTypeThrowsException() {
-        org.apache.avro.Schema nullableSchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL));
-
-        org.apache.avro.Schema recordSchema =
-                org.apache.avro.Schema.createRecord("Record", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> fields = new ArrayList<>();
-        fields.add(new org.apache.avro.Schema.Field("nullableField", nullableSchema, "", null));
-        recordSchema.setFields(fields);
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"Record\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"nullableField\",\n"
+                        + "      \"type\": [\"null\"]\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema));
     }
 
-    /**
-     * Tests Avro Schema: {"type": "record", "name": "Record", "fields": [{"name": "unionField",
-     * "type": ["int", "string"]}]}.
-     */
+    /** Tests that an Avro union field with multiple non-null types throws an exception. */
     @Test
     public void testUnionFieldWithMultipleNonNullTypesThrowsException() {
-        org.apache.avro.Schema unionSchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT),
-                        org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING));
-
-        org.apache.avro.Schema recordSchema =
-                org.apache.avro.Schema.createRecord("Record", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> fields = new ArrayList<>();
-        fields.add(new org.apache.avro.Schema.Field("unionField", unionSchema, "", null));
-        recordSchema.setFields(fields);
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"Record\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"unionField\",\n"
+                        + "      \"type\": [\"int\", \"string\"]\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema));
     }
 
-    /**
-     * Tests Avro Schema: {"type": "record", "name": "Record", "fields": [{"name":
-     * "nullableStringField", "type": ["null", "string"]}]}.
-     */
+    /** Tests that an Avro nullable field with a valid union is correctly converted. */
     @Test
     public void testNullableFieldWithValidUnion() {
-        org.apache.avro.Schema nullableStringSchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL),
-                        org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING));
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"Record\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"nullableStringField\",\n"
+                        + "      \"type\": [\"null\", \"string\"]\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
 
-        org.apache.avro.Schema recordSchema =
-                org.apache.avro.Schema.createRecord("Record", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> fields = new ArrayList<>();
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "nullableStringField", nullableStringSchema, "", null));
-        recordSchema.setFields(fields);
         Schema expectedBqSchema =
                 Schema.of(
                         createNullableBigqueryField(
