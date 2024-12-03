@@ -48,8 +48,8 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    {\"name\": \"bytes_field\", \"type\": \"bytes\"},\n"
                         + "    {\"name\": \"integer_field\", \"type\": \"long\"},\n"
                         + "    {\"name\": \"array_field\", \"type\": {\"type\": \"array\", \"items\": \"double\"}},\n"
-                        + "    {\"name\": \"numeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 38}]},\n"
-                        + "    {\"name\": \"bignumeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 77, \"scale\": 38}]},\n"
+                        + "    {\"name\": \"numeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 38, \"scale\": 9}]},\n"
+                        + "    {\"name\": \"bignumeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 76, \"scale\": 38}]},\n"
                         + "    {\"name\": \"boolean_field\", \"type\": [\"null\", \"boolean\"]},\n"
                         + "    {\"name\": \"ts_field\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}]},\n"
                         + "    {\"name\": \"date_field\", \"type\": [\"null\", {\"type\": \"int\", \"logicalType\": \"date\"}]},\n"
@@ -77,11 +77,13 @@ public class AvroToBigQuerySchemaTransformTest {
                         createNullableBigqueryField("numeric_field", StandardSQLTypeName.NUMERIC)
                                 .toBuilder()
                                 .setPrecision(38L)
+                                .setScale(9L)
                                 .build(),
                         createNullableBigqueryField(
                                         "bignumeric_field", StandardSQLTypeName.BIGNUMERIC)
                                 .toBuilder()
-                                .setPrecision(77L)
+                                .setPrecision(76L)
+                                .setScale(38L)
                                 .build(),
                         createNullableBigqueryField("boolean_field", StandardSQLTypeName.BOOL),
                         createNullableBigqueryField("ts_field", StandardSQLTypeName.TIMESTAMP),
@@ -504,6 +506,9 @@ public class AvroToBigQuerySchemaTransformTest {
             assertThat(actualField.getMode()).isEqualTo(expectedField.getMode());
             if (expectedField.getPrecision() != null) {
                 assertThat(actualField.getPrecision()).isEqualTo(expectedField.getPrecision());
+            }
+            if (expectedField.getScale() != null) {
+                assertThat(actualField.getScale()).isEqualTo(expectedField.getScale());
             }
             if (actualField.getType() == LegacySQLTypeName.RECORD) {
                 assertExactSchema(

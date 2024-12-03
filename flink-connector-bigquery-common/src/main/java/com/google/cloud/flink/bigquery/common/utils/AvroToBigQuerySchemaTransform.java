@@ -24,6 +24,8 @@ import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -42,6 +44,8 @@ public class AvroToBigQuerySchemaTransform {
 
     // Private Constructor to ensure no instantiation.
     private AvroToBigQuerySchemaTransform() {}
+
+    private static final Logger LOG = LoggerFactory.getLogger(AvroToBigQuerySchemaTransform.class);
 
     /**
      * Maximum nesting level for BigQuery schemas (15 levels). See <a
@@ -358,12 +362,18 @@ public class AvroToBigQuerySchemaTransform {
         if (avroSchema.getProp(org.apache.avro.LogicalType.LOGICAL_TYPE_PROP) != null
                 && avroSchema.getProp(LogicalType.LOGICAL_TYPE_PROP).equals("decimal")) {
             dataType = handleDecimalLogicalType(avroSchema, name);
-            // The precision is also set in the BigQuery Field
-            long precision = ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getPrecision();
-            return Field.newBuilder(name, dataType)
-                    .setMode(Field.Mode.REQUIRED)
-                    .setPrecision(precision)
-                    .build();
+            if (dataType == StandardSQLTypeName.NUMERIC
+                    || dataType == StandardSQLTypeName.BIGNUMERIC) {
+                // The precision and scale is also set in the BigQuery Field
+                long precision =
+                        ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getPrecision();
+                long scale = ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getScale();
+                return Field.newBuilder(name, dataType)
+                        .setMode(Field.Mode.REQUIRED)
+                        .setPrecision(precision)
+                        .setScale(scale)
+                        .build();
+            }
         } else {
             dataType =
                     Optional.ofNullable(avroSchema.getProp(LogicalType.LOGICAL_TYPE_PROP))
@@ -388,11 +398,18 @@ public class AvroToBigQuerySchemaTransform {
     private static StandardSQLTypeName handleDecimalLogicalType(
             org.apache.avro.Schema avroSchema, String name) {
         long precision = validatePrecisionAndScale(avroSchema, name);
-        if (precision > 0 && precision <= 38) {
+        long scale = ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getScale();
+
+        if (precision > 0 && precision <= (scale + 29) && scale <= 9) {
             return StandardSQLTypeName.NUMERIC;
-        } else if (precision > 38 && precision <= 77) {
+        } else if (precision > 0 && precision <= (scale + 38) && scale <= 38) {
             return StandardSQLTypeName.BIGNUMERIC;
         }
+        LOG.warn(
+                "The precision {} and scale {} of decimal field {} is not supported by BigQuery. Converting the field to type STRING.",
+                precision,
+                scale,
+                name);
         return StandardSQLTypeName.STRING;
     }
 
