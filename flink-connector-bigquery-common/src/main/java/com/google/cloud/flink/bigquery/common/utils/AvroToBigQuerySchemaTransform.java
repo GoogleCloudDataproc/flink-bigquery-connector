@@ -108,9 +108,8 @@ public class AvroToBigQuerySchemaTransform {
      * Schema}. It iterates through the fields of the Avro schema, converts each field to its
      * BigQuery equivalent, and constructs a BigQuery schema with the resulting fields.
      *
-     * <p>For each Avro field, the method extracts the field's name, documentation (if available),
-     * and default value (if available), and uses this information to build the corresponding
-     * BigQuery field.
+     * <p>For each Avro field, the method extracts the field's name and documentation (if
+     * available), and uses this information to build the corresponding BigQuery field.
      *
      * <p>The Avro schema must be of type Avro RECORD
      *
@@ -144,10 +143,6 @@ public class AvroToBigQuerySchemaTransform {
                                     bigQueryFieldBuilder.setName(avroField.name());
                                     if (avroField.doc() != null) {
                                         bigQueryFieldBuilder.setDescription(avroField.doc());
-                                    }
-                                    if (avroField.hasDefaultValue()) {
-                                        bigQueryFieldBuilder.setDefaultValueExpression(
-                                                avroField.defaultVal().toString());
                                     }
                                     return bigQueryFieldBuilder.build();
                                 })
