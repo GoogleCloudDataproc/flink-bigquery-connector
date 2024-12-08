@@ -32,9 +32,10 @@ to deploy the reporter most conveniently as per user’s need.
 
 ## General Debugging
 ### Records are not being written to BigQuery
-With the help of metrics available as a part of 0.4.0 release of the connector, 
-users should be able to track the number of records that enter the sink(writer) and the 
-number of records successfully written to BigQuery. 
+With the help of [metrics available as a part of 0.4.0 release](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/README.md#flink-metrics) of the connector, 
+users should be able to track the number of records that enter the sink(writer)
+(`numberOfRecordsSeenByWriter`) and the 
+number of records successfully written to BigQuery(`numberOfRecordsWrittenToBigQuery`). 
 If records are not being written to BigQuery, then records are stuck in either of the two phases:
 #### The records are not arriving at the sink
 - Most likely not an issue in the sink, since previous subtasks are not passing records forward for the sink.
