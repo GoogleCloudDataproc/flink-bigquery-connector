@@ -23,8 +23,6 @@ import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 
-import java.io.IOException;
-
 /**
  * A simple Identity de-serialization for pipelines that just want {@link GenericRecord} as response
  * from BigQuery.
@@ -40,7 +38,7 @@ public class AvroDeserializationSchema
     }
 
     @Override
-    public GenericRecord deserialize(GenericRecord record) throws IOException {
+    public GenericRecord deserialize(GenericRecord record) {
         return record;
     }
 
