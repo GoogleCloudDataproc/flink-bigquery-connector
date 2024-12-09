@@ -26,7 +26,6 @@ import com.google.api.gax.rpc.HeaderProvider;
 import com.google.api.gax.rpc.ServerStream;
 import com.google.api.gax.rpc.UnaryCallSettings;
 import com.google.api.services.bigquery.Bigquery;
-import com.google.api.services.bigquery.model.Dataset;
 import com.google.api.services.bigquery.model.ErrorProto;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
@@ -35,6 +34,8 @@ import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.DatasetId;
+import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableResult;
@@ -57,6 +58,7 @@ import com.google.cloud.bigquery.storage.v1.SplitReadStreamResponse;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
 import com.google.protobuf.Int64Value;
@@ -448,6 +450,32 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
 
         @Override
+        public Boolean datasetExists(String project, String dataset) {
+            try {
+                return bigQuery.getDataset(DatasetId.of(project, dataset)) != null;
+            } catch (Exception e) {
+                throw new BigQueryConnectorException(
+                        String.format(
+                                "Could not determine existence of BigQuery dataset %s.%s",
+                                project, dataset),
+                        e);
+            }
+        }
+
+        @Override
+        public void createDataset(String project, String dataset, String region) {
+            DatasetInfo datasetInfo =
+                    DatasetInfo.newBuilder(project, dataset).setLocation(region).build();
+            try {
+                bigQuery.create(datasetInfo);
+            } catch (Exception e) {
+                throw new BigQueryConnectorException(
+                        String.format("Could not create BigQuery dataset %s.%s", project, dataset),
+                        e);
+            }
+        }
+
+        @Override
         public Job dryRunQuery(String projectId, String query) {
             try {
                 JobConfigurationQuery queryConfiguration =
@@ -483,17 +511,18 @@ public class BigQueryServicesImpl implements BigQueryServices {
                 List<TableReference> referencedTables =
                         dryRun.getStatistics().getQuery().getReferencedTables();
                 TableReference firstTable = referencedTables.get(0);
-                Dataset dataset =
+                String region =
                         BigQueryUtils.datasetInfo(
-                                bigquery, firstTable.getProjectId(), firstTable.getDatasetId());
+                                        bigquery,
+                                        firstTable.getProjectId(),
+                                        firstTable.getDatasetId())
+                                .getLocation();
 
                 /**
                  * Then we run the query and check the results to provide errors or a set of
                  * project, dataset and table to be read.
                  */
-                Job job =
-                        BigQueryUtils.runQuery(
-                                bigquery, projectId, queryConfiguration, dataset.getLocation());
+                Job job = BigQueryUtils.runQuery(bigquery, projectId, queryConfiguration, region);
 
                 TableReference queryDestTable =
                         job.getConfiguration().getQuery().getDestinationTable();
@@ -512,6 +541,11 @@ public class BigQueryServicesImpl implements BigQueryServices {
                 throw new RuntimeException(
                         "Problems occurred while trying to run a BigQuery query job.", ex);
             }
+        }
+
+        @Override
+        public Boolean tableExists(String projectName, String datasetName, String tableName) {
+            return BigQueryTableInfo.tableExists(bigQuery, projectName, datasetName, tableName);
         }
 
         static List<String> processErrorMessages(List<ErrorProto> errors) {

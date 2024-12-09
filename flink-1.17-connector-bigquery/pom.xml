@@ -107,12 +107,6 @@ under the License.
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-metrics-dropwizard</artifactId>
-                <version>${flink.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
                 <artifactId>flink-shaded-force-shading</artifactId>
                 <version>${flink.shaded.version}</version>
             </dependency>

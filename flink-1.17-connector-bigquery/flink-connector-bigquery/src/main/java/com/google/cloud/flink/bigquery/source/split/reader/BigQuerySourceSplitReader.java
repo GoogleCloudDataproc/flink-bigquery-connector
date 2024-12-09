@@ -23,11 +23,8 @@ import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
-import org.apache.flink.dropwizard.metrics.DropwizardHistogramWrapper;
-import org.apache.flink.metrics.Histogram;
 import org.apache.flink.util.Preconditions;
 
-import com.codahale.metrics.SlidingWindowReservoir;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -61,7 +58,6 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     private final BigQueryReadOptions readOptions;
     private final BigQuerySourceReaderContext readerContext;
-    private final transient Optional<Histogram> readSplitTimeMetric;
     private final Queue<BigQuerySourceSplit> assignedSplits = new ArrayDeque<>();
     private final Configuration configuration;
 
@@ -76,15 +72,6 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         this.readOptions = readOptions;
         this.readerContext = readerContext;
         this.configuration = readerContext.getConfiguration();
-        this.readSplitTimeMetric =
-                Optional.ofNullable(readerContext.metricGroup())
-                        .map(
-                                mgroup ->
-                                        mgroup.histogram(
-                                                "bq.split.read.time.ms",
-                                                new DropwizardHistogramWrapper(
-                                                        new com.codahale.metrics.Histogram(
-                                                                new SlidingWindowReservoir(500)))));
     }
 
     Long offsetToFetch(BigQuerySourceSplit split) {
@@ -238,7 +225,6 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             if (!truncated) {
                 readerContext.updateReadCount(readSoFar);
                 Long splitTimeMs = System.currentTimeMillis() - splitStartFetch;
-                this.readSplitTimeMetric.ifPresent(m -> m.update(splitTimeMs));
                 LOG.info(
                         "[subtask #{}][hostname {}] Completed reading split, {} records in {}ms on stream {}.",
                         readerContext.getIndexOfSubtask(),

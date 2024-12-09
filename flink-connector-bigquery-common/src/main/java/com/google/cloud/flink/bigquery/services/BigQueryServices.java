@@ -214,6 +214,24 @@ public interface BigQueryServices extends Serializable {
         TableSchema getTableSchema(String project, String dataset, String table);
 
         /**
+         * Checks whether the specified BigQuery dataset exists or not.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @return True if dataset exists, else false.
+         */
+        Boolean datasetExists(String project, String dataset);
+
+        /**
+         * Create BigQuery dataset.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @param region GCP region where dataset must be created.
+         */
+        void createDataset(String project, String dataset, String region);
+
+        /**
          * Executes a BigQuery query and returns the information about the execution results
          * (including if succeeded of failed related information). No data is being returned by this
          * method, just a description of what happened with the execution.
@@ -232,5 +250,15 @@ public interface BigQueryServices extends Serializable {
          * @return The dry run job's information.
          */
         Job dryRunQuery(String projectId, String query);
+
+        /**
+         * Function to identify if a BigQuery table exists.
+         *
+         * @param projectName The project ID of the BigQuery dataset
+         * @param datasetName The BigQuery dataset.
+         * @param tableName The BigQuery table name.
+         * @return Boolean {@code TRUE} if the table exists or {@code FALSE} if it does not.
+         */
+        Boolean tableExists(String projectName, String datasetName, String tableName);
     }
 }
