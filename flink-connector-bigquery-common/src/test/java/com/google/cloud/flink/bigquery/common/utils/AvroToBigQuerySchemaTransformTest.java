@@ -30,6 +30,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.cloud.flink.bigquery.common.utils.AvroToBigQuerySchemaTransform.getUnsupportedTypeErrorMessage;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -260,7 +261,7 @@ public class AvroToBigQuerySchemaTransformTest {
         longListSchema.setFields(fields);
 
         assertThrows(
-                UnsupportedOperationException.class,
+                IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(longListSchema));
     }
 
@@ -289,7 +290,7 @@ public class AvroToBigQuerySchemaTransformTest {
         nestedRecord.setFields(nestedFields);
 
         assertThrows(
-                UnsupportedOperationException.class,
+                IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(nestedRecord));
     }
 
@@ -320,7 +321,7 @@ public class AvroToBigQuerySchemaTransformTest {
         org.apache.avro.Schema arrayRecord = new Parser().parse(avroSchemaString);
 
         assertThrows(
-                IllegalStateException.class,
+                IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecord));
     }
 
@@ -341,8 +342,32 @@ public class AvroToBigQuerySchemaTransformTest {
         org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
 
         assertThrows(
-                UnsupportedOperationException.class,
+                IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema));
+    }
+
+    /** Tests that an Avro array with a nullable inner type throws an exception. */
+    @Test
+    public void testArrayWithNullableInnerTypeThrowsException() {
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"ArrayRecord\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"arrayField\",\n"
+                        + "      \"type\": {\n"
+                        + "        \"type\": \"array\",\n"
+                        + "        \"items\": [\"null\", \"int\"]\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema arrayRecord = new Parser().parse(avroSchemaString);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecord));
     }
 
     /** Tests that an Avro array with multiple datatypes throws an exception. */
@@ -493,6 +518,38 @@ public class AvroToBigQuerySchemaTransformTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(avroUnNamedSchema));
+    }
+
+    /**
+     * Tests that an Avro schema with a "map" type throws an exception with the correct error
+     * message.
+     */
+    @Test
+    public void testUnsupportedMapTypeThrowsExceptionWithCorrectMessage() {
+        // Use an unsupported Avro type "map"
+        String avroSchemaString =
+                "{\n"
+                        + "  \"type\": \"record\",\n"
+                        + "  \"name\": \"RecordWithMapType\",\n"
+                        + "  \"fields\": [\n"
+                        + "    {\n"
+                        + "      \"name\": \"mapField\",\n"
+                        + "      \"type\": {\n"
+                        + "        \"type\": \"map\",\n"
+                        + "        \"values\": \"string\"\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}";
+        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
+
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema));
+
+        String expectedMessage = getUnsupportedTypeErrorMessage("MAP", "mapField");
+        assertThat(exception.getMessage()).isEqualTo(expectedMessage);
     }
 
     // Helper function to assert equality of two BigQuery schemas
