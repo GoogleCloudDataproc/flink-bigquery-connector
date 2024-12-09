@@ -2,7 +2,6 @@ package com.google.cloud.flink.bigquery.source.split.reader.deserializer;
 
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.DecimalData;
-import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.MapData;
 import org.apache.flink.table.data.TimestampData;
@@ -17,15 +16,13 @@ import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.TinyIntType;
 import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.flink.table.types.logical.VarCharType;
+import org.apache.flink.types.RowKind;
 
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataConverters;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.util.Utf8;
-
-import org.apache.flink.types.RowKind;
-
 import org.assertj.core.api.Assertions;
 import org.joda.time.LocalDate;
 import org.junit.Test;
@@ -41,6 +38,7 @@ import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchema
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
+/** Tests for AvroToRowDataConvertors. */
 public class AvroToRowDataConvertersTest {
     @Test
     public void testNullTypeConvertor() {
@@ -57,7 +55,7 @@ public class AvroToRowDataConvertersTest {
         IndexedRecord record = new GenericRecordBuilder(avroSchema).set("null_field", null).build();
         // Convert and Assert.
         Object convertedObject = converter.convert(record);
-        assertEquals(GenericRowData.ofKind(RowKind.INSERT, (Object) null),convertedObject);
+        assertEquals(GenericRowData.ofKind(RowKind.INSERT, (Object) null), convertedObject);
     }
 
     @Test
@@ -169,15 +167,14 @@ public class AvroToRowDataConvertersTest {
         // Map Type
         Map<String, String> map = new HashMap<>();
         map.put("first", "test_value");
-        IndexedRecord record =
-                new GenericRecordBuilder(avroSchema).set("map_field", map).build();
+        IndexedRecord record = new GenericRecordBuilder(avroSchema).set("map_field", map).build();
         // Convert and Assert.
         Object convertedObject = converter.convert(record);
-        MapData mapData = ((GenericRowData)convertedObject).getMap(0);
+        MapData mapData = ((GenericRowData) convertedObject).getMap(0);
         ArrayData keyArray = mapData.keyArray();
         ArrayData valArray = mapData.valueArray();
         int pos = 0;
-        for (String key : map.keySet()){
+        for (String key : map.keySet()) {
             assertEquals(keyArray.getString(pos).toString(), key);
             assertEquals(valArray.getString(pos).toString(), map.get(key));
         }
@@ -299,7 +296,7 @@ public class AvroToRowDataConvertersTest {
                         .build();
         // Convert and Assert.
         convertedObject = converter.convert(record);
-        assertEquals(GenericRowData.of(-1054616512), convertedObject);
+        assertEquals(GenericRowData.of(19723), convertedObject);
 
         // Invalid Type
         IndexedRecord invalidRecord =
