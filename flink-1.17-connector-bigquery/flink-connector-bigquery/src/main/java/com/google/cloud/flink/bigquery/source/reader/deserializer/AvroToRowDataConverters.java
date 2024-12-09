@@ -366,7 +366,9 @@ public class AvroToRowDataConverters {
             // 86400000 - number of milliseconds in a day
             long millisSinceEpoch = value.toDateTimeAtStartOfDay().getMillis();
             int daysSinceEpoch = (int) (millisSinceEpoch / 86400000);
-            return millisSinceEpoch > 0 ? daysSinceEpoch + 1 : daysSinceEpoch;
+            //            return millisSinceEpoch > 0 ? daysSinceEpoch + 1 : daysSinceEpoch;
+            return daysSinceEpoch;
+
         } else {
             String invalidFormatError =
                     getErrorMessage(
