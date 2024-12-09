@@ -1,8 +1,10 @@
 package com.google.cloud.flink.bigquery.source.split.reader.deserializer;
 
+import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.MapData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.DateType;
 import org.apache.flink.table.types.logical.DecimalType;
@@ -167,11 +169,18 @@ public class AvroToRowDataConvertersTest {
         // Map Type
         Map<String, String> map = new HashMap<>();
         map.put("first", "test_value");
-        IndexedRecord invalidRecord =
+        IndexedRecord record =
                 new GenericRecordBuilder(avroSchema).set("map_field", map).build();
         // Convert and Assert.
-        Object convertedObject = converter.convert(invalidRecord);
-        assertEquals(GenericRowData.of(new GenericMapData(map)), convertedObject);
+        Object convertedObject = converter.convert(record);
+        MapData mapData = ((GenericRowData)convertedObject).getMap(0);
+        ArrayData keyArray = mapData.keyArray();
+        ArrayData valArray = mapData.valueArray();
+        int pos = 0;
+        for (String key : map.keySet()){
+            assertEquals(keyArray.getString(pos).toString(), key);
+            assertEquals(valArray.getString(pos).toString(), map.get(key));
+        }
     }
 
     @Test

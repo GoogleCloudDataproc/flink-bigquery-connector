@@ -364,7 +364,8 @@ public class AvroToRowDataConverters {
             return (int) ((LocalDate) object).toEpochDay();
         } else if (object instanceof org.joda.time.LocalDate) {
             final org.joda.time.LocalDate value = (org.joda.time.LocalDate) object;
-            return (int) value.toDate().getTime();
+            // 86400000 is the number of milliseconds in a day
+            return (int) (value.toDateTimeAtStartOfDay().getMillis() / 86400000);
         } else {
             String invalidFormatError =
                     getErrorMessage(
