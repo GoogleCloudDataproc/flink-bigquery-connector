@@ -19,10 +19,10 @@ package com.google.cloud.flink.bigquery.common.utils;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
-import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
+import org.apache.avro.Schema;
 import org.apache.avro.Schema.Parser;
 import org.apache.avro.Schema.Type;
 import org.junit.Test;
@@ -67,10 +67,10 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }}\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema allTypesSchema = new Parser().parse(avroSchemaString);
+        Schema allTypesSchema = new Parser().parse(avroSchemaString);
 
-        Schema expectedBqSchema =
-                Schema.of(
+        com.google.cloud.bigquery.Schema expectedBqSchema =
+                com.google.cloud.bigquery.Schema.of(
                         createRequiredBigqueryField("string_field", StandardSQLTypeName.STRING),
                         createRequiredBigqueryField("bytes_field", StandardSQLTypeName.BYTES),
                         createRequiredBigqueryField("integer_field", StandardSQLTypeName.INT64),
@@ -105,7 +105,8 @@ public class AvroToBigQuerySchemaTransformTest {
                                 .setMode(Field.Mode.REQUIRED)
                                 .build());
 
-        Schema bqSchema = AvroToBigQuerySchemaTransform.getBigQuerySchema(allTypesSchema);
+        com.google.cloud.bigquery.Schema bqSchema =
+                AvroToBigQuerySchemaTransform.getBigQuerySchema(allTypesSchema);
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
@@ -113,66 +114,57 @@ public class AvroToBigQuerySchemaTransformTest {
     @Test
     public void testLogicalTypesSuccessful() {
         // Create an Avro schema with logical types
-        org.apache.avro.Schema avroSchema =
-                org.apache.avro.Schema.createRecord("RecordWithLogicalTypes", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> logicalFields = new ArrayList<>();
+        Schema avroSchema = Schema.createRecord("RecordWithLogicalTypes", "", "", false);
+        ArrayList<Schema.Field> logicalFields = new ArrayList<>();
         logicalFields.add(
-                new org.apache.avro.Schema.Field(
+                new Schema.Field(
                         "dateField",
-                        LogicalTypes.date().addToSchema(org.apache.avro.Schema.create(Type.INT)),
+                        LogicalTypes.date().addToSchema(Schema.create(Type.INT)),
                         null,
                         null));
         logicalFields.add(
-                new org.apache.avro.Schema.Field(
+                new Schema.Field(
                         "timeMillisField",
-                        LogicalTypes.timeMillis()
-                                .addToSchema(org.apache.avro.Schema.create(Type.INT)),
+                        LogicalTypes.timeMillis().addToSchema(Schema.create(Type.INT)),
                         null,
                         null));
         logicalFields.add(
-                new org.apache.avro.Schema.Field(
+                new Schema.Field(
                         "timestampMillisField",
-                        LogicalTypes.timestampMillis()
-                                .addToSchema(org.apache.avro.Schema.create(Type.LONG)),
+                        LogicalTypes.timestampMillis().addToSchema(Schema.create(Type.LONG)),
                         null,
                         null));
         logicalFields.add(
-                new org.apache.avro.Schema.Field(
+                new Schema.Field(
                         "localTimestampMillisField",
-                        LogicalTypes.localTimestampMillis()
-                                .addToSchema(org.apache.avro.Schema.create(Type.LONG)),
+                        LogicalTypes.localTimestampMillis().addToSchema(Schema.create(Type.LONG)),
                         null,
                         null));
         logicalFields.add(
-                new org.apache.avro.Schema.Field(
+                new Schema.Field(
                         "decimalField",
-                        LogicalTypes.decimal(10, 2)
-                                .addToSchema(org.apache.avro.Schema.create(Type.BYTES)),
+                        LogicalTypes.decimal(10, 2).addToSchema(Schema.create(Type.BYTES)),
                         "Decimal Field Description",
                         null));
         logicalFields.add(
-                new org.apache.avro.Schema.Field(
+                new Schema.Field(
                         "uuidField",
-                        LogicalTypes.uuid().addToSchema(org.apache.avro.Schema.create(Type.STRING)),
+                        LogicalTypes.uuid().addToSchema(Schema.create(Type.STRING)),
                         null,
                         null));
-        org.apache.avro.Schema durationSchema = org.apache.avro.Schema.create(Type.BYTES);
+        Schema durationSchema = Schema.create(Type.BYTES);
         durationSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "duration");
-        logicalFields.add(
-                new org.apache.avro.Schema.Field("durationField", durationSchema, null, null));
-        org.apache.avro.Schema geoSchema =
-                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING);
+        logicalFields.add(new Schema.Field("durationField", durationSchema, null, null));
+        Schema geoSchema = Schema.create(Schema.Type.STRING);
         geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
-        logicalFields.add(
-                new org.apache.avro.Schema.Field("geographyWKTField", geoSchema, null, null));
-        org.apache.avro.Schema jsonSchema =
-                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING);
+        logicalFields.add(new Schema.Field("geographyWKTField", geoSchema, null, null));
+        Schema jsonSchema = Schema.create(Schema.Type.STRING);
         jsonSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "Json");
-        logicalFields.add(new org.apache.avro.Schema.Field("jsonField", jsonSchema, null, null));
+        logicalFields.add(new Schema.Field("jsonField", jsonSchema, null, null));
         avroSchema.setFields(logicalFields);
 
-        Schema expectedBqSchema =
-                Schema.of(
+        com.google.cloud.bigquery.Schema expectedBqSchema =
+                com.google.cloud.bigquery.Schema.of(
                         createRequiredBigqueryField("dateField", StandardSQLTypeName.DATE),
                         createRequiredBigqueryField("timeMillisField", StandardSQLTypeName.TIME),
                         createRequiredBigqueryField(
@@ -190,37 +182,32 @@ public class AvroToBigQuerySchemaTransformTest {
                                 "geographyWKTField", StandardSQLTypeName.GEOGRAPHY),
                         createRequiredBigqueryField("jsonField", StandardSQLTypeName.JSON));
 
-        Schema bqSchema = AvroToBigQuerySchemaTransform.getBigQuerySchema(avroSchema);
+        com.google.cloud.bigquery.Schema bqSchema =
+                AvroToBigQuerySchemaTransform.getBigQuerySchema(avroSchema);
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
     /** Tests Avro record schema with nesting upto 15 levels. */
     @Test
     public void testDeeplyNestedSchemaSuccessful() {
-        org.apache.avro.Schema currentSchema = null;
+        Schema currentSchema = null;
         for (int i = 13; i >= 0; i--) {
-            org.apache.avro.Schema nextSchema =
-                    org.apache.avro.Schema.createRecord("level_" + i, null, null, false);
+            Schema nextSchema = Schema.createRecord("level_" + i, null, null, false);
             if (currentSchema != null) {
-                ArrayList<org.apache.avro.Schema.Field> nestedFields = new ArrayList<>();
-                nestedFields.add(
-                        (new org.apache.avro.Schema.Field(
-                                "level_" + (i + 1), currentSchema, null, null)));
+                ArrayList<Schema.Field> nestedFields = new ArrayList<>();
+                nestedFields.add((new Schema.Field("level_" + (i + 1), currentSchema, null, null)));
                 nextSchema.setFields(nestedFields);
             } else {
-                ArrayList<org.apache.avro.Schema.Field> nestedFields = new ArrayList<>();
-                nestedFields.add(
-                        new org.apache.avro.Schema.Field(
-                                "value", org.apache.avro.Schema.create(Type.LONG), null, null));
+                ArrayList<Schema.Field> nestedFields = new ArrayList<>();
+                nestedFields.add(new Schema.Field("value", Schema.create(Type.LONG), null, null));
                 nextSchema.setFields(nestedFields);
             }
             currentSchema = nextSchema;
         }
-        org.apache.avro.Schema level0Schema = currentSchema;
-        org.apache.avro.Schema nestedSchema =
-                org.apache.avro.Schema.createRecord("nestedTypeIT", null, null, false);
-        ArrayList<org.apache.avro.Schema.Field> recordFields = new ArrayList<>();
-        recordFields.add(new org.apache.avro.Schema.Field("level_0", level0Schema, null, null));
+        Schema level0Schema = currentSchema;
+        Schema nestedSchema = Schema.createRecord("nestedTypeIT", null, null, false);
+        ArrayList<Schema.Field> recordFields = new ArrayList<>();
+        recordFields.add(new Schema.Field("level_0", level0Schema, null, null));
         nestedSchema.setFields(recordFields);
 
         Field currentField = createRequiredBigqueryField("value", StandardSQLTypeName.INT64);
@@ -229,9 +216,11 @@ public class AvroToBigQuerySchemaTransformTest {
         }
         Field level0Field = currentField;
 
-        Schema expectedBqSchema = Schema.of(level0Field);
+        com.google.cloud.bigquery.Schema expectedBqSchema =
+                com.google.cloud.bigquery.Schema.of(level0Field);
 
-        Schema bqSchema = AvroToBigQuerySchemaTransform.getBigQuerySchema(nestedSchema);
+        com.google.cloud.bigquery.Schema bqSchema =
+                AvroToBigQuerySchemaTransform.getBigQuerySchema(nestedSchema);
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
@@ -245,19 +234,15 @@ public class AvroToBigQuerySchemaTransformTest {
     @Test
     public void testInfiniteRecursiveSchemaThrowsException() {
         // Build the Avro schema programmatically
-        org.apache.avro.Schema longListSchema =
-                org.apache.avro.Schema.createRecord("LongList", "", "", false);
+        Schema longListSchema = Schema.createRecord("LongList", "", "", false);
         longListSchema.addAlias("LinkedLongs");
 
-        ArrayList<org.apache.avro.Schema.Field> fields = new ArrayList<>();
-        fields.add(
-                new org.apache.avro.Schema.Field(
-                        "value", org.apache.avro.Schema.create(Type.LONG), "", null));
+        ArrayList<Schema.Field> fields = new ArrayList<>();
+        fields.add(new Schema.Field("value", Schema.create(Type.LONG), "", null));
 
-        org.apache.avro.Schema nullableLongListSchema =
-                org.apache.avro.Schema.createUnion(
-                        org.apache.avro.Schema.create(Type.NULL), longListSchema);
-        fields.add(new org.apache.avro.Schema.Field("next", nullableLongListSchema, "", null));
+        Schema nullableLongListSchema =
+                Schema.createUnion(Schema.create(Type.NULL), longListSchema);
+        fields.add(new Schema.Field("next", nullableLongListSchema, "", null));
         longListSchema.setFields(fields);
 
         assertThrows(
@@ -270,23 +255,20 @@ public class AvroToBigQuerySchemaTransformTest {
      */
     @Test
     public void testNestedRecordExceedsLimitThrowsException() {
-        org.apache.avro.Schema nestedSchema =
-                org.apache.avro.Schema.createRecord("NestedRecord", "", "", false);
-        List<org.apache.avro.Schema.Field> fields = new ArrayList<>();
-        org.apache.avro.Schema currentSchema = nestedSchema;
+        Schema nestedSchema = Schema.createRecord("NestedRecord", "", "", false);
+        List<Schema.Field> fields = new ArrayList<>();
+        Schema currentSchema = nestedSchema;
         for (int i = 0; i < 16; i++) {
-            org.apache.avro.Schema nextSchema =
-                    org.apache.avro.Schema.createRecord("NestedRecord" + i, "", "", false);
-            fields.add(new org.apache.avro.Schema.Field("nestedField", nextSchema, "", null));
+            Schema nextSchema = Schema.createRecord("NestedRecord" + i, "", "", false);
+            fields.add(new Schema.Field("nestedField", nextSchema, "", null));
             currentSchema.setFields(fields);
             currentSchema = nextSchema;
             fields = new ArrayList<>();
         }
 
-        org.apache.avro.Schema nestedRecord =
-                org.apache.avro.Schema.createRecord("NestedRecord", "", "", false);
-        ArrayList<org.apache.avro.Schema.Field> nestedFields = new ArrayList<>();
-        nestedFields.add(new org.apache.avro.Schema.Field("nestedField", nestedRecord, "", null));
+        Schema nestedRecord = Schema.createRecord("NestedRecord", "", "", false);
+        ArrayList<Schema.Field> nestedFields = new ArrayList<>();
+        nestedFields.add(new Schema.Field("nestedField", nestedRecord, "", null));
         nestedRecord.setFields(nestedFields);
 
         assertThrows(
@@ -318,7 +300,7 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema arrayRecord = new Parser().parse(avroSchemaString);
+        Schema arrayRecord = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -339,7 +321,7 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
+        Schema recordSchema = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -363,7 +345,7 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema arrayRecord = new Parser().parse(avroSchemaString);
+        Schema arrayRecord = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -387,7 +369,7 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema arrayRecord = new Parser().parse(avroSchemaString);
+        Schema arrayRecord = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -420,13 +402,13 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    {\"name\": \"tsField\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}}\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema arrayRecordSchema = new Parser().parse(avroSchemaString);
+        Schema arrayRecordSchema = new Parser().parse(avroSchemaString);
 
         ArrayList<Field> bqRecordFields = new ArrayList<>();
         bqRecordFields.add(createRequiredBigqueryField("stringField", StandardSQLTypeName.STRING));
         bqRecordFields.add(createRequiredBigqueryField("intField", StandardSQLTypeName.INT64));
-        Schema expectedBqSchema =
-                Schema.of(
+        com.google.cloud.bigquery.Schema expectedBqSchema =
+                com.google.cloud.bigquery.Schema.of(
                         createRequiredBigqueryField("stringField", StandardSQLTypeName.STRING),
                         Field.newBuilder(
                                         "arrayField",
@@ -436,7 +418,8 @@ public class AvroToBigQuerySchemaTransformTest {
                                 .build(),
                         createRequiredBigqueryField("tsField", StandardSQLTypeName.TIMESTAMP));
 
-        Schema bqSchema = AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecordSchema);
+        com.google.cloud.bigquery.Schema bqSchema =
+                AvroToBigQuerySchemaTransform.getBigQuerySchema(arrayRecordSchema);
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
@@ -454,7 +437,7 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
+        Schema recordSchema = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -475,7 +458,7 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
+        Schema recordSchema = new Parser().parse(avroSchemaString);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -496,14 +479,15 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
+        Schema recordSchema = new Parser().parse(avroSchemaString);
 
-        Schema expectedBqSchema =
-                Schema.of(
+        com.google.cloud.bigquery.Schema expectedBqSchema =
+                com.google.cloud.bigquery.Schema.of(
                         createNullableBigqueryField(
                                 "nullableStringField", StandardSQLTypeName.STRING));
 
-        Schema bqSchema = AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema);
+        com.google.cloud.bigquery.Schema bqSchema =
+                AvroToBigQuerySchemaTransform.getBigQuerySchema(recordSchema);
         assertExactSchema(bqSchema, expectedBqSchema);
     }
 
@@ -513,7 +497,7 @@ public class AvroToBigQuerySchemaTransformTest {
      */
     @Test
     public void testSchemaWithoutNamedFieldsThrowsException() {
-        org.apache.avro.Schema avroUnNamedSchema = org.apache.avro.Schema.create(Type.STRING);
+        Schema avroUnNamedSchema = Schema.create(Type.STRING);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -541,7 +525,7 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    }\n"
                         + "  ]\n"
                         + "}";
-        org.apache.avro.Schema recordSchema = new Parser().parse(avroSchemaString);
+        Schema recordSchema = new Parser().parse(avroSchemaString);
 
         UnsupportedOperationException exception =
                 assertThrows(
@@ -553,7 +537,8 @@ public class AvroToBigQuerySchemaTransformTest {
     }
 
     // Helper function to assert equality of two BigQuery schemas
-    private void assertExactSchema(Schema actual, Schema expected) {
+    private void assertExactSchema(
+            com.google.cloud.bigquery.Schema actual, com.google.cloud.bigquery.Schema expected) {
         assertThat(actual.getFields().size()).isEqualTo(expected.getFields().size());
         for (int i = 0; i < actual.getFields().size(); i++) {
             Field actualField = actual.getFields().get(i);
@@ -569,8 +554,8 @@ public class AvroToBigQuerySchemaTransformTest {
             }
             if (actualField.getType() == LegacySQLTypeName.RECORD) {
                 assertExactSchema(
-                        Schema.of(actualField.getSubFields()),
-                        Schema.of(expectedField.getSubFields()));
+                        com.google.cloud.bigquery.Schema.of(actualField.getSubFields()),
+                        com.google.cloud.bigquery.Schema.of(expectedField.getSubFields()));
             }
         }
     }
