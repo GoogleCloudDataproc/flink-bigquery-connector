@@ -553,7 +553,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             LocalTime time =
                     LocalTime.MIDNIGHT.plusNanos(
                             TimeUnit.MICROSECONDS.toNanos(microSecondsSinceMidnight));
-            return time.toString();
+            return time.format(DateTimeFormatter.ISO_TIME);
         }
 
         /**
