@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Google Inc.
+ * Copyright (C) 2024 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -25,10 +25,6 @@ import com.google.cloud.bigquery.StandardSQLTypeName;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -44,11 +40,6 @@ import java.util.stream.Collectors;
  */
 public class AvroToBigQuerySchemaTransform {
 
-    // Private Constructor to ensure no instantiation.
-    private AvroToBigQuerySchemaTransform() {}
-
-    private static final Logger LOG = LoggerFactory.getLogger(AvroToBigQuerySchemaTransform.class);
-
     /**
      * Maximum nesting level for BigQuery schemas (15 levels). See <a
      * href="https://cloud.google.com/bigquery/docs/nested-repeated#limitations">BigQuery nested and
@@ -56,7 +47,13 @@ public class AvroToBigQuerySchemaTransform {
      */
     private static final int MAX_NESTED_LEVEL = 15;
 
-    private static final Map<Schema.Type, StandardSQLTypeName> AVRO_TYPES_TO_BQ_TYPES;
+    private static final String GEOGRAPHY_LOGICAL_TYPE_NAME = "geography_wkt";
+    private static final String JSON_LOGICAL_TYPE_NAME = "Json";
+    private static final int MAX_BQ_NUMERIC_PRECISION = 38;
+    private static final int MAX_BQ_NUMERIC_SCALE = 9;
+    private static final int MAX_BQ_BIGNUMERIC_PRECISION = 76;
+    private static final int MAX_BQ_BIGNUMERIC_SCALE = 38;
+    private static final Map<Schema.Type, StandardSQLTypeName> PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES;
     private static final Map<String, StandardSQLTypeName> LOGICAL_AVRO_TYPES_TO_BQ_TYPES;
 
     // ----------- Initialize Maps between Avro Schema to BigQuery schema -------------
@@ -64,23 +61,25 @@ public class AvroToBigQuerySchemaTransform {
         /*
          * Map Avro Schema Type to StandardSQLTypeName which converts AvroSchema
          * Primitive Type to StandardSQLTypeName.
-         * AVRO_TYPES_TO_BQ_TYPES: containing mapping from Primitive Avro Schema Type to StandardSQLTypeName.
+         * PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES: containing mapping from Primitive Avro Schema Type
+         * to StandardSQLTypeName.
          */
-        AVRO_TYPES_TO_BQ_TYPES = new EnumMap<>(Schema.Type.class);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.INT, StandardSQLTypeName.INT64);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.FIXED, StandardSQLTypeName.BYTES);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.LONG, StandardSQLTypeName.INT64);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.FLOAT, StandardSQLTypeName.FLOAT64);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.DOUBLE, StandardSQLTypeName.FLOAT64);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.STRING, StandardSQLTypeName.STRING);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.BOOLEAN, StandardSQLTypeName.BOOL);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.ENUM, StandardSQLTypeName.STRING);
-        AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.BYTES, StandardSQLTypeName.BYTES);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES = new EnumMap<>(Schema.Type.class);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.INT, StandardSQLTypeName.INT64);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.FIXED, StandardSQLTypeName.BYTES);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.LONG, StandardSQLTypeName.INT64);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.FLOAT, StandardSQLTypeName.FLOAT64);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.DOUBLE, StandardSQLTypeName.FLOAT64);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.STRING, StandardSQLTypeName.STRING);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.BOOLEAN, StandardSQLTypeName.BOOL);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.ENUM, StandardSQLTypeName.STRING);
+        PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.put(Schema.Type.BYTES, StandardSQLTypeName.BYTES);
 
         /*
          * Map Logical Avro Schema Type to StandardSQLTypeName Type, which converts
          * AvroSchema Logical Type to StandardSQLTypeName.
-         * LOGICAL_AVRO_TYPES_TO_BQ_TYPES: Map containing mapping from Logical Avro Schema Type to StandardSQLTypeName.
+         * LOGICAL_AVRO_TYPES_TO_BQ_TYPES: Map containing mapping from Logical Avro Schema Type to
+         * StandardSQLTypeName.
          */
         LOGICAL_AVRO_TYPES_TO_BQ_TYPES = new HashMap<>();
         LOGICAL_AVRO_TYPES_TO_BQ_TYPES.put(LogicalTypes.date().getName(), StandardSQLTypeName.DATE);
@@ -98,9 +97,13 @@ public class AvroToBigQuerySchemaTransform {
                 LogicalTypes.localTimestampMillis().getName(), StandardSQLTypeName.DATETIME);
         LOGICAL_AVRO_TYPES_TO_BQ_TYPES.put(
                 LogicalTypes.localTimestampMicros().getName(), StandardSQLTypeName.DATETIME);
-        LOGICAL_AVRO_TYPES_TO_BQ_TYPES.put("geography_wkt", StandardSQLTypeName.GEOGRAPHY);
-        LOGICAL_AVRO_TYPES_TO_BQ_TYPES.put("Json", StandardSQLTypeName.JSON);
+        LOGICAL_AVRO_TYPES_TO_BQ_TYPES.put(
+                GEOGRAPHY_LOGICAL_TYPE_NAME, StandardSQLTypeName.GEOGRAPHY);
+        LOGICAL_AVRO_TYPES_TO_BQ_TYPES.put(JSON_LOGICAL_TYPE_NAME, StandardSQLTypeName.JSON);
     }
+
+    // Private Constructor to ensure no instantiation.
+    private AvroToBigQuerySchemaTransform() {}
 
     /**
      * Converts an Avro schema to a BigQuery schema.
@@ -121,21 +124,25 @@ public class AvroToBigQuerySchemaTransform {
     public static com.google.cloud.bigquery.Schema getBigQuerySchema(Schema avroSchema) {
         if (avroSchema == null) {
             throw new IllegalArgumentException(
-                    "Could not convert avro schema of expected output to BigQuery table schema. The avro schema of the expected output record cannot be null");
+                    "Could not convert avro schema of expected output to BigQuery table schema. "
+                            + "The avro schema of the expected output record cannot be null");
         }
         if (avroSchema.getType() == null) {
             throw new IllegalArgumentException(
-                    "Could not convert avro schema of expected output to BigQuery table schema. The avro schema of the output record must have a type");
+                    "Could not convert avro schema of expected output to BigQuery table schema. "
+                            + "The avro schema of the output record must have a type");
         }
         if (avroSchema.getType() != Schema.Type.RECORD) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro schema of expected output to BigQuery table schema. Avro schema must be of type RECORD, found %s",
+                            "Could not convert avro schema of expected output to BigQuery table "
+                                    + "schema. Avro schema must be of type RECORD, found %s",
                             avroSchema.getType()));
         }
         if (avroSchema.getFields().isEmpty()) {
             throw new IllegalArgumentException(
-                    "Could not convert avro schema of expected output to BigQuery table schema. The avro schema of the output record must have at least one field.");
+                    "Could not convert avro schema of expected output to BigQuery table schema. "
+                            + "The avro schema of the output record must have at least one field.");
         }
         // Iterate over each record field and add them to the BigQuery schema.
         List<Field> fields =
@@ -145,7 +152,12 @@ public class AvroToBigQuerySchemaTransform {
                                     if (avroField.name() == null) {
                                         throw new IllegalArgumentException(
                                                 String.format(
-                                                        "Could not convert avro field: %s of expected output to BigQuery table schema. The output avro field must have a name attribute to convert to a BigQuery table schema.",
+                                                        "Could not convert avro field: %s of "
+                                                                + "expected output to BigQuery "
+                                                                + "table schema. The output avro "
+                                                                + "field must have a name "
+                                                                + "attribute to convert to a "
+                                                                + "BigQuery table schema.",
                                                         avroField.toString()));
                                     }
                                     Field.Builder bigQueryFieldBuilder =
@@ -174,19 +186,25 @@ public class AvroToBigQuerySchemaTransform {
         if (nestedLevel > MAX_NESTED_LEVEL) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro field: %s of expected output to BigQuery table schema. Field nesting in expected output's schema exceeds 15. BigQuery allows nesting up to a depth of 15.",
+                            "Could not convert avro field: %s of expected output to BigQuery table "
+                                    + "schema. Field nesting in expected output's schema exceeds "
+                                    + "15. BigQuery allows nesting up to a depth of 15.",
                             name));
         }
         if (avroField == null) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro field: %s of expected output to BigQuery table schema. The avro schema of the expected output record cannot be null.",
+                            "Could not convert avro field: %s of expected output to BigQuery table "
+                                    + "schema. The avro schema of the expected output record cannot"
+                                    + " be null.",
                             name));
         }
         if (avroField.getType() == null) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro field: %s of expected output to BigQuery table schema. The avro schema of the output record must have a type",
+                            "Could not convert avro field: %s of expected output to BigQuery table "
+                                    + "schema. The avro schema of the output record must have a "
+                                    + "type",
                             name));
         }
         switch (avroField.getType()) {
@@ -221,7 +239,9 @@ public class AvroToBigQuerySchemaTransform {
         if (avroSchema.getFields().isEmpty()) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro field: %s of expected output to BigQuery table schema. The avro schema of the output record must have at least one field.",
+                            "Could not convert avro field: %s of expected output to BigQuery table "
+                                    + "schema. The avro schema of the output record must have at "
+                                    + "least one field.",
                             name));
         }
         // Iterate over each record field and obtain the nested record fields.
@@ -301,7 +321,11 @@ public class AvroToBigQuerySchemaTransform {
         For any other unsupported union types, exception is thrown. */
         throw new IllegalArgumentException(
                 String.format(
-                        "Could not convert schema of avro field: %s to BigQuery table schema. Found unsupported Avro Field of type UNION. Only supported types for BigQuery table schema are non-array types of \"['datatype'], ['null', 'datatype'] or ['datatype', 'null']\"",
+                        "Could not convert schema of avro field: %s to BigQuery table schema. "
+                                + "Found unsupported Avro Field of type UNION. Only supported "
+                                + "types "
+                                + "for BigQuery table schema are non-array types of "
+                                + "\"['datatype'], ['null', 'datatype'] or ['datatype', 'null']\"",
                         name));
     }
 
@@ -338,14 +362,16 @@ public class AvroToBigQuerySchemaTransform {
         if (arrayAvroSchema.getType() == Schema.Type.ARRAY) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert schema of avro field: %s to BigQuery table schema. BigQuery ARRAY cannot have recursive ARRAY fields.",
+                            "Could not convert schema of avro field: %s to BigQuery table schema. "
+                                    + "BigQuery ARRAY cannot have recursive ARRAY fields.",
                             name));
         }
         Field innerArrayField = convertAvroFieldToBigQueryField(arrayAvroSchema, name, nestedLevel);
         if (innerArrayField.getMode() != Field.Mode.REQUIRED) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert schema of avro field: %s to BigQuery table schema. Array cannot have a NULLABLE element in BigQuery",
+                            "Could not convert schema of avro field: %s to BigQuery table schema. "
+                                    + "Array cannot have a NULLABLE element in BigQuery",
                             name));
         }
         return innerArrayField.toBuilder().setMode(Field.Mode.REPEATED).build();
@@ -368,7 +394,7 @@ public class AvroToBigQuerySchemaTransform {
      */
     private static Field convertAvroRequiredFieldToBigQueryField(Schema avroSchema, String name)
             throws UnsupportedOperationException, IllegalArgumentException {
-        @Nullable StandardSQLTypeName dataType;
+        StandardSQLTypeName dataType;
 
         // Handle decimal logical types by extracting precision and setting the appropriate
         // StandardSQLTypeName.
@@ -392,7 +418,7 @@ public class AvroToBigQuerySchemaTransform {
             dataType =
                     Optional.ofNullable(avroSchema.getProp(LogicalType.LOGICAL_TYPE_PROP))
                             .map(LOGICAL_AVRO_TYPES_TO_BQ_TYPES::get)
-                            .orElse(AVRO_TYPES_TO_BQ_TYPES.get(avroSchema.getType()));
+                            .orElse(PRIMITIVE_AVRO_TYPES_TO_BQ_TYPES.get(avroSchema.getType()));
         }
         if (dataType == null) {
             throw new UnsupportedOperationException(
@@ -414,17 +440,21 @@ public class AvroToBigQuerySchemaTransform {
         long precision = ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getPrecision();
         long scale = ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getScale();
 
-        if (precision > 0 && precision <= (scale + 29) && scale <= 9) {
+        if (precision > 0
+                && precision <= (scale + (MAX_BQ_NUMERIC_PRECISION - MAX_BQ_NUMERIC_SCALE))
+                && scale <= MAX_BQ_NUMERIC_SCALE) {
             return StandardSQLTypeName.NUMERIC;
-        } else if (precision > 0 && precision <= (scale + 38) && scale <= 38) {
+        } else if (precision > 0
+                && precision <= (scale + (MAX_BQ_BIGNUMERIC_PRECISION - MAX_BQ_BIGNUMERIC_SCALE))
+                && scale <= MAX_BQ_BIGNUMERIC_SCALE) {
             return StandardSQLTypeName.BIGNUMERIC;
         }
-        LOG.warn(
-                "The precision {} and scale {} of decimal field {} is not supported by BigQuery. Converting the field to type STRING.",
-                precision,
-                scale,
-                name);
-        return StandardSQLTypeName.STRING;
+        throw new IllegalArgumentException(
+                String.format(
+                        "Could not convert schema of avro field: %s to BigQuery table schema. "
+                                + "BigQuery does not support Decimal types with "
+                                + "precision %d and scale %d.",
+                        name, precision, scale));
     }
 
     /**
@@ -445,19 +475,25 @@ public class AvroToBigQuerySchemaTransform {
         if (precision <= 0) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro field: %s of expected output to BigQuery table schema.. Precision of decimal avro field must be non-negative. Saw: %d",
+                            "Could not convert avro field: %s of expected output to BigQuery table "
+                                    + "schema. Precision of decimal avro field must be "
+                                    + "non-negative. Saw: %d",
                             name, precision));
         }
         if (scale < 0) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro field: %s of expected output to BigQuery table schema. Scale of decimal avro field must be non-negative. Saw: %d",
+                            "Could not convert avro field: %s of expected output to BigQuery table "
+                                    + "schema. Scale of decimal avro field must be "
+                                    + "non-negative. Saw: %d",
                             name, scale));
         }
         if (precision < scale) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not convert avro field: %s of expected output to BigQuery table schema. Scale of the decimal avro field cannot exceed precision. Saw scale: %d, precision: %d",
+                            "Could not convert avro field: %s of expected output to BigQuery table "
+                                    + "schema. Scale of the decimal avro field cannot exceed "
+                                    + "precision. Saw scale: %d, precision: %d",
                             name, scale, precision));
         }
     }
@@ -466,7 +502,8 @@ public class AvroToBigQuerySchemaTransform {
     public static String getUnsupportedTypeErrorMessage(
             String unsupportedAvroType, String fieldName) {
         return String.format(
-                "Could not convert avro field: %s of expected output to BigQuery table schema. The avro type: %s of the field is not supported by BigQuery",
+                "Could not convert avro field: %s of expected output to BigQuery table schema. "
+                        + "The avro type: %s of the field is not supported by BigQuery",
                 fieldName, unsupportedAvroType);
     }
 }

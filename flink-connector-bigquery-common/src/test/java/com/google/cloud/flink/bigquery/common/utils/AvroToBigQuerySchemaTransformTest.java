@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Google Inc.
+ * Copyright (C) 2024 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -37,6 +37,24 @@ import static org.junit.Assert.assertThrows;
 /** Unit tests for {@link AvroToBigQuerySchemaTransform}. */
 public class AvroToBigQuerySchemaTransformTest {
 
+    private static Field createRequiredBigqueryField(String name, StandardSQLTypeName type) {
+        return Field.newBuilder(name, type).setMode(Field.Mode.REQUIRED).build();
+    }
+
+    private static Field createNullableBigqueryField(String name, StandardSQLTypeName type) {
+        return Field.newBuilder(name, type).setMode(Field.Mode.NULLABLE).build();
+    }
+
+    private static Field createRecordField(String name, Field... subFields) {
+        return Field.newBuilder(name, LegacySQLTypeName.RECORD, FieldList.of(subFields))
+                .setMode(Field.Mode.REQUIRED)
+                .build();
+    }
+
+    private static Field createRepeatedBigqueryField(String name, StandardSQLTypeName type) {
+        return Field.newBuilder(name, type).setMode(Field.Mode.REPEATED).build();
+    }
+
     /** Tests Avro Schema with all Primitive Data Types. */
     @Test
     public void testAllTypesSchemaSuccessful() {
@@ -48,21 +66,33 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "    {\"name\": \"string_field\", \"type\": \"string\"},\n"
                         + "    {\"name\": \"bytes_field\", \"type\": \"bytes\"},\n"
                         + "    {\"name\": \"integer_field\", \"type\": \"long\"},\n"
-                        + "    {\"name\": \"array_field\", \"type\": {\"type\": \"array\", \"items\": \"double\"}},\n"
-                        + "    {\"name\": \"numeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 38, \"scale\": 9}]},\n"
-                        + "    {\"name\": \"bignumeric_field\", \"type\": [\"null\", {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"precision\": 76, \"scale\": 38}]},\n"
+                        + "    {\"name\": \"array_field\", \"type\": {\"type\": \"array\", "
+                        + "\"items\": \"double\"}},\n"
+                        + "    {\"name\": \"numeric_field\", \"type\": [\"null\", {\"type\": "
+                        + "\"bytes\", \"logicalType\": \"decimal\", \"precision\": 38, \"scale\":"
+                        + " 9}]},\n"
+                        + "    {\"name\": \"bignumeric_field\", \"type\": [\"null\", {\"type\": "
+                        + "\"bytes\", \"logicalType\": \"decimal\", \"precision\": 76, \"scale\":"
+                        + " 38}]},\n"
                         + "    {\"name\": \"boolean_field\", \"type\": [\"null\", \"boolean\"]},\n"
-                        + "    {\"name\": \"ts_field\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}]},\n"
-                        + "    {\"name\": \"date_field\", \"type\": [\"null\", {\"type\": \"int\", \"logicalType\": \"date\"}]},\n"
-                        + "    {\"name\": \"time_field\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"time-micros\"}]},\n"
-                        + "    {\"name\": \"datetime_field\", \"type\": [\"null\", {\"type\": \"long\", \"logicalType\": \"local-timestamp-micros\"}]},\n"
-                        + "    {\"name\": \"geography_field\", \"type\": [\"null\", {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}]},\n"
+                        + "    {\"name\": \"ts_field\", \"type\": [\"null\", {\"type\": \"long\","
+                        + " \"logicalType\": \"timestamp-micros\"}]},\n"
+                        + "    {\"name\": \"date_field\", \"type\": [\"null\", {\"type\": "
+                        + "\"int\", \"logicalType\": \"date\"}]},\n"
+                        + "    {\"name\": \"time_field\", \"type\": [\"null\", {\"type\": "
+                        + "\"long\", \"logicalType\": \"time-micros\"}]},\n"
+                        + "    {\"name\": \"datetime_field\", \"type\": [\"null\", {\"type\": "
+                        + "\"long\", \"logicalType\": \"local-timestamp-micros\"}]},\n"
+                        + "    {\"name\": \"geography_field\", \"type\": [\"null\", {\"type\": "
+                        + "\"string\", \"logicalType\": \"geography_wkt\"}]},\n"
                         + "    {\"name\": \"record_field\", \"type\": {\n"
                         + "      \"type\": \"record\",\n"
                         + "      \"name\": \"record_field\",\n"
                         + "      \"fields\": [\n"
-                        + "        {\"name\": \"json_field\", \"type\": [\"null\", {\"type\": \"string\", \"logicalType\": \"Json\"}]},\n"
-                        + "        {\"name\": \"geography_field\", \"type\": [\"null\", {\"type\": \"string\", \"logicalType\": \"geography_wkt\"}]}\n"
+                        + "        {\"name\": \"json_field\", \"type\": [\"null\", {\"type\": "
+                        + "\"string\", \"logicalType\": \"Json\"}]},\n"
+                        + "        {\"name\": \"geography_field\", \"type\": [\"null\", "
+                        + "{\"type\": \"string\", \"logicalType\": \"geography_wkt\"}]}\n"
                         + "      ]\n"
                         + "    }}\n"
                         + "  ]\n"
@@ -185,6 +215,30 @@ public class AvroToBigQuerySchemaTransformTest {
         com.google.cloud.bigquery.Schema bqSchema =
                 AvroToBigQuerySchemaTransform.getBigQuerySchema(avroSchema);
         assertExactSchema(bqSchema, expectedBqSchema);
+    }
+
+    /** Tests that an exception is thrown for invalid decimal precision and scale. */
+    @Test
+    public void testHandleDecimalLogicalTypeThrowsException() {
+        Schema avroSchema = Schema.createRecord("RecordWithDecimalType", "", "", false);
+        ArrayList<Schema.Field> decimalFields = new ArrayList<>();
+        decimalFields.add(
+                new Schema.Field(
+                        "decimalField",
+                        LogicalTypes.decimal(78, 10).addToSchema(Schema.create(Type.BYTES)),
+                        "Decimal Field Description",
+                        null));
+        avroSchema.setFields(decimalFields);
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroToBigQuerySchemaTransform.getBigQuerySchema(avroSchema));
+
+        assertThat(exception.getMessage())
+                .isEqualTo(
+                        "Could not convert schema of avro field: decimalField to BigQuery table "
+                                + "schema. BigQuery does not support Decimal types with precision"
+                                + " 78 and scale 10.");
     }
 
     /** Tests Avro record schema with nesting upto 15 levels. */
@@ -399,7 +453,8 @@ public class AvroToBigQuerySchemaTransformTest {
                         + "        }\n"
                         + "      }\n"
                         + "    },\n"
-                        + "    {\"name\": \"tsField\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}}\n"
+                        + "    {\"name\": \"tsField\", \"type\": {\"type\": \"long\", "
+                        + "\"logicalType\": \"timestamp-micros\"}}\n"
                         + "  ]\n"
                         + "}";
         Schema arrayRecordSchema = new Parser().parse(avroSchemaString);
@@ -558,23 +613,5 @@ public class AvroToBigQuerySchemaTransformTest {
                         com.google.cloud.bigquery.Schema.of(expectedField.getSubFields()));
             }
         }
-    }
-
-    private static Field createRequiredBigqueryField(String name, StandardSQLTypeName type) {
-        return Field.newBuilder(name, type).setMode(Field.Mode.REQUIRED).build();
-    }
-
-    private static Field createNullableBigqueryField(String name, StandardSQLTypeName type) {
-        return Field.newBuilder(name, type).setMode(Field.Mode.NULLABLE).build();
-    }
-
-    private static Field createRecordField(String name, Field... subFields) {
-        return Field.newBuilder(name, LegacySQLTypeName.RECORD, FieldList.of(subFields))
-                .setMode(Field.Mode.REQUIRED)
-                .build();
-    }
-
-    private static Field createRepeatedBigqueryField(String name, StandardSQLTypeName type) {
-        return Field.newBuilder(name, type).setMode(Field.Mode.REPEATED).build();
     }
 }
