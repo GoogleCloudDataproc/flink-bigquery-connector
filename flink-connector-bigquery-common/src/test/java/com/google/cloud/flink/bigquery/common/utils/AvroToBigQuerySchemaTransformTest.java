@@ -37,6 +37,9 @@ import static org.junit.Assert.assertThrows;
 /** Unit tests for {@link AvroToBigQuerySchemaTransform}. */
 public class AvroToBigQuerySchemaTransformTest {
 
+    private static final String GEOGRAPHY_LOGICAL_TYPE_NAME = "geography_wkt";
+    private static final String JSON_LOGICAL_TYPE_NAME = "Json";
+
     private static Field createRequiredBigqueryField(String name, StandardSQLTypeName type) {
         return Field.newBuilder(name, type).setMode(Field.Mode.REQUIRED).build();
     }
@@ -186,10 +189,10 @@ public class AvroToBigQuerySchemaTransformTest {
         durationSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "duration");
         logicalFields.add(new Schema.Field("durationField", durationSchema, null, null));
         Schema geoSchema = Schema.create(Schema.Type.STRING);
-        geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "geography_wkt");
+        geoSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, GEOGRAPHY_LOGICAL_TYPE_NAME);
         logicalFields.add(new Schema.Field("geographyWKTField", geoSchema, null, null));
         Schema jsonSchema = Schema.create(Schema.Type.STRING);
-        jsonSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, "Json");
+        jsonSchema.addProp(LogicalType.LOGICAL_TYPE_PROP, JSON_LOGICAL_TYPE_NAME);
         logicalFields.add(new Schema.Field("jsonField", jsonSchema, null, null));
         avroSchema.setFields(logicalFields);
 
