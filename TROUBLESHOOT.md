@@ -32,22 +32,22 @@ to deploy the reporter most conveniently as per user’s need.
 
 ## General Debugging
 ### Records are not being written to BigQuery
-With the help of metrics available as a part of 0.4.0 release of the connector, 
-users should be able to track the number of records that enter the sink(writer) and the 
-number of records successfully written to BigQuery. 
+With the help of [metrics available as a part of 0.4.0 release](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/README.md#flink-metrics) of the connector, 
+users should be able to track the number of records that enter the sink(writer)
+(`numberOfRecordsSeenByWriter`) and the 
+number of records successfully written to BigQuery(`numberOfRecordsWrittenToBigQuery`). 
 If records are not being written to BigQuery, then records are stuck in either of the two phases:
 #### The records are not arriving at the sink
-- The problem lies with the pipeline, the previous chain of subtasks that are performed before 
-sink is called.
-- The pipeline is not processing and passing the records forward for the sink.
+- Most likely not an issue in the sink, since previous subtasks are not passing records forward for the sink.
 
 #### The records are arriving at the sink but not being successfully written to BigQuery.
 Check the logs or error message for the following errors:
+
 #### `BigQuerySerializationException`
-- This message illustrates that the record(s) could not be serialized by the connector. 
-- The error message would also contain the actual cause for the same.
-- Note: This error is not thrown but logged, 
-indicating that the connector was "Unable to serialize record" due to this error.
+- This message illustrates that the record could not be serialized by the connector.
+- Note: This error is <b>logged not thrown</b>, explaining why the record could not be serialized.
+- In the future, this will be supplemented with dead letter queues.
+
 #### `BigQueryConnectorException`
 <b><i>
 - Users are requested to:
@@ -149,8 +149,6 @@ pertaining to each checkpoint event when data is being written to BigQuery.
 - It must be ensured that the avro records passed via the connector have the correct schema or 
 compatible schema to that of the BigQuery Table.
 - It is also expected that the value passed in the Avro Generic Record follows the Schema.  
-Here the "records passed" indicates the modified records after passing through the series of 
-subtasks defined in the application pipeline.
 - In case of a mismatch between the passed avro record value type and expected type,
 `BigQueryConnectorException` is thrown.
 - Flink does not impose a check on the value of a Generic Record, which means that the Avro 

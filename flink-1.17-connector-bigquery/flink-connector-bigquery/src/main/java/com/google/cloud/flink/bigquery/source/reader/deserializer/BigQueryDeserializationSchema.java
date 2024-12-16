@@ -61,10 +61,11 @@ public interface BigQueryDeserializationSchema<IN, OUT>
      */
     default void deserialize(IN record, Collector<OUT> out) throws BigQueryConnectorException {
         OUT deserialize = deserialize(record);
+        if (deserialize == null) {
+            return;
+        }
         try {
-            if (deserialize != null) {
-                out.collect(deserialize);
-            }
+            out.collect(deserialize);
         } catch (Exception e) {
             LOG.error(
                     String.format(
