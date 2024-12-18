@@ -21,6 +21,7 @@ import org.apache.flink.api.connector.sink2.Sink;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,10 +46,14 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
 
     BigQueryBaseSink(BigQuerySinkConfig sinkConfig) {
         validateSinkConfig(sinkConfig);
-        this.connectOptions = sinkConfig.getConnectOptions();
-        this.schemaProvider = sinkConfig.getSchemaProvider();
-        this.serializer = sinkConfig.getSerializer();
-        this.tablePath =
+        connectOptions = sinkConfig.getConnectOptions();
+        if (sinkConfig.getSchemaProvider() == null) {
+            schemaProvider = new BigQuerySchemaProviderImpl(connectOptions);
+        } else {
+            schemaProvider = sinkConfig.getSchemaProvider();
+        }
+        serializer = sinkConfig.getSerializer();
+        tablePath =
                 String.format(
                         "projects/%s/datasets/%s/tables/%s",
                         connectOptions.getProjectId(),
@@ -62,9 +67,6 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
         }
         if (sinkConfig.getSerializer() == null) {
             throw new IllegalArgumentException("BigQuery serializer cannot be null");
-        }
-        if (sinkConfig.getSchemaProvider() == null) {
-            throw new IllegalArgumentException("BigQuery schema provider cannot be null");
         }
     }
 

@@ -22,6 +22,7 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.util.function.SerializableSupplier;
 
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
@@ -29,6 +30,7 @@ import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -58,8 +60,41 @@ public class BigQueryTableConfigurationProvider {
         return config.get(BigQueryConnectorOptions.MODE) == Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
+    public DeliveryGuarantee getDeliveryGuarantee() {
+        return config.get(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
+    }
+
     public Optional<Integer> getParallelism() {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.SINK_PARALLELISM));
+    }
+
+    public boolean enableTableCreation() {
+        return config.get(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
+    }
+
+    public Optional<String> getPartitionField() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.PARTITION_FIELD));
+    }
+
+    public Optional<TimePartitioning.Type> getPartitionType() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.PARTITION_TYPE));
+    }
+
+    public Optional<Long> getPartitionExpirationMillis() {
+        return Optional.ofNullable(
+                config.get(BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS));
+    }
+
+    public Optional<List<String>> getClusteredFields() {
+        String clusteredFields = config.get(BigQueryConnectorOptions.CLUSTERED_FIELDS);
+        if (clusteredFields == null) {
+            return Optional.empty();
+        }
+        return Optional.of(Arrays.asList(clusteredFields.split(",")));
+    }
+
+    public Optional<String> getRegion() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.REGION));
     }
 
     public BigQueryReadOptions toBigQueryReadOptions() {
@@ -96,9 +131,5 @@ public class BigQueryTableConfigurationProvider {
                                         config.get(BigQueryConnectorOptions.CREDENTIALS_KEY))
                                 .build())
                 .build();
-    }
-
-    public DeliveryGuarantee translateDeliveryGuarantee() {
-        return config.get(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
     }
 }

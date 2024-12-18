@@ -24,11 +24,13 @@ import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
 import org.apache.flink.table.types.logical.LogicalType;
 
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.ResourceBundle;
 
@@ -43,24 +45,32 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
     public BigQueryDynamicTableSink(
             BigQueryConnectOptions connectOptions,
             DeliveryGuarantee deliveryGuarantee,
-            LogicalType logicalType) {
-        this(connectOptions, deliveryGuarantee, logicalType, null);
-    }
-
-    public BigQueryDynamicTableSink(
-            BigQueryConnectOptions connectOptions,
-            DeliveryGuarantee deliveryGuarantee,
             LogicalType logicalType,
-            Integer parallelism) {
+            Integer parallelism,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            Long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region) {
         this.logicalType = logicalType;
-        this.sinkConfig =
-                BigQuerySinkConfig.forTable(connectOptions, deliveryGuarantee, logicalType);
         this.parallelism = parallelism;
+        this.sinkConfig =
+                BigQuerySinkConfig.forTable(
+                        connectOptions,
+                        deliveryGuarantee,
+                        logicalType,
+                        enableTableCreation,
+                        partitionField,
+                        partitionType,
+                        partitionExpirationMillis,
+                        clusteredFields,
+                        region);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.sinkConfig, this.logicalType);
+        return Objects.hash(this.sinkConfig, this.logicalType, this.parallelism);
     }
 
     /**
@@ -81,8 +91,9 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
             return false;
         }
         BigQueryDynamicTableSink object = (BigQueryDynamicTableSink) obj;
-        return (this.logicalType == object.logicalType)
-                && (this.sinkConfig.equals(object.sinkConfig));
+        return (Objects.equals(this.logicalType, object.logicalType))
+                && (this.sinkConfig.equals(object.sinkConfig)
+                        && (Objects.equals(this.parallelism, object.parallelism)));
     }
 
     @Override
@@ -104,17 +115,17 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
 
     @Override
     public DynamicTableSink copy() {
-        if (this.parallelism == null) {
-            return new BigQueryDynamicTableSink(
-                    this.sinkConfig.getConnectOptions(),
-                    this.sinkConfig.getDeliveryGuarantee(),
-                    this.logicalType);
-        }
         return new BigQueryDynamicTableSink(
                 this.sinkConfig.getConnectOptions(),
                 this.sinkConfig.getDeliveryGuarantee(),
                 this.logicalType,
-                this.parallelism);
+                this.parallelism,
+                this.sinkConfig.enableTableCreation(),
+                this.sinkConfig.getPartitionField(),
+                this.sinkConfig.getPartitionType(),
+                this.sinkConfig.getPartitionExpirationMillis(),
+                this.sinkConfig.getClusteredFields(),
+                this.sinkConfig.getRegion());
     }
 
     @Override

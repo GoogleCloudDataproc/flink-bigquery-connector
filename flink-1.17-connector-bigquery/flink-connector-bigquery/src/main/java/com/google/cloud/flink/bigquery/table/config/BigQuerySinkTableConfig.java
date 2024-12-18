@@ -20,7 +20,10 @@ import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableDescriptor;
 
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+
+import java.util.List;
 
 /**
  * Configurations for a BigQuery Table API Write.
@@ -33,6 +36,12 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
 
     private final DeliveryGuarantee deliveryGuarantee;
     private final Integer sinkParallelism;
+    private final boolean enableTableCreation;
+    private final String partitionField;
+    private final TimePartitioning.Type partitionType;
+    private final long partitionExpirationMillis;
+    private final List<String> clusteredFields;
+    private final String region;
 
     BigQuerySinkTableConfig(
             String project,
@@ -43,7 +52,13 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             String credentialKey,
             boolean testMode,
             DeliveryGuarantee deliveryGuarantee,
-            Integer sinkParallelism) {
+            Integer sinkParallelism,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region) {
         super(
                 project,
                 dataset,
@@ -54,10 +69,16 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                 testMode);
         this.deliveryGuarantee = deliveryGuarantee;
         this.sinkParallelism = sinkParallelism;
+        this.enableTableCreation = enableTableCreation;
+        this.partitionField = partitionField;
+        this.partitionType = partitionType;
+        this.partitionExpirationMillis = partitionExpirationMillis;
+        this.clusteredFields = clusteredFields;
+        this.region = region;
     }
 
-    public static BigQuerySinkTableConfig.Builder newBuilder() {
-        return new BigQuerySinkTableConfig.Builder();
+    public static Builder newBuilder() {
+        return new Builder();
     }
 
     /**
@@ -86,46 +107,52 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
 
         private DeliveryGuarantee deliveryGuarantee;
         private Integer sinkParallelism;
+        private boolean enableTableCreation;
+        private String partitionField;
+        private TimePartitioning.Type partitionType;
+        private long partitionExpirationMillis;
+        private List<String> clusteredFields;
+        private String region;
         private StreamExecutionEnvironment env;
 
         @Override
-        public BigQuerySinkTableConfig.Builder project(String project) {
+        public Builder project(String project) {
             super.project = project;
             return this;
         }
 
         @Override
-        public BigQuerySinkTableConfig.Builder dataset(String dataset) {
+        public Builder dataset(String dataset) {
             super.dataset = dataset;
             return this;
         }
 
         @Override
-        public BigQuerySinkTableConfig.Builder table(String table) {
+        public Builder table(String table) {
             super.table = table;
             return this;
         }
 
         @Override
-        public BigQuerySinkTableConfig.Builder credentialAccessToken(String credentialAccessToken) {
+        public Builder credentialAccessToken(String credentialAccessToken) {
             super.credentialAccessToken = credentialAccessToken;
             return this;
         }
 
         @Override
-        public BigQuerySinkTableConfig.Builder credentialKey(String credentialKey) {
+        public Builder credentialKey(String credentialKey) {
             super.credentialKey = credentialKey;
             return this;
         }
 
         @Override
-        public BigQuerySinkTableConfig.Builder credentialFile(String credentialFile) {
+        public Builder credentialFile(String credentialFile) {
             super.credentialFile = credentialFile;
             return this;
         }
 
         @Override
-        public BigQuerySinkTableConfig.Builder testMode(Boolean testMode) {
+        public Builder testMode(Boolean testMode) {
             super.testMode = testMode;
             return this;
         }
@@ -140,8 +167,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
          * @param deliveryGuarantee
          * @return Updated BigQuerySinkTableConfig builder
          */
-        public BigQuerySinkTableConfig.Builder deliveryGuarantee(
-                DeliveryGuarantee deliveryGuarantee) {
+        public Builder deliveryGuarantee(DeliveryGuarantee deliveryGuarantee) {
             this.deliveryGuarantee = deliveryGuarantee;
             return this;
         }
@@ -152,8 +178,79 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
          * @param sinkParallelism
          * @return Updated BigQuerySinkTableConfig builder
          */
-        public BigQuerySinkTableConfig.Builder sinkParallelism(Integer sinkParallelism) {
+        public Builder sinkParallelism(Integer sinkParallelism) {
             this.sinkParallelism = sinkParallelism;
+            return this;
+        }
+
+        /**
+         * [OPTIONAL, Sink Configuration] Boolean flag for automatic table creation.
+         *
+         * @param enableTableCreation
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public Builder enableTableCreation(boolean enableTableCreation) {
+            this.enableTableCreation = enableTableCreation;
+            return this;
+        }
+
+        /**
+         * [OPTIONAL, Sink Configuration] Field for partitioning the BigQuery table. Considered if
+         * table auto creation is enabled.
+         *
+         * @param partitionField
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public Builder partitionField(String partitionField) {
+            this.partitionField = partitionField;
+            return this;
+        }
+
+        /**
+         * [OPTIONAL, Sink Configuration] Time frequency for partitioning the BigQuery table.
+         * Considered if table auto creation is enabled.
+         *
+         * @param partitionType
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public Builder partitionType(TimePartitioning.Type partitionType) {
+            this.partitionType = partitionType;
+            return this;
+        }
+
+        /**
+         * [OPTIONAL, Sink Configuration] Expiration duration of BigQuery table's partitions.
+         * Considered if table auto creation is enabled.
+         *
+         * @param partitionExpirationMillis
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public Builder partitionExpirationMillis(long partitionExpirationMillis) {
+            this.partitionExpirationMillis = partitionExpirationMillis;
+            return this;
+        }
+
+        /**
+         * [OPTIONAL, Sink Configuration] Fields for clustering the BigQuery table. Considered if
+         * table auto creation is enabled.
+         *
+         * @param clusteredFields
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public Builder clusteredFields(List<String> clusteredFields) {
+            this.clusteredFields = clusteredFields;
+            return this;
+        }
+
+        /**
+         * [OPTIONAL, Sink Configuration] GCP region for creating new BigQuery table. Considered if
+         * table auto creation is enabled.
+         *
+         * @param region
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public Builder region(String region) {
+            this.region = region;
             return this;
         }
 
@@ -163,7 +260,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
          * @param streamExecutionEnvironment
          * @return Updated BigQuerySinkTableConfig builder
          */
-        public BigQuerySinkTableConfig.Builder streamExecutionEnvironment(
+        public Builder streamExecutionEnvironment(
                 StreamExecutionEnvironment streamExecutionEnvironment) {
             this.env = streamExecutionEnvironment;
             return this;
@@ -182,7 +279,13 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                     credentialKey,
                     testMode,
                     deliveryGuarantee,
-                    sinkParallelism);
+                    sinkParallelism,
+                    enableTableCreation,
+                    partitionField,
+                    partitionType,
+                    partitionExpirationMillis,
+                    clusteredFields,
+                    region);
         }
     }
 }
