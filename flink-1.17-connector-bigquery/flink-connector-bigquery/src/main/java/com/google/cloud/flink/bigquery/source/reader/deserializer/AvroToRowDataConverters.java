@@ -363,7 +363,12 @@ public class AvroToRowDataConverters {
             return (int) ((LocalDate) object).toEpochDay();
         } else if (object instanceof org.joda.time.LocalDate) {
             final org.joda.time.LocalDate value = (org.joda.time.LocalDate) object;
-            return (int) value.toDate().getTime();
+            // 86400000 - number of milliseconds in a day
+            long millisSinceEpoch = value.toDateTimeAtStartOfDay().getMillis();
+            int daysSinceEpoch = (int) (millisSinceEpoch / 86400000);
+            //            return millisSinceEpoch > 0 ? daysSinceEpoch + 1 : daysSinceEpoch;
+            return daysSinceEpoch;
+
         } else {
             String invalidFormatError =
                     getErrorMessage(
