@@ -110,8 +110,20 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
+            CreateTableOptions createTableOptions,
             InitContext context) {
-        this("", 0L, tablePath, 0L, 0L, 0L, connectOptions, schemaProvider, serializer, context);
+        this(
+                "",
+                0L,
+                tablePath,
+                0L,
+                0L,
+                0L,
+                connectOptions,
+                schemaProvider,
+                serializer,
+                createTableOptions,
+                context);
     }
 
     public BigQueryBufferedWriter(
@@ -124,8 +136,15 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
+            CreateTableOptions createTableOptions,
             InitContext context) {
-        super(context.getSubtaskId(), tablePath, connectOptions, schemaProvider, serializer);
+        super(
+                context.getSubtaskId(),
+                tablePath,
+                connectOptions,
+                schemaProvider,
+                serializer,
+                createTableOptions);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;
@@ -148,11 +167,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     @Override
     public void write(IN element, Context context) {
         if (isFirstWriteAfterCheckpoint) {
-            preWriteOpsAfterCommit();
+            resetMetrics();
         }
-        totalRecordsSeen++;
-        numberOfRecordsSeenByWriter.inc();
-        numberOfRecordsSeenByWriterSinceCheckpoint.inc();
+        preWrite(element);
         try {
             ByteString protoRow = getProtoRow(element);
             if (!fitsInAppendRequest(protoRow)) {
@@ -166,8 +183,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         }
     }
 
-    /** This is the method called just after checkpoint is complete, and the next writing begins. */
-    private void preWriteOpsAfterCommit() {
+    private void resetMetrics() {
         // Change the flag until the next checkpoint.
         isFirstWriteAfterCheckpoint = false;
         // Update the number of records written to BigQuery since the checkpoint just completed.
@@ -192,8 +208,8 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     void sendAppendRequest(ProtoRows protoRows) {
         long rowCount = protoRows.getSerializedRowsCount();
         if (streamOffset == streamOffsetInState
-                && streamName.equals(streamNameInState)
-                && !StringUtils.isNullOrWhitespaceOnly(streamName)) {
+                && !StringUtils.isNullOrWhitespaceOnly(streamName)
+                && streamName.equals(streamNameInState)) {
             // Writer has an associated write stream and is invoking append for the first
             // time since re-initialization.
             performFirstAppendOnRestoredStream(protoRows, rowCount);

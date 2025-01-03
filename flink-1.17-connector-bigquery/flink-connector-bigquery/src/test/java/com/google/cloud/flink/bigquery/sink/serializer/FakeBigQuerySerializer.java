@@ -18,21 +18,19 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
+import org.apache.avro.Schema;
 
 /** Mock serializer for Sink unit tests. */
 public class FakeBigQuerySerializer extends BigQueryProtoSerializer {
 
     private static final FakeBigQuerySerializer EMPTY_SERIALIZER =
-            new FakeBigQuerySerializer(null, false);
+            new FakeBigQuerySerializer(null, null, false);
     private static final FakeBigQuerySerializer ERRING_SERIALIZER =
-            new FakeBigQuerySerializer(null, true);
+            new FakeBigQuerySerializer(null, null, true);
 
     private final ByteString serializeResult;
     private final boolean throwException;
-
-    public FakeBigQuerySerializer(ByteString serializeResponse) {
-        this(serializeResponse, false);
-    }
+    private final Schema avroSchema;
 
     public static FakeBigQuerySerializer getEmptySerializer() {
         return EMPTY_SERIALIZER;
@@ -42,8 +40,18 @@ public class FakeBigQuerySerializer extends BigQueryProtoSerializer {
         return ERRING_SERIALIZER;
     }
 
-    public FakeBigQuerySerializer(ByteString serializeResponse, boolean throwException) {
+    public FakeBigQuerySerializer(ByteString serializeResponse) {
+        this(serializeResponse, null, false);
+    }
+
+    public FakeBigQuerySerializer(ByteString serializeResponse, Schema avroSchema) {
+        this(serializeResponse, avroSchema, false);
+    }
+
+    public FakeBigQuerySerializer(
+            ByteString serializeResponse, Schema avroSchema, boolean throwException) {
         this.serializeResult = serializeResponse;
+        this.avroSchema = avroSchema;
         this.throwException = throwException;
     }
 
@@ -57,4 +65,9 @@ public class FakeBigQuerySerializer extends BigQueryProtoSerializer {
 
     @Override
     public void init(BigQuerySchemaProvider schemaProvider) {}
+
+    @Override
+    public Schema getAvroSchema(Object record) {
+        return avroSchema;
+    }
 }

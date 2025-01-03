@@ -35,15 +35,21 @@ public class TestSchemaProvider implements BigQuerySchemaProvider {
 
     @Override
     public DescriptorProto getDescriptorProto() {
-        return this.getDescriptor().toProto();
+        return getDescriptor().toProto();
     }
 
     @Override
     public Descriptor getDescriptor() {
-        return this.descriptor;
+        return descriptor;
     }
 
+    @Override
     public Schema getAvroSchema() {
-        return this.schema;
+        return schema;
+    }
+
+    @Override
+    public boolean schemaUnknown() {
+        return schema == null;
     }
 }

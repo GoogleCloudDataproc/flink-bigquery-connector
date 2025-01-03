@@ -28,7 +28,6 @@ import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
-import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 
 import java.util.List;
 import java.util.Objects;
@@ -103,9 +102,6 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
 
     @Override
     public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
-        // init() should be called itself.
-        // Set the logical type.
-        ((RowDataToProtoSerializer) sinkConfig.getSerializer()).setLogicalType(this.logicalType);
         // Get the Datastream-API Sink.
         if (this.parallelism == null) {
             return SinkV2Provider.of(BigQuerySink.get(this.sinkConfig));

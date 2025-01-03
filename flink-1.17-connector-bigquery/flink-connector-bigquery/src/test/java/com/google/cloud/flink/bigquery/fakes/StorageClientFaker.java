@@ -29,6 +29,7 @@ import com.google.api.services.bigquery.model.JobStatistics2;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.AvroSchema;
@@ -158,12 +159,18 @@ public class StorageClientFaker {
             }
 
             @Override
-            public Boolean datasetExists(String project, String dataset) {
+            public void createDataset(String project, String dataset, String region) {
+                // no-op
+            }
+
+            @Override
+            public Boolean tableExists(String project, String dataset, String table) {
                 return Boolean.TRUE;
             }
 
             @Override
-            public void createDataset(String project, String dataset, String region) {
+            public void createTable(
+                    String project, String dataset, String table, TableDefinition tableDefinition) {
                 // no-op
             }
 
@@ -195,11 +202,6 @@ public class StorageClientFaker {
                                                         .get(),
                                                 BigQueryPartitionUtils.PartitionStatus.COMPLETED))
                         .collect(Collectors.toList());
-            }
-
-            @Override
-            public Boolean tableExists(String projectName, String datasetName, String tableName) {
-                return Boolean.TRUE;
             }
         }
 

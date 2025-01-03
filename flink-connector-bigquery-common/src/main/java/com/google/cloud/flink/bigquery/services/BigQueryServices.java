@@ -20,6 +20,7 @@ import org.apache.flink.annotation.Internal;
 
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
@@ -214,15 +215,6 @@ public interface BigQueryServices extends Serializable {
         TableSchema getTableSchema(String project, String dataset, String table);
 
         /**
-         * Checks whether the specified BigQuery dataset exists or not.
-         *
-         * @param project The GCP project.
-         * @param dataset The BigQuery dataset.
-         * @return True if dataset exists, else false.
-         */
-        Boolean datasetExists(String project, String dataset);
-
-        /**
          * Create BigQuery dataset.
          *
          * @param project The GCP project.
@@ -230,6 +222,27 @@ public interface BigQueryServices extends Serializable {
          * @param region GCP region where dataset must be created.
          */
         void createDataset(String project, String dataset, String region);
+
+        /**
+         * Function to identify if a BigQuery table exists.
+         *
+         * @param project The project ID of the BigQuery dataset
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table.
+         * @return Boolean {@code TRUE} if the table exists or {@code FALSE} if it does not.
+         */
+        Boolean tableExists(String project, String dataset, String table);
+
+        /**
+         * Function create a BigQuery table.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table.
+         * @param tableDefinition Description of BigQuery table.
+         */
+        void createTable(
+                String project, String dataset, String table, TableDefinition tableDefinition);
 
         /**
          * Executes a BigQuery query and returns the information about the execution results
@@ -250,15 +263,5 @@ public interface BigQueryServices extends Serializable {
          * @return The dry run job's information.
          */
         Job dryRunQuery(String projectId, String query);
-
-        /**
-         * Function to identify if a BigQuery table exists.
-         *
-         * @param projectName The project ID of the BigQuery dataset
-         * @param datasetName The BigQuery dataset.
-         * @param tableName The BigQuery table name.
-         * @return Boolean {@code TRUE} if the table exists or {@code FALSE} if it does not.
-         */
-        Boolean tableExists(String projectName, String datasetName, String tableName);
     }
 }

@@ -79,7 +79,9 @@ public class BigQueryDefaultSinkTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
-        assertThat(exception).hasMessageThat().contains("connect options cannot be null");
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("connect options in sink config cannot be null");
     }
 
     @Test
@@ -95,7 +97,7 @@ public class BigQueryDefaultSinkTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
-        assertThat(exception).hasMessageThat().contains("serializer cannot be null");
+        assertThat(exception).hasMessageThat().contains("serializer in sink config cannot be null");
     }
 
     @Test
