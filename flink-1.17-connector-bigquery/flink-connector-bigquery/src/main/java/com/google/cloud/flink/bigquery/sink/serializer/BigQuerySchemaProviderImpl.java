@@ -21,9 +21,8 @@ import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
-import com.google.cloud.flink.bigquery.services.BigQueryServices.QueryDataClient;
-import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.BigQueryUtils;
+import com.google.cloud.flink.bigquery.sink.client.BigQueryClientWithErrorHandling;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer.AvroSchemaHandler;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
@@ -42,6 +41,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -57,16 +57,24 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
     private static final Map<String, FieldDescriptorProto.Type> LOGICAL_AVRO_TYPES_TO_PROTO;
 
     public BigQuerySchemaProviderImpl(BigQueryConnectOptions connectOptions) {
-        this(getTableSchemaFromOptions(connectOptions));
+        if (BigQueryClientWithErrorHandling.tableExists(connectOptions)) {
+            TableSchema tableSchema =
+                    BigQueryClientWithErrorHandling.getTableSchema(connectOptions);
+            avroSchema = getAvroSchema(tableSchema);
+            descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
+            return;
+        }
+        avroSchema = null;
+        descriptorProto = null;
     }
 
     public BigQuerySchemaProviderImpl(TableSchema tableSchema) {
         this(getAvroSchema(tableSchema));
     }
 
-    public BigQuerySchemaProviderImpl(Schema avroSchema) {
-        this.avroSchema = avroSchema;
-        this.descriptorProto = getDescriptorSchemaFromAvroSchema(this.avroSchema);
+    public BigQuerySchemaProviderImpl(Schema schema) {
+        avroSchema = schema;
+        descriptorProto = getDescriptorSchemaFromAvroSchema(avroSchema);
     }
 
     @Override
@@ -80,16 +88,41 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
             return getDescriptorFromDescriptorProto(descriptorProto);
         } catch (DescriptorValidationException | IllegalArgumentException e) {
             throw new BigQueryConnectorException(
-                    String.format(
-                            "Could not obtain Descriptor from Descriptor Proto.%nError: %s",
-                            e.getMessage()),
-                    e.getCause());
+                    "Could not obtain Descriptor for BigQuery table", e);
         }
     }
 
     @Override
     public Schema getAvroSchema() {
-        return this.avroSchema;
+        return avroSchema;
+    }
+
+    @Override
+    public boolean schemaUnknown() {
+        return avroSchema == null;
+    }
+
+    @Override
+    public int hashCode() {
+        Schema thisAvroSchema = getAvroSchema();
+        if (thisAvroSchema == null) {
+            return Integer.MIN_VALUE;
+        }
+        return thisAvroSchema.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        return Objects.equals(getAvroSchema(), ((BigQuerySchemaProviderImpl) obj).getAvroSchema());
     }
 
     // ----------- Initialize Maps between Avro Schema to Descriptor Proto schema -------------
@@ -141,22 +174,6 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
         LOGICAL_AVRO_TYPES_TO_PROTO.put("Json", FieldDescriptorProto.Type.TYPE_STRING);
     }
 
-    // --------------- Obtain TableSchema from BigQueryConnectOptions ---------
-    /**
-     * Function to derive TableSchema from Connection Options for a Bigquery Table.
-     *
-     * @param connectOptions {@link BigQueryConnectOptions}
-     * @return {@link TableSchema} obtained for the table.
-     */
-    static TableSchema getTableSchemaFromOptions(BigQueryConnectOptions connectOptions) {
-        QueryDataClient queryDataClient =
-                BigQueryServicesFactory.instance(connectOptions).queryClient();
-        return queryDataClient.getTableSchema(
-                connectOptions.getProjectId(),
-                connectOptions.getDataset(),
-                connectOptions.getTable());
-    }
-
     // --------------- Obtain AvroSchema from TableSchema -----------------
     /**
      * Function to convert TableSchema to Avro Schema.
@@ -164,7 +181,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
      * @param tableSchema A {@link TableSchema} object to cast to {@link Schema}.
      * @return Converted Avro Schema
      */
-    static Schema getAvroSchema(TableSchema tableSchema) {
+    private static Schema getAvroSchema(TableSchema tableSchema) {
         return SchemaTransform.toGenericAvroSchema("root", tableSchema.getFields());
     }
 

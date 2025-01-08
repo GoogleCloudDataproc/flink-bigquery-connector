@@ -20,8 +20,8 @@ import org.apache.flink.api.connector.sink2.Committer.CommitRequest;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
-import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import org.junit.Test;
 
 import java.util.Collections;

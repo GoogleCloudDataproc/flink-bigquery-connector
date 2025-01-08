@@ -26,6 +26,7 @@ import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.types.logical.LogicalType;
 
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
@@ -35,6 +36,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -53,6 +55,12 @@ public class BigQuerySinkConfig {
     private final DeliveryGuarantee deliveryGuarantee;
     private final BigQuerySchemaProvider schemaProvider;
     private final BigQueryProtoSerializer serializer;
+    private final boolean enableTableCreation;
+    private final String partitionField;
+    private final TimePartitioning.Type partitionType;
+    private final Long partitionExpirationMillis;
+    private final List<String> clusteredFields;
+    private final String region;
 
     public static Builder newBuilder() {
         return new Builder();
@@ -61,7 +69,16 @@ public class BigQuerySinkConfig {
     @Override
     public int hashCode() {
         return Objects.hash(
-                this.connectOptions, this.deliveryGuarantee, this.schemaProvider, this.serializer);
+                connectOptions,
+                deliveryGuarantee,
+                schemaProvider,
+                serializer,
+                enableTableCreation,
+                partitionField,
+                partitionType,
+                partitionExpirationMillis,
+                clusteredFields,
+                region);
     }
 
     @Override
@@ -76,25 +93,40 @@ public class BigQuerySinkConfig {
             return false;
         }
         BigQuerySinkConfig object = (BigQuerySinkConfig) obj;
-        if (this.getConnectOptions() == object.getConnectOptions()
+        return (this.getConnectOptions() == object.getConnectOptions()
                 && (this.getSerializer().getClass() == object.getSerializer().getClass())
-                && (this.getDeliveryGuarantee() == object.getDeliveryGuarantee())) {
-            BigQuerySchemaProvider thisSchemaProvider = this.getSchemaProvider();
-            BigQuerySchemaProvider objSchemaProvider = object.getSchemaProvider();
-            return thisSchemaProvider.getAvroSchema().equals(objSchemaProvider.getAvroSchema());
-        }
-        return false;
+                && (this.getDeliveryGuarantee() == object.getDeliveryGuarantee())
+                && (this.enableTableCreation() == object.enableTableCreation())
+                && (Objects.equals(this.getPartitionField(), object.getPartitionField()))
+                && (this.getPartitionType() == object.getPartitionType())
+                && (Objects.equals(
+                        this.getPartitionExpirationMillis(), object.getPartitionExpirationMillis()))
+                && (Objects.equals(this.getClusteredFields(), object.getClusteredFields()))
+                && (Objects.equals(this.getRegion(), object.getRegion()))
+                && (Objects.equals(this.getSchemaProvider(), object.getSchemaProvider())));
     }
 
     private BigQuerySinkConfig(
             BigQueryConnectOptions connectOptions,
             DeliveryGuarantee deliveryGuarantee,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer) {
+            BigQueryProtoSerializer serializer,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            Long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region) {
         this.connectOptions = connectOptions;
         this.deliveryGuarantee = deliveryGuarantee;
         this.schemaProvider = schemaProvider;
         this.serializer = serializer;
+        this.enableTableCreation = enableTableCreation;
+        this.partitionField = partitionField;
+        this.partitionType = partitionType;
+        this.partitionExpirationMillis = partitionExpirationMillis;
+        this.clusteredFields = clusteredFields;
+        this.region = region;
     }
 
     public BigQueryConnectOptions getConnectOptions() {
@@ -113,6 +145,30 @@ public class BigQuerySinkConfig {
         return schemaProvider;
     }
 
+    public boolean enableTableCreation() {
+        return enableTableCreation;
+    }
+
+    public String getPartitionField() {
+        return partitionField;
+    }
+
+    public TimePartitioning.Type getPartitionType() {
+        return partitionType;
+    }
+
+    public Long getPartitionExpirationMillis() {
+        return partitionExpirationMillis;
+    }
+
+    public List<String> getClusteredFields() {
+        return clusteredFields;
+    }
+
+    public String getRegion() {
+        return region;
+    }
+
     /** Builder for BigQuerySinkConfig. */
     public static class Builder {
 
@@ -120,6 +176,12 @@ public class BigQuerySinkConfig {
         private DeliveryGuarantee deliveryGuarantee;
         private BigQuerySchemaProvider schemaProvider;
         private BigQueryProtoSerializer serializer;
+        private boolean enableTableCreation;
+        private String partitionField;
+        private TimePartitioning.Type partitionType;
+        private Long partitionExpirationMillis;
+        private List<String> clusteredFields;
+        private String region;
         private StreamExecutionEnvironment env;
 
         public Builder connectOptions(BigQueryConnectOptions connectOptions) {
@@ -142,6 +204,36 @@ public class BigQuerySinkConfig {
             return this;
         }
 
+        public Builder enableTableCreation(boolean enableTableCreation) {
+            this.enableTableCreation = enableTableCreation;
+            return this;
+        }
+
+        public Builder partitionField(String partitionField) {
+            this.partitionField = partitionField;
+            return this;
+        }
+
+        public Builder partitionType(TimePartitioning.Type partitionType) {
+            this.partitionType = partitionType;
+            return this;
+        }
+
+        public Builder partitionExpirationMillis(Long partitionExpirationMillis) {
+            this.partitionExpirationMillis = partitionExpirationMillis;
+            return this;
+        }
+
+        public Builder clusteredFields(List<String> clusteredFields) {
+            this.clusteredFields = clusteredFields;
+            return this;
+        }
+
+        public Builder region(String region) {
+            this.region = region;
+            return this;
+        }
+
         public Builder streamExecutionEnvironment(
                 StreamExecutionEnvironment streamExecutionEnvironment) {
             this.env = streamExecutionEnvironment;
@@ -153,7 +245,16 @@ public class BigQuerySinkConfig {
                 validateStreamExecutionEnvironment(env);
             }
             return new BigQuerySinkConfig(
-                    connectOptions, deliveryGuarantee, schemaProvider, serializer);
+                    connectOptions,
+                    deliveryGuarantee,
+                    schemaProvider,
+                    serializer,
+                    enableTableCreation,
+                    partitionField,
+                    partitionType,
+                    partitionExpirationMillis,
+                    clusteredFields,
+                    region);
         }
     }
 
@@ -164,13 +265,25 @@ public class BigQuerySinkConfig {
     public static BigQuerySinkConfig forTable(
             BigQueryConnectOptions connectOptions,
             DeliveryGuarantee deliveryGuarantee,
-            LogicalType logicalType) {
+            LogicalType logicalType,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            Long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region) {
         return new BigQuerySinkConfig(
                 connectOptions,
                 deliveryGuarantee,
                 new BigQuerySchemaProviderImpl(
                         BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(logicalType)),
-                new RowDataToProtoSerializer());
+                new RowDataToProtoSerializer(logicalType),
+                enableTableCreation,
+                partitionField,
+                partitionType,
+                partitionExpirationMillis,
+                clusteredFields,
+                region);
     }
 
     public static void validateStreamExecutionEnvironment(StreamExecutionEnvironment env) {

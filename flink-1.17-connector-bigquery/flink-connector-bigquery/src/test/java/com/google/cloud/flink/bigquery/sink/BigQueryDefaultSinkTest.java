@@ -32,8 +32,12 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQueryDefaultSink}. */
 public class BigQueryDefaultSinkTest {
@@ -63,7 +67,12 @@ public class BigQueryDefaultSinkTest {
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        assertNotNull(new BigQueryDefaultSink(sinkConfig));
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertEquals("projects/project/datasets/dataset/tables/table", sink.tablePath);
+        assertNotNull(sink.serializer);
+        assertNotNull(sink.schemaProvider.getAvroSchema());
+        assertFalse(sink.schemaProvider.schemaUnknown());
+        assertFalse(sink.enableTableCreation);
     }
 
     @Test
@@ -79,7 +88,9 @@ public class BigQueryDefaultSinkTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
-        assertThat(exception).hasMessageThat().contains("connect options cannot be null");
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("connect options in sink config cannot be null");
     }
 
     @Test
@@ -95,23 +106,62 @@ public class BigQueryDefaultSinkTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
-        assertThat(exception).hasMessageThat().contains("serializer cannot be null");
+        assertThat(exception).hasMessageThat().contains("serializer in sink config cannot be null");
     }
 
     @Test
-    public void testConstructor_withoutSchemaProvider() {
+    public void testConstructor_withCreateTable_withoutExistingTable() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
-                        .schemaProvider(null)
+                        .connectOptions(
+                                StorageClientFaker.createConnectOptionsForQuery(
+                                        false, null, null, null))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
+                        .enableTableCreation(true)
+                        .build();
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertNull(sink.schemaProvider.getAvroSchema());
+        assertTrue(sink.schemaProvider.schemaUnknown());
+        assertTrue(sink.enableTableCreation);
+    }
+
+    @Test
+    public void testConstructor_withCreateTable_withExistingTable() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(
+                                StorageClientFaker.createConnectOptionsForQuery(
+                                        true, null, null, null))
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
+                        .enableTableCreation(true)
+                        .build();
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertNotNull(sink.schemaProvider.getAvroSchema());
+        assertFalse(sink.schemaProvider.schemaUnknown());
+        assertTrue(sink.enableTableCreation);
+    }
+
+    @Test
+    public void testConstructor_withoutCreateTable_withoutExistingTable() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(
+                                StorageClientFaker.createConnectOptionsForQuery(
+                                        false, null, null, null))
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        IllegalArgumentException exception =
+        IllegalStateException exception =
                 assertThrows(
-                        IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
-        assertThat(exception).hasMessageThat().contains("schema provider cannot be null");
+                        IllegalStateException.class, () -> new BigQueryDefaultSink(sinkConfig));
+        assertThat(exception)
+                .hasMessageThat()
+                .contains("table does not exist and table creation is not enabled");
     }
 
     @Test

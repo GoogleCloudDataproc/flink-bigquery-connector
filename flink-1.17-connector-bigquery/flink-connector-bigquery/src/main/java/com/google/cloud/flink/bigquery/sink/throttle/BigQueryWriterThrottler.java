@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Apache Software Foundation.
+ * Copyright 2025 The Apache Software Foundation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,30 +23,33 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Throttler implementation for BigQuery write stream creation.
+ * Throttler implementation for BigQuery sink writers.
  *
- * <p>Each {@link BigQueryBufferedWriter} will invoke BigQuery's CreateWriteStream API before its
- * initial write to a BigQuery table. This API, however, requires a low QPS (~3) for best
- * performance in steady state since write stream creation is an expensive operation for BigQuery
- * storage backend. Hence, this throttler is responsible for distributing writers into buckets which
- * correspond to a specific "wait" duration before calling the CreateWriteStream API.
+ * <p>BigQuery APIs used by this sink's writers are subject BigQuery imposed quotas and limits.
  *
- * <p>Note that actual separation between CreateWriteStream invocations across all writers will not
- * ensure exact QPS of 3, because neither all writers are initialized at the same instant, nor do
- * they all identify the need to create a write stream after some uniform fixed duration. Given
- * these uncontrollable factors, this throttler aims to achieve 3 QPS on a best effort basis.
+ * <p>The createTable API is used if destination BigQuery table does not already exist, and this API
+ * allows 10 QPS.
+ *
+ * <p>The {@link BigQueryBufferedWriter} invokes BigQuery's CreateWriteStream API before its initial
+ * write to a BigQuery table. This API expects a low QPS (~3) for best performance in steady state,
+ * since write stream creation is an expensive operation.
+ *
+ * <p>This throttler allocates writers into buckets which correspond to a specific "wait" duration
+ * before invoking above BigQuery APIs. Given the distributed nature of Flink deployments, we aim to
+ * achieve 3 QPS on a best effort basis.
  */
-public class WriteStreamCreationThrottler implements Throttler {
+public class BigQueryWriterThrottler implements Throttler {
 
     // MAX_SINK_PARALLELISM is set as 128.
     public static final int MAX_BUCKETS = BigQueryExactlyOnceSink.MAX_SINK_PARALLELISM / 3;
-    private static final Logger LOG = LoggerFactory.getLogger(WriteStreamCreationThrottler.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryWriterThrottler.class);
     private final int writerId;
 
-    public WriteStreamCreationThrottler(int writerId) {
+    public BigQueryWriterThrottler(int writerId) {
         this.writerId = writerId;
     }
 
+    @Override
     public void throttle() {
         int waitSeconds = writerId % MAX_BUCKETS;
         LOG.debug("Throttling writer {} for {} second", writerId, waitSeconds);

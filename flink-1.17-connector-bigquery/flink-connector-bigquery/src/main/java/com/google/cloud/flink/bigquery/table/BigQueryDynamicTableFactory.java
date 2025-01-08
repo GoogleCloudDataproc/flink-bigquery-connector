@@ -78,6 +78,12 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
         additionalOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+        additionalOptions.add(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
+        additionalOptions.add(BigQueryConnectorOptions.PARTITION_FIELD);
+        additionalOptions.add(BigQueryConnectorOptions.PARTITION_TYPE);
+        additionalOptions.add(BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS);
+        additionalOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
+        additionalOptions.add(BigQueryConnectorOptions.REGION);
 
         return additionalOptions;
     }
@@ -101,6 +107,12 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
         forwardOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+        forwardOptions.add(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
+        forwardOptions.add(BigQueryConnectorOptions.PARTITION_FIELD);
+        forwardOptions.add(BigQueryConnectorOptions.PARTITION_TYPE);
+        forwardOptions.add(BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS);
+        forwardOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
+        forwardOptions.add(BigQueryConnectorOptions.REGION);
 
         return forwardOptions;
     }
@@ -146,8 +158,14 @@ public class BigQueryDynamicTableFactory
 
         return new BigQueryDynamicTableSink(
                 configProvider.translateBigQueryConnectOptions(),
-                configProvider.translateDeliveryGuarantee(),
+                configProvider.getDeliveryGuarantee(),
                 context.getPhysicalRowDataType().getLogicalType(),
-                configProvider.getParallelism().orElse(null));
+                configProvider.getParallelism().orElse(null),
+                configProvider.enableTableCreation(),
+                configProvider.getPartitionField().orElse(null),
+                configProvider.getPartitionType().orElse(null),
+                configProvider.getPartitionExpirationMillis().orElse(null),
+                configProvider.getClusteredFields().orElse(null),
+                configProvider.getRegion().orElse(null));
     }
 }

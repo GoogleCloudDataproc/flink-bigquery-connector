@@ -24,7 +24,7 @@ import java.time.Instant;
 import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link WriteStreamCreationThrottler}. */
-public class WriteStreamCreationThrottlerTest {
+public class BigQueryWriterThrottlerTest {
 
     @Test
     public void testThrottle() {
@@ -48,7 +48,7 @@ public class WriteStreamCreationThrottlerTest {
     }
 
     private Duration invokeThrottle(int writerId) {
-        WriteStreamCreationThrottler throttler = new WriteStreamCreationThrottler(writerId);
+        BigQueryWriterThrottler throttler = new BigQueryWriterThrottler(writerId);
         Instant start = Instant.now();
         throttler.throttle();
         Instant end = Instant.now();
