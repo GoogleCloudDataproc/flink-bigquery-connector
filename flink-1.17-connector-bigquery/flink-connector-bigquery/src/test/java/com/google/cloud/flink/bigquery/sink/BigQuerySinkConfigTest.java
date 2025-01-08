@@ -18,13 +18,26 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
+import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.TestSchemaProvider;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Arrays;
+
 import static com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig.validateStreamExecutionEnvironment;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQuerySinkConfig}. */
 public class BigQuerySinkConfigTest {
@@ -37,8 +50,63 @@ public class BigQuerySinkConfigTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws Exception {
+        env.close();
         env = null;
+    }
+
+    @Test
+    public void testConstructor() {
+        BigQueryConnectOptions connectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId("project")
+                        .setDataset("dataset")
+                        .setTable("table")
+                        .build();
+        BigQuerySchemaProvider schemaProvider = new TestSchemaProvider(null, null);
+        BigQueryProtoSerializer serializer = new AvroToProtoSerializer();
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, Time.seconds(5)));
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(connectOptions)
+                        .schemaProvider(schemaProvider)
+                        .serializer(serializer)
+                        .streamExecutionEnvironment(env)
+                        .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                        .enableTableCreation(true)
+                        .partitionType(TimePartitioning.Type.DAY)
+                        .partitionField("timestamp")
+                        .partitionExpirationMillis(10000000000L)
+                        .clusteredFields(Arrays.asList("foo", "bar", "qux"))
+                        .region("LaLaLand")
+                        .build();
+        assertEquals(connectOptions, sinkConfig.getConnectOptions());
+        assertEquals(schemaProvider, sinkConfig.getSchemaProvider());
+        assertEquals(serializer, sinkConfig.getSerializer());
+        assertEquals(DeliveryGuarantee.EXACTLY_ONCE, sinkConfig.getDeliveryGuarantee());
+        assertTrue(sinkConfig.enableTableCreation());
+        assertEquals(TimePartitioning.Type.DAY, sinkConfig.getPartitionType());
+        assertEquals("timestamp", sinkConfig.getPartitionField());
+        assertEquals(10000000000L, sinkConfig.getPartitionExpirationMillis().longValue());
+        assertEquals(Arrays.asList("foo", "bar", "qux"), sinkConfig.getClusteredFields());
+        assertEquals("LaLaLand", sinkConfig.getRegion());
+    }
+
+    @Test
+    public void testConstructor_defaults() {
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, Time.seconds(5)));
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder().streamExecutionEnvironment(env).build();
+        assertNull(sinkConfig.getConnectOptions());
+        assertNull(sinkConfig.getSchemaProvider());
+        assertNull(sinkConfig.getSerializer());
+        assertNull(sinkConfig.getDeliveryGuarantee());
+        assertFalse(sinkConfig.enableTableCreation());
+        assertNull(sinkConfig.getPartitionType());
+        assertNull(sinkConfig.getPartitionField());
+        assertNull(sinkConfig.getPartitionExpirationMillis());
+        assertNull(sinkConfig.getClusteredFields());
+        assertNull(sinkConfig.getRegion());
     }
 
     @Test

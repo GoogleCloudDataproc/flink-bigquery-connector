@@ -16,7 +16,7 @@
 
 package com.google.cloud.flink.bigquery.common.exceptions;
 
-/** Represents a general error during the execution of the connector's code. */
+/** Represents a generic error during the execution of the connector's code. */
 public class BigQueryConnectorException extends RuntimeException {
 
     public BigQueryConnectorException(String message) {

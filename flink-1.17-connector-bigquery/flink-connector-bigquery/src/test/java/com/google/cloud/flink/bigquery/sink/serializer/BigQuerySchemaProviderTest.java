@@ -16,6 +16,7 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -27,11 +28,32 @@ import org.junit.Test;
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQuerySchemaProvider}. */
 public class BigQuerySchemaProviderTest {
+
+    @Test
+    public void testKnownSchema() {
+        BigQuerySchemaProvider schemaProvider =
+                new BigQuerySchemaProviderImpl(
+                        StorageClientFaker.createConnectOptionsForQuery(true, null, null, null));
+        assertNotNull(schemaProvider.getAvroSchema());
+        assertFalse(schemaProvider.schemaUnknown());
+    }
+
+    @Test
+    public void testUnknownSchema() {
+        BigQuerySchemaProvider schemaProvider =
+                new BigQuerySchemaProviderImpl(
+                        StorageClientFaker.createConnectOptionsForQuery(false, null, null, null));
+        assertNull(schemaProvider.getAvroSchema());
+        assertTrue(schemaProvider.schemaUnknown());
+    }
 
     // ------------------ Test Primitive Data Types (Nullable and Required) ------------------
     @Test

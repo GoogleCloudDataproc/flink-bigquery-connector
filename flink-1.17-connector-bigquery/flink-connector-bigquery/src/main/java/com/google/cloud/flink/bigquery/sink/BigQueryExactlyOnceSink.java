@@ -51,7 +51,12 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
             createWriter(InitContext context) {
         checkParallelism(context.getNumberOfParallelSubtasks());
         return new BigQueryBufferedWriter(
-                tablePath, connectOptions, schemaProvider, serializer, context);
+                tablePath,
+                connectOptions,
+                schemaProvider,
+                serializer,
+                createTableOptions(),
+                context);
     }
 
     @Override
@@ -75,6 +80,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
                 connectOptions,
                 schemaProvider,
                 serializer,
+                createTableOptions(),
                 context);
     }
 

@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.table.config;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableDescriptor;
+import org.apache.flink.util.StringUtils;
 
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
@@ -91,13 +92,34 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
     public TableDescriptor updateTableDescriptor(TableDescriptor tableDescriptor) {
         tableDescriptor = super.updateTableDescriptor(tableDescriptor);
         TableDescriptor.Builder tableDescriptorBuilder = tableDescriptor.toBuilder();
-        if (this.deliveryGuarantee != null) {
+        if (deliveryGuarantee != null) {
             tableDescriptorBuilder.option(
                     BigQueryConnectorOptions.DELIVERY_GUARANTEE, this.deliveryGuarantee);
         }
-        if (this.sinkParallelism != null) {
+        if (sinkParallelism != null) {
             tableDescriptorBuilder.option(
                     BigQueryConnectorOptions.SINK_PARALLELISM, sinkParallelism);
+        }
+        if (enableTableCreation) {
+            tableDescriptorBuilder.option(BigQueryConnectorOptions.ENABLE_TABLE_CREATION, true);
+        }
+        if (!StringUtils.isNullOrWhitespaceOnly(partitionField)) {
+            tableDescriptorBuilder.option(BigQueryConnectorOptions.PARTITION_FIELD, partitionField);
+        }
+        if (partitionType != null) {
+            tableDescriptorBuilder.option(BigQueryConnectorOptions.PARTITION_TYPE, partitionType);
+        }
+        if (partitionExpirationMillis > 0) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS,
+                    partitionExpirationMillis);
+        }
+        if (clusteredFields != null && !clusteredFields.isEmpty()) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.CLUSTERED_FIELDS, String.join(",", clusteredFields));
+        }
+        if (!StringUtils.isNullOrWhitespaceOnly(region)) {
+            tableDescriptorBuilder.option(BigQueryConnectorOptions.REGION, region);
         }
         return tableDescriptorBuilder.build();
     }

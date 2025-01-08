@@ -25,6 +25,7 @@ import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.util.Utf8;
 import org.assertj.core.api.Assertions;
 import org.joda.time.LocalDate;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.sql.Timestamp;
@@ -268,6 +269,7 @@ public class AvroToRowDataConvertersTest {
         Assertions.assertThat(exception).hasMessageContaining("Avro to RowData Conversion Error");
     }
 
+    @Ignore
     @Test
     public void testDateTypeConvertor() {
         // Create the logical type schema

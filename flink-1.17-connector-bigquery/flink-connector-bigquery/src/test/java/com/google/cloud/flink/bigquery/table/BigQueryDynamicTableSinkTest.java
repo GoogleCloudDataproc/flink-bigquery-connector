@@ -62,7 +62,7 @@ public class BigQueryDynamicTableSinkTest {
                     true,
                     PARTITIONING_FIELD,
                     TimePartitioning.Type.DAY,
-                    null,
+                    10000000000000L,
                     CLUSTERED_FIELDS,
                     REGION);
 
@@ -87,7 +87,7 @@ public class BigQueryDynamicTableSinkTest {
         assertTrue(obtainedSinkConfig.enableTableCreation());
         assertEquals(PARTITIONING_FIELD, obtainedSinkConfig.getPartitionField());
         assertEquals(TimePartitioning.Type.DAY, obtainedSinkConfig.getPartitionType());
-        assertTrue(obtainedSinkConfig.getPartitionExpirationMillis() == null);
+        assertTrue(obtainedSinkConfig.getPartitionExpirationMillis() == 10000000000000L);
         assertEquals(CLUSTERED_FIELDS, obtainedSinkConfig.getClusteredFields());
         assertEquals(REGION, obtainedSinkConfig.getRegion());
         assertEquals(SCHEMA, TABLE_SINK.getLogicalType());

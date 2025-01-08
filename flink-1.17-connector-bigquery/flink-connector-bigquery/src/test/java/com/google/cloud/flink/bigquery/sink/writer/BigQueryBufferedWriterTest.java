@@ -32,14 +32,18 @@ import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServices;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageWriteClient;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
-import com.google.cloud.flink.bigquery.sink.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
+import com.google.cloud.flink.bigquery.sink.serializer.TestSchemaProvider;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Int64Value;
 import com.google.rpc.Status;
@@ -64,17 +68,20 @@ import static org.mockito.Mockito.mock;
 public class BigQueryBufferedWriterTest {
 
     MockedStatic<StreamWriter> streamWriterStaticMock;
+    BigQueryConnectOptions connectOptions;
 
     @Before
     public void setUp() {
         streamWriterStaticMock = Mockito.mockStatic(StreamWriter.class);
         streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
+        connectOptions = null;
     }
 
     @After
     public void tearDown() throws Exception {
         streamWriterStaticMock.close();
         streamWriterStaticMock = null;
+        connectOptions = null;
     }
 
     @Test
@@ -260,6 +267,12 @@ public class BigQueryBufferedWriterTest {
                 1,
                 ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                         .getCreateWriteStreamInvocations());
+
+        // Ensure table creation is not attempted, since table exists in this test's setup.
+        FakeBigQueryServices.FakeQueryDataClient queryClient = getTestQueryClient();
+        assertEquals(1, queryClient.getTableExistsInvocatioks());
+        assertEquals(0, queryClient.getCreateDatasetInvocatioks());
+        assertEquals(0, queryClient.getCreateTableInvocatioks());
     }
 
     @Test
@@ -494,6 +507,39 @@ public class BigQueryBufferedWriterTest {
         assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
         assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+    }
+
+    @Test
+    public void testCreateTable() {
+        BigQueryBufferedWriter bufferedWriter =
+                createBufferedWriter(
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        new TestSchemaProvider(null, null),
+                        new FakeBigQuerySerializer(
+                                ByteString.copyFromUtf8("foobar"),
+                                StorageClientFaker.SIMPLE_AVRO_SCHEMA),
+                        new CreateTableOptions(true, null, null, null, null, null),
+                        false);
+        // First element will be added to append request.
+        bufferedWriter.write(new Object(), null);
+        assertNull(bufferedWriter.streamWriter);
+        // Invoke append.
+        bufferedWriter.append();
+        // Ensure table creation is attempted.
+        FakeBigQueryServices.FakeQueryDataClient testQueryClient = getTestQueryClient();
+        assertEquals(2, testQueryClient.getTableExistsInvocatioks());
+        assertEquals(1, testQueryClient.getCreateDatasetInvocatioks());
+        assertEquals(1, testQueryClient.getCreateTableInvocatioks());
+        // Ensure new stream was created.
+        assertEquals("new_stream", bufferedWriter.streamName);
+        assertEquals(
+                1,
+                ((FakeBigQueryServices.FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                        .getCreateWriteStreamInvocations());
     }
 
     @Test
@@ -781,7 +827,7 @@ public class BigQueryBufferedWriterTest {
         assertEquals(0, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
         assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
         Collection<BigQueryWriterState> writerStates = bufferedWriter.snapshotState(1);
-        BigQueryWriterState writerState = (BigQueryWriterState) writerStates.toArray()[0];
+        assertNotNull((BigQueryWriterState) writerStates.toArray()[0]);
         // Test Flink Metrics
         assertEquals(3, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
@@ -905,7 +951,7 @@ public class BigQueryBufferedWriterTest {
         assertEquals(1, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
         bufferedWriter.flush(false);
         assertEquals(3, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
-        Collection<BigQueryWriterState> writerStates = bufferedWriter.snapshotState(1);
+        assertNotNull(bufferedWriter.snapshotState(1));
         // Test Flink Metrics
         assertEquals(213, bufferedWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
@@ -1091,6 +1137,7 @@ public class BigQueryBufferedWriterTest {
         Mockito.when(context.getSubtaskId()).thenReturn(1);
         Mockito.when(context.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+        connectOptions = StorageClientFaker.createConnectOptionsForWrite(null);
         return new BigQueryBufferedWriter(
                 streamName,
                 streamOffset,
@@ -1098,9 +1145,49 @@ public class BigQueryBufferedWriterTest {
                 totalRecordsSeen,
                 totalRecordsWritten,
                 totalRecordsCommitted,
-                StorageClientFaker.createConnectOptionsForWrite(null),
+                connectOptions,
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
+                null,
+                context);
+    }
+
+    private BigQueryBufferedWriter createBufferedWriter(
+            String streamName,
+            long streamOffset,
+            long totalRecordsSeen,
+            long totalRecordsWritten,
+            long totalRecordsCommitted,
+            BigQuerySchemaProvider schemaProvider,
+            BigQueryProtoSerializer mockSerializer,
+            CreateTableOptions createTableOptions,
+            boolean tableExists) {
+        InitContext context = Mockito.mock(InitContext.class);
+        Mockito.when(context.getSubtaskId()).thenReturn(1);
+        Mockito.when(context.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+        FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient =
+                new FakeBigQueryServices.FakeBigQueryStorageWriteClient(
+                        new ApiFuture[] {
+                            ApiFutures.immediateFuture(AppendRowsResponse.newBuilder().build())
+                        },
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null,
+                        null);
+        FakeBigQueryServices.FakeQueryDataClient queryClient =
+                new FakeBigQueryServices.FakeQueryDataClient(tableExists, null, null, null);
+        connectOptions = StorageClientFaker.createConnectOptions(null, writeClient, queryClient);
+        return new BigQueryBufferedWriter(
+                streamName,
+                streamOffset,
+                "/projects/project/datasets/dataset/tables/table",
+                totalRecordsSeen,
+                totalRecordsWritten,
+                totalRecordsCommitted,
+                connectOptions,
+                schemaProvider,
+                mockSerializer,
+                createTableOptions,
                 context);
     }
 
@@ -1118,6 +1205,12 @@ public class BigQueryBufferedWriterTest {
         Mockito.when(context.getSubtaskId()).thenReturn(1);
         Mockito.when(context.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+        FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient =
+                new FakeBigQueryServices.FakeBigQueryStorageWriteClient(
+                        appendResponseFutures, writeStream, null, finalizeResponse);
+        FakeBigQueryServices.FakeQueryDataClient queryClient =
+                new FakeBigQueryServices.FakeQueryDataClient(true, null, null, null);
+        connectOptions = StorageClientFaker.createConnectOptions(null, writeClient, queryClient);
         return new BigQueryBufferedWriter(
                 streamName,
                 streamOffset,
@@ -1125,11 +1218,19 @@ public class BigQueryBufferedWriterTest {
                 totalRecordsSeen,
                 totalRecordsWritten,
                 totalRecordsCommitted,
-                StorageClientFaker.createConnectOptionsForWrite(
-                        appendResponseFutures, writeStream, null, finalizeResponse),
+                connectOptions,
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
+                null,
                 context);
+    }
+
+    private FakeBigQueryServices.FakeQueryDataClient getTestQueryClient() {
+        // FakeBigQueryServices (used for testing) creates a single instance of FakeQueryDataClient,
+        // and returns it every time createQueryDataClient is called.
+        return (FakeBigQueryServices.FakeQueryDataClient)
+                ((FakeBigQueryServices) connectOptions.getTestingBigQueryServices().get())
+                        .createQueryDataClient(null);
     }
 
     private void checkStreamlessWriterAttributes(BigQueryBufferedWriter bufferedWriter) {

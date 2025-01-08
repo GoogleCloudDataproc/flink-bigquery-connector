@@ -29,6 +29,7 @@ import com.google.api.services.bigquery.model.JobStatistics2;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.AvroSchema;
@@ -88,45 +89,86 @@ public class StorageClientFaker {
 
         private final FakeBigQueryStorageReadClient storageReadClient;
         private final FakeBigQueryStorageWriteClient storageWriteClient;
+        private final FakeQueryDataClient queryDataClient;
 
         private FakeBigQueryServices(
                 FakeBigQueryStorageReadClient storageReadClient,
-                FakeBigQueryStorageWriteClient storageWriteClient) {
+                FakeBigQueryStorageWriteClient storageWriteClient,
+                FakeQueryDataClient queryDataClient) {
             this.storageReadClient = storageReadClient;
             this.storageWriteClient = storageWriteClient;
+            this.queryDataClient = queryDataClient;
+        }
+
+        static FakeBigQueryServices getInstance(
+                FakeBigQueryStorageReadClient storageReadClient,
+                FakeBigQueryStorageWriteClient storageWriteClient,
+                FakeQueryDataClient queryDataClient) {
+            FakeBigQueryServices instance =
+                    Mockito.spy(
+                            new FakeBigQueryServices(
+                                    storageReadClient, storageWriteClient, queryDataClient));
+            return instance;
         }
 
         static FakeBigQueryServices getInstance(
                 FakeBigQueryStorageReadClient storageReadClient,
                 FakeBigQueryStorageWriteClient storageWriteClient) {
-            FakeBigQueryServices instance =
-                    Mockito.spy(new FakeBigQueryServices(storageReadClient, storageWriteClient));
-            return instance;
+            // Use default instance if not provided.
+            return getInstance(
+                    storageReadClient,
+                    storageWriteClient,
+                    (FakeQueryDataClient) FakeQueryDataClient.getInstance());
         }
 
         @Override
-        public StorageReadClient createStorageReadClient(CredentialsOptions readOptions)
+        public StorageReadClient createStorageReadClient(CredentialsOptions options)
                 throws IOException {
             return storageReadClient;
         }
 
         @Override
-        public StorageWriteClient createStorageWriteClient(CredentialsOptions readOptions)
+        public StorageWriteClient createStorageWriteClient(CredentialsOptions options)
                 throws IOException {
             return storageWriteClient;
         }
 
         @Override
-        public QueryDataClient createQueryDataClient(CredentialsOptions readOptions) {
-            return FakeQueryDataClient.getInstance();
+        public QueryDataClient createQueryDataClient(CredentialsOptions options) {
+            return queryDataClient;
         }
 
-        static class FakeQueryDataClient implements QueryDataClient {
+        /** Implementation of the BQ query client for testing purposes. */
+        public static class FakeQueryDataClient implements QueryDataClient {
 
-            static FakeQueryDataClient instance = Mockito.spy(new FakeQueryDataClient());
+            private final boolean tableExists;
+            private final RuntimeException tableExistsError;
+            private final RuntimeException createDatasetError;
+            private final RuntimeException createTableError;
+
+            private int tableExistsInvocations;
+            private int createDatasetInvocations;
+            private int createTableInvocations;
+
+            public FakeQueryDataClient(
+                    boolean tableExists,
+                    RuntimeException tableExistsError,
+                    RuntimeException createDatasetError,
+                    RuntimeException createTableError) {
+                this.tableExists = tableExists;
+                this.tableExistsError = tableExistsError;
+                this.createDatasetError = createDatasetError;
+                this.createTableError = createTableError;
+                tableExistsInvocations = 0;
+                createDatasetInvocations = 0;
+                createTableInvocations = 0;
+            }
+
+            static FakeQueryDataClient defaultInstance =
+                    Mockito.spy(new FakeQueryDataClient(true, null, null, null));
 
             static QueryDataClient getInstance() {
-                return instance;
+                return defaultInstance;
             }
 
             @Override
@@ -158,13 +200,29 @@ public class StorageClientFaker {
             }
 
             @Override
-            public Boolean datasetExists(String project, String dataset) {
-                return Boolean.TRUE;
+            public void createDataset(String project, String dataset, String region) {
+                createDatasetInvocations++;
+                if (createDatasetError != null) {
+                    throw createDatasetError;
+                }
             }
 
             @Override
-            public void createDataset(String project, String dataset, String region) {
-                // no-op
+            public Boolean tableExists(String project, String dataset, String table) {
+                tableExistsInvocations++;
+                if (tableExistsError != null) {
+                    throw tableExistsError;
+                }
+                return tableExists;
+            }
+
+            @Override
+            public void createTable(
+                    String project, String dataset, String table, TableDefinition tableDefinition) {
+                createTableInvocations++;
+                if (createTableError != null) {
+                    throw createTableError;
+                }
             }
 
             @Override
@@ -197,9 +255,16 @@ public class StorageClientFaker {
                         .collect(Collectors.toList());
             }
 
-            @Override
-            public Boolean tableExists(String projectName, String datasetName, String tableName) {
-                return Boolean.TRUE;
+            public int getTableExistsInvocatioks() {
+                return tableExistsInvocations;
+            }
+
+            public int getCreateDatasetInvocatioks() {
+                return createDatasetInvocations;
+            }
+
+            public int getCreateTableInvocatioks() {
+                return createTableInvocations;
             }
         }
 
@@ -279,7 +344,7 @@ public class StorageClientFaker {
             public void cancel() {}
         }
 
-        /** Implementation for the storage read client for testing purposes. */
+        /** Implementation of the storage read client for testing purposes. */
         public static class FakeBigQueryStorageReadClient implements StorageReadClient {
 
             private final ReadSession session;
@@ -328,7 +393,7 @@ public class StorageClientFaker {
             public void close() {}
         }
 
-        /** Implementation for the storage write client for testing purposes. */
+        /** Implementation of the storage write client for testing purposes. */
         public static class FakeBigQueryStorageWriteClient implements StorageWriteClient {
 
             private final StreamWriter mockedWriter;
@@ -355,9 +420,14 @@ public class StorageClientFaker {
                     FinalizeWriteStreamResponse finalizeResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
                 // Mockito cannot unbox "any()" for primitive types, throwing the dreaded
-                // NullPointerException. Hence, use primitive variants for argument matching.
+                // NullPointerException. Use primitive variants for argument matching.
                 OngoingStubbing stubbing =
                         Mockito.when(mockedWriter.append(Mockito.any(), Mockito.anyLong()));
+                if (appendResponseFutures.length == 0) {
+                    stubbing.thenThrow(
+                            new IllegalStateException(
+                                    "Test should provide append response future if append is invoked"));
+                }
                 for (ApiFuture future : appendResponseFutures) {
                     stubbing = stubbing.thenReturn(future);
                 }
@@ -782,19 +852,9 @@ public class StorageClientFaker {
 
     public static BigQueryConnectOptions createConnectOptionsForWrite(
             AppendRowsResponse appendResponse) {
-        return BigQueryConnectOptions.builder()
-                .setDataset("dataset")
-                .setProjectId("project")
-                .setTable("table")
-                .setCredentialsOptions(null)
-                .setTestingBigQueryServices(
-                        () -> {
-                            return FakeBigQueryServices.getInstance(
-                                    null,
-                                    new StorageClientFaker.FakeBigQueryServices
-                                            .FakeBigQueryStorageWriteClient(appendResponse));
-                        })
-                .build();
+        FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient =
+                new FakeBigQueryServices.FakeBigQueryStorageWriteClient(appendResponse);
+        return createConnectOptions(null, writeClient);
     }
 
     public static BigQueryConnectOptions createConnectOptionsForWrite(
@@ -802,6 +862,27 @@ public class StorageClientFaker {
             WriteStream writeStream,
             FlushRowsResponse flushResponse,
             FinalizeWriteStreamResponse finalizeResponse) {
+        FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient =
+                new FakeBigQueryServices.FakeBigQueryStorageWriteClient(
+                        appendResponseFutures, writeStream, flushResponse, finalizeResponse);
+        return createConnectOptions(null, writeClient);
+    }
+
+    public static BigQueryConnectOptions createConnectOptionsForQuery(
+            boolean tableExists,
+            RuntimeException tableExistsError,
+            RuntimeException createDatasetError,
+            RuntimeException createTableError) {
+        FakeBigQueryServices.FakeQueryDataClient queryClient =
+                new FakeBigQueryServices.FakeQueryDataClient(
+                        tableExists, tableExistsError, createDatasetError, createTableError);
+        return createConnectOptions(null, null, queryClient);
+    }
+
+    public static BigQueryConnectOptions createConnectOptions(
+            FakeBigQueryServices.FakeBigQueryStorageReadClient readClient,
+            FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient,
+            FakeBigQueryServices.FakeQueryDataClient queryClient) {
         return BigQueryConnectOptions.builder()
                 .setDataset("dataset")
                 .setProjectId("project")
@@ -810,13 +891,22 @@ public class StorageClientFaker {
                 .setTestingBigQueryServices(
                         () -> {
                             return FakeBigQueryServices.getInstance(
-                                    null,
-                                    new StorageClientFaker.FakeBigQueryServices
-                                            .FakeBigQueryStorageWriteClient(
-                                            appendResponseFutures,
-                                            writeStream,
-                                            flushResponse,
-                                            finalizeResponse));
+                                    readClient, writeClient, queryClient);
+                        })
+                .build();
+    }
+
+    public static BigQueryConnectOptions createConnectOptions(
+            FakeBigQueryServices.FakeBigQueryStorageReadClient readClient,
+            FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient) {
+        return BigQueryConnectOptions.builder()
+                .setDataset("dataset")
+                .setProjectId("project")
+                .setTable("table")
+                .setCredentialsOptions(null)
+                .setTestingBigQueryServices(
+                        () -> {
+                            return FakeBigQueryServices.getInstance(readClient, writeClient);
                         })
                 .build();
     }
@@ -875,21 +965,36 @@ public class StorageClientFaker {
 
         private final FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient;
         private final FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient;
+        private final FakeBigQueryServices.FakeQueryDataClient queryDataClient;
 
         private FakeBigQueryTableServices(
                 FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
-                FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient) {
+                FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient,
+                FakeBigQueryServices.FakeQueryDataClient queryDataClient) {
             this.storageReadClient = storageReadClient;
             this.storageWriteClient = storageWriteClient;
+            this.queryDataClient = queryDataClient;
+        }
+
+        static FakeBigQueryTableServices getInstance(
+                FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
+                FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient,
+                FakeBigQueryServices.FakeQueryDataClient queryDataClient) {
+            FakeBigQueryTableServices instance =
+                    Mockito.spy(
+                            new FakeBigQueryTableServices(
+                                    storageReadClient, storageWriteClient, queryDataClient));
+            return instance;
         }
 
         static FakeBigQueryTableServices getInstance(
                 FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
                 FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient) {
-            FakeBigQueryTableServices instance =
-                    Mockito.spy(
-                            new FakeBigQueryTableServices(storageReadClient, storageWriteClient));
-            return instance;
+            return getInstance(
+                    storageReadClient,
+                    storageWriteClient,
+                    (FakeBigQueryServices.FakeQueryDataClient)
+                            FakeQueryTableDataClient.getInstance());
         }
 
         @Override
@@ -906,15 +1011,24 @@ public class StorageClientFaker {
 
         @Override
         public QueryDataClient createQueryDataClient(CredentialsOptions readOptions) {
-            return FakeQueryTableDataClient.getInstance();
+            return queryDataClient;
         }
 
         static class FakeQueryTableDataClient extends FakeBigQueryServices.FakeQueryDataClient {
 
-            static FakeQueryTableDataClient instance = Mockito.spy(new FakeQueryTableDataClient());
+            public FakeQueryTableDataClient(
+                    boolean tableExists,
+                    RuntimeException tableExistsError,
+                    RuntimeException createDatasetError,
+                    RuntimeException createTableError) {
+                super(tableExists, tableExistsError, createDatasetError, createTableError);
+            }
+
+            static FakeQueryTableDataClient defaultTableInstance =
+                    Mockito.spy(new FakeQueryTableDataClient(true, null, null, null));
 
             static QueryDataClient getInstance() {
-                return instance;
+                return defaultTableInstance;
             }
 
             @Override

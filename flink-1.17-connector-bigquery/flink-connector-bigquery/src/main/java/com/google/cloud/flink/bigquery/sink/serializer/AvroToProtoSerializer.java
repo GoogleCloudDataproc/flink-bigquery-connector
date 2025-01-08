@@ -86,6 +86,11 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
     }
 
     @Override
+    public Schema getAvroSchema(GenericRecord record) {
+        return record.getSchema();
+    }
+
+    @Override
     public ByteString serialize(GenericRecord record) throws BigQuerySerializationException {
         try {
             return getDynamicMessageFromGenericRecord(record, this.descriptor).toByteString();
