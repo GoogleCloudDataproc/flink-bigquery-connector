@@ -280,7 +280,7 @@ public class AvroToRowDataConvertersTest {
                 " \"fields\": [\n"
                         + "   {\"name\": \"date_field\", \"type\": {\"type\": \"int\", \"logical_type\": \"date\"}}]";
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        // time.LocalDate Type.
+        // java.time.LocalDate Type.
         IndexedRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set("date_field", java.time.LocalDate.of(2024, 1, 1))
@@ -289,7 +289,7 @@ public class AvroToRowDataConvertersTest {
         Object convertedObject = converter.convert(record);
         assertEquals(GenericRowData.of(19723), convertedObject);
 
-        // Joda Date type.
+        // org.joda.Date type.
         record =
                 new GenericRecordBuilder(avroSchema)
                         .set("date_field", LocalDate.parse("2024-01-01"))
