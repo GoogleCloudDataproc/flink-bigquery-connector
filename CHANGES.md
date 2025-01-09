@@ -2,6 +2,10 @@
 
 ## Next
 
+* Support creation of new table in BigQuery sink. This is integrated with Datastream and Table/SQL API.
+* Remove need for BigQuerySchemaProvider in BigQuery sink configs.
+* Deprecate unbounded source. To be completely removed in next release.
+
 ## 0.4.0 - 2024-11-04
 
 * Support exactly-once consistency in BigQuery sink. This is integrated with Datastream and Table/SQL API.

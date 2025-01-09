@@ -25,10 +25,7 @@ import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.RestartStrategyConfiguration;
 import org.apache.flink.api.common.state.CheckpointListener;
-import org.apache.flink.api.common.state.ValueState;
-import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -42,7 +39,6 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.table.annotation.DataTypeHint;
 import org.apache.flink.table.annotation.FunctionHint;
 import org.apache.flink.table.api.DataTypes;
@@ -55,6 +51,7 @@ import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
@@ -67,6 +64,7 @@ import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
@@ -76,7 +74,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -113,6 +110,7 @@ import static org.apache.flink.table.api.Expressions.concat;
  *         <li>--bq-dest-table {optional; name of Destination BigQuery table to write} <br>
  *         <li>--sink-parallelism {optional; parallelism for sink job}
  *         <li>--exactly-once {optional; set flag to enable exactly once approach}
+ *         <li>--enable-table-creation {optional; set for creating BQ table in sink}
  *         <li>--is-sql {optional; set flag to run Table API methods for read and write}
  *       </ul>
  *       The sequence of operations in the read and write pipeline is: <i>source > map > sink</i>.
@@ -138,7 +136,8 @@ import static org.apache.flink.table.api.Expressions.concat;
  *       {GCP_DESTINATION_PROJECT_ID} --bq-dest-dataset {BigQuery Destination Dataset Name}
  *       --bq-dest-table {BigQuery Destination Table Name} --sink-parallelism {Parallelism to be
  *       followed by the sink} --exactly-once {set flag to enable exactly once approach} --is-sql
- *       {set flag to enable running Flink's Table API methods}} <br>
+ *       {set flag to enable running Flink's Table API methods} --enable-table-creation {set flag
+ *       for BQ table creation in sink}} <br>
  *   <li>Unbounded Job: an unbounded source (GCS Bucket) and writing to a BigQuery Table in the <i>
  *       unbounded </i> mode.<br>
  *       This test requires some additional arguments besides the ones mentioned in the bounded
@@ -203,6 +202,7 @@ public class BigQueryIntegrationTest {
                             + " --bq-dest-table <destination table name>"
                             + " --sink-parallelism <parallelism for sink>"
                             + " --exactly-once <set for sink via 'EXACTLY ONCE' approach>"
+                            + " --enable-table-creation <set for creating BQ table in sink>"
                             + " --mode <source type>"
                             + " --query <SQL query to get data from BQ table>"
                             + " --file-discovery-interval <minutes between checking new files>");
@@ -223,6 +223,7 @@ public class BigQueryIntegrationTest {
         Integer sinkParallelism = parameterTool.getInt("sink-parallelism");
         boolean isSqlEnabled = parameterTool.getBoolean("is-sql", false);
         boolean isExactlyOnceEnabled = parameterTool.getBoolean("exactly-once", false);
+        Boolean enableTableCreation = parameterTool.getBoolean("enable-table-creation", false);
 
         // Ignored for bounded run and can be set for unbounded mode (not required).
         String mode = parameterTool.get("mode", "bounded");
@@ -252,7 +253,8 @@ public class BigQueryIntegrationTest {
                                 destDatasetName,
                                 destTableName,
                                 isExactlyOnceEnabled,
-                                sinkParallelism);
+                                sinkParallelism,
+                                enableTableCreation);
                         break;
                     case "unbounded":
                         gcsSourceUri = parameterTool.getRequired("gcs-source-uri");
@@ -290,7 +292,8 @@ public class BigQueryIntegrationTest {
                                 destDatasetName,
                                 destTableName,
                                 isExactlyOnceEnabled,
-                                sinkParallelism);
+                                sinkParallelism,
+                                enableTableCreation);
                         break;
                     case "unbounded":
                         gcsSourceUri = parameterTool.getRequired("gcs-source-uri");
@@ -335,6 +338,7 @@ public class BigQueryIntegrationTest {
     private static void runQueryFlinkJob(String projectName, String query) throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setRestartStrategy(RESTART_STRATEGY);
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
         BigQuerySource<GenericRecord> bqSource =
@@ -355,22 +359,24 @@ public class BigQueryIntegrationTest {
             String destDatasetName,
             String destTableName,
             boolean exactlyOnce,
-            Integer sinkParallelism)
+            Integer sinkParallelism,
+            boolean enableTableCreation)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
         env.setRestartStrategy(RESTART_STRATEGY);
 
+        BigQueryConnectOptions sourceConnectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId(sourceGcpProjectName)
+                        .setDataset(sourceDatasetName)
+                        .setTable(sourceTableName)
+                        .build();
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.readAvros(
                         BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(sourceGcpProjectName)
-                                                .setDataset(sourceDatasetName)
-                                                .setTable(sourceTableName)
-                                                .build())
+                                .setBigQueryConnectOptions(sourceConnectOptions)
                                 .build());
 
         BigQueryConnectOptions sinkConnectOptions =
@@ -380,20 +386,24 @@ public class BigQueryIntegrationTest {
                         .setTable(destTableName)
                         .build();
 
-        BigQuerySchemaProvider destSchemaProvider =
-                new BigQuerySchemaProviderImpl(sinkConnectOptions);
-
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig.Builder sinkConfigBuilder =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(sinkConnectOptions)
-                        .schemaProvider(destSchemaProvider)
                         .serializer(new AvroToProtoSerializer())
                         .deliveryGuarantee(
                                 exactlyOnce
                                         ? DeliveryGuarantee.EXACTLY_ONCE
                                         : DeliveryGuarantee.AT_LEAST_ONCE)
-                        .streamExecutionEnvironment(env)
-                        .build();
+                        .streamExecutionEnvironment(env);
+
+        if (enableTableCreation) {
+            sinkConfigBuilder
+                    .enableTableCreation(true)
+                    .partitionField("ts")
+                    .partitionType(TimePartitioning.Type.DAY);
+        }
+
+        BigQuerySinkConfig sinkConfig = sinkConfigBuilder.build();
 
         DataStreamSink boundedStreamSink =
                 env.fromSource(
@@ -413,7 +423,7 @@ public class BigQueryIntegrationTest {
                                 })
                         .returns(
                                 new GenericRecordAvroTypeInfo(
-                                        sinkConfig.getSchemaProvider().getAvroSchema()))
+                                        getAvroTableSchema(sourceConnectOptions)))
                         .sinkTo(BigQuerySink.get(sinkConfig));
         if (sinkParallelism != null) {
             boundedStreamSink.setParallelism(sinkParallelism);
@@ -591,6 +601,8 @@ public class BigQueryIntegrationTest {
      * @param destDatasetName Dataset name of the destination table.
      * @param destTableName Destination Table Name.
      * @param isExactlyOnce Boolean value, True if exactly-once mode, false otherwise.
+     * @param sinkParallelism Sink's parallelism.
+     * @param enableTableCreation Create BQ table in sink.
      * @throws Exception in a case of error, obtaining Table Descriptor.
      */
     private static void runBoundedSQLFlinkJob(
@@ -601,7 +613,8 @@ public class BigQueryIntegrationTest {
             String destDatasetName,
             String destTableName,
             boolean isExactlyOnce,
-            Integer sinkParallelism)
+            Integer sinkParallelism,
+            boolean enableTableCreation)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -609,6 +622,12 @@ public class BigQueryIntegrationTest {
         env.setRestartStrategy(RESTART_STRATEGY);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
 
+        BigQueryConnectOptions sourceConnectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId(sourceGcpProjectName)
+                        .setDataset(sourceDatasetName)
+                        .setTable(sourceTableName)
+                        .build();
         // Declare Read Options.
         BigQueryTableConfig readTableConfig =
                 BigQueryReadTableConfig.newBuilder()
@@ -630,7 +649,7 @@ public class BigQueryIntegrationTest {
                         .select($("*"))
                         .addOrReplaceColumns(concat($("name"), "_write_test").as("name"));
 
-        BigQueryTableConfig sinkTableConfig =
+        BigQuerySinkTableConfig.Builder sinkTableConfigBuilder =
                 BigQuerySinkTableConfig.newBuilder()
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
@@ -640,17 +659,29 @@ public class BigQueryIntegrationTest {
                         .deliveryGuarantee(
                                 isExactlyOnce
                                         ? DeliveryGuarantee.EXACTLY_ONCE
-                                        : DeliveryGuarantee.AT_LEAST_ONCE)
-                        .build();
+                                        : DeliveryGuarantee.AT_LEAST_ONCE);
+
+        TableDescriptor descriptor;
+        if (enableTableCreation) {
+            sinkTableConfigBuilder
+                    .enableTableCreation(true)
+                    .partitionField("ts")
+                    .partitionType(TimePartitioning.Type.DAY);
+            org.apache.flink.table.api.Schema tableSchema =
+                    getFlinkTableSchema(sourceConnectOptions);
+            descriptor =
+                    BigQueryTableSchemaProvider.getTableDescriptor(
+                            sinkTableConfigBuilder.build(), tableSchema);
+        } else {
+            descriptor =
+                    BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfigBuilder.build());
+        }
 
         // Register the Sink Table
-        tEnv.createTable(
-                "bigQuerySinkTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+        tEnv.createTable("bigQuerySinkTable", descriptor);
 
         // Insert the table sourceTable to the registered sinkTable
-        TableResult res = sourceTable.executeInsert("bigQuerySinkTable");
-        res.await();
+        sourceTable.executeInsert("bigQuerySinkTable").await(30, TimeUnit.MINUTES);
     }
 
     /**
@@ -827,44 +858,6 @@ public class BigQueryIntegrationTest {
         }
     }
 
-    static class CustomKeyedProcessFunction
-            extends KeyedProcessFunction<String, Tuple2<String, Integer>, Long> {
-
-        private transient ValueState<Long> numRecords;
-        private final Long expectedValue;
-
-        CustomKeyedProcessFunction(Long expectedValue) {
-            this.expectedValue = expectedValue;
-        }
-
-        @Override
-        public void open(Configuration config) {
-            ValueStateDescriptor<Long> descriptor =
-                    new ValueStateDescriptor<>("numRecords", TypeInformation.of(Long.class), 0L);
-            this.numRecords = getRuntimeContext().getState(descriptor);
-        }
-
-        @Override
-        public void processElement(
-                Tuple2<String, Integer> value,
-                KeyedProcessFunction<String, Tuple2<String, Integer>, Long>.Context ctx,
-                Collector<Long> out)
-                throws Exception {
-            this.numRecords.update(this.numRecords.value() + 1);
-            if (this.numRecords.value() > this.expectedValue) {
-                LOG.info(
-                        String.format(
-                                "Number of records processed (%d) exceed the expected count (%d)",
-                                this.numRecords.value(), this.expectedValue));
-            } else if (Objects.equals(this.numRecords.value(), this.expectedValue)) {
-                LOG.info(
-                        String.format(
-                                "%d number of records have been processed", this.expectedValue));
-            }
-            out.collect(this.numRecords.value());
-        }
-    }
-
     static class FailingMapper
             implements MapFunction<GenericRecord, GenericRecord>, CheckpointListener {
 
@@ -880,5 +873,15 @@ public class BigQueryIntegrationTest {
                 throw new RuntimeException("Intentional failure in map");
             }
         }
+    }
+
+    private static Schema getAvroTableSchema(BigQueryConnectOptions connectOptions) {
+        return new BigQuerySchemaProviderImpl(connectOptions).getAvroSchema();
+    }
+
+    private static org.apache.flink.table.api.Schema getFlinkTableSchema(
+            BigQueryConnectOptions connectOptions) {
+        Schema avroSchema = new BigQuerySchemaProviderImpl(connectOptions).getAvroSchema();
+        return BigQueryTableSchemaProvider.getTableApiSchemaFromAvroSchema(avroSchema);
     }
 }

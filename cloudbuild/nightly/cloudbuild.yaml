@@ -101,10 +101,10 @@ steps:
 
 # 4. Start the nested schema table e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
-    id: 'e2e-bounded-nested-schema-table-test'
+    id: 'e2e-bounded-nested-schema-test'
     waitFor: ['create-clusters-bounded-small-table']
     entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_nested_schema_table_test']
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_nested_schema_test']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'PROJECT_ID=${_PROJECT_ID}'
@@ -120,7 +120,7 @@ steps:
 # 5. Table API nested schema table e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-table-api-nested-schema-test'
-    waitFor: ['e2e-bounded-nested-schema-table-test']
+    waitFor: ['e2e-bounded-nested-schema-test']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_nested_schema_test']
     env:

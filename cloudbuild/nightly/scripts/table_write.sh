@@ -27,6 +27,7 @@ MODE=$9
 PROPERTIES=${10}
 SINK_PARALLELISM=${11}
 IS_SQL=${12}
+ENABLE_TABLE_CREATION=${13}
 set -euxo pipefail
 gcloud config set project "$PROJECT_ID"
 
@@ -55,7 +56,7 @@ then
     echo "At least once is Enabled!"
     DESTINATION_TABLE_NAME="$DESTINATION_TABLE_NAME"-ALO
   fi
-  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL" "$IS_EXACTLY_ONCE_ENABLED"
+  source cloudbuild/nightly/scripts/bounded_table_write.sh "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL" "$IS_EXACTLY_ONCE_ENABLED" "$ENABLE_TABLE_CREATION"
 elif [ "$MODE" == "unbounded" ]
 then
   echo [LOGS: "$PROJECT_NAME" "$SOURCE" Write Test in Unbounded Mode] Created JOB ID: "$JOB_ID"
