@@ -26,7 +26,7 @@ public class CreateTableOptions {
     private final boolean enableTableCreation;
     private final String partitionField;
     private final TimePartitioning.Type partitionType;
-    private final Long partitionExpirationMillis;
+    private final long partitionExpirationMillis;
     private final List<String> clusteredFields;
     private final String region;
 
@@ -40,7 +40,11 @@ public class CreateTableOptions {
         this.enableTableCreation = enableTableCreation;
         this.partitionField = partitionField;
         this.partitionType = partitionType;
-        this.partitionExpirationMillis = partitionExpirationMillis;
+        if (partitionExpirationMillis == null) {
+            this.partitionExpirationMillis = 0;
+        } else {
+            this.partitionExpirationMillis = partitionExpirationMillis;
+        }
         this.clusteredFields = clusteredFields;
         this.region = region;
     }
@@ -57,7 +61,7 @@ public class CreateTableOptions {
         return partitionType;
     }
 
-    public Long getPartitionExpirationMillis() {
+    public long getPartitionExpirationMillis() {
         return partitionExpirationMillis;
     }
 
