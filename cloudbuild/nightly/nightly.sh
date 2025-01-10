@@ -54,6 +54,7 @@ run_read_only_test(){
   # Get the final region and the cluster name.
   export REGION=$(cat "$REGION_FILE")
   export CLUSTER_NAME=$(cat "$CLUSTER_FILE")
+  export GCS_JAR_LOCATION=$(cat "$GCS_JAR_LOCATION_FILE")
   # Run the simple bounded table test.
   source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME" "$AGG_PROP_NAME" "$QUERY" "$MODE" "$PROPERTIES"
 }
@@ -88,6 +89,7 @@ run_read_write_test(){
   # Get the final region and the cluster name.
   export REGION=$(cat "$REGION_FILE")
   export CLUSTER_NAME=$(cat "$CLUSTER_FILE")
+  export GCS_JAR_LOCATION=$(cat "$GCS_JAR_LOCATION_FILE")
 
   # Run the simple bounded write table test.
   source cloudbuild/nightly/scripts/table_write.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$SOURCE" "$DESTINATION_TABLE_NAME" "$IS_EXACTLY_ONCE_ENABLED" "$MODE" "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL"
@@ -108,8 +110,11 @@ run_read_write_test_delete_cluster(){
 case $STEP in
   # Download maven and all the dependencies
   init)
+    timestamp=$(date +"%Y%m%d%H%M%S")
+    export GCS_JAR_LOCATION="$GCS_JAR_LOCATION"/"$timestamp"/"$GCS_JAR_NAME"
     $MVN clean install -DskipTests -Pflink_1.17
     gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
+    echo "$GCS_JAR_LOCATION" > "$GCS_JAR_LOCATION_FILE"
     exit
     ;;
 
