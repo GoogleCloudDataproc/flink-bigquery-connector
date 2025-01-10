@@ -15,24 +15,24 @@ steps:
       - 'GCS_JAR_NAME=${_GCS_JAR_NAME}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'MVN_JAR_LOCATION=${_MVN_JAR_LOCATION}'
-#
-## 3.1 Create the dataproc cluster - for small bounded tests
-#  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
-#    id: 'create-clusters-bounded-small-table'
-#    waitFor: ['init']
-#    entrypoint: 'bash'
-#    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'create_clusters_bounded_small_table']
-#    env:
-#      - 'PROJECT_ID=${_PROJECT_ID}'
-#      - 'DATAPROC_IMAGE_VERSION=${_DATAPROC_IMAGE_VERSION}'
-#      - 'NUM_WORKERS_SMALL_TEST=${_NUM_WORKERS_SMALL_TEST}'
-#      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
-#      - 'REGION_ARRAY_STRING_SMALL_TEST=${_REGION_ARRAY_STRING_SMALL_TEST}'
-#      - 'INITIALISATION_ACTION_SCRIPT_URI=${_INITIALISATION_ACTION_SCRIPT_URI}'
-#      - 'REGION_SMALL_TEST_FILE=${_REGION_SMALL_TEST_FILE}'
-#      - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
-#      - 'WORKER_MACHINE_TYPE_SMALL_BOUNDED=${_WORKER_MACHINE_TYPE_SMALL_BOUNDED}'
-#
+
+# 3.1 Create the dataproc cluster - for small bounded tests
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'create-clusters-bounded-small-table'
+    waitFor: ['init']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'create_clusters_bounded_small_table']
+    env:
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'DATAPROC_IMAGE_VERSION=${_DATAPROC_IMAGE_VERSION}'
+      - 'NUM_WORKERS_SMALL_TEST=${_NUM_WORKERS_SMALL_TEST}'
+      - 'CLUSTER_NAME_SMALL_TEST=${_CLUSTER_NAME_SMALL_TEST}'
+      - 'REGION_ARRAY_STRING_SMALL_TEST=${_REGION_ARRAY_STRING_SMALL_TEST}'
+      - 'INITIALISATION_ACTION_SCRIPT_URI=${_INITIALISATION_ACTION_SCRIPT_URI}'
+      - 'REGION_SMALL_TEST_FILE=${_REGION_SMALL_TEST_FILE}'
+      - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
+      - 'WORKER_MACHINE_TYPE_SMALL_BOUNDED=${_WORKER_MACHINE_TYPE_SMALL_BOUNDED}'
+
 ## 3.2 Create the dataproc cluster - for large table bounded test
 #  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
 #    id: 'create-clusters-bounded-large-table'
@@ -101,23 +101,23 @@ steps:
 #      - 'CLUSTER_TABLE_API_UNBOUNDED_TABLE_TEST_FILE=${_CLUSTER_TABLE_API_UNBOUNDED_TABLE_TEST_FILE}'
 #      - 'WORKER_MACHINE_TYPE_UNBOUNDED=${_WORKER_MACHINE_TYPE_UNBOUNDED}'
 #
-## 4. Start the nested schema table e2e test.
-#  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
-#    id: 'e2e-bounded-nested-schema-table-test'
-#    waitFor: ['create-clusters-bounded-small-table']
-#    entrypoint: 'bash'
-#    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_nested_schema_table_test']
-#    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
-#      - 'PROJECT_ID=${_PROJECT_ID}'
-#      - 'PROJECT_NAME=${_PROJECT_NAME}'
-#      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
-#      - 'TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
-#      - 'TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
-#      - 'PROPERTIES_SMALL_BOUNDED_JOB=${_PROPERTIES_SMALL_BOUNDED_JOB}'
-#      - 'REGION_SMALL_TEST_FILE=${_REGION_SMALL_TEST_FILE}'
-#      - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
-#      - 'SINK_PARALLELISM_SMALL_BOUNDED_JOB=${_SINK_PARALLELISM_SMALL_BOUNDED_JOB}'
+# 4. Start the nested schema table e2e test.
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'e2e-bounded-nested-schema-table-test'
+    waitFor: ['create-clusters-bounded-small-table']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_nested_schema_table_test']
+    env:
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'PROJECT_NAME=${_PROJECT_NAME}'
+      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
+      - 'TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
+      - 'TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
+      - 'PROPERTIES_SMALL_BOUNDED_JOB=${_PROPERTIES_SMALL_BOUNDED_JOB}'
+      - 'REGION_SMALL_TEST_FILE=${_REGION_SMALL_TEST_FILE}'
+      - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
+      - 'SINK_PARALLELISM_SMALL_BOUNDED_JOB=${_SINK_PARALLELISM_SMALL_BOUNDED_JOB}'
 #
 ## 5. Table API nested schema table e2e test.
 #  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
@@ -126,7 +126,7 @@ steps:
 #    entrypoint: 'bash'
 #    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_nested_schema_test']
 #    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+#      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
 #      - 'PROJECT_ID=${_PROJECT_ID}'
 #      - 'PROJECT_NAME=${_PROJECT_NAME}'
 #      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -144,7 +144,7 @@ steps:
 #    entrypoint: 'bash'
 #    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_all_datatypes_test']
 #    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+#      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
 #      - 'PROJECT_ID=${_PROJECT_ID}'
 #      - 'PROJECT_NAME=${_PROJECT_NAME}'
 #      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -162,7 +162,7 @@ steps:
 #    entrypoint: 'bash'
 #    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_query_test']
 #    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+#      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
 #      - 'PROJECT_ID=${_PROJECT_ID}'
 #      - 'PROJECT_NAME=${_PROJECT_NAME}'
 #      - 'DATASET_NAME=${_DATASET_NAME}'
@@ -178,7 +178,7 @@ steps:
 #    entrypoint: 'bash'
 #    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_large_table_test']
 #    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+#      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
 #      - 'PROJECT_ID=${_PROJECT_ID}'
 #      - 'PROJECT_NAME=${_PROJECT_NAME}'
 #      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -196,7 +196,7 @@ steps:
 #    entrypoint: 'bash'
 #    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_large_table_test']
 #    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+#      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
 #      - 'PROJECT_ID=${_PROJECT_ID}'
 #      - 'PROJECT_NAME=${_PROJECT_NAME}'
 #      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -214,7 +214,7 @@ steps:
 #    entrypoint: 'bash'
 #    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_unbounded_test']
 #    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+#      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
 #      - 'PROJECT_ID=${_PROJECT_ID}'
 #      - 'PROJECT_NAME=${_PROJECT_NAME}'
 #      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -233,7 +233,7 @@ steps:
 #    entrypoint: 'bash'
 #    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_table_api_unbounded_test']
 #    env:
-#      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+#      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
 #      - 'PROJECT_ID=${_PROJECT_ID}'
 #      - 'PROJECT_NAME=${_PROJECT_NAME}'
 #      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
