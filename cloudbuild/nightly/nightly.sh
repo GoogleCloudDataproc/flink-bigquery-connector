@@ -157,7 +157,7 @@ case $STEP in
   e2e_bounded_table_api_nested_schema_test)
     IS_SQL=True
     ENABLE_TABLE_CREATION=True
-    IS_EXACTLY_ONCE_ENABLED=True
+    IS_EXACTLY_ONCE_ENABLED=False
     run_read_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE" "$TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB" "$SINK_PARALLELISM_SMALL_BOUNDED_JOB" "$IS_SQL" "$ENABLE_TABLE_CREATION"
     exit
     ;;
@@ -171,13 +171,13 @@ case $STEP in
     exit
     ;;
 
-  # Run the query  bounded e2e test.
+  # Run the query bounded e2e test.
   e2e_bounded_query_test)
     run_read_only_test_delete_cluster "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
     exit
     ;;
 
-  # Run the large table O(GB's) bounded e2e test.
+  # Run the large table bounded e2e test.
   e2e_bounded_large_table_test)
     # Run the large table test.
     IS_EXACTLY_ONCE_ENABLED=True
@@ -185,7 +185,7 @@ case $STEP in
     exit
     ;;
 
-  # Run the large table O(GB's) bounded e2e test.
+  # Run the Table API large table bounded e2e test.
   e2e_bounded_table_api_large_table_test)
     # Run the large table test.
     IS_SQL=True
@@ -194,14 +194,14 @@ case $STEP in
     exit
     ;;
 
-  # Run the unbounded table e2e test.
+  # Run the unbounded e2e test.
   e2e_unbounded_test)
-    IS_EXACTLY_ONCE_ENABLED=True
+    IS_EXACTLY_ONCE_ENABLED=False
     run_read_write_test_delete_cluster "$PROJECT_ID" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$GCS_SOURCE_URI" "$TABLE_NAME_DESTINATION_UNBOUNDED_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "unbounded" "$PROPERTIES_UNBOUNDED_JOB" "$SINK_PARALLELISM_UNBOUNDED_JOB"
     exit
     ;;
 
-  # Run the unbounded table e2e test.
+  # Run the Table API unbounded e2e test.
   e2e_table_api_unbounded_test)
     IS_SQL=True
     IS_EXACTLY_ONCE_ENABLED=True
