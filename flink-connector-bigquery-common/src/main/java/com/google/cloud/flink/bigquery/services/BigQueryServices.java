@@ -123,11 +123,15 @@ public interface BigQueryServices extends Serializable {
          * @param streamName the write stream to be used by this writer.
          * @param protoSchema the schema of the serialized protocol buffer data rows.
          * @param enableConnectionPool enable BigQuery client multiplexing for this writer.
+         * @param traceId job identifier.
          * @return A StreamWriter for a BigQuery storage write stream.
          * @throws IOException
          */
         StreamWriter createStreamWriter(
-                String streamName, ProtoSchema protoSchema, boolean enableConnectionPool)
+                String streamName,
+                ProtoSchema protoSchema,
+                boolean enableConnectionPool,
+                String traceId)
                 throws IOException;
 
         /**
