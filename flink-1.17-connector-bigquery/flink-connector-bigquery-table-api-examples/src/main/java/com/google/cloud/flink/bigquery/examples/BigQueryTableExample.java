@@ -52,7 +52,6 @@ import static org.apache.flink.table.api.Expressions.$;
  *       at the time of execution, analogous to a batch job. Unbounded source implies that the BQ
  *       table will be periodically polled for new data. Resulting records can be written to another
  *       BQ table, with allowed delivery (write) guarantees at-least-once or exactly-once. <br>
- *       The sequence of operations in both pipelines is: <i>source > flatMap > sink</i> <br>
  *       Flink command line format is: <br>
  *       <code> flink run {additional runtime params} {path to this jar}/BigQueryTableExample.jar
  *       </code> <br>
