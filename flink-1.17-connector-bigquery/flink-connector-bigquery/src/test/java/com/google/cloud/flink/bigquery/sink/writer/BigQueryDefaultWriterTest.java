@@ -398,6 +398,7 @@ public class BigQueryDefaultWriterTest {
                 schemaProvider,
                 mockSerializer,
                 createTableOptions,
+                "traceId",
                 mockInitContext);
     }
 

@@ -75,6 +75,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -84,14 +85,15 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
     public static final int ALREADY_EXISTS_ERROR_CODE = 409;
 
+    public static final String TRACE_ID_FORMAT = "Flink:%s_%s";
+
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryServicesImpl.class);
 
     private static final HeaderProvider USER_AGENT_HEADER_PROVIDER =
             FixedHeaderProvider.create(
                     "User-Agent", "flink-bigquery-connector/" + FlinkVersion.current().toString());
 
-    public static final String TRACE_ID =
-            String.format("Flink:%s", FlinkVersion.current().toString());
+    private static final String FLINK_VERSION = FlinkVersion.current().toString();
 
     @Override
     public StorageReadClient createStorageReadClient(CredentialsOptions credentialsOptions)
@@ -253,7 +255,10 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
         @Override
         public StreamWriter createStreamWriter(
-                String streamName, ProtoSchema protoSchema, boolean enableConnectionPool)
+                String streamName,
+                ProtoSchema protoSchema,
+                boolean enableConnectionPool,
+                String traceId)
                 throws IOException {
             /**
              * Enable client lib automatic retries on request level errors.
@@ -278,7 +283,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .build();
             return StreamWriter.newBuilder(streamName, client)
                     .setEnableConnectionPool(enableConnectionPool)
-                    .setTraceId(TRACE_ID)
+                    .setTraceId(traceId)
                     .setRetrySettings(retrySettings)
                     .setWriterSchema(protoSchema)
                     .build();
@@ -557,5 +562,9 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                             error.getLocation()))
                     .collect(Collectors.toList());
         }
+    }
+
+    public static final String generateTraceId() {
+        return String.format(TRACE_ID_FORMAT, FLINK_VERSION, UUID.randomUUID().toString());
     }
 }
