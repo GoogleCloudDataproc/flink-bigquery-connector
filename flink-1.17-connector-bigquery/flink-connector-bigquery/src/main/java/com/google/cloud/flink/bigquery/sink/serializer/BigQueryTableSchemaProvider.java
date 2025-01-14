@@ -73,7 +73,7 @@ public class BigQueryTableSchemaProvider {
         return avroSchemaConvertor.convertToSchema(logicalType);
     }
 
-    private static org.apache.flink.table.api.Schema getTableApiSchemaFromAvroSchema(
+    public static org.apache.flink.table.api.Schema getTableApiSchemaFromAvroSchema(
             Schema avroSchema) {
         Preconditions.checkNotNull(
                 avroSchema, "Avro Schema not initialized before obtaining Table API Schema.");

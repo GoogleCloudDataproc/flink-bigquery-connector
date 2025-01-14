@@ -335,6 +335,7 @@ public abstract class BigQuerySource<OUT>
      * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
      *     the underlying table.
      */
+    @Deprecated
     public static BigQuerySource<GenericRecord> streamAvros(BigQueryReadOptions readOptions) {
         BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
         TableSchema tableSchema =
