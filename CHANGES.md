@@ -1,6 +1,6 @@
 # Release Notes
 
-## Next
+## 0.5.0 - 2025-01-15
 
 * Support creation of new table in BigQuery sink. This is integrated with Datastream and Table/SQL API.
 * Remove need for BigQuerySchemaProvider in BigQuery sink configs.
