@@ -12,6 +12,8 @@ steps:
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'init']
     env:
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_NAME=${_GCS_JAR_NAME}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'MVN_JAR_LOCATION=${_MVN_JAR_LOCATION}'
 
 # 3.1 Create the dataproc cluster - for small bounded tests
@@ -106,7 +108,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_nested_schema_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -124,7 +126,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_nested_schema_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -142,7 +144,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_all_datatypes_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -160,7 +162,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_query_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -176,7 +178,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_large_table_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -194,7 +196,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_large_table_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -212,7 +214,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_unbounded_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
@@ -231,7 +233,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_table_api_unbounded_test']
     env:
-      - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
       - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
