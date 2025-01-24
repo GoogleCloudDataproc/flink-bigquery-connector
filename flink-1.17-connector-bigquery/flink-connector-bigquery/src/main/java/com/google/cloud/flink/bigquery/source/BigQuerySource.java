@@ -311,8 +311,10 @@ public abstract class BigQuerySource<OUT>
                                 SchemaTransform.toGenericAvroSchema(
                                                 String.format(
                                                         "%s.%s.%s",
-                                                        connectOptions.getProjectId(),
-                                                        connectOptions.getDataset(),
+                                                        sanitizeAvroSchemaName(
+                                                                connectOptions.getProjectId()),
+                                                        sanitizeAvroSchemaName(
+                                                                connectOptions.getDataset()),
                                                         sanitizeAvroSchemaName(
                                                                 connectOptions.getTable())),
                                                 tableSchema.getFields())

@@ -73,7 +73,7 @@ under the License.
     </distributionManagement>
 
     <properties>
-        <revision>0.5-SNAPSHOT</revision>
+        <revision>0.5.0-SNAPSHOT</revision>
         <flink.version>1.17.1</flink.version>
         <bigquery.guava.version>32.1.3-jre</bigquery.guava.version>
         <google-lib-bom.version>26.33.0</google-lib-bom.version>
@@ -93,7 +93,8 @@ under the License.
 
     <modules>
         <module>flink-connector-bigquery-common</module>
-    </modules>
+		<module>flink-1.17-connector-bigquery</module>
+	</modules>
 
     <dependencies>
         <!-- Root dependencies for all projects -->
@@ -296,7 +297,7 @@ under the License.
                 <version>3.24.2</version>
                 <scope>test</scope>
             </dependency>
-            
+
             <!-- Unavoidable Flink Dependencies -->
             <!-- The Idea is to have one same flink
             version that governs annotations and flink-core version -->
@@ -306,7 +307,7 @@ under the License.
                 <artifactId>flink-annotations</artifactId>
                 <version>${flink.version}</version>
             </dependency>
-            <!-- Dependency required for SerializableSupplier, 
+            <!-- Dependency required for SerializableSupplier,
                 Preconditions, BiConsumerWithException,
                 FunctionWithException used across the Project. -->
             <dependency>
