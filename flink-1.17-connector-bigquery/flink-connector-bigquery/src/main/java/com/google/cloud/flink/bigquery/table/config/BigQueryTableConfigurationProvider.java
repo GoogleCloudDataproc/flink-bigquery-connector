@@ -17,7 +17,6 @@
 package com.google.cloud.flink.bigquery.table.config;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.util.function.SerializableSupplier;
@@ -54,10 +53,6 @@ public class BigQueryTableConfigurationProvider {
 
     public boolean isTestModeEnabled() {
         return config.get(BigQueryConnectorOptions.TEST_MODE);
-    }
-
-    public boolean isUnboundedEnabled() {
-        return config.get(BigQueryConnectorOptions.MODE) == Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
     public DeliveryGuarantee getDeliveryGuarantee() {
@@ -109,8 +104,6 @@ public class BigQueryTableConfigurationProvider {
                                 .orElse(new ArrayList<>()))
                 .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                 .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
-                .setPartitionDiscoveryRefreshIntervalInMinutes(
-                        config.get(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL))
                 .build();
     }
 

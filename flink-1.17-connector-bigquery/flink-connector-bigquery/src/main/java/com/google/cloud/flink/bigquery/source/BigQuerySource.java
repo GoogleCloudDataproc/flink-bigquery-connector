@@ -17,7 +17,6 @@
 package com.google.cloud.flink.bigquery.source;
 
 import org.apache.flink.annotation.PublicEvolving;
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
@@ -34,7 +33,6 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -53,30 +51,13 @@ import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.function.Supplier;
 
 /**
- * The DataStream {@link Source} implementation for Google BigQuery. It can be used to read data
- * directly from a BigQuery table or read data from a BigQuery query execution.
+ * The DataStream {@link Source} implementation for Google BigQuery. It reads data directly from a
+ * BigQuery table. Only bounded source is supported right now.
  *
  * <p>Review the option classes and their builders for more details on the configurable options.
- *
- * <p>The following example demonstrates how to create an unbounded source to read {@link
- * GenericRecord} data from a BigQuery table.
- *
- * <pre>{@code
- * BigQuerySource<GenericRecord> source =
- *       BigQuerySource.streamAvros(
- *           BigQueryReadOptions.builder()
- *             .setBigQueryConnectOptions(
- *               BigQueryConnectOptions.builder()
- *                 .setProjectId("some-gcp-project")
- *                 .setDataset("some-bq-dataset")
- *                 .setTable("some-bq-table")
- *                 .build())
- *             .build());
- * }</pre>
  *
  * <p>The following example demonstrates how to create a bounded source to read {@link
  * GenericRecord} data from a BigQuery table.
@@ -92,16 +73,6 @@ import java.util.function.Supplier;
  *                 .setTable("some-bq-table")
  *                 .build())
  *             .build());
- * }</pre>
- *
- * <p>The following example demonstrates how to create a bounded query source to read {@link
- * GenericRecord} data from the results of a BigQuery query execution.
- *
- * <pre>{@code
- * BigQuerySource<GenericRecord> bqSource =
- *         BigQuerySource.readAvrosFromQuery(
- *                 "SELECT * FROM some_dataset.INFORMATION_SCHEMA.PARTITIONS",
- *                 "some_gcp_project");
  * }</pre>
  *
  * @param <OUT> The type of the data returned by this source implementation.
@@ -199,96 +170,6 @@ public abstract class BigQuerySource<OUT>
 
     /**
      * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
-     * the data (mimicking the table's schema), limiting the record retrieval to the provided limit
-     * and reading data from the provided query which will be executed using the provided GCP
-     * project.
-     *
-     * @param query A BigQuery standard SQL query.
-     * @param gcpProject The GCP project where the provided query will execute.
-     * @param limit the max quantity of records to be returned.
-     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
-     *     the BigQuery query results.
-     * @throws IOException
-     */
-    public static BigQuerySource<GenericRecord> readAvrosFromQuery(
-            String query, String gcpProject, Integer limit) throws IOException {
-        BigQueryReadOptions readOptions =
-                BigQueryReadOptions.builder()
-                        .setQueryAndExecutionProject(query, gcpProject)
-                        .setLimit(limit)
-                        .build();
-
-        return readAvrosFromQuery(readOptions);
-    }
-
-    /**
-     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
-     * the data (mimicking the table's schema), limiting the record retrieval to the provided limit
-     * and reading data from the provided query which will be executed using the provided GCP
-     * project.
-     *
-     * @param readOptions The BigQuery read options to execute
-     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
-     *     the BigQuery query results.
-     * @throws IOException
-     */
-    @VisibleForTesting
-    static BigQuerySource<GenericRecord> readAvrosFromQuery(BigQueryReadOptions readOptions)
-            throws IOException {
-        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
-        TableSchema tableSchema =
-                readOptions
-                        .getQueryExecutionProject()
-                        .map(
-                                gcpProject ->
-                                        readOptions
-                                                .getQuery()
-                                                .map(
-                                                        query ->
-                                                                BigQueryServicesFactory.instance(
-                                                                                connectOptions)
-                                                                        .queryClient()
-                                                                        .dryRunQuery(
-                                                                                gcpProject, query)
-                                                                        .getStatistics()
-                                                                        .getQuery()
-                                                                        .getSchema())
-                                                .orElseThrow(
-                                                        () ->
-                                                                new BigQueryConnectorException(
-                                                                        "Can't read query results without setting a SQL query.")))
-                        .orElseThrow(
-                                () ->
-                                        new BigQueryConnectorException(
-                                                "Can't read query results without setting a GCP project."));
-        return BigQuerySource.<GenericRecord>builder()
-                .setDeserializationSchema(
-                        new AvroDeserializationSchema(
-                                SchemaTransform.toGenericAvroSchema(
-                                                "queryresultschema", tableSchema.getFields())
-                                        .toString()))
-                .setReadOptions(readOptions)
-                .build();
-    }
-
-    /**
-     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
-     * the data (mimicking the table's schema) and reading data from the provided query which will
-     * be executed using the provided GCP project.
-     *
-     * @param query A BigQuery standard SQL query.
-     * @param gcpProject The GCP project where the provided query will execute.
-     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
-     *     the BigQuery query results.
-     * @throws IOException
-     */
-    public static BigQuerySource<GenericRecord> readAvrosFromQuery(String query, String gcpProject)
-            throws IOException {
-        return readAvrosFromQuery(query, gcpProject, -1);
-    }
-
-    /**
-     * Creates an instance of the source, setting Avro {@link GenericRecord} as the return type for
      * the data (mimicking the table's schema). In case of projecting the columns of the table a new
      * de-serialization schema should be provided (considering the new result projected schema).
      *
@@ -320,49 +201,6 @@ public abstract class BigQuerySource<OUT>
                                                 tableSchema.getFields())
                                         .toString()))
                 .setReadOptions(readOptions)
-                .build();
-    }
-
-    /**
-     * Creates an instance of an unbounded source, which will continuously be scanning for newly
-     * added partitions to the underlying table, setting Avro {@link GenericRecord} as the return
-     * type for the data (mimicking the table's schema). In case of projecting the columns of the
-     * table a new de-serialization schema should be provided (considering the new result projected
-     * schema). In case of providing a row restriction in the {@link BigQueryReadOptions} it will be
-     * respected, but an explicit condition will be added for every new discovered partition; in
-     * consequence if the row restrictions already has a partition column restriction the results
-     * may not be the expected ones.
-     *
-     * @param readOptions The read options for this source
-     * @return A fully initialized instance of the source, ready to read {@link GenericRecord} from
-     *     the underlying table.
-     */
-    @Deprecated
-    public static BigQuerySource<GenericRecord> streamAvros(BigQueryReadOptions readOptions) {
-        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
-        TableSchema tableSchema =
-                BigQueryServicesFactory.instance(connectOptions)
-                        .queryClient()
-                        .getTableSchema(
-                                connectOptions.getProjectId(),
-                                connectOptions.getDataset(),
-                                connectOptions.getTable());
-        return BigQuerySource.<GenericRecord>builder()
-                .setDeserializationSchema(
-                        new AvroDeserializationSchema(
-                                SchemaTransform.toGenericAvroSchema(
-                                                String.format(
-                                                        "%s.%s.%s",
-                                                        sanitizeAvroSchemaName(
-                                                                connectOptions.getProjectId()),
-                                                        sanitizeAvroSchemaName(
-                                                                connectOptions.getDataset()),
-                                                        sanitizeAvroSchemaName(
-                                                                connectOptions.getTable())),
-                                                tableSchema.getFields())
-                                        .toString()))
-                .setReadOptions(readOptions)
-                .setSourceBoundedness(Boundedness.CONTINUOUS_UNBOUNDED)
                 .build();
     }
 

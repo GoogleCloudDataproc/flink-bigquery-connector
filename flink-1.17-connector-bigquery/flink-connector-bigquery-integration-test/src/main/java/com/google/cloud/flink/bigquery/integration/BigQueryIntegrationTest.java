@@ -26,7 +26,6 @@ import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.RestartStrategyConfiguration;
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
@@ -93,7 +92,7 @@ import static org.apache.flink.table.api.Expressions.concat;
  * This module tests the following cases:
  *
  * <ol>
- *   <li>Bounded Jobs: Involve reading from and writing to a BigQuery Table in the <i>bounded</i>
+ *   <li>Bounded Job: Involve reading from and writing to a BigQuery Table in the <i>bounded</i>
  *       mode.<br>
  *       The arguments given in this case would be:
  *       <ul>
@@ -102,7 +101,6 @@ import static org.apache.flink.table.api.Expressions.concat;
  *             table} <br>
  *         <li>--bq-source-table {required; name of Source BigQuery table to read} <br>
  *         <li>--agg-prop {required; record property to aggregate in Flink job} <br>
- *         <li>--query {optional; SQL query to fetch data from BigQuery table}
  *         <li>--gcp-dest-project {optional; project ID which contains the Destination BigQuery
  *             table}
  *         <li>--bq-dest-dataset {optional; name of Destination BigQuery dataset containing the
@@ -117,10 +115,6 @@ import static org.apache.flink.table.api.Expressions.concat;
  *       <br>
  *       The records read are passed to a map which increments the "number" field in the BQ table by
  *       1, and writes this modified record back to another (specified) BigQuery Table. <br>
- *       If a query is set, it is executed first and records obtained are streamed via a map which
- *       counts the total number of records read (the number of records observed by map operation)
- *       and logs this count at the end. It also logs the "HOUR" and "DAY" value of the obtained
- *       rows in order to verify the query correctness. <br>
  *       In case the <code>is-sql</code> flag is set to true, Flink's Table API's <code>
  *       .select($(*))</code> method is executed. Which is responsible for reading a source table.
  *       These read records are then pass through a <code>addOrReplaceColumns()</code> method which
@@ -204,17 +198,10 @@ public class BigQueryIntegrationTest {
                             + " --exactly-once <set for sink via 'EXACTLY ONCE' approach>"
                             + " --enable-table-creation <set for creating BQ table in sink>"
                             + " --mode <source type>"
-                            + " --query <SQL query to get data from BQ table>"
                             + " --file-discovery-interval <minutes between checking new files>");
             return;
         }
         String sourceGcpProjectName = parameterTool.getRequired("gcp-source-project");
-        String query = parameterTool.get("query", "");
-
-        if (!query.isEmpty()) {
-            runQueryFlinkJob(sourceGcpProjectName, query);
-            return;
-        }
 
         // Add Sink Parameters as well. (Optional)
         String destGcpProjectName = parameterTool.get("gcp-dest-project");
@@ -333,22 +320,6 @@ public class BigQueryIntegrationTest {
                 }
             }
         }
-    }
-
-    private static void runQueryFlinkJob(String projectName, String query) throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setRestartStrategy(RESTART_STRATEGY);
-        env.enableCheckpointing(CHECKPOINT_INTERVAL);
-
-        BigQuerySource<GenericRecord> bqSource =
-                BigQuerySource.readAvrosFromQuery(query, projectName);
-
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource")
-                .map(new Mapper())
-                .print();
-
-        env.execute("Flink BigQuery Query Integration Test");
     }
 
     private static void runBoundedFlinkJobWithSink(
@@ -635,7 +606,6 @@ public class BigQueryIntegrationTest {
                         .dataset(sourceDatasetName)
                         .table(sourceTableName)
                         .testMode(false)
-                        .boundedness(Boundedness.BOUNDED)
                         .build();
 
         // Register the Source Table

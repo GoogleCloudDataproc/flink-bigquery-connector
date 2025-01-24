@@ -17,7 +17,6 @@
 
 package com.google.cloud.flink.bigquery.examples;
 
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -47,11 +46,9 @@ import static org.apache.flink.table.api.Expressions.$;
  * specified operations or write to a BigQuery table via sink.
  *
  * <ul>
- *   <li>Specify the BQ dataset and table with an optional row restriction. Users can configure a
- *       source mode, i.e bounded or unbounded. Bounded implies that the BQ table will be read once
- *       at the time of execution, analogous to a batch job. Unbounded source implies that the BQ
- *       table will be periodically polled for new data. Resulting records can be written to another
- *       BQ table, with allowed delivery (write) guarantees at-least-once or exactly-once. <br>
+ *   <li>Specify the BQ dataset and table with an optional row restriction. Source mode is bounded.
+ *       Resulting records can be written to another BQ table, with allowed delivery (write)
+ *       guarantees at-least-once or exactly-once. <br>
  *       Flink command line format is: <br>
  *       <code> flink run {additional runtime params} {path to this jar}/BigQueryTableExample.jar
  *       </code> <br>
@@ -63,13 +60,9 @@ import static org.apache.flink.table.api.Expressions.$;
  *       --bq-sink-table {required; name of table to write to} <br>
  *       --sink-partition-field {optional; partition field for destination table. Also enables table
  *       creation} <br>
- *       --mode {optional; source read type. Allowed values are bounded (default) or unbounded or
- *       hybrid} <br>
  *       --restriction {optional; SQL filter applied at the BigQuery table before reading} <br>
  *       --limit {optional; maximum records to read from BigQuery table} <br>
  *       --checkpoint-interval {optional; milliseconds between state checkpoints} <br>
- *       --partition-discovery-interval {optional; minutes between polling table for new data. Used
- *       in unbounded/hybrid mode} <br>
  *       --delivery-guarantee {optional; sink consistency. Allowed values are <i>at-least-once</i>
  *       (default) or <i>exactly-once</i>}
  * </ul>
@@ -93,11 +86,9 @@ public class BigQueryTableExample {
                             + " --bq-sink-dataset <dataset name for sink table>"
                             + " --bq-sink-table <sink table name>"
                             + " --sink-partition-field <sink table partition field>"
-                            + " --mode <source type>"
                             + " --restriction <row filter predicate>"
                             + " --limit <limit on records returned>"
                             + " --checkpoint-interval <milliseconds between state checkpoints>"
-                            + " --partition-discovery-interval <minutes between checking new data>"
                             + " --delivery-guarantee <sink's write consistency>");
             return;
         }
@@ -114,10 +105,6 @@ public class BigQueryTableExample {
         Integer recordLimit = parameterTool.getInt("limit", -1);
         Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 60000L);
         String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
-        String mode = parameterTool.get("mode", "bounded");
-        // Unbounded specific options.
-        Integer partitionDiscoveryInterval =
-                parameterTool.getInt("partition-discovery-interval", 10);
         // Sink Parameters
         String destGcpProjectName = parameterTool.getRequired("gcp-sink-project");
         String destDatasetName = parameterTool.getRequired("bq-sink-dataset");
@@ -139,40 +126,18 @@ public class BigQueryTableExample {
                                 deliveryGuarantee));
         }
 
-        switch (mode) {
-            case "bounded":
-                runBoundedTableAPIFlinkJob(
-                        sourceGcpProjectName,
-                        sourceDatasetName,
-                        sourceTableName,
-                        destGcpProjectName,
-                        destDatasetName,
-                        destTableName,
-                        sinkPartitionField,
-                        sinkMode,
-                        rowRestriction,
-                        recordLimit,
-                        checkpointInterval);
-                break;
-            case "unbounded":
-                runStreamingTableAPIFlinkJob(
-                        sourceGcpProjectName,
-                        sourceDatasetName,
-                        sourceTableName,
-                        destGcpProjectName,
-                        destDatasetName,
-                        destTableName,
-                        sinkPartitionField,
-                        sinkMode,
-                        rowRestriction,
-                        recordLimit,
-                        checkpointInterval,
-                        partitionDiscoveryInterval);
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Allowed values for mode are bounded or unbounded. Found " + mode);
-        }
+        runBoundedTableAPIFlinkJob(
+                sourceGcpProjectName,
+                sourceDatasetName,
+                sourceTableName,
+                destGcpProjectName,
+                destDatasetName,
+                destTableName,
+                sinkPartitionField,
+                sinkMode,
+                rowRestriction,
+                recordLimit,
+                checkpointInterval);
     }
 
     /**
@@ -227,7 +192,6 @@ public class BigQueryTableExample {
                         .table(sourceTableName)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
-                        .boundedness(Boundedness.BOUNDED)
                         .build();
 
         // Register the Source Table
@@ -273,108 +237,6 @@ public class BigQueryTableExample {
 
         // Insert the table sourceTable to the registered sinkTable
         sourceTable.executeInsert("bigQuerySinkTable");
-    }
-
-    /**
-     * Unbounded read and sink operation via Flink's Table API. The function is responsible for
-     * reading a BigQuery table (having schema <i>name</i> <code>STRING</code>, <i>number</i> <code>
-     * INTEGER</code>, <i>ts</i> <code>TIMESTAMP</code>) in unbounded mode and then passing the
-     * obtained records via a flatmap. The flatmap appends a string "_write_test" to the "name"
-     * field and writes the modified records back to another BigQuery table.
-     *
-     * @param sourceGcpProjectName The GCP Project name of the source table.
-     * @param sourceDatasetName Dataset name of the source table.
-     * @param sourceTableName Source Table Name.
-     * @param destGcpProjectName The GCP Project name of the destination table.
-     * @param destDatasetName Dataset name of the destination table.
-     * @param destTableName Destination Table Name.
-     * @param sinkPartitionField Sink table partitioning.
-     * @param sinkMode At-least-once or exactly-once write consistency.
-     * @param rowRestriction String value, filtering the rows to be read.
-     * @param limit Integer value, Number of rows to limit the read result.
-     * @param checkpointInterval Long value, Interval between two check points (milliseconds).
-     * @throws Exception in a case of error, obtaining Table Descriptor.
-     */
-    private static void runStreamingTableAPIFlinkJob(
-            String sourceGcpProjectName,
-            String sourceDatasetName,
-            String sourceTableName,
-            String destGcpProjectName,
-            String destDatasetName,
-            String destTableName,
-            String sinkPartitionField,
-            DeliveryGuarantee sinkMode,
-            String rowRestriction,
-            Integer limit,
-            Long checkpointInterval,
-            Integer partitionDiscoveryInterval)
-            throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
-        final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-
-        BigQueryConnectOptions sourceConnectOptions =
-                BigQueryConnectOptions.builder()
-                        .setProjectId(sourceGcpProjectName)
-                        .setDataset(sourceDatasetName)
-                        .setTable(sourceTableName)
-                        .build();
-        // Declare Read Options.
-        BigQueryTableConfig readTableConfig =
-                BigQueryReadTableConfig.newBuilder()
-                        .table(sourceTableName)
-                        .project(sourceGcpProjectName)
-                        .dataset(sourceDatasetName)
-                        .limit(limit)
-                        .rowRestriction(rowRestriction)
-                        .partitionDiscoveryInterval(partitionDiscoveryInterval)
-                        .boundedness(Boundedness.CONTINUOUS_UNBOUNDED)
-                        .build();
-
-        // Register the Source Table
-        tEnv.createTable(
-                "bigQuerySourceTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
-        Table sourceTable = tEnv.from("bigQuerySourceTable");
-
-        // Fetch entries in this sourceTable
-        sourceTable = sourceTable.select($("*"));
-
-        // Declare Write Options.
-        BigQuerySinkTableConfig.Builder sinkTableConfigBuilder =
-                BigQuerySinkTableConfig.newBuilder()
-                        .table(destTableName)
-                        .project(destGcpProjectName)
-                        .dataset(destDatasetName)
-                        .sinkParallelism(2)
-                        .deliveryGuarantee(sinkMode)
-                        .streamExecutionEnvironment(env);
-
-        TableDescriptor descriptor;
-        if (sinkPartitionField != null) {
-            sinkTableConfigBuilder
-                    .enableTableCreation(true)
-                    .partitionField(sinkPartitionField)
-                    .partitionType(TimePartitioning.Type.DAY);
-            // Since the final record has same schema as the input from source, we use the same
-            // table schema here. Ideally, users need to explicitly set the table schema according
-            // to the record recieved by the sink.
-            org.apache.flink.table.api.Schema tableSchema =
-                    getFlinkTableSchema(sourceConnectOptions);
-            descriptor =
-                    BigQueryTableSchemaProvider.getTableDescriptor(
-                            sinkTableConfigBuilder.build(), tableSchema);
-        } else {
-            descriptor =
-                    BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfigBuilder.build());
-        }
-
-        // Register the Sink Table
-        tEnv.createTable("bigQuerySinkTable", descriptor);
-
-        // Insert the table sourceTable to the registered sinkTable
-        sourceTable.executeInsert("bigQuerySinkTable").await();
     }
 
     /**
@@ -424,7 +286,6 @@ public class BigQueryTableExample {
                         .dataset(sourceDatasetName)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
-                        .boundedness(Boundedness.BOUNDED)
                         .build();
 
         // Register the Source Table
@@ -438,7 +299,6 @@ public class BigQueryTableExample {
                         .dataset(sourceDatasetName)
                         .limit(limit)
                         .rowRestriction(rowRestriction)
-                        .boundedness(Boundedness.BOUNDED)
                         .build();
 
         tEnv.createTable(

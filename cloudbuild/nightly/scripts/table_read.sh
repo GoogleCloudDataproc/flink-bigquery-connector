@@ -22,7 +22,7 @@ PROJECT_NAME=$4
 DATASET_NAME=$5
 TABLE_NAME=$6
 AGG_PROP_NAME=$7
-QUERY_STRING=$8
+# Deprecated: QUERY_STRING=$8
 MODE=$9
 PROPERTIES=${10}
 
@@ -54,7 +54,7 @@ fi
 
 # Now check the success of the job
 # Mode helps in checking for unbounded job separately.
-python3 cloudbuild/nightly/scripts/python-scripts/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --query "$QUERY_STRING" --mode "$MODE"
+python3 cloudbuild/nightly/scripts/python-scripts/parse_logs.py -- --job_id "$JOB_ID" --project_id "$PROJECT_ID" --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_name "$PROJECT_NAME" --dataset_name "$DATASET_NAME" --table_name "$TABLE_NAME" --mode "$MODE"
 ret=$?
 if [ $ret -ne 0 ]
 then

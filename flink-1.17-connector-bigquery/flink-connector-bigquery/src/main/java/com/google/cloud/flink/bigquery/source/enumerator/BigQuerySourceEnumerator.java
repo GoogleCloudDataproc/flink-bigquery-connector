@@ -66,9 +66,6 @@ public class BigQuerySourceEnumerator
         switch (this.boundedness) {
             case BOUNDED:
                 return BigQuerySourceSplitAssigner.createBounded(readOptions, sourceEnumState);
-            case CONTINUOUS_UNBOUNDED:
-                return BigQuerySourceSplitAssigner.createUnbounded(
-                        this, readOptions, sourceEnumState);
             default:
                 throw new IllegalArgumentException(
                         "Non supported boundedness: " + this.boundedness);

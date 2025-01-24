@@ -155,22 +155,6 @@ steps:
       - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
       - 'SINK_PARALLELISM_SMALL_BOUNDED_JOB=${_SINK_PARALLELISM_SMALL_BOUNDED_JOB}'
 
-# 7. Start the query read e2e test.
-  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
-    id: 'e2e-bounded-query-test'
-    waitFor: ['e2e-bounded-table-api-all-datatypes-test']
-    entrypoint: 'bash'
-    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_query_test']
-    env:
-      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
-      - 'PROJECT_ID=${_PROJECT_ID}'
-      - 'PROJECT_NAME=${_PROJECT_NAME}'
-      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
-      - 'QUERY=${_QUERY}'
-      - 'PROPERTIES_SMALL_BOUNDED_JOB=${_PROPERTIES_SMALL_BOUNDED_JOB}'
-      - 'REGION_SMALL_TEST_FILE=${_REGION_SMALL_TEST_FILE}'
-      - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
-
 # 8. Start the large table e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-bounded-large-table-test'

@@ -18,7 +18,6 @@ package com.google.cloud.flink.bigquery.services;
 
 import org.apache.flink.annotation.Internal;
 
-import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.TableDefinition;
@@ -198,18 +197,6 @@ public interface BigQueryServices extends Serializable {
                 String project, String dataset, String table);
 
         /**
-         * Returns, in case of being a partitioned table, all the partitions present alongside their
-         * status.
-         *
-         * @param project The GCP project.
-         * @param dataset The BigQuery dataset.
-         * @param table The BigQuery table.
-         * @return The information and status of the table's partitions.
-         */
-        List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
-                String project, String dataset, String table);
-
-        /**
          * Returns the {@link TableSchema} of the specified BigQuery table.
          *
          * @param project The GCP project.
@@ -257,25 +244,5 @@ public interface BigQueryServices extends Serializable {
          */
         void createTable(
                 String project, String dataset, String table, TableDefinition tableDefinition);
-
-        /**
-         * Executes a BigQuery query and returns the information about the execution results
-         * (including if succeeded of failed related information). No data is being returned by this
-         * method, just a description of what happened with the execution.
-         *
-         * @param projectId The project where the query will be run.
-         * @param query The query to run.
-         * @return Possibly information of the query execution or empty when not run.
-         */
-        Optional<QueryResultInfo> runQuery(String projectId, String query);
-
-        /**
-         * Executes a BigQuery dry run for the provided query and return the job information.
-         *
-         * @param projectId The project where the query will be run.
-         * @param query The query to run.
-         * @return The dry run job's information.
-         */
-        Job dryRunQuery(String projectId, String query);
     }
 }

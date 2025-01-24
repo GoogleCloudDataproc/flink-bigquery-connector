@@ -21,7 +21,6 @@ import org.apache.flink.annotation.Internal;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
-import com.google.cloud.flink.bigquery.source.split.SplitDiscoveryScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,21 +58,6 @@ public abstract class BigQuerySourceSplitAssigner {
     public static BigQuerySourceSplitAssigner createBounded(
             BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
         return new BoundedSplitAssigner(readOptions, sourceEnumState);
-    }
-
-    /**
-     * Creates an unbounded version of the a split assigner.
-     *
-     * @param observer The split discovery scheduler reference
-     * @param readOptions The read options
-     * @param sourceEnumState The initial enumerator state
-     * @return
-     */
-    public static BigQuerySourceSplitAssigner createUnbounded(
-            SplitDiscoveryScheduler observer,
-            BigQueryReadOptions readOptions,
-            BigQuerySourceEnumState sourceEnumState) {
-        return new UnboundedSplitAssigner(observer, readOptions, sourceEnumState);
     }
 
     BigQuerySourceSplitAssigner(
