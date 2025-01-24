@@ -23,9 +23,6 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
-import com.google.api.services.bigquery.model.Job;
-import com.google.api.services.bigquery.model.JobStatistics;
-import com.google.api.services.bigquery.model.JobStatistics2;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.Dataset;
@@ -51,8 +48,6 @@ import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
-import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
-import com.google.cloud.flink.bigquery.services.QueryResultInfo;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.protobuf.ByteString;
@@ -245,36 +240,6 @@ public class StorageClientFaker {
                 if (createTableError != null) {
                     throw createTableError;
                 }
-            }
-
-            @Override
-            public Optional<QueryResultInfo> runQuery(String projectId, String query) {
-                return Optional.of(
-                        QueryResultInfo.succeed("some-project", "some-dataset", "some-table"));
-            }
-
-            @Override
-            public Job dryRunQuery(String projectId, String query) {
-                return new Job()
-                        .setStatistics(
-                                new JobStatistics()
-                                        .setQuery(
-                                                new JobStatistics2()
-                                                        .setSchema(SIMPLE_BQ_TABLE_SCHEMA)));
-            }
-
-            @Override
-            public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
-                    String project, String dataset, String table) {
-                return retrieveTablePartitions(project, dataset, table).stream()
-                        .map(
-                                pId ->
-                                        new PartitionIdWithInfoAndStatus(
-                                                pId,
-                                                retrievePartitionColumnInfo(project, dataset, table)
-                                                        .get(),
-                                                BigQueryPartitionUtils.PartitionStatus.COMPLETED))
-                        .collect(Collectors.toList());
             }
 
             public int getTableExistsInvocatioks() {
@@ -752,8 +717,6 @@ public class StorageClientFaker {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
                 .setLimit(readLimit)
-                .setQuery("SELECT 1")
-                .setQueryExecutionProject("some-gcp-project")
                 .setBigQueryConnectOptions(
                         BigQueryConnectOptions.builder()
                                 .setDataset("dataset")
@@ -804,8 +767,6 @@ public class StorageClientFaker {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
                 .setLimit(readLimit)
-                .setQuery("SELECT 1")
-                .setQueryExecutionProject("some-gcp-project")
                 .setBigQueryConnectOptions(
                         BigQueryConnectOptions.builder()
                                 .setDataset("dataset")
@@ -850,8 +811,6 @@ public class StorageClientFaker {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(Instant.now().toEpochMilli())
                 .setLimit(readLimit)
-                .setQuery("SELECT 1")
-                .setQueryExecutionProject("some-gcp-project")
                 .setBigQueryConnectOptions(
                         BigQueryConnectOptions.builder()
                                 .setDataset("dataset")

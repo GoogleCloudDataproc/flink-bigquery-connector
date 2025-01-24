@@ -371,7 +371,7 @@ understand the BigQuery Storage Write API pricing.
 
 ### Bounded Source In Datastream API
 
-A table will be read once, and its rows at the time will be streamed into the Flink application.
+Reads a BigQuery table and streams it records into your Flink pipeline as in avro format.
 
 ```java
 // Sets source boundedness to Boundedness.BOUNDED
@@ -393,29 +393,10 @@ BigQuerySource<GenericRecord> source =
         .build());
 ```
 
-#### Bounded Source Using BigQuery Query In Datastream API
+### Bounded Source In Table API
 
-A SQL query will be executed in the GCP project, and its [view](https://cloud.google.com/bigquery/docs/views-intro) will
-be streamed into the Flink application.
-
-```java
-BigQuerySource<GenericRecord> bqSource =
-    BigQuerySource.readAvrosFromQuery(query, projectId, limit);
-    // OR
-    BigQuerySource.readAvrosFromQuery(query, projectId);
-```
-
-* Operations (like JOINs) which can be performed as queries in BigQuery should be executed this way because they’ll be more
-  efficient than Flink, and only the result will be transmitted over the wire.
-* Since BigQuery executes the query and stores results in a temporary table, this may add additional costs on your BigQuery
-  account.
-* The connector’s query source offers limited configurability compared to bounded/unbounded table reads. This will be
-  addressed in future releases.
-* The connector does not manage query generated views beyond creation and read. Users will need to
-  [manage these views](https://cloud.google.com/bigquery/docs/managing-views) on their own, until future releases expose a
-  configuration in the connector to delete them or assign a time-to-live.
-
-### Source In Table API
+The Table API source supports projection push-down, limit push-down, filter
+push down, and partition push down.
 
 ```java
 // Note: Users must create and register a catalog table before reading and writing to them.
@@ -429,8 +410,6 @@ BigQueryTableConfig readTableConfig =  new BigQueryReadTableConfig.Builder()
         .table(...) // REQUIRED
         .project(...) // REQUIRED
         .dataset(...) // REQUIRED
-        .boundedness(...) // DEPRECATED: Defaults to Boundedness.BOUNDED
-        .partitionDiscoveryInterval(...) // DEPRECATED: Use if boundedness is CONTINUOUS_UNBOUNDED
         .limit(...) // OPTIONAL
         .columnProjection(...) // OPTIONAL
         .snapshotTimestamp(...) // OPTIONAL
@@ -447,40 +426,6 @@ Table sourceTable = tEnv.from("bigQuerySourceTable");
 sourceTable = sourceTable.select($("*"));
 ```
 
-### [DEPRECATED] Unbounded Source In Datastream API
-
-A timestamp [partitioned table](https://cloud.google.com/bigquery/docs/partitioned-tables) will be continuously checked for
-“completed” partitions, which the connector will stream into the Flink application.
-
-```java
-// Sets source boundedness to Boundedness.CONTINUOUS_UNBOUNDED
-BigQuerySource<GenericRecord> source =
-    BigQuerySource.streamAvros(
-        BigQueryReadOptions.builder()
-            .setBigQueryConnectOptions(
-                BigQueryConnectOptions.builder()
-                    .setProjectId(...)
-                    .setDataset(...)
-                    .setTable(...)
-                    .build())
-            .setColumnNames(...) // OPTIONAL
-            .setLimit(...) // OPTIONAL
-            .setMaxRecordsPerSplitFetch(...) // OPTIONAL
-            .setMaxStreamCount(...) // OPTIONAL
-            .setOldestPartitionId(...) // OPTIONAL
-            .setPartitionDiscoveryRefreshIntervalInMinutes(...) // OPTIONAL
-            .setRowRestriction(...) // OPTIONAL
-            .setSnapshotTimestampInMillis(...) // OPTIONAL
-            .build());
-```
-
-* A partition is considered “complete” if the table’s write buffer’s oldest entry’s ingestion time is after the partition’s
-  end.
-* If the table’s write buffer is empty, then a partition is considered complete if `java.time.Instant.now()` is after the
-  partition’s end.
-* This approach is susceptible to out-of-order data, and we plan to replace it with a lateness tolerance beyond the
-  partition’s end in future releases.
-
 ### Source Configurations
 
 The connector supports a number of options to configure the source.
@@ -488,19 +433,15 @@ The connector supports a number of options to configure the source.
 | Property                                     | Data Type          | Description                                                                                                                                                                                                                                                                                                                                               |
 |----------------------------------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `projectId`                                  | String             | Google Cloud Project ID of the table. This config is required, and assumes no default value.                                                                                                                                                                                                                                                              |
-| `dataset`                                    | String             | Dataset containing the table. This config is required for standard tables, but not when loading query results.                                                                                                                                                                                                                                            |
-| `table`                                      | String             | BigQuery table name (not the full ID). This config is required for standard tables, but not when loading query results.                                                                                                                                                                                                                                   |
+| `dataset`                                    | String             | Dataset containing the table. This config is required, and assumes no default value.                                                                                                                                                                                                                                                                      |
+| `table`                                      | String             | BigQuery table name (not the full ID). This config is required, and assumes no default value.                                                                                                                                                                                                                                                             |
 | `credentialsOptions`                         | CredentialsOptions | Google credentials for connecting to BigQuery. This config is optional, and default behavior is to use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.<br/>**Note**: The query bounded source only uses default application credentials.                                                                                                       |
-| `query`                                      | String             | BigQuery SQL query used in the bounded query source. This config is not required for bounded table or unbounded source.                                                                                                                                                                                                                                   |
-| `columnNames`                                | List&lt;String&gt; | Columns to project from the table. This config is used in bounded table or unbounded source. If unspecified, all columns are fetched.                                                                                                                                                                                                                     |
-| `limit`                                      | Integer            | Maximum number of rows to read from table. This config is used in all source types. If unspecified, all rows are fetched.                                                                                                                                                                                                                                 |
-| `maxRecordsPerSplitFetch`                    | Integer            | Maximum number of records to read from a split once Flink requests fetch. This config is used in bounded table or unbounded source. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream. |
-| `maxStreamCount`                             | Integer            | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. This config is used in bounded table or unbounded source. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                             |
-| `rowRestriction`                             | String             | BigQuery SQL query for row filter pushdown. This config is used in bounded table or unbounded source. If unspecified, all rows are fetched.                                                                                                                                                                                                               |
-| `snapshotTimeInMillis`                       | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. This config is used in bounded table or unbounded source. If unspecified, the latest snapshot is read.                                                                                                                                                                        |
-| `oldestPartitionId`                          | String             | Earliest table partition to consider for unbounded reads. This config is used in unbounded source. If unspecified, all partitions are read.                                                                                                                                                                                                               |
-| `partitionDiscoveryRefreshIntervalInMinutes` | Integer            | Periodicity (in minutes) of partition discovery in table. This config is used in unbounded source. If unspecified, the default value used is 10 minutes.                                                                                                                                                                                                  |
-| `boundedness`                                | Boundedness        | Enum value indicating boundedness of the source. Only used with Flink's Table API, when setting BigQueryReadTableConfig. Default Value is `Boundedness.BOUNDED`                                                                                                                                                                                           |
+| `columnNames`                                | List&lt;String&gt; | Columns to project from the table. If unspecified, all columns are fetched.                                                                                                                                                                                                                                                                               |
+| `limit`                                      | Integer            | Maximum number of rows to read from table. If unspecified, all rows are fetched.                                                                                                                                                                                                                                                                          |
+| `maxRecordsPerSplitFetch`                    | Integer            | Maximum number of records to read from a split once Flink requests fetch. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream.                                                           |
+| `maxStreamCount`                             | Integer            | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                                                                                       |
+| `rowRestriction`                             | String             | BigQuery SQL query for row filter pushdown. If unspecified, all rows are fetched.                                                                                                                                                                                                                                                                         |
+| `snapshotTimeInMillis`                       | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. If unspecified, the latest snapshot is read.                                                                                                                                                                                                                                  |
 
 
 ### Datatypes
@@ -578,6 +519,15 @@ It offers an intuitive hands-on application with elaborate guidance to test out 
 its various configurations.
 
 
+## Unsupported Features
+
+The connector currently does not offer the following features:
+
+* Unbounded source
+* Update or delete in sink
+* Explicit connector artifact for non 1.17 Flink versions
+* Dead letter queue
+
 ## FAQ
 
 Detailed guide for known issues and troubleshooting can be found [here](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/TROUBLESHOOT.md).
@@ -606,19 +556,18 @@ for yarn applications.
 
 ### How to fix "Attempting to create more Sink Writers than allowed"?
 
-The maximum parallelism of BigQuery sinks has been capped at 100. Please set sink level parallelism or default job level 
-parallelism as 100 or less.
+The maximum parallelism of BigQuery sinks has been capped at 512 for US or EU multi-regions, and 128 for others.
+Please set sink level parallelism or default job level parallelism accordingly.
 
 ### Why are certain records missing despite at-least-once or exactly-once consistency guarantee in the sink?
 
 Records that cannot be serialized to BigQuery protobuf format are dropped with a warning being logged. In future, dead letter 
 queues will be supported to store such records.
 
-### Why is Flink checkpoint timing out with exactly-once consistency guarantee in the sink?
+### Why is Flink checkpoint timing when using BigQuery sinks?
 
-Exactly-once sink uses BigQuery's buffered write streams, which must be created at a rate of 3 per second. This requires 
-throttling the sink's writers before they can send data to BigQuery. A result of this throttling is a delay in the first 
-checkpoint's completion. The recommended solution here is to increase the checkpoint timeout, to accommodate this slow start.
+BigQuery sink writers are throttled before they can send data to BigQuery. A result of this throttling is a delay in the completion
+of their first checkpoint. The recommended solution here is to increase the checkpoint timeout, to accommodate this slow start.
 
 ### Why is data not visible in BigQuery table with exactly-once consistency guarantee in the sink?
 

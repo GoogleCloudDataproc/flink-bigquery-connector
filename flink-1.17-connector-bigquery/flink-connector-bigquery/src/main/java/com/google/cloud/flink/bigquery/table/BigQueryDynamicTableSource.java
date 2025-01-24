@@ -67,18 +67,10 @@ public class BigQueryDynamicTableSource
 
     private BigQueryReadOptions readOptions;
     private DataType producedDataType;
-    private final Boundedness boundedness;
 
     public BigQueryDynamicTableSource(BigQueryReadOptions readOptions, DataType producedDataType) {
-        // make default as BOUNDED if nothing is specified.
-        this(readOptions, producedDataType, Boundedness.BOUNDED);
-    }
-
-    public BigQueryDynamicTableSource(
-            BigQueryReadOptions readOptions, DataType producedDataType, Boundedness boundedness) {
         this.readOptions = readOptions;
         this.producedDataType = producedDataType;
-        this.boundedness = boundedness;
     }
 
     @Override
@@ -95,7 +87,7 @@ public class BigQueryDynamicTableSource
         BigQuerySource<RowData> bqSource =
                 BigQuerySource.<RowData>builder()
                         .setReadOptions(readOptions)
-                        .setSourceBoundedness(this.boundedness)
+                        .setSourceBoundedness(Boundedness.BOUNDED)
                         .setDeserializationSchema(
                                 new AvroToRowDataDeserializationSchema(rowType, typeInfo))
                         .build();
@@ -105,7 +97,7 @@ public class BigQueryDynamicTableSource
 
     @Override
     public DynamicTableSource copy() {
-        return new BigQueryDynamicTableSource(readOptions, producedDataType, boundedness);
+        return new BigQueryDynamicTableSource(readOptions, producedDataType);
     }
 
     @Override

@@ -21,7 +21,6 @@ import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
-import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
@@ -29,7 +28,7 @@ import java.io.IOException;
 
 import static com.google.common.truth.Truth.assertThat;
 
-/** */
+/** Tests for {@link BigQuerySource}. */
 public class BigQuerySourceTest {
 
     @Test
@@ -40,21 +39,6 @@ public class BigQuerySourceTest {
         BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(readOptions);
         TypeInformation<GenericRecord> expected =
                 new GenericRecordAvroTypeInfo(StorageClientFaker.SIMPLE_AVRO_SCHEMA);
-        assertThat(source.getDeserializationSchema().getProducedType()).isEqualTo(expected);
-    }
-
-    @Test
-    public void testReadAvrosFromQuery() throws IOException {
-        // by default the faker includes a dummy query in the read options
-        BigQueryReadOptions readOptions =
-                StorageClientFaker.createReadOptions(
-                        10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
-        BigQuerySource<GenericRecord> source = BigQuerySource.readAvrosFromQuery(readOptions);
-
-        TypeInformation<GenericRecord> expected =
-                new GenericRecordAvroTypeInfo(
-                        new Schema.Parser()
-                                .parse(StorageClientFaker.SIMPLE_AVRO_SCHEMA_FORQUERY_STRING));
         assertThat(source.getDeserializationSchema().getProducedType()).isEqualTo(expected);
     }
 }

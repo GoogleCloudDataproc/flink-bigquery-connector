@@ -17,7 +17,6 @@
 package com.google.cloud.flink.bigquery.table.config;
 
 import org.apache.flink.annotation.PublicEvolving;
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
@@ -70,17 +69,6 @@ public class BigQueryConnectorOptions {
                     .intType()
                     .defaultValue(-1)
                     .withDescription("Specifies the limit number of rows retrieved.");
-
-    /**
-     * [OPTIONAL, Read Configuration] Enum value indicating the "BOUNDEDNESS" of the read job. Can
-     * be <code>Boundedness.BOUNDED </code> or <code>Boundedness.CONTINUOUS_UNBOUNDED</code> <br>
-     * Default: <code>Boundedness.BOUNDED </code> - Bounded mode.
-     */
-    public static final ConfigOption<Boundedness> MODE =
-            ConfigOptions.key("read.mode")
-                    .enumType(Boundedness.class)
-                    .defaultValue(Boundedness.BOUNDED)
-                    .withDescription("Specifies the read mode - BOUNDED or CONTINUOUS_UNBOUNDED");
 
     /**
      * [OPTIONAL, Read Configuration] String value indicating any filter or restriction on the rows
@@ -161,17 +149,6 @@ public class BigQueryConnectorOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Specifies if the connector should run in test mode.");
-
-    /**
-     * [OPTIONAL, Read Configuration] Integer value indicating periodicity (in minutes) of partition
-     * discovery in table. This config is used in unbounded source.<br>
-     * Default: 10 minutes
-     */
-    public static final ConfigOption<Integer> PARTITION_DISCOVERY_INTERVAL =
-            ConfigOptions.key("read.discovery-interval")
-                    .intType()
-                    .defaultValue(10)
-                    .withDescription("Partition discovery interval(in minutes)");
 
     /**
      * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink. Can

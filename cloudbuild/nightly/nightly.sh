@@ -48,7 +48,7 @@ run_read_only_test(){
   DATASET_NAME=$5
   TABLE_NAME=$6
   AGG_PROP_NAME=$7
-  QUERY=$8
+  # Deprecated: QUERY=$8
   MODE=$9
   PROPERTIES=${10}
   # Get the final region and the cluster name.
@@ -56,7 +56,7 @@ run_read_only_test(){
   export CLUSTER_NAME=$(cat "$CLUSTER_FILE")
   export GCS_JAR_LOCATION=$(cat "$GCS_JAR_LOCATION_FILE")
   # Run the simple bounded table test.
-  source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME" "$AGG_PROP_NAME" "$QUERY" "$MODE" "$PROPERTIES"
+  source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME" "$AGG_PROP_NAME" "" "$MODE" "$PROPERTIES"
 }
 
 # Function to run the test to check BQ Table Read.
@@ -173,12 +173,6 @@ case $STEP in
     ENABLE_TABLE_CREATION=True
     IS_EXACTLY_ONCE_ENABLED=False
     run_read_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_ALL_DATATYPES_TABLE" "$TABLE_NAME_DESTINATION_ALL_DATATYPES_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB" "$SINK_PARALLELISM_SMALL_BOUNDED_JOB" "$IS_SQL" "$ENABLE_TABLE_CREATION"
-    exit
-    ;;
-
-  # Run the query bounded e2e test.
-  e2e_bounded_query_test)
-    run_read_only_test_delete_cluster "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
     exit
     ;;
 

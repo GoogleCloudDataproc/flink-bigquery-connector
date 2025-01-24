@@ -16,7 +16,6 @@
 
 package com.google.cloud.flink.bigquery.table;
 
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.catalog.Column;
@@ -98,44 +97,6 @@ public class BigQueryDynamicTableFactoryTest {
 
         BigQueryDynamicTableSource expected =
                 new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType());
-
-        assertThat(actual).isEqualTo(expected);
-        assertThat(actual.hashCode()).isEqualTo(expected.hashCode());
-    }
-
-    @Test
-    public void testBigQueryUnboundedReadProperties() throws IOException {
-        Map<String, String> properties = getRequiredOptions();
-        long instantEpochMillis = Instant.EPOCH.toEpochMilli();
-
-        properties.put(BigQueryConnectorOptions.COLUMNS_PROJECTION.key(), "aaa,bbb");
-        properties.put(BigQueryConnectorOptions.MAX_STREAM_COUNT.key(), "100");
-        properties.put(
-                BigQueryConnectorOptions.ROW_RESTRICTION.key(), "aaa > 10 AND NOT bbb IS NULL");
-        properties.put(
-                BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
-                Long.toString(instantEpochMillis));
-        properties.put(
-                BigQueryConnectorOptions.MODE.key(),
-                String.valueOf(Boundedness.CONTINUOUS_UNBOUNDED));
-
-        DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, properties);
-
-        BigQueryReadOptions connectorOptions = getConnectorOptions();
-        BigQueryReadOptions readOptions =
-                BigQueryReadOptions.builder()
-                        .setColumnNames(Arrays.asList("aaa", "bbb"))
-                        .setMaxStreamCount(100)
-                        .setRowRestriction("aaa > 10 AND NOT bbb IS NULL")
-                        .setSnapshotTimestampInMillis(instantEpochMillis)
-                        .setBigQueryConnectOptions(connectorOptions.getBigQueryConnectOptions())
-                        .build();
-
-        BigQueryDynamicTableSource expected =
-                new BigQueryDynamicTableSource(
-                        readOptions,
-                        SCHEMA.toPhysicalRowDataType(),
-                        Boundedness.CONTINUOUS_UNBOUNDED);
 
         assertThat(actual).isEqualTo(expected);
         assertThat(actual.hashCode()).isEqualTo(expected.hashCode());

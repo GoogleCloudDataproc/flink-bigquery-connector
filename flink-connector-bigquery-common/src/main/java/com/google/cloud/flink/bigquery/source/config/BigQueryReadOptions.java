@@ -22,12 +22,10 @@ import org.apache.flink.util.Preconditions;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.serializable.SerializableAutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import org.threeten.bp.Instant;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
@@ -46,15 +44,7 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract Optional<Long> getSnapshotTimestampInMillis();
 
-    public abstract Optional<String> getQuery();
-
-    public abstract Optional<String> getQueryExecutionProject();
-
     public abstract Optional<Integer> getLimit();
-
-    public abstract Optional<String> getOldestPartitionId();
-
-    public abstract Integer getPartitionDiscoveryRefreshIntervalInMinutes();
 
     public abstract Integer getMaxStreamCount();
 
@@ -111,89 +101,12 @@ public abstract class BigQueryReadOptions implements Serializable {
                 .setColumnNames(Arrays.asList())
                 .setMaxStreamCount(0)
                 .setMaxRecordsPerSplitFetch(10000)
-                .setSnapshotTimestampInMillis(null)
-                .setPartitionDiscoveryRefreshIntervalInMinutes(10);
+                .setSnapshotTimestampInMillis(null);
     }
 
     /** Builder class for {@link BigQueryReadOptions}. */
     @AutoValue.Builder
     public abstract static class Builder {
-
-        /**
-         * Prepares this builder to execute a query driven read using the default credentials
-         * configuration.
-         *
-         * @param query A BigQuery standard SQL query.
-         * @param projectId A GCP project where the query will run.
-         * @return This {@link Builder} instance.
-         * @throws IOException In case of problems while setting up the credentials options.
-         */
-        public Builder setQueryAndExecutionProject(String query, String projectId)
-                throws IOException {
-            return setQueryWithExecutionProjectAndCredentialsOptions(
-                    query, projectId, CredentialsOptions.builder().build());
-        }
-
-        /**
-         * Prepares this builder to execute a query driven read.
-         *
-         * @param query A BigQuery standard SQL query.
-         * @param projectId A GCP project where the query will run.
-         * @param credentialsOptions The GCP credentials options.
-         * @return This {@link Builder} instance.
-         * @throws IOException In case of problems while setting up the credentials options.
-         */
-        public Builder setQueryWithExecutionProjectAndCredentialsOptions(
-                String query, String projectId, CredentialsOptions credentialsOptions)
-                throws IOException {
-            this.setQuery(query);
-            this.setQueryExecutionProject(projectId);
-            this.setBigQueryConnectOptions(
-                    BigQueryConnectOptions.builderForQuerySource()
-                            .setCredentialsOptions(credentialsOptions)
-                            .build());
-            return this;
-        }
-
-        /**
-         * Sets a BigQuery query which will be run first, storing its result in a temporary table,
-         * and Flink will read the query results from that temporary table. This is an optional
-         * argument.
-         *
-         * @param query A BigQuery standard SQL query.
-         * @return This {@link Builder} instance.
-         */
-        public abstract Builder setQuery(@Nullable String query);
-
-        /**
-         * Sets the GCP project where the configured query will be run. In case the query
-         * configuration is not set this configuration is discarded.
-         *
-         * @param projectId A GCP project.
-         * @return This {@link Builder} instance.
-         */
-        public abstract Builder setQueryExecutionProject(@Nullable String projectId);
-
-        /**
-         * Sets the oldest partition that will be considered for unbounded reads when using
-         * completed partitions approach. All temporal column partitions identifier can be
-         * lexicographically ordered, so we will be filtering out all the previous partitions. This
-         * configuration is optional, if not included all the partitions on the table will be read.
-         * Takes no action when using bounded source.
-         *
-         * @param partitionId The oldest partition to read.
-         * @return This {@link Builder} instance.
-         */
-        public abstract Builder setOldestPartitionId(@Nullable String partitionId);
-
-        /**
-         * Sets the periodicity of the completed partition discovery process.
-         *
-         * @param refreshIntervalInMinutes The minutes to wait for the next partition discovery.
-         * @return This {@link Builder} instance.
-         */
-        public abstract Builder setPartitionDiscoveryRefreshIntervalInMinutes(
-                Integer refreshIntervalInMinutes);
 
         /**
          * Sets the max element count that should be read.
@@ -276,14 +189,6 @@ public abstract class BigQueryReadOptions implements Serializable {
                             // if present, then fail
                             .isPresent(),
                     "The oldest timestamp should be equal or bigger than epoch.");
-            Preconditions.checkState(
-                    !readOptions
-                            .getQuery()
-                            // if the project was not configured
-                            .filter(unusedQuery -> readOptions.getQueryExecutionProject() == null)
-                            // if present fail
-                            .isPresent(),
-                    "If a query is configured, then a GCP project should be provided.");
 
             return readOptions;
         }
