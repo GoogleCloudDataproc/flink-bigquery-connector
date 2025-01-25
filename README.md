@@ -524,6 +524,22 @@ supports collection and reporting of the following metrics in BigQuery sink:
 | `numberOfRecordsWrittenToBigQuerySinceCheckpoint`  | Counter to keep track of the number of records successfully written to BigQuery since the last checkpoint.                                                                                                                                                                                                                                                                       | At-least Once Sink                                   |
 | `numberOfRecordsBufferedByBigQuerySinceCheckpoint` | Counter to keep track of the number of records currently buffered by the Storage Write API stream before committing them to the BigQuery Table. These records will be added to the Table following [Two Phase Commit Protocol's](https://nightlies.apache.org/flink/flink-docs-release-1.20/api/java/org/apache/flink/api/connector/sink2/Committer.html) `commit()` invocation. | Exactly Once Sink                                    |
 
+### Viewing Flink Metrics
+* Flink offers a variety of metric reporters which the users could use to view these metrics.
+* Flink’s [Metric Reporters](https://nightlies.apache.org/flink/flink-docs-master/docs/deployment/metric_reporters/) defines various pre-supported reporters that could be used to visualize metrics.
+    * A basic example would be logging in the Flink Log File using [slf4J reporter](https://nightlies.apache.org/flink/flink-docs-master/docs/deployment/metric_reporters/#slf4j).
+    * The following config needs to be added to `flink-conf.yaml` to enable reporting to the log file:
+```yaml
+// Enabling reporting and setting the reporter to slf4j
+metrics.reporter.slf4j.class: org.apache.flink.metrics.slf4j.Slf4jReporter
+// Fine Tune the Reporter Configuration
+metrics.reporter.slf4j.interval: <TIME INTERVAL> //e.g. 10 SECONDS
+```
+* Once the config is modified to enable reporting metrics:
+  * View the metric values in your application's log file.
+  * These could also be viewed using the Flink Metrics UI **during runtime**. ![Sample Flink UI](https://miro.medium.com/v2/resize:fit:1400/0*8Wm2ppRf-kGBZuHg)*Example of Flink UI showing Flink Metrics at Runtime.
+Image Credits: [medium.com](https://medium.com/@coltenpilgreen/part-2-improving-observability-with-metrics-for-apache-flink-custom-metrics-c547249d46fb)*
+
 ## Example Application
 
 The `flink-1.17-connector-bigquery-examples`  and `flink-1.17-connector-bigquery-table-api-examples` modules offer a sample Flink application powered by the connector.
