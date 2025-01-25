@@ -98,6 +98,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     private boolean firstWritePostConstructor = true;
 
     final CreateTableOptions createTableOptions;
+    final String traceId;
     final Queue<AppendInfo> appendResponseFuturesQueue;
     // Initialization of writeClient has been deferred to first append call. BigQuery's best
     // practices suggest that client connections should be opened when needed.
@@ -122,13 +123,15 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             BigQueryConnectOptions connectOptions,
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
-            CreateTableOptions createTableOptions) {
+            CreateTableOptions createTableOptions,
+            String traceId) {
         this.subtaskId = subtaskId;
         this.tablePath = tablePath;
         this.connectOptions = connectOptions;
         this.schemaProvider = schemaProvider;
         this.serializer = serializer;
         this.createTableOptions = createTableOptions;
+        this.traceId = traceId;
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();
@@ -250,7 +253,8 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                     streamName,
                     subtaskId);
             streamWriter =
-                    writeClient.createStreamWriter(streamName, protoSchema, enableConnectionPool);
+                    writeClient.createStreamWriter(
+                            streamName, protoSchema, enableConnectionPool, traceId);
         } catch (IOException e) {
             logger.error(
                     String.format(

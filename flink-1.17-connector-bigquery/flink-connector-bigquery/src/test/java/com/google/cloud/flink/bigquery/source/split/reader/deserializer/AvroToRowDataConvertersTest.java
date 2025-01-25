@@ -25,7 +25,6 @@ import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.util.Utf8;
 import org.assertj.core.api.Assertions;
 import org.joda.time.LocalDate;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.sql.Timestamp;
@@ -269,7 +268,6 @@ public class AvroToRowDataConvertersTest {
         Assertions.assertThat(exception).hasMessageContaining("Avro to RowData Conversion Error");
     }
 
-    @Ignore
     @Test
     public void testDateTypeConvertor() {
         // Create the logical type schema
@@ -280,9 +278,9 @@ public class AvroToRowDataConvertersTest {
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
-                        + "   {\"name\": \"date_field\", \"type\": {\"type\": \"long\", \"logical_type\": \"time-millis\"}}]";
+                        + "   {\"name\": \"date_field\", \"type\": {\"type\": \"int\", \"logical_type\": \"date\"}}]";
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
-        // Joda Type.
+        // java.time.LocalDate Type.
         IndexedRecord record =
                 new GenericRecordBuilder(avroSchema)
                         .set("date_field", java.time.LocalDate.of(2024, 1, 1))
@@ -291,7 +289,7 @@ public class AvroToRowDataConvertersTest {
         Object convertedObject = converter.convert(record);
         assertEquals(GenericRowData.of(19723), convertedObject);
 
-        // Local Date type.
+        // org.joda.Date type.
         record =
                 new GenericRecordBuilder(avroSchema)
                         .set("date_field", LocalDate.parse("2024-01-01"))
