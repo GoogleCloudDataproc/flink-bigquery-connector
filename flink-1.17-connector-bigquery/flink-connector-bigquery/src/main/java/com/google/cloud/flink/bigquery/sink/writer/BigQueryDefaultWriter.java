@@ -63,6 +63,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            String taceId,
             InitContext context) {
         super(
                 context.getSubtaskId(),
@@ -70,7 +71,8 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                 connectOptions,
                 schemaProvider,
                 serializer,
-                createTableOptions);
+                createTableOptions,
+                taceId);
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;
         totalRecordsWritten = 0L;

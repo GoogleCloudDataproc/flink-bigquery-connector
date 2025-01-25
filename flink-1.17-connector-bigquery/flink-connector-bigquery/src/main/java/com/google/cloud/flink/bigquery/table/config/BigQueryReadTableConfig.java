@@ -33,7 +33,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
     private final String columnProjection;
     private final Integer maxStreamCount;
     private final Long snapshotTimestamp;
-    private final Boundedness boundedness;
+    @Deprecated private final Boundedness boundedness;
     private final Integer partitionDiscoveryInterval;
 
     BigQueryReadTableConfig(
@@ -220,6 +220,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
          * <br>
          * Default: <code>Boundedness.BOUNDED </code> - Bounded mode.
          */
+        @Deprecated
         public BigQueryReadTableConfig.Builder boundedness(Boundedness boundedness) {
             this.boundedness = boundedness;
             return this;

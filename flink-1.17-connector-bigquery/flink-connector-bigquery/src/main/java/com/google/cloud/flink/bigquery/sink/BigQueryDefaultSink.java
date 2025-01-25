@@ -43,6 +43,7 @@ class BigQueryDefaultSink extends BigQueryBaseSink {
                 schemaProvider,
                 serializer,
                 createTableOptions(),
+                traceId,
                 context);
     }
 }

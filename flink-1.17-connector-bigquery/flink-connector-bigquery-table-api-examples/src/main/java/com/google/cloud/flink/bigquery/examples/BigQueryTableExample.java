@@ -21,23 +21,23 @@ import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.annotation.DataTypeHint;
-import org.apache.flink.table.annotation.FunctionHint;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.table.functions.TableFunction;
-import org.apache.flink.types.Row;
 
+import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
 import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfig;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.flink.table.api.Expressions.$;
-import static org.apache.flink.table.api.Expressions.call;
 
 /**
  * A simple BigQuery table read and sink example with Flink's Table API.
@@ -52,7 +52,6 @@ import static org.apache.flink.table.api.Expressions.call;
  *       at the time of execution, analogous to a batch job. Unbounded source implies that the BQ
  *       table will be periodically polled for new data. Resulting records can be written to another
  *       BQ table, with allowed delivery (write) guarantees at-least-once or exactly-once. <br>
- *       The sequence of operations in both pipelines is: <i>source > flatMap > sink</i> <br>
  *       Flink command line format is: <br>
  *       <code> flink run {additional runtime params} {path to this jar}/BigQueryTableExample.jar
  *       </code> <br>
@@ -62,6 +61,8 @@ import static org.apache.flink.table.api.Expressions.call;
  *       --gcp-sink-project {required; project ID containing the sink table} <br>
  *       --bq-sink-dataset {required; name of dataset containing the sink table} <br>
  *       --bq-sink-table {required; name of table to write to} <br>
+ *       --sink-partition-field {optional; partition field for destination table. Also enables table
+ *       creation} <br>
  *       --mode {optional; source read type. Allowed values are bounded (default) or unbounded or
  *       hybrid} <br>
  *       --restriction {optional; SQL filter applied at the BigQuery table before reading} <br>
@@ -91,6 +92,7 @@ public class BigQueryTableExample {
                             + " --gcp-sink-project <gcp project id for sink table>"
                             + " --bq-sink-dataset <dataset name for sink table>"
                             + " --bq-sink-table <sink table name>"
+                            + " --sink-partition-field <sink table partition field>"
                             + " --mode <source type>"
                             + " --restriction <row filter predicate>"
                             + " --limit <limit on records returned>"
@@ -120,6 +122,7 @@ public class BigQueryTableExample {
         String destGcpProjectName = parameterTool.getRequired("gcp-sink-project");
         String destDatasetName = parameterTool.getRequired("bq-sink-dataset");
         String destTableName = parameterTool.getRequired("bq-sink-table");
+        String sinkPartitionField = parameterTool.get("sink-partition-field", null);
         String deliveryGuarantee = parameterTool.get("delivery-guarantee", "at-least-once");
         DeliveryGuarantee sinkMode;
         switch (deliveryGuarantee) {
@@ -145,6 +148,7 @@ public class BigQueryTableExample {
                         destGcpProjectName,
                         destDatasetName,
                         destTableName,
+                        sinkPartitionField,
                         sinkMode,
                         rowRestriction,
                         recordLimit,
@@ -158,6 +162,7 @@ public class BigQueryTableExample {
                         destGcpProjectName,
                         destDatasetName,
                         destTableName,
+                        sinkPartitionField,
                         sinkMode,
                         rowRestriction,
                         recordLimit,
@@ -183,6 +188,7 @@ public class BigQueryTableExample {
      * @param destGcpProjectName The GCP Project name of the destination table.
      * @param destDatasetName Dataset name of the destination table.
      * @param destTableName Destination Table Name.
+     * @param sinkPartitionField Sink table partitioning.
      * @param sinkMode At-least-once or exactly-once write consistency.
      * @param rowRestriction String value, filtering the rows to be read.
      * @param limit Integer value, Number of rows to limit the read result.
@@ -196,6 +202,7 @@ public class BigQueryTableExample {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
+            String sinkPartitionField,
             DeliveryGuarantee sinkMode,
             String rowRestriction,
             Integer limit,
@@ -205,8 +212,13 @@ public class BigQueryTableExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(checkpointInterval);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
 
+        BigQueryConnectOptions sourceConnectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId(sourceGcpProjectName)
+                        .setDataset(sourceDatasetName)
+                        .setTable(sourceTableName)
+                        .build();
         // Declare Read Options.
         BigQueryTableConfig readTableConfig =
                 BigQueryReadTableConfig.newBuilder()
@@ -224,26 +236,40 @@ public class BigQueryTableExample {
                 BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
 
         // Read the table and pass to flatmap.
-        Table sourceTable =
-                tEnv.from("bigQuerySourceTable")
-                        .select($("*"))
-                        .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
-                        .as("name", "number", "ts");
+        // Hardcoded source schema to extract three columns: name (string), number (int) and ts
+        // (timestamp).
+        Table sourceTable = tEnv.from("bigQuerySourceTable").select($("*"));
 
-        BigQueryTableConfig sinkTableConfig =
+        BigQuerySinkTableConfig.Builder sinkTableConfigBuilder =
                 BigQuerySinkTableConfig.newBuilder()
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
                         .table(destTableName)
                         .sinkParallelism(2)
                         .deliveryGuarantee(sinkMode)
-                        .streamExecutionEnvironment(env)
-                        .build();
+                        .streamExecutionEnvironment(env);
+
+        TableDescriptor descriptor;
+        if (sinkPartitionField != null) {
+            sinkTableConfigBuilder
+                    .enableTableCreation(true)
+                    .partitionField(sinkPartitionField)
+                    .partitionType(TimePartitioning.Type.DAY);
+            // Since the final record has same schema as the input from source, we use the same
+            // table schema here. Ideally, users need to explicitly set the table schema according
+            // to the record recieved by the sink.
+            org.apache.flink.table.api.Schema tableSchema =
+                    getFlinkTableSchema(sourceConnectOptions);
+            descriptor =
+                    BigQueryTableSchemaProvider.getTableDescriptor(
+                            sinkTableConfigBuilder.build(), tableSchema);
+        } else {
+            descriptor =
+                    BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfigBuilder.build());
+        }
 
         // Register the Sink Table
-        tEnv.createTable(
-                "bigQuerySinkTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+        tEnv.createTable("bigQuerySinkTable", descriptor);
 
         // Insert the table sourceTable to the registered sinkTable
         sourceTable.executeInsert("bigQuerySinkTable");
@@ -262,6 +288,7 @@ public class BigQueryTableExample {
      * @param destGcpProjectName The GCP Project name of the destination table.
      * @param destDatasetName Dataset name of the destination table.
      * @param destTableName Destination Table Name.
+     * @param sinkPartitionField Sink table partitioning.
      * @param sinkMode At-least-once or exactly-once write consistency.
      * @param rowRestriction String value, filtering the rows to be read.
      * @param limit Integer value, Number of rows to limit the read result.
@@ -275,6 +302,7 @@ public class BigQueryTableExample {
             String destGcpProjectName,
             String destDatasetName,
             String destTableName,
+            String sinkPartitionField,
             DeliveryGuarantee sinkMode,
             String rowRestriction,
             Integer limit,
@@ -285,8 +313,13 @@ public class BigQueryTableExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(checkpointInterval);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
 
+        BigQueryConnectOptions sourceConnectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId(sourceGcpProjectName)
+                        .setDataset(sourceDatasetName)
+                        .setTable(sourceTableName)
+                        .build();
         // Declare Read Options.
         BigQueryTableConfig readTableConfig =
                 BigQueryReadTableConfig.newBuilder()
@@ -309,28 +342,39 @@ public class BigQueryTableExample {
         sourceTable = sourceTable.select($("*"));
 
         // Declare Write Options.
-        BigQueryTableConfig sinkTableConfig =
+        BigQuerySinkTableConfig.Builder sinkTableConfigBuilder =
                 BigQuerySinkTableConfig.newBuilder()
                         .table(destTableName)
                         .project(destGcpProjectName)
                         .dataset(destDatasetName)
                         .sinkParallelism(2)
                         .deliveryGuarantee(sinkMode)
-                        .streamExecutionEnvironment(env)
-                        .build();
+                        .streamExecutionEnvironment(env);
+
+        TableDescriptor descriptor;
+        if (sinkPartitionField != null) {
+            sinkTableConfigBuilder
+                    .enableTableCreation(true)
+                    .partitionField(sinkPartitionField)
+                    .partitionType(TimePartitioning.Type.DAY);
+            // Since the final record has same schema as the input from source, we use the same
+            // table schema here. Ideally, users need to explicitly set the table schema according
+            // to the record recieved by the sink.
+            org.apache.flink.table.api.Schema tableSchema =
+                    getFlinkTableSchema(sourceConnectOptions);
+            descriptor =
+                    BigQueryTableSchemaProvider.getTableDescriptor(
+                            sinkTableConfigBuilder.build(), tableSchema);
+        } else {
+            descriptor =
+                    BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfigBuilder.build());
+        }
 
         // Register the Sink Table
-        tEnv.createTable(
-                "bigQuerySinkTable",
-                BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
+        tEnv.createTable("bigQuerySinkTable", descriptor);
 
         // Insert the table sourceTable to the registered sinkTable
-        sourceTable =
-                sourceTable
-                        .flatMap(call("func", Row.of($("name"), $("number"), $("ts"))))
-                        .as("name", "number", "ts");
-
-        sourceTable.executeInsert("bigQuerySinkTable");
+        sourceTable.executeInsert("bigQuerySinkTable").await();
     }
 
     /**
@@ -371,7 +415,6 @@ public class BigQueryTableExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(checkpointInterval);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-        tEnv.createTemporarySystemFunction("func", MyFlatMapFunction.class);
 
         // Declare Read Options.
         BigQueryTableConfig readTableConfig =
@@ -434,15 +477,9 @@ public class BigQueryTableExample {
                         + "leftSourceTable.id = rightSourceTable.id;");
     }
 
-    /** Function to flatmap the Table API source Catalog Table. */
-    @FunctionHint(
-            input = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"),
-            output = @DataTypeHint("ROW<`name` STRING, `number` BIGINT, `ts` TIMESTAMP(6)>"))
-    public static class MyFlatMapFunction extends TableFunction<Row> {
-
-        public void eval(Row row) {
-            String str = (String) row.getField("name");
-            collect(Row.of(str + "_write_test", row.getField("number"), row.getField("ts")));
-        }
+    private static org.apache.flink.table.api.Schema getFlinkTableSchema(
+            BigQueryConnectOptions connectOptions) {
+        Schema avroSchema = new BigQuerySchemaProviderImpl(connectOptions).getAvroSchema();
+        return BigQueryTableSchemaProvider.getTableApiSchemaFromAvroSchema(avroSchema);
     }
 }

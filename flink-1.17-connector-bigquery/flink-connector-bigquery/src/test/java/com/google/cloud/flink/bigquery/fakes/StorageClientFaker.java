@@ -440,7 +440,10 @@ public class StorageClientFaker {
 
             @Override
             public StreamWriter createStreamWriter(
-                    String streamName, ProtoSchema protoSchema, boolean enableConnectionPool) {
+                    String streamName,
+                    ProtoSchema protoSchema,
+                    boolean enableConnectionPool,
+                    String traceId) {
                 return mockedWriter;
             }
 
