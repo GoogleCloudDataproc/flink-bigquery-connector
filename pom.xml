@@ -296,7 +296,7 @@ under the License.
                 <version>3.24.2</version>
                 <scope>test</scope>
             </dependency>
-            
+
             <!-- Unavoidable Flink Dependencies -->
             <!-- The Idea is to have one same flink
             version that governs annotations and flink-core version -->
@@ -306,7 +306,7 @@ under the License.
                 <artifactId>flink-annotations</artifactId>
                 <version>${flink.version}</version>
             </dependency>
-            <!-- Dependency required for SerializableSupplier, 
+            <!-- Dependency required for SerializableSupplier,
                 Preconditions, BiConsumerWithException,
                 FunctionWithException used across the Project. -->
             <dependency>
