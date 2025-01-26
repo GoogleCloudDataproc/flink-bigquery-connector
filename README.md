@@ -553,9 +553,7 @@ metrics.reporter.slf4j.interval: <TIME INTERVAL> //e.g. 10 SECONDS
 ```
 * Once the config is modified to enable reporting metrics:
   * View the metric values in your application's log file.
-  * These could also be viewed using the Flink Metrics UI **during runtime**. ![Sample Flink UI](https://miro.medium.com/v2/resize:fit:1400/0*8Wm2ppRf-kGBZuHg)*Example of Flink UI showing Flink Metrics at Runtime.
-Image Credits: [medium.com](https://medium.com/@coltenpilgreen/part-2-improving-observability-with-metrics-for-apache-flink-custom-metrics-c547249d46fb)*
-
+  * These could also be viewed using the Flink Metrics UI **during runtime**.
 
 ## Example Application
 
