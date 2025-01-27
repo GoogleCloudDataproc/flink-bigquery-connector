@@ -20,6 +20,7 @@ import org.apache.flink.annotation.Internal;
 
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
@@ -217,6 +218,15 @@ public interface BigQueryServices extends Serializable {
          * @return The BigQuery table {@link TableSchema}.
          */
         TableSchema getTableSchema(String project, String dataset, String table);
+
+        /**
+         * Get BigQuery dataset.
+         *
+         * @param project The GCP project.
+         * @param dataset The BigQuery dataset.
+         * @return The BigQuery {@link Dataset}.
+         */
+        Dataset getDataset(String project, String dataset);
 
         /**
          * Create BigQuery dataset.

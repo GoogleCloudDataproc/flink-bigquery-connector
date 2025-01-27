@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink.client;
 
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
@@ -132,6 +133,21 @@ public class BigQueryClientWithErrorHandling {
                             connectOptions.getProjectId(),
                             connectOptions.getDataset(),
                             connectOptions.getTable()),
+                    e);
+        }
+    }
+
+    public static Dataset getDataset(BigQueryConnectOptions connectOptions) {
+        try {
+            BigQueryServices.QueryDataClient queryDataClient =
+                    BigQueryServicesFactory.instance(connectOptions).queryClient();
+            return queryDataClient.getDataset(
+                    connectOptions.getProjectId(), connectOptions.getDataset());
+        } catch (BigQueryException e) {
+            throw new BigQueryConnectorException(
+                    String.format(
+                            "Unable to check existence of BigQuery dataset %s.%s",
+                            connectOptions.getProjectId(), connectOptions.getDataset()),
                     e);
         }
     }

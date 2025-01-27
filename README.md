@@ -245,7 +245,7 @@ BigQuerySinkTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
         .project(...) // REQUIRED
         .dataset(...) // REQUIRED
         .streamExecutionEnvironment(env) // REQUIRED if deliveryGuarantee is EXACTLY_ONCE
-        .sinkParallelism(...) // OPTIONAL; Should be atmost 128
+        .sinkParallelism(...) // OPTIONAL;
         .deliveryGuarantee(...) // OPTIONAL; Default is AT_LEAST_ONCE
         .enableTableCreation(...) // OPTIONAL
         .partitionField(...) // OPTIONAL
@@ -321,11 +321,12 @@ Check out BigQuery SQL's [DDL](https://cloud.google.com/bigquery/docs/reference/
   when maintaining records in avro format. Check Flink's [blog on non-trivial serialization](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
   Note that avro schema of an existing BigQuery table can be obtained from
   [BigQuerySchemaProviderImpl](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQuerySchemaProviderImpl.java).
-* The maximum parallelism of BigQuery sinks has been capped at **128**. This is to respect BigQuery storage
-  [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while adhering to
-  [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices). Users should either set
+* The maximum parallelism of BigQuery sinks has been capped at **512** for multi-regions US or EU, and **128** for the rest.
+  This is to respect BigQuery storage [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while keeping
+  [throughput](https://cloud.google.com/bigquery/docs/write-api#connections) and
+  [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices) in mind. Users should either set
   [sink level parallelism](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/execution/parallel/#operator-level)
-  explicitly, or ensure that default job level parallelism is under 128.
+  explicitly, or ensure that default job level parallelism is under region-specific maximums (512 or 128).
 * BigQuerySinkConfig requires the StreamExecutionEnvironment if delivery guarantee is exactly-once.   
   **Restart strategy must be explicitly set in the StreamExecutionEnvironment**.  
   This is to [validate](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/92db3690c741fb2cdb99e28c575e19affb5c8b69/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/BigQuerySinkConfig.java#L185) 

@@ -17,7 +17,9 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.util.StringUtils;
 
+import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesImpl;
@@ -29,6 +31,7 @@ import com.google.cloud.flink.bigquery.sink.writer.CreateTableOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.List;
 
 /** Base class for developing a BigQuery sink. */
@@ -36,14 +39,17 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    // BigQuery write streams can offer over 10 MBps throughput, and per project throughput quotas
-    // are in the order of single digit GBps. With each sink writer maintaining a single and unique
-    // write connection to BigQuery, maximum parallelism for sink is intentionally restricted to
-    // 128 for initial releases of this connector. This is also the default max parallelism of
-    // Flink applications.
-    // Based on performance observations and user feedback, this number can be increased in the
-    // future.
-    public static final int MAX_SINK_PARALLELISM = 128;
+    // Generally, a single write connection supports at least 1 MBps of throughput.
+    // Check https://cloud.google.com/bigquery/docs/write-api#connections
+    // Project-level BQ storage write API throughout in multi-regions (us and eu) is capped at
+    // 3 GBps. Other regions allow 300 MBps.
+    // Check https://cloud.google.com/bigquery/quotas#write-api-limits
+    // Keeping these factors in mind, the BigQuery sink's parallelism is capped according to the
+    // destination table's region.
+    public static final int DEFAULT_MAX_SINK_PARALLELISM = 128;
+    public static final int MULTI_REGION_MAX_SINK_PARALLELISM = 512;
+    public static final List<String> BQ_MULTI_REGIONS = Arrays.asList("us", "eu");
+    private static final String DEFAULT_REGION = "us";
 
     final BigQueryConnectOptions connectOptions;
     final BigQuerySchemaProvider schemaProvider;
@@ -55,6 +61,7 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
     final Long partitionExpirationMillis;
     final List<String> clusteredFields;
     final String region;
+    final int maxParallelism;
     final String traceId;
 
     BigQueryBaseSink(BigQuerySinkConfig sinkConfig) {
@@ -77,7 +84,8 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
         partitionType = sinkConfig.getPartitionType();
         partitionExpirationMillis = sinkConfig.getPartitionExpirationMillis();
         clusteredFields = sinkConfig.getClusteredFields();
-        region = sinkConfig.getRegion();
+        region = getRegion(sinkConfig.getRegion());
+        maxParallelism = getMaxParallelism();
         traceId = BigQueryServicesImpl.generateTraceId();
     }
 
@@ -101,10 +109,10 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
 
     /** Ensures Sink's parallelism does not exceed the allowed maximum when scaling Flink job. */
     void checkParallelism(int numberOfParallelSubtasks) {
-        if (numberOfParallelSubtasks > MAX_SINK_PARALLELISM) {
+        if (numberOfParallelSubtasks > maxParallelism) {
             logger.error(
                     "Maximum allowed parallelism for Sink is {}, but attempting to create Writer number {}",
-                    MAX_SINK_PARALLELISM,
+                    maxParallelism,
                     numberOfParallelSubtasks);
             throw new IllegalStateException("Attempting to create more Sink Writers than allowed");
         }
@@ -118,5 +126,34 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
                 partitionExpirationMillis,
                 clusteredFields,
                 region);
+    }
+
+    private String getRegion(String userProvidedRegion) {
+        Dataset dataset = BigQueryClientWithErrorHandling.getDataset(connectOptions);
+        if (dataset == null || !dataset.exists()) {
+            if (StringUtils.isNullOrWhitespaceOnly(userProvidedRegion)) {
+                logger.info(
+                        "No destination BQ region provided by user. Using default us multi-region.");
+                return DEFAULT_REGION;
+            }
+            return userProvidedRegion;
+        }
+        String datasetLocation = dataset.getLocation();
+        if (!datasetLocation.equalsIgnoreCase(userProvidedRegion)) {
+            logger.warn(
+                    "Provided sink dataset region {} will be overridden by dataset's existing location {}",
+                    userProvidedRegion,
+                    datasetLocation);
+        }
+        return dataset.getLocation();
+    }
+
+    // Max sink parallelism is deduced using destination dataset's region.
+    // Ensure instance variable 'region' is assigned before invoking this method.
+    private int getMaxParallelism() {
+        if (BQ_MULTI_REGIONS.contains(region)) {
+            return MULTI_REGION_MAX_SINK_PARALLELISM;
+        }
+        return DEFAULT_MAX_SINK_PARALLELISM;
     }
 }

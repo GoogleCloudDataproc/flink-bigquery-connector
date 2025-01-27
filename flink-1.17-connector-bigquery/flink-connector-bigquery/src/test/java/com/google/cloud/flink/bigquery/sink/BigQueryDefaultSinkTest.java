@@ -22,7 +22,9 @@ import org.apache.flink.api.connector.sink2.Sink.InitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
 import com.google.protobuf.ByteString;
@@ -62,7 +64,7 @@ public class BigQueryDefaultSinkTest {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -98,7 +100,7 @@ public class BigQueryDefaultSinkTest {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(null)
                         .streamExecutionEnvironment(env)
@@ -114,9 +116,7 @@ public class BigQueryDefaultSinkTest {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(
-                                StorageClientFaker.createConnectOptionsForQuery(
-                                        false, null, null, null))
+                        .connectOptions(getConnectOptions(false))
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .enableTableCreation(true)
@@ -132,9 +132,7 @@ public class BigQueryDefaultSinkTest {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(
-                                StorageClientFaker.createConnectOptionsForQuery(
-                                        true, null, null, null))
+                        .connectOptions(getConnectOptions(true))
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .enableTableCreation(true)
@@ -150,9 +148,7 @@ public class BigQueryDefaultSinkTest {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(
-                                StorageClientFaker.createConnectOptionsForQuery(
-                                        false, null, null, null))
+                        .connectOptions(getConnectOptions(false))
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
@@ -174,7 +170,7 @@ public class BigQueryDefaultSinkTest {
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -191,7 +187,7 @@ public class BigQueryDefaultSinkTest {
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -203,5 +199,97 @@ public class BigQueryDefaultSinkTest {
         assertThat(exception)
                 .hasMessageThat()
                 .contains("Attempting to create more Sink Writers than allowed");
+    }
+
+    @Test
+    public void testRegionAndParallelism_datasetExists_providedRegionOverridden() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(
+                                StorageClientFaker.createConnectOptionsForQuery(
+                                        true, "us-central1"))
+                        .serializer(new AvroToProtoSerializer())
+                        .enableTableCreation(true)
+                        .streamExecutionEnvironment(env)
+                        .region("us")
+                        .build();
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertEquals("us-central1", sink.region);
+        assertEquals(128, sink.maxParallelism);
+    }
+
+    @Test
+    public void testRegionAndParallelism_datasetExistsMultiRegion_providedRegionOverridden() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForQuery(true, "us"))
+                        .serializer(new AvroToProtoSerializer())
+                        .enableTableCreation(true)
+                        .streamExecutionEnvironment(env)
+                        .region("us-central1")
+                        .build();
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertEquals("us", sink.region);
+        assertEquals(512, sink.maxParallelism);
+    }
+
+    @Test
+    public void testRegionAndParallelism_useProvidedRegion() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(
+                                StorageClientFaker.createConnectOptionsForQuery(false, null))
+                        .serializer(new AvroToProtoSerializer())
+                        .enableTableCreation(true)
+                        .streamExecutionEnvironment(env)
+                        .region("us-central1")
+                        .build();
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertEquals("us-central1", sink.region);
+        assertEquals(128, sink.maxParallelism);
+    }
+
+    @Test
+    public void testRegionAndParallelism_useProvidedMultiRegion() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(
+                                StorageClientFaker.createConnectOptionsForQuery(false, null))
+                        .serializer(new AvroToProtoSerializer())
+                        .enableTableCreation(true)
+                        .streamExecutionEnvironment(env)
+                        .region("us")
+                        .build();
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertEquals("us", sink.region);
+        assertEquals(512, sink.maxParallelism);
+    }
+
+    @Test
+    public void testRegionAndParallelism_useDefaultRegion() {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder()
+                        .connectOptions(
+                                StorageClientFaker.createConnectOptionsForQuery(false, null))
+                        .serializer(new AvroToProtoSerializer())
+                        .enableTableCreation(true)
+                        .streamExecutionEnvironment(env)
+                        .build();
+        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        assertEquals("us", sink.region);
+        assertEquals(512, sink.maxParallelism);
+    }
+
+    private static BigQueryConnectOptions getConnectOptions(boolean tableExists) {
+        return StorageClientFaker.createConnectOptions(
+                null,
+                new StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageWriteClient(null),
+                new StorageClientFaker.FakeBigQueryServices.FakeQueryDataClient(
+                        tableExists, null, null, null));
     }
 }

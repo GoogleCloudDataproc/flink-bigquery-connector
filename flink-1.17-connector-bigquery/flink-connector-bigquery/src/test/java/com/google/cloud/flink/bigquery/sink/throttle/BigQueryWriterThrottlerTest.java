@@ -27,28 +27,36 @@ import static org.junit.Assert.assertTrue;
 public class BigQueryWriterThrottlerTest {
 
     @Test
-    public void testThrottle() {
-        Duration duration = invokeThrottle(3);
+    public void testThrottle_defaultMaxParallelism() {
+        Duration duration = invokeThrottle(3, 128);
         assertTrue(duration.toMillis() >= 3000L);
+        assertTrue(duration.toMillis() < 4000L);
+    }
+
+    @Test
+    public void testThrottle_multiRegionMaxParallelism() {
+        Duration duration = invokeThrottle(171, 512);
+        assertTrue(duration.toMillis() >= 1000L);
+        assertTrue(duration.toMillis() < 2000L);
     }
 
     @Test
     public void testThrottle_withInterruptedException() {
         // Force interruption
         Thread.currentThread().interrupt();
-        Duration duration = invokeThrottle(3);
+        Duration duration = invokeThrottle(3, 128);
         assertTrue(duration.toMillis() < 3000L);
     }
 
     @Test
     public void testThrottle_withInvalidWriterId_expectNoThrottling() {
-        Duration duration = invokeThrottle(-1);
+        Duration duration = invokeThrottle(-1, 128);
         long waitSeconds = duration.toMillis() / 1000;
         assertTrue(waitSeconds == 0);
     }
 
-    private Duration invokeThrottle(int writerId) {
-        BigQueryWriterThrottler throttler = new BigQueryWriterThrottler(writerId);
+    private Duration invokeThrottle(int writerId, int maxParallelism) {
+        BigQueryWriterThrottler throttler = new BigQueryWriterThrottler(writerId, maxParallelism);
         Instant start = Instant.now();
         throttler.throttle();
         Instant end = Instant.now();

@@ -28,6 +28,7 @@ import com.google.api.services.bigquery.model.JobStatistics;
 import com.google.api.services.bigquery.model.JobStatistics2;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -146,6 +147,8 @@ public class StorageClientFaker {
             private final RuntimeException createDatasetError;
             private final RuntimeException createTableError;
 
+            private boolean datasetExists;
+            private String datasetRegion;
             private int tableExistsInvocations;
             private int createDatasetInvocations;
             private int createTableInvocations;
@@ -162,6 +165,17 @@ public class StorageClientFaker {
                 tableExistsInvocations = 0;
                 createDatasetInvocations = 0;
                 createTableInvocations = 0;
+                datasetExists = true;
+                datasetRegion = "us-central1";
+            }
+
+            public FakeQueryDataClient(boolean datasetExists, String datasetRegion) {
+                this.datasetExists = datasetExists;
+                this.datasetRegion = datasetRegion;
+                tableExists = false;
+                tableExistsError = null;
+                createDatasetError = null;
+                createTableError = null;
             }
 
             static FakeQueryDataClient defaultInstance =
@@ -197,6 +211,14 @@ public class StorageClientFaker {
             @Override
             public TableSchema getTableSchema(String project, String dataset, String table) {
                 return SIMPLE_BQ_TABLE_SCHEMA;
+            }
+
+            @Override
+            public Dataset getDataset(String project, String dataset) {
+                Dataset mockedDataset = Mockito.mock(Dataset.class);
+                Mockito.when(mockedDataset.exists()).thenReturn(datasetExists);
+                Mockito.when(mockedDataset.getLocation()).thenReturn(datasetRegion);
+                return mockedDataset;
             }
 
             @Override
@@ -879,6 +901,13 @@ public class StorageClientFaker {
         FakeBigQueryServices.FakeQueryDataClient queryClient =
                 new FakeBigQueryServices.FakeQueryDataClient(
                         tableExists, tableExistsError, createDatasetError, createTableError);
+        return createConnectOptions(null, null, queryClient);
+    }
+
+    public static BigQueryConnectOptions createConnectOptionsForQuery(
+            boolean datasetExists, String datasetRegion) {
+        FakeBigQueryServices.FakeQueryDataClient queryClient =
+                new FakeBigQueryServices.FakeQueryDataClient(datasetExists, datasetRegion);
         return createConnectOptions(null, null, queryClient);
     }
 

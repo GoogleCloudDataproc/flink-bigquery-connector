@@ -106,6 +106,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            int maxParallelism,
             String traceId,
             InitContext context) {
         this(
@@ -119,6 +120,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                 schemaProvider,
                 serializer,
                 createTableOptions,
+                maxParallelism,
                 traceId,
                 context);
     }
@@ -134,6 +136,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            int maxParallelism,
             String traceId,
             InitContext context) {
         super(
@@ -143,6 +146,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                 schemaProvider,
                 serializer,
                 createTableOptions,
+                maxParallelism,
                 traceId);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
