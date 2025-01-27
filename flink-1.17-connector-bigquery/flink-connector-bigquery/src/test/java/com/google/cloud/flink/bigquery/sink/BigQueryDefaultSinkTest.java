@@ -262,10 +262,10 @@ public class BigQueryDefaultSinkTest {
                         .serializer(new AvroToProtoSerializer())
                         .enableTableCreation(true)
                         .streamExecutionEnvironment(env)
-                        .region("us")
+                        .region("US")
                         .build();
         BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
-        assertEquals("us", sink.region);
+        assertEquals("US", sink.region);
         assertEquals(512, sink.maxParallelism);
     }
 

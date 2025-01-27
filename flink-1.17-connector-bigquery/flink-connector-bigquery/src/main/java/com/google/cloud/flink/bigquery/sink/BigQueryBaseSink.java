@@ -151,8 +151,10 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
     // Max sink parallelism is deduced using destination dataset's region.
     // Ensure instance variable 'region' is assigned before invoking this method.
     private int getMaxParallelism() {
-        if (BQ_MULTI_REGIONS.contains(region)) {
-            return MULTI_REGION_MAX_SINK_PARALLELISM;
+        for (String multiRegion : BQ_MULTI_REGIONS) {
+            if (multiRegion.equalsIgnoreCase(region)) {
+                return MULTI_REGION_MAX_SINK_PARALLELISM;
+            }
         }
         return DEFAULT_MAX_SINK_PARALLELISM;
     }
