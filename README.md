@@ -245,7 +245,7 @@ BigQuerySinkTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
         .project(...) // REQUIRED
         .dataset(...) // REQUIRED
         .streamExecutionEnvironment(env) // REQUIRED if deliveryGuarantee is EXACTLY_ONCE
-        .sinkParallelism(...) // OPTIONAL; Should be atmost 128
+        .sinkParallelism(...) // OPTIONAL;
         .deliveryGuarantee(...) // OPTIONAL; Default is AT_LEAST_ONCE
         .enableTableCreation(...) // OPTIONAL
         .partitionField(...) // OPTIONAL
@@ -303,11 +303,16 @@ Check out BigQuery SQL's [DDL](https://cloud.google.com/bigquery/docs/reference/
 ### Sink Details [MUST READ]
 
 * BigQuery sinks require that checkpoint is enabled.
-* When using a BigQuery sink, checkpoint timeout should be liberal (1+ minutes). This is because sink writers are
-  [throttled](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/05fe7b14f2dc688bc808f553c3f863ba2380e317/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/throttle/BigQueryWriterThrottler.java#L26) 
-  before they start sending data to BigQuery. Depending on the sink's parallelism, this throttling can be as high as 40 seconds. 
-  Throttling is necessary to gracefully handle BigQuery's rate limiting on certain APIs used by the sink writers. Note that this only
-  affects the first checkpoint.
+* The maximum parallelism of BigQuery sinks has been capped at **512** for multi-regions US or EU, and **128** for the rest.
+  This is to respect BigQuery storage [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while keeping
+  [throughput](https://cloud.google.com/bigquery/docs/write-api#connections) and
+  [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices) in mind. Users should either set
+  [sink level parallelism](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/execution/parallel/#operator-level)
+  explicitly, or ensure that default job level parallelism is under region-specific maximums (512 or 128).
+* When using a BigQuery sink, checkpoint timeout should be liberal. This is because sink writers are
+  [throttled](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/throttle/BigQueryWriterThrottler.java) 
+  before they start sending data to BigQuery. Depending on the destination dataset's region, an estimate of this throttling is 3 minutes for US and EU multi-regions, and 45 seconds for others. 
+  Throttling is necessary to gracefully handle BigQuery's rate limiting on certain APIs used by the sink writers. Note that this throttling happens once per writer, before the first checkpoint they encounter after   accepting data.
 * Delivery guarantee can be [at-least-once](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE) or 
   [exactly-once](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#EXACTLY_ONCE).
 * The at-least-once sink enables BigQuery client [multiplexing](https://cloud.google.com/bigquery/docs/write-api-streaming#use_multiplexing)
@@ -321,11 +326,6 @@ Check out BigQuery SQL's [DDL](https://cloud.google.com/bigquery/docs/reference/
   when maintaining records in avro format. Check Flink's [blog on non-trivial serialization](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/connector/base/DeliveryGuarantee.html#AT_LEAST_ONCE).
   Note that avro schema of an existing BigQuery table can be obtained from
   [BigQuerySchemaProviderImpl](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/serializer/BigQuerySchemaProviderImpl.java).
-* The maximum parallelism of BigQuery sinks has been capped at **128**. This is to respect BigQuery storage
-  [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while adhering to
-  [best usage practices](https://cloud.google.com/bigquery/docs/write-api-best-practices). Users should either set
-  [sink level parallelism](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/execution/parallel/#operator-level)
-  explicitly, or ensure that default job level parallelism is under 128.
 * BigQuerySinkConfig requires the StreamExecutionEnvironment if delivery guarantee is exactly-once.   
   **Restart strategy must be explicitly set in the StreamExecutionEnvironment**.  
   This is to [validate](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/92db3690c741fb2cdb99e28c575e19affb5c8b69/flink-1.17-connector-bigquery/flink-connector-bigquery/src/main/java/com/google/cloud/flink/bigquery/sink/BigQuerySinkConfig.java#L185) 

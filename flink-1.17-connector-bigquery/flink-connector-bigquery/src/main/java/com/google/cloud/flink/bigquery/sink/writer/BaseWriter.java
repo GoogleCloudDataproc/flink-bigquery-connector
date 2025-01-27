@@ -124,6 +124,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            int maxParallelism,
             String traceId) {
         this.subtaskId = subtaskId;
         this.tablePath = tablePath;
@@ -135,7 +136,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();
-        throttler = new BigQueryWriterThrottler(subtaskId);
+        throttler = new BigQueryWriterThrottler(subtaskId, maxParallelism);
     }
 
     /** Append pending records and validate all remaining append responses. */

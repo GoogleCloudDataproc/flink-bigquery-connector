@@ -35,6 +35,8 @@ import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.Dataset;
+import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
@@ -457,6 +459,12 @@ public class BigQueryServicesImpl implements BigQueryServices {
         @Override
         public TableSchema getTableSchema(String project, String dataset, String table) {
             return BigQueryTableInfo.getSchema(bigQuery, project, dataset, table);
+        }
+
+        @Override
+        public Dataset getDataset(String project, String dataset) {
+            DatasetId datasetId = DatasetId.of(project, dataset);
+            return bigQuery.getDataset(datasetId);
         }
 
         @Override

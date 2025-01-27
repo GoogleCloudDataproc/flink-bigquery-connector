@@ -22,6 +22,7 @@ import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
@@ -60,7 +61,7 @@ public class BigQueryExactlyOnceSinkTest {
     public void testConstructor() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -95,7 +96,7 @@ public class BigQueryExactlyOnceSinkTest {
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -113,7 +114,7 @@ public class BigQueryExactlyOnceSinkTest {
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -136,7 +137,7 @@ public class BigQueryExactlyOnceSinkTest {
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -161,7 +162,7 @@ public class BigQueryExactlyOnceSinkTest {
     public void testCreateCommitter() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -174,7 +175,7 @@ public class BigQueryExactlyOnceSinkTest {
     public void testGetCommittableSerializer() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
@@ -187,12 +188,20 @@ public class BigQueryExactlyOnceSinkTest {
     public void testGetWriterStateSerializer() {
         BigQuerySinkConfig sinkConfig =
                 BigQuerySinkConfig.newBuilder()
-                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
         BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
         assertNotNull(exactlyOnceSink.getWriterStateSerializer());
+    }
+
+    private static BigQueryConnectOptions getConnectOptions(boolean tableExists) {
+        return StorageClientFaker.createConnectOptions(
+                null,
+                new StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageWriteClient(null),
+                new StorageClientFaker.FakeBigQueryServices.FakeQueryDataClient(
+                        tableExists, null, null, null));
     }
 }

@@ -63,6 +63,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            int maxParallelism,
             String taceId,
             InitContext context) {
         super(
@@ -72,6 +73,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                 schemaProvider,
                 serializer,
                 createTableOptions,
+                maxParallelism,
                 taceId);
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;

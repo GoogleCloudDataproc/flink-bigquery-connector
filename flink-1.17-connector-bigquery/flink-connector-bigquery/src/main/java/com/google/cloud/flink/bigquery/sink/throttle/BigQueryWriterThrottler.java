@@ -16,7 +16,6 @@
 
 package com.google.cloud.flink.bigquery.sink.throttle;
 
-import com.google.cloud.flink.bigquery.sink.BigQueryExactlyOnceSink;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,18 +39,18 @@ import java.util.concurrent.TimeUnit;
  */
 public class BigQueryWriterThrottler implements Throttler {
 
-    // MAX_SINK_PARALLELISM is set as 128.
-    public static final int MAX_BUCKETS = BigQueryExactlyOnceSink.MAX_SINK_PARALLELISM / 3;
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryWriterThrottler.class);
     private final int writerId;
+    private final int maxBuckets;
 
-    public BigQueryWriterThrottler(int writerId) {
+    public BigQueryWriterThrottler(int writerId, int maxParallelism) {
         this.writerId = writerId;
+        this.maxBuckets = maxParallelism / 3;
     }
 
     @Override
     public void throttle() {
-        int waitSeconds = writerId % MAX_BUCKETS;
+        int waitSeconds = writerId % maxBuckets;
         LOG.debug("Throttling writer {} for {} second", writerId, waitSeconds);
         try {
             // Sleep does nothing if input is 0 or less.
