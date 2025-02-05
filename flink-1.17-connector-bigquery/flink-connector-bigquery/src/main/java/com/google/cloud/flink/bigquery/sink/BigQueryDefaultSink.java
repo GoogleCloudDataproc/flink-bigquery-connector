@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.SinkWriter;
 
+import com.google.cloud.flink.bigquery.services.BigQueryServicesImpl;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryDefaultWriter;
 
 /**
@@ -32,6 +33,7 @@ class BigQueryDefaultSink extends BigQueryBaseSink {
 
     BigQueryDefaultSink(BigQuerySinkConfig sinkConfig) {
         super(sinkConfig);
+        traceId = BigQueryServicesImpl.generateTraceId("default");
     }
 
     @Override
