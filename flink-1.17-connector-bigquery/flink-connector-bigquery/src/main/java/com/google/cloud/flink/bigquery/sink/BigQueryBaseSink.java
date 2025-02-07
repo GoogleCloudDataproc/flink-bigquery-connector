@@ -22,7 +22,6 @@ import org.apache.flink.util.StringUtils;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.services.BigQueryServicesImpl;
 import com.google.cloud.flink.bigquery.sink.client.BigQueryClientWithErrorHandling;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
@@ -62,7 +61,7 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
     final List<String> clusteredFields;
     final String region;
     final int maxParallelism;
-    final String traceId;
+    String traceId;
 
     BigQueryBaseSink(BigQuerySinkConfig sinkConfig) {
         validateSinkConfig(sinkConfig);
@@ -86,7 +85,6 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
         clusteredFields = sinkConfig.getClusteredFields();
         region = getRegion(sinkConfig.getRegion());
         maxParallelism = getMaxParallelism();
-        traceId = BigQueryServicesImpl.generateTraceId();
     }
 
     private void validateSinkConfig(BigQuerySinkConfig sinkConfig) {

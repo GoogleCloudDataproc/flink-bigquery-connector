@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.api.connector.sink2.Committer;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
+import com.google.cloud.flink.bigquery.services.BigQueryServicesImpl;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittableSerializer;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
@@ -28,6 +29,7 @@ import com.google.cloud.flink.bigquery.sink.writer.BigQueryWriterStateSerializer
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.UUID;
 
 /**
  * Sink to write data into a BigQuery table using {@link BigQueryBufferedWriter}.
@@ -44,6 +46,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
 
     BigQueryExactlyOnceSink(BigQuerySinkConfig sinkConfig) {
         super(sinkConfig);
+        traceId = BigQueryServicesImpl.generateTraceId(UUID.randomUUID().toString());
     }
 
     @Override

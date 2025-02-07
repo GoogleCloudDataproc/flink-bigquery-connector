@@ -77,7 +77,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -572,7 +571,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
     }
 
-    public static final String generateTraceId() {
-        return String.format(TRACE_ID_FORMAT, FLINK_VERSION, UUID.randomUUID().toString());
+    public static final String generateTraceId(String suffix) {
+        return String.format(TRACE_ID_FORMAT, FLINK_VERSION, suffix);
     }
 }
