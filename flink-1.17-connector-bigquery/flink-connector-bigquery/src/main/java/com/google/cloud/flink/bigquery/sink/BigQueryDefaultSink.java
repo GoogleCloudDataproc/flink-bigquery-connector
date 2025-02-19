@@ -29,17 +29,17 @@ import com.google.cloud.flink.bigquery.sink.writer.BigQueryDefaultWriter;
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
  * <li>Checkpointing disabled (NOT RECOMMENDED!): no consistency guarantee.
  */
-class BigQueryDefaultSink extends BigQueryBaseSink {
+class BigQueryDefaultSink<IN> extends BigQueryBaseSink<IN> {
 
-    BigQueryDefaultSink(BigQuerySinkConfig sinkConfig) {
+    BigQueryDefaultSink(BigQuerySinkConfig<IN> sinkConfig) {
         super(sinkConfig);
         traceId = BigQueryServicesImpl.generateTraceId("default");
     }
 
     @Override
-    public SinkWriter createWriter(InitContext context) {
+    public SinkWriter<IN> createWriter(InitContext context) {
         checkParallelism(context.getNumberOfParallelSubtasks());
-        return new BigQueryDefaultWriter(
+        return new BigQueryDefaultWriter<>(
                 tablePath,
                 connectOptions,
                 schemaProvider,

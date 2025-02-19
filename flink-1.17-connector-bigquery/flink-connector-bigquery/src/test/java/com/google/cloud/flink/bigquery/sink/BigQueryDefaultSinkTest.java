@@ -28,6 +28,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
 import com.google.protobuf.ByteString;
+import org.apache.avro.generic.GenericRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,14 +63,14 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testConstructor() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<Object> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertEquals("projects/project/datasets/dataset/tables/table", sink.tablePath);
         assertNotNull(sink.serializer);
         assertNotNull(sink.schemaProvider.getAvroSchema());
@@ -80,7 +81,7 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testConstructor_withoutConnectOptions() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(null)
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
@@ -89,7 +90,7 @@ public class BigQueryDefaultSinkTest {
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
-                        IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
+                        IllegalArgumentException.class, () -> new BigQueryDefaultSink<>(sinkConfig));
         assertThat(exception)
                 .hasMessageThat()
                 .contains("connect options in sink config cannot be null");
@@ -98,8 +99,8 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testConstructor_withoutSerializer() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(null)
@@ -107,21 +108,21 @@ public class BigQueryDefaultSinkTest {
                         .build();
         IllegalArgumentException exception =
                 assertThrows(
-                        IllegalArgumentException.class, () -> new BigQueryDefaultSink(sinkConfig));
+                        IllegalArgumentException.class, () -> new BigQueryDefaultSink<>(sinkConfig));
         assertThat(exception).hasMessageThat().contains("serializer in sink config cannot be null");
     }
 
     @Test
     public void testConstructor_withCreateTable_withoutExistingTable() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(getConnectOptions(false))
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .enableTableCreation(true)
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<Object> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertNull(sink.schemaProvider.getAvroSchema());
         assertTrue(sink.schemaProvider.schemaUnknown());
         assertTrue(sink.enableTableCreation);
@@ -130,14 +131,14 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testConstructor_withCreateTable_withExistingTable() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .enableTableCreation(true)
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<Object> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertNotNull(sink.schemaProvider.getAvroSchema());
         assertFalse(sink.schemaProvider.schemaUnknown());
         assertTrue(sink.enableTableCreation);
@@ -146,7 +147,7 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testConstructor_withoutCreateTable_withoutExistingTable() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(getConnectOptions(false))
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
@@ -154,7 +155,7 @@ public class BigQueryDefaultSinkTest {
                         .build();
         IllegalStateException exception =
                 assertThrows(
-                        IllegalStateException.class, () -> new BigQueryDefaultSink(sinkConfig));
+                        IllegalStateException.class, () -> new BigQueryDefaultSink<>(sinkConfig));
         assertThat(exception)
                 .hasMessageThat()
                 .contains("table does not exist and table creation is not enabled");
@@ -168,14 +169,14 @@ public class BigQueryDefaultSinkTest {
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryDefaultSink defaultSink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<Object> defaultSink = new BigQueryDefaultSink<>(sinkConfig);
         assertNotNull(defaultSink.createWriter(mockedContext));
     }
 
@@ -185,7 +186,7 @@ public class BigQueryDefaultSinkTest {
         InitContext mockedContext = Mockito.mock(InitContext.class);
         Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
-        BigQuerySinkConfig sinkConfig =
+        BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
@@ -195,7 +196,7 @@ public class BigQueryDefaultSinkTest {
         IllegalStateException exception =
                 assertThrows(
                         IllegalStateException.class,
-                        () -> new BigQueryDefaultSink(sinkConfig).createWriter(mockedContext));
+                        () -> new BigQueryDefaultSink<>(sinkConfig).createWriter(mockedContext));
         assertThat(exception)
                 .hasMessageThat()
                 .contains("Attempting to create more Sink Writers than allowed");
@@ -204,8 +205,8 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testRegionAndParallelism_datasetExists_providedRegionOverridden() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(
                                 StorageClientFaker.createConnectOptionsForQuery(
                                         true, "us-central1"))
@@ -214,7 +215,7 @@ public class BigQueryDefaultSinkTest {
                         .streamExecutionEnvironment(env)
                         .region("us")
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<GenericRecord> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertEquals("us-central1", sink.region);
         assertEquals(128, sink.maxParallelism);
     }
@@ -222,15 +223,15 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testRegionAndParallelism_datasetExistsMultiRegion_providedRegionOverridden() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForQuery(true, "us"))
                         .serializer(new AvroToProtoSerializer())
                         .enableTableCreation(true)
                         .streamExecutionEnvironment(env)
                         .region("us-central1")
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<GenericRecord> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertEquals("us", sink.region);
         assertEquals(512, sink.maxParallelism);
     }
@@ -238,8 +239,8 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testRegionAndParallelism_useProvidedRegion() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(
                                 StorageClientFaker.createConnectOptionsForQuery(false, null))
                         .serializer(new AvroToProtoSerializer())
@@ -247,7 +248,7 @@ public class BigQueryDefaultSinkTest {
                         .streamExecutionEnvironment(env)
                         .region("us-central1")
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<GenericRecord> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertEquals("us-central1", sink.region);
         assertEquals(128, sink.maxParallelism);
     }
@@ -255,8 +256,8 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testRegionAndParallelism_useProvidedMultiRegion() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(
                                 StorageClientFaker.createConnectOptionsForQuery(false, null))
                         .serializer(new AvroToProtoSerializer())
@@ -264,7 +265,7 @@ public class BigQueryDefaultSinkTest {
                         .streamExecutionEnvironment(env)
                         .region("US")
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<GenericRecord> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertEquals("US", sink.region);
         assertEquals(512, sink.maxParallelism);
     }
@@ -272,15 +273,15 @@ public class BigQueryDefaultSinkTest {
     @Test
     public void testRegionAndParallelism_useDefaultRegion() {
         env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(
                                 StorageClientFaker.createConnectOptionsForQuery(false, null))
                         .serializer(new AvroToProtoSerializer())
                         .enableTableCreation(true)
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryDefaultSink sink = new BigQueryDefaultSink(sinkConfig);
+        BigQueryDefaultSink<GenericRecord> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertEquals("us", sink.region);
         assertEquals(512, sink.maxParallelism);
     }
