@@ -24,6 +24,7 @@ import org.apache.flink.api.common.restartstrategy.RestartStrategies.NoRestartSt
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.RestartStrategyConfiguration;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.LogicalType;
 
 import com.google.cloud.bigquery.TimePartitioning;
@@ -44,7 +45,7 @@ import java.util.Objects;
  *
  * <p>Uses static inner builder to initialize new instances.
  */
-public class BigQuerySinkConfig {
+public class BigQuerySinkConfig<IN> {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
     private static final long MILLISECONDS_PER_SECOND = 1000L;
@@ -54,7 +55,7 @@ public class BigQuerySinkConfig {
     private final BigQueryConnectOptions connectOptions;
     private final DeliveryGuarantee deliveryGuarantee;
     private final BigQuerySchemaProvider schemaProvider;
-    private final BigQueryProtoSerializer serializer;
+    private final BigQueryProtoSerializer<IN> serializer;
     private final boolean enableTableCreation;
     private final String partitionField;
     private final TimePartitioning.Type partitionType;
@@ -62,8 +63,8 @@ public class BigQuerySinkConfig {
     private final List<String> clusteredFields;
     private final String region;
 
-    public static Builder newBuilder() {
-        return new Builder();
+    public static <IN> Builder<IN> newBuilder() {
+        return new Builder<>();
     }
 
     @Override
@@ -92,7 +93,7 @@ public class BigQuerySinkConfig {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        BigQuerySinkConfig object = (BigQuerySinkConfig) obj;
+        BigQuerySinkConfig<IN> object = (BigQuerySinkConfig<IN>) obj;
         return (this.getConnectOptions() == object.getConnectOptions()
                 && (this.getSerializer().getClass() == object.getSerializer().getClass())
                 && (this.getDeliveryGuarantee() == object.getDeliveryGuarantee())
@@ -110,7 +111,7 @@ public class BigQuerySinkConfig {
             BigQueryConnectOptions connectOptions,
             DeliveryGuarantee deliveryGuarantee,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer serializer,
+            BigQueryProtoSerializer<IN> serializer,
             boolean enableTableCreation,
             String partitionField,
             TimePartitioning.Type partitionType,
@@ -137,7 +138,7 @@ public class BigQuerySinkConfig {
         return deliveryGuarantee;
     }
 
-    public BigQueryProtoSerializer getSerializer() {
+    public BigQueryProtoSerializer<IN> getSerializer() {
         return serializer;
     }
 
@@ -170,12 +171,12 @@ public class BigQuerySinkConfig {
     }
 
     /** Builder for BigQuerySinkConfig. */
-    public static class Builder {
+    public static class Builder<IN> {
 
         private BigQueryConnectOptions connectOptions;
         private DeliveryGuarantee deliveryGuarantee;
         private BigQuerySchemaProvider schemaProvider;
-        private BigQueryProtoSerializer serializer;
+        private BigQueryProtoSerializer<IN> serializer;
         private boolean enableTableCreation;
         private String partitionField;
         private TimePartitioning.Type partitionType;
@@ -184,67 +185,67 @@ public class BigQuerySinkConfig {
         private String region;
         private StreamExecutionEnvironment env;
 
-        public Builder connectOptions(BigQueryConnectOptions connectOptions) {
+        public Builder<IN> connectOptions(BigQueryConnectOptions connectOptions) {
             this.connectOptions = connectOptions;
             return this;
         }
 
-        public Builder deliveryGuarantee(DeliveryGuarantee deliveryGuarantee) {
+        public Builder<IN> deliveryGuarantee(DeliveryGuarantee deliveryGuarantee) {
             this.deliveryGuarantee = deliveryGuarantee;
             return this;
         }
 
-        public Builder schemaProvider(BigQuerySchemaProvider schemaProvider) {
+        public Builder<IN> schemaProvider(BigQuerySchemaProvider schemaProvider) {
             this.schemaProvider = schemaProvider;
             return this;
         }
 
-        public Builder serializer(BigQueryProtoSerializer serializer) {
+        public Builder<IN> serializer(BigQueryProtoSerializer<IN> serializer) {
             this.serializer = serializer;
             return this;
         }
 
-        public Builder enableTableCreation(boolean enableTableCreation) {
+        public Builder<IN> enableTableCreation(boolean enableTableCreation) {
             this.enableTableCreation = enableTableCreation;
             return this;
         }
 
-        public Builder partitionField(String partitionField) {
+        public Builder<IN> partitionField(String partitionField) {
             this.partitionField = partitionField;
             return this;
         }
 
-        public Builder partitionType(TimePartitioning.Type partitionType) {
+        public Builder<IN> partitionType(TimePartitioning.Type partitionType) {
             this.partitionType = partitionType;
             return this;
         }
 
-        public Builder partitionExpirationMillis(Long partitionExpirationMillis) {
+        public Builder<IN> partitionExpirationMillis(Long partitionExpirationMillis) {
             this.partitionExpirationMillis = partitionExpirationMillis;
             return this;
         }
 
-        public Builder clusteredFields(List<String> clusteredFields) {
+        public Builder<IN> clusteredFields(List<String> clusteredFields) {
             this.clusteredFields = clusteredFields;
             return this;
         }
 
-        public Builder region(String region) {
+        public Builder<IN> region(String region) {
             this.region = region;
             return this;
         }
 
-        public Builder streamExecutionEnvironment(
+        public Builder<IN> streamExecutionEnvironment(
                 StreamExecutionEnvironment streamExecutionEnvironment) {
             this.env = streamExecutionEnvironment;
             return this;
         }
 
-        public BigQuerySinkConfig build() {
+        public BigQuerySinkConfig<IN> build() {
             if (deliveryGuarantee == DeliveryGuarantee.EXACTLY_ONCE) {
                 validateStreamExecutionEnvironment(env);
             }
-            return new BigQuerySinkConfig(
+            return new BigQuerySinkConfig<>(
                     connectOptions,
                     deliveryGuarantee,
                     schemaProvider,
@@ -262,7 +263,7 @@ public class BigQuerySinkConfig {
     // This method is used internally to create sink config for the Table API integration.
     // Note that the serializer is hard coded for Flink Table's RowData.
     @Internal
-    public static BigQuerySinkConfig forTable(
+    public static BigQuerySinkConfig<RowData> forTable(
             BigQueryConnectOptions connectOptions,
             DeliveryGuarantee deliveryGuarantee,
             LogicalType logicalType,
@@ -272,7 +273,7 @@ public class BigQuerySinkConfig {
             Long partitionExpirationMillis,
             List<String> clusteredFields,
             String region) {
-        return new BigQuerySinkConfig(
+        return new BigQuerySinkConfig<>(
                 connectOptions,
                 deliveryGuarantee,
                 new BigQuerySchemaProviderImpl(

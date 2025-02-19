@@ -21,7 +21,7 @@ import com.google.protobuf.ByteString;
 import org.apache.avro.Schema;
 
 /** Mock serializer for Sink unit tests. */
-public class FakeBigQuerySerializer extends BigQueryProtoSerializer {
+public class FakeBigQuerySerializer extends BigQueryProtoSerializer<Object> {
 
     private static final FakeBigQuerySerializer EMPTY_SERIALIZER =
             new FakeBigQuerySerializer(null, null, false);
