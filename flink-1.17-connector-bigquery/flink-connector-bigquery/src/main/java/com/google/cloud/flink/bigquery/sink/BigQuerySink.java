@@ -40,12 +40,12 @@ public class BigQuerySink {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
 
-    public static Sink get(BigQuerySinkConfig sinkConfig) {
+    public static <IN> Sink<IN> get(BigQuerySinkConfig<IN> sinkConfig) {
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
-            return new BigQueryDefaultSink(sinkConfig);
+            return new BigQueryDefaultSink<>(sinkConfig);
         }
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.EXACTLY_ONCE) {
-            return new BigQueryExactlyOnceSink(sinkConfig);
+            return new BigQueryExactlyOnceSink<>(sinkConfig);
         }
         LOG.error(
                 "BigQuery sink does not support {} delivery guarantee. Use AT_LEAST_ONCE or EXACTLY_ONCE.",
