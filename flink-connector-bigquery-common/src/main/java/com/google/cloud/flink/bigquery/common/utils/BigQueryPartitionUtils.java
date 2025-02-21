@@ -21,14 +21,11 @@ import org.apache.flink.util.Preconditions;
 
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.services.PartitionIdWithInfo;
-import com.google.cloud.flink.bigquery.services.PartitionIdWithInfoAndStatus;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
 import org.apache.commons.lang3.StringUtils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -36,12 +33,10 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Utility class to handle the BigQuery partition conversions to Flink types and structures. */
@@ -355,105 +350,6 @@ public class BigQueryPartitionUtils {
                             }
                         })
                 .orElse(String.format("%s = %s", columnNameFromSQL, valueFromSQL));
-    }
-
-    static PartitionIdWithInfoAndStatus retrievePartitionInfoWithStatus(
-            PartitionIdWithInfo partition, Function<String, Long> parseAndManipulatePartitionTS) {
-        return partitionValuesFromIdAndDataType(
-                        Arrays.asList(partition.getPartitionId()),
-                        partition.getInfo().getColumnType())
-                .stream()
-                .map(parseAndManipulatePartitionTS)
-                .filter(
-                        nextPartitionTs ->
-                                partition
-                                        .getInfo()
-                                        .getStreamingBufferOldestEntryTime()
-                                        .isAfter(Instant.ofEpochSecond(nextPartitionTs)))
-                .map(
-                        i ->
-                                new PartitionIdWithInfoAndStatus(
-                                        partition.getPartitionId(),
-                                        partition.getInfo(),
-                                        BigQueryPartitionUtils.PartitionStatus.COMPLETED))
-                .findFirst()
-                .orElse(
-                        new PartitionIdWithInfoAndStatus(
-                                partition.getPartitionId(),
-                                partition.getInfo(),
-                                BigQueryPartitionUtils.PartitionStatus.IN_PROGRESS));
-    }
-
-    static Instant retrieveEpochSecondsFromParsedTemporal(SimpleDateFormat sdf, String tsString) {
-        try {
-            return sdf.parse(tsString).toInstant();
-        } catch (ParseException ex) {
-            throw new RuntimeException(
-                    "Problems while parsing temporal info from: " + tsString, ex);
-        }
-    }
-
-    // TODO: currently, time based partitioning attribute is checked against the ingestion time of
-    // BigQuery table's buffer stream's oldest entry. Hence, there is a logical mismatch where
-    // "event time" is being compared with "ingestion time". In subsequent versions of the
-    // connector,
-    // replace this implementation of partition completeness with a configurable lateness duration
-    // where a partition would be considered complete after a certain amount of time has elapsed
-    // after the partition's end instant.
-    public static PartitionIdWithInfoAndStatus checkPartitionCompleted(
-            PartitionIdWithInfo partition) {
-        switch (partition.getInfo().getPartitionType()) {
-            case HOUR:
-                {
-                    return retrievePartitionInfoWithStatus(
-                            partition,
-                            tsString ->
-                                    retrieveEpochSecondsFromParsedTemporal(
-                                                    SQL_HOUR_FORMAT, tsString)
-                                            // an hour
-                                            .plusSeconds(HOUR_SECONDS)
-                                            .getEpochSecond());
-                }
-            case DAY:
-                {
-                    return retrievePartitionInfoWithStatus(
-                            partition,
-                            tsString ->
-                                    retrieveEpochSecondsFromParsedTemporal(SQL_DAY_FORMAT, tsString)
-                                            // a day
-                                            .plusSeconds(DAY_SECONDS)
-                                            .getEpochSecond());
-                }
-            case MONTH:
-                {
-                    return retrievePartitionInfoWithStatus(
-                            partition,
-                            tsString ->
-                                    retrieveEpochSecondsFromParsedTemporal(
-                                                    SQL_MONTH_FORMAT, tsString)
-                                            // a month
-                                            .plusSeconds(MONTH_SECONDS)
-                                            .getEpochSecond());
-                }
-            case YEAR:
-                {
-                    return retrievePartitionInfoWithStatus(
-                            partition,
-                            tsString ->
-                                    retrieveEpochSecondsFromParsedTemporal(
-                                                    SQL_YEAR_FORMAT, tsString)
-                                            .plusSeconds(YEAR_SECONDS)
-                                            .getEpochSecond());
-                }
-            case INT_RANGE:
-                return new PartitionIdWithInfoAndStatus(
-                        partition.getPartitionId(),
-                        partition.getInfo(),
-                        BigQueryPartitionUtils.PartitionStatus.COMPLETED);
-            default:
-                throw new IllegalArgumentException(
-                        "Partition type not supported: " + partition.getInfo().getPartitionType());
-        }
     }
 
     public static List<String> partitionValuesFromIdAndDataType(

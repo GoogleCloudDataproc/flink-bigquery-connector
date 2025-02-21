@@ -17,7 +17,6 @@
 package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
@@ -74,9 +73,7 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_FILE);
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
         additionalOptions.add(BigQueryConnectorOptions.TEST_MODE);
-        additionalOptions.add(BigQueryConnectorOptions.MODE);
         additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
-        additionalOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
         additionalOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
         additionalOptions.add(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_FIELD);
@@ -96,7 +93,6 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.DATASET);
         forwardOptions.add(BigQueryConnectorOptions.TABLE);
         forwardOptions.add(BigQueryConnectorOptions.LIMIT);
-        forwardOptions.add(BigQueryConnectorOptions.MODE);
         forwardOptions.add(BigQueryConnectorOptions.ROW_RESTRICTION);
         forwardOptions.add(BigQueryConnectorOptions.COLUMNS_PROJECTION);
         forwardOptions.add(BigQueryConnectorOptions.MAX_STREAM_COUNT);
@@ -105,7 +101,6 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_FILE);
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
         forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
-        forwardOptions.add(BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL);
         forwardOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
         forwardOptions.add(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_FIELD);
@@ -132,11 +127,7 @@ public class BigQueryDynamicTableFactory
 
         // Create a Source depending on the boundedness.
         return new BigQueryDynamicTableSource(
-                configProvider.toBigQueryReadOptions(),
-                context.getPhysicalRowDataType(),
-                configProvider.isUnboundedEnabled()
-                        ? Boundedness.CONTINUOUS_UNBOUNDED
-                        : Boundedness.BOUNDED);
+                configProvider.toBigQueryReadOptions(), context.getPhysicalRowDataType());
     }
 
     static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {

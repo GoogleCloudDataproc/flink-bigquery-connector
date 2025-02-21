@@ -18,17 +18,10 @@
 package com.google.cloud.flink.bigquery.examples;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.connector.base.DeliveryGuarantee;
-import org.apache.flink.connector.base.source.hybrid.HybridSource;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.util.Collector;
 
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -42,8 +35,6 @@ import org.apache.avro.generic.GenericRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
-
 /**
  * A simple BigQuery table read example with Flink's DataStream API.
  *
@@ -51,15 +42,12 @@ import java.time.Duration;
  * command line arguments, returning {@link GenericRecord} representing the rows, and print the
  * result of specified operations or write to a BigQuery table via sink.
  *
- * <p>This example module should be used in one of the following two ways.
+ * <p>This example module should be used as mentioned:
  *
  * <ol>
- *   <li>Specify the BQ dataset and table with an optional row restriction. Users can configure a
- *       source mode, i.e bounded, unbounded or hybrid. Bounded implies that the BQ table will be
- *       read once at the time of execution, analogous to a batch job. Unbounded source implies that
- *       the BQ table will be periodically polled for new data. Hybrid source allows defining
- *       multiple sources, and in this example, we show a combination of bounded and unbounded
- *       sources. The resulting records can be written to another BQ table, with allowed delivery
+ *   <li>Specify the BQ dataset and table with an optional row restriction. Source mode is bounded,
+ *       implying that the BQ table will be read once at the time of execution, analogous to a batch
+ *       job. The resulting records can be written to another BQ table, with allowed delivery
  *       guarantees at-least-once or exactly-once. <br>
  *       Flink command line format is: <br>
  *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
@@ -71,34 +59,12 @@ import java.time.Duration;
  *       --bq-sink-table {required; name of table to write to} <br>
  *       --sink-partition-field {optional; partition field for destination table. Also enables table
  *       creation} <br>
- *       --mode {optional; source read type. Allowed values are <i>bounded</i> (default),
- *       <i>unbounded</i> or <i>hybrid</i>} <br>
- *       --agg-prop {required; record property to aggregate in Flink job. Value must be string} <br>
- *       --ts-prop {required for unbounded/hybrid mode; property record for timestamp} <br>
- *       --oldest-partition-id {optional; oldest partition id to read. Used in unbounded/hybrid
- *       mode} <br>
+ *       --str-prop {required; record property to modify in Flink job. Value must be string} <br>
  *       --restriction {optional; SQL filter applied at the BigQuery table before reading} <br>
  *       --limit {optional; maximum records to read from BigQuery table} <br>
  *       --checkpoint-interval {optional; milliseconds between state checkpoints} <br>
- *       --partition-discovery-interval {optional; minutes between polling table for new data. Used
- *       in unbounded/hybrid mode} <br>
- *       --out-of-order-tolerance {optional; out of order event tolerance in minutes. Used in
- *       unbounded/hybrid mode} <br>
- *       --max-idleness {optional; minutes to wait before marking a stream partition idle. Used in
- *       unbounded/hybrid mode} <br>
- *       --window-size {optional; window size in minutes. Used in unbounded/hybrid mode}
  *       --delivery-guarantee {optional; sink consistency. Allowed values are <i>at-least-once</i>
  *       (default) or <i>exactly-once</i>}
- *   <li>Specify SQL query to fetch data from BQ dataset. For example, "SELECT * FROM
- *       some_dataset.INFORMATION_SCHEMA.PARTITIONS". This approach can only be used as a bounded
- *       source. <br>
- *       The sequence of operations in this pipeline is: <i>source > print</i> <br>
- *       Flink command line format is: <br>
- *       flink run {additional runtime params} {path to this jar}/BigQueryExample.jar <br>
- *       --gcp-project {required; project ID which contains the BigQuery table} <br>
- *       --query {required; SQL query to fetch data from BigQuery table} <br>
- *       --limit {optional; maximum records to read from BigQuery table} <br>
- *       --checkpoint-interval {optional; time interval between state checkpoints in milliseconds}
  * </ol>
  *
  * <p>Note on row restriction: In case a restriction relies on temporal reference, something like
@@ -126,18 +92,10 @@ public class BigQueryExample {
                             + " --bq-sink-dataset <dataset name for sink table>"
                             + " --bq-sink-table <sink table name>"
                             + " --sink-partition-field <sink table partition field>"
-                            + " --agg-prop <record property to aggregate (value must be string!)>"
-                            + " --mode <source type>"
+                            + " --str-prop <record property to modify (value must be string!)>"
                             + " --restriction <row filter predicate>"
                             + " --limit <limit on records returned>"
                             + " --checkpoint-interval <milliseconds between state checkpoints>"
-                            + " --query <SQL query to get data from BQ table>"
-                            + " --ts-prop <timestamp property>"
-                            + " --oldest-partition-id <oldest partition to read>"
-                            + " --partition-discovery-interval <minutes between checking new data>"
-                            + " --out-of-order-tolerance <minutes to accpet out of order records>"
-                            + " --max-idleness <maximum idle minutes for read stream>"
-                            + " --window-size <Flink's window size in minutes>"
                             + " --delivery-guarantee <sink's write consistency>");
             return;
         }
@@ -148,24 +106,12 @@ public class BigQueryExample {
          * BigQueryConnectOptions) should enable capturing the credentials from various sources.
          */
         String sourceProjectName = parameterTool.getRequired("gcp-source-project");
-        String query = parameterTool.get("query", "");
         Integer recordLimit = parameterTool.getInt("limit", -1);
         Long checkpointInterval = parameterTool.getLong("checkpoint-interval", 60000L);
-        if (!query.isEmpty()) {
-            runQueryFlinkJob(sourceProjectName, query, recordLimit, checkpointInterval);
-            return;
-        }
         String sourceDatasetName = parameterTool.getRequired("bq-source-dataset");
         String sourceTableName = parameterTool.getRequired("bq-source-table");
         String rowRestriction = parameterTool.get("restriction", "").replace("\\u0027", "'");
-        String recordPropertyToAggregate = parameterTool.getRequired("agg-prop");
-        String mode = parameterTool.get("mode", "bounded");
-        String oldestPartition = parameterTool.get("oldest-partition-id", "");
-        Integer partitionDiscoveryInterval =
-                parameterTool.getInt("partition-discovery-interval", 10);
-        Integer maxOutOfOrder = parameterTool.getInt("out-of-order-tolerance", 10);
-        Integer maxIdleness = parameterTool.getInt("max-idleness", 20);
-        Integer windowSize = parameterTool.getInt("window-size", 1);
+        String recordPropertyToUse = parameterTool.getRequired("str-prop");
         String deliveryGuarantee = parameterTool.get("delivery-guarantee", "at-least-once");
         DeliveryGuarantee sinkMode;
         switch (deliveryGuarantee) {
@@ -182,91 +128,23 @@ public class BigQueryExample {
                                 deliveryGuarantee));
         }
 
-        String recordPropertyForTimestamps;
-        String sinkProjectName;
-        String sinkDatasetName;
-        String sinkTableName;
-        String sinkPartitionField;
-        switch (mode) {
-            case "bounded":
-                sinkProjectName = parameterTool.getRequired("gcp-sink-project");
-                sinkDatasetName = parameterTool.getRequired("bq-sink-dataset");
-                sinkTableName = parameterTool.getRequired("bq-sink-table");
-                sinkPartitionField = parameterTool.get("sink-partition-field", null);
-                runBoundedFlinkJob(
-                        sourceProjectName,
-                        sourceDatasetName,
-                        sourceTableName,
-                        sinkProjectName,
-                        sinkDatasetName,
-                        sinkTableName,
-                        sinkPartitionField,
-                        recordPropertyToAggregate,
-                        rowRestriction,
-                        recordLimit,
-                        checkpointInterval,
-                        sinkMode);
-                break;
-            case "unbounded":
-                sinkProjectName = parameterTool.getRequired("gcp-sink-project");
-                sinkDatasetName = parameterTool.getRequired("bq-sink-dataset");
-                sinkTableName = parameterTool.getRequired("bq-sink-table");
-                recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                sinkPartitionField = parameterTool.get("sink-partition-field", null);
-                runStreamingFlinkJob(
-                        sourceProjectName,
-                        sourceDatasetName,
-                        sourceTableName,
-                        sinkProjectName,
-                        sinkDatasetName,
-                        sinkTableName,
-                        sinkPartitionField,
-                        recordPropertyToAggregate,
-                        recordPropertyForTimestamps,
-                        rowRestriction,
-                        recordLimit,
-                        checkpointInterval,
-                        oldestPartition,
-                        partitionDiscoveryInterval,
-                        maxOutOfOrder,
-                        maxIdleness,
-                        sinkMode);
-                break;
-            case "hybrid":
-                recordPropertyForTimestamps = parameterTool.getRequired("ts-prop");
-                runHybridFlinkJob(
-                        sourceProjectName,
-                        sourceDatasetName,
-                        sourceTableName,
-                        recordPropertyToAggregate,
-                        recordPropertyForTimestamps,
-                        rowRestriction,
-                        checkpointInterval,
-                        oldestPartition,
-                        partitionDiscoveryInterval,
-                        maxOutOfOrder,
-                        maxIdleness,
-                        windowSize);
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Allowed values for mode are bounded, unbounded or hybrid. Found " + mode);
-        }
-    }
-
-    private static void runQueryFlinkJob(
-            String projectName, String query, Integer limit, Long checkpointInterval)
-            throws Exception {
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
-
-        BigQuerySource<GenericRecord> bqSource =
-                BigQuerySource.readAvrosFromQuery(query, projectName, limit);
-
-        env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQueryQuerySource").print();
-
-        env.execute("Flink BigQuery Query Example");
+        String sinkProjectName = parameterTool.getRequired("gcp-sink-project");
+        String sinkDatasetName = parameterTool.getRequired("bq-sink-dataset");
+        String sinkTableName = parameterTool.getRequired("bq-sink-table");
+        String sinkPartitionField = parameterTool.get("sink-partition-field", null);
+        runBoundedFlinkJob(
+                sourceProjectName,
+                sourceDatasetName,
+                sourceTableName,
+                sinkProjectName,
+                sinkDatasetName,
+                sinkTableName,
+                sinkPartitionField,
+                recordPropertyToUse,
+                rowRestriction,
+                recordLimit,
+                checkpointInterval,
+                sinkMode);
     }
 
     private static void runBoundedFlinkJob(
@@ -277,7 +155,7 @@ public class BigQueryExample {
             String sinkDatasetName,
             String sinkTableName,
             String sinkPartitionField,
-            String recordPropertyToAggregate,
+            String recordPropertyToUse,
             String rowRestriction,
             Integer limit,
             Long checkpointInterval,
@@ -324,12 +202,12 @@ public class BigQueryExample {
         }
 
         env.fromSource(source, WatermarkStrategy.noWatermarks(), "BigQuerySource")
-                .keyBy(record -> record.get(recordPropertyToAggregate).hashCode() % 10000)
+                .keyBy(record -> record.get(recordPropertyToUse).hashCode() % 10000)
                 .map(
                         (GenericRecord genericRecord) -> {
                             genericRecord.put(
-                                    recordPropertyToAggregate,
-                                    genericRecord.get(recordPropertyToAggregate).toString()
+                                    recordPropertyToUse,
+                                    genericRecord.get(recordPropertyToUse).toString()
                                             + "_modified");
                             return genericRecord;
                         })
@@ -344,186 +222,6 @@ public class BigQueryExample {
                                         .getAvroSchema()))
                 .sinkTo(BigQuerySink.get(sinkConfigBuilder.build()));
 
-        env.execute("Flink BigQuery Bounded Read Example");
-    }
-
-    private static void runStreamingFlinkJob(
-            String sourceProjectName,
-            String sourceDatasetName,
-            String sourceTableName,
-            String sinkProjectName,
-            String sinkDatasetName,
-            String sinkTableName,
-            String sinkPartitionField,
-            String recordPropertyToAggregate,
-            String recordPropertyForTimestamps,
-            String rowRestriction,
-            Integer limit,
-            Long checkpointInterval,
-            String oldestPartition,
-            Integer partitionDiscoveryInterval,
-            Integer maxOutOfOrder,
-            Integer maxIdleness,
-            DeliveryGuarantee sinkMode)
-            throws Exception {
-
-        BigQueryConnectOptions sourceConnectOptions =
-                BigQueryConnectOptions.builder()
-                        .setProjectId(sourceProjectName)
-                        .setDataset(sourceDatasetName)
-                        .setTable(sourceTableName)
-                        .build();
-        BigQuerySource<GenericRecord> source =
-                BigQuerySource.streamAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(sourceConnectOptions)
-                                .setRowRestriction(rowRestriction)
-                                .setLimit(limit)
-                                .setOldestPartitionId(oldestPartition)
-                                .setPartitionDiscoveryRefreshIntervalInMinutes(
-                                        partitionDiscoveryInterval)
-                                .build());
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
-        env.setRestartStrategy(RestartStrategies.noRestart());
-
-        BigQueryConnectOptions sinkConnectOptions =
-                BigQueryConnectOptions.builder()
-                        .setProjectId(sinkProjectName)
-                        .setDataset(sinkDatasetName)
-                        .setTable(sinkTableName)
-                        .build();
-
-        BigQuerySinkConfig.Builder sinkConfigBuilder =
-                BigQuerySinkConfig.newBuilder()
-                        .connectOptions(sinkConnectOptions)
-                        .streamExecutionEnvironment(env)
-                        .deliveryGuarantee(sinkMode)
-                        .serializer(new AvroToProtoSerializer());
-
-        if (sinkPartitionField != null) {
-            sinkConfigBuilder
-                    .enableTableCreation(true)
-                    .partitionField(sinkPartitionField)
-                    .partitionType(TimePartitioning.Type.DAY);
-        }
-
-        env.fromSource(
-                        source,
-                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
-                                        Duration.ofMinutes(maxOutOfOrder))
-                                .withTimestampAssigner(
-                                        (event, timestamp) ->
-                                                (Long) event.get(recordPropertyForTimestamps))
-                                .withIdleness(Duration.ofMinutes(maxIdleness)),
-                        "BigQueryStreamingSource",
-                        source.getProducedType())
-                .keyBy(record -> record.get(recordPropertyToAggregate).hashCode() % 10000)
-                .map(
-                        (GenericRecord genericRecord) -> {
-                            genericRecord.put(
-                                    recordPropertyToAggregate,
-                                    genericRecord.get(recordPropertyToAggregate).toString()
-                                            + "_modified");
-                            return genericRecord;
-                        })
-                // Type hinting is required for Avro's GenericRecord to be serialized/deserialized
-                // when flowing through the job graph.
-                // Since the final record has same schema as the input from source, we use the same
-                // avro schema here. Ideally, users need to explicitly set the avro schema according
-                // to the record recieved by the sink.
-                .returns(
-                        new GenericRecordAvroTypeInfo(
-                                new BigQuerySchemaProviderImpl(sourceConnectOptions)
-                                        .getAvroSchema()))
-                .sinkTo(BigQuerySink.get(sinkConfigBuilder.build()));
-
-        env.execute("Flink BigQuery Unbounded Source And Sink Example");
-    }
-
-    private static void runHybridFlinkJob(
-            String projectName,
-            String datasetName,
-            String tableName,
-            String recordPropertyToAggregate,
-            String recordPropertyForTimestamps,
-            String rowRestrictionForBatch,
-            Long checkpointInterval,
-            String oldestPartitionForStreaming,
-            Integer partitionDiscoveryInterval,
-            Integer maxOutOfOrder,
-            Integer maxIdleness,
-            Integer windowSize)
-            throws Exception {
-
-        // we will be reading the historical batch data as the restriction shared from command line.
-        BigQuerySource<GenericRecord> batchSource =
-                BigQuerySource.readAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setRowRestriction(rowRestrictionForBatch)
-                                .build());
-
-        // and then reading the new data from the streaming source, as it gets available from the
-        // underlying BigQuery table.
-        BigQuerySource<GenericRecord> streamingSource =
-                BigQuerySource.streamAvros(
-                        BigQueryReadOptions.builder()
-                                .setBigQueryConnectOptions(
-                                        BigQueryConnectOptions.builder()
-                                                .setProjectId(projectName)
-                                                .setDataset(datasetName)
-                                                .setTable(tableName)
-                                                .build())
-                                .setOldestPartitionId(oldestPartitionForStreaming)
-                                .setPartitionDiscoveryRefreshIntervalInMinutes(
-                                        partitionDiscoveryInterval)
-                                .build());
-
-        // create an hybrid source with both batch and streaming flavors of the BigQuery source.
-        HybridSource<GenericRecord> hybridSource =
-                HybridSource.builder(batchSource).addSource(streamingSource).build();
-
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.enableCheckpointing(checkpointInterval);
-
-        env.fromSource(
-                        hybridSource,
-                        WatermarkStrategy.<GenericRecord>forBoundedOutOfOrderness(
-                                        Duration.ofMinutes(maxOutOfOrder))
-                                .withTimestampAssigner(
-                                        (event, timestamp) ->
-                                                (Long) event.get(recordPropertyForTimestamps))
-                                .withIdleness(Duration.ofMinutes(maxIdleness)),
-                        "BigQueryHybridSource",
-                        streamingSource.getProducedType())
-                .flatMap(new FlatMapper(recordPropertyToAggregate))
-                .keyBy(mappedTuple -> mappedTuple.f0)
-                .window(TumblingEventTimeWindows.of(Time.minutes(windowSize)))
-                .sum("f1")
-                .print();
-
-        env.execute("Flink BigQuery Hybrid Read Example");
-    }
-
-    static class FlatMapper implements FlatMapFunction<GenericRecord, Tuple2<String, Integer>> {
-
-        private final String recordPropertyToAggregate;
-
-        public FlatMapper(String recordPropertyToAggregate) {
-            this.recordPropertyToAggregate = recordPropertyToAggregate;
-        }
-
-        @Override
-        public void flatMap(GenericRecord record, Collector<Tuple2<String, Integer>> out)
-                throws Exception {
-            out.collect(Tuple2.of(record.get(recordPropertyToAggregate).toString(), 1));
-        }
+        env.execute("Flink BigQuery Bounded Read And Write Example");
     }
 }

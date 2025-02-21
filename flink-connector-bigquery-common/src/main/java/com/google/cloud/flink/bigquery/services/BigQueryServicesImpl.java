@@ -27,11 +27,7 @@ import com.google.api.gax.rpc.HeaderProvider;
 import com.google.api.gax.rpc.ServerStream;
 import com.google.api.gax.rpc.UnaryCallSettings;
 import com.google.api.services.bigquery.Bigquery;
-import com.google.api.services.bigquery.model.ErrorProto;
-import com.google.api.services.bigquery.model.Job;
-import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.Table;
-import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
@@ -72,7 +68,6 @@ import org.threeten.bp.Duration;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -376,35 +371,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
         }
 
         @Override
-        public List<PartitionIdWithInfoAndStatus> retrievePartitionsStatus(
-                String project, String dataset, String table) {
-            try {
-                return retrievePartitionColumnInfo(project, dataset, table)
-                        .map(
-                                info ->
-                                        info
-                                                .toPartitionsWithInfo(
-                                                        retrieveTablePartitions(
-                                                                project, dataset, table))
-                                                .stream()
-                                                .map(
-                                                        pInfo ->
-                                                                BigQueryPartitionUtils
-                                                                        .checkPartitionCompleted(
-                                                                                pInfo))
-                                                .collect(Collectors.toList()))
-                        .orElse(new ArrayList<>());
-            } catch (Exception ex) {
-                throw new RuntimeException(
-                        String.format(
-                                "Problems while trying to retrieve table partitions status"
-                                        + " (table: %s.%s.%s).",
-                                project, dataset, table),
-                        ex);
-            }
-        }
-
-        @Override
         public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
                 String project, String dataset, String table) {
             try {
@@ -488,86 +454,6 @@ public class BigQueryServicesImpl implements BigQueryServices {
             TableId tableId = TableId.of(project, dataset, table);
             TableInfo tableInfo = TableInfo.of(tableId, tableDefinition);
             bigQuery.create(tableInfo);
-        }
-
-        @Override
-        public Job dryRunQuery(String projectId, String query) {
-            try {
-                JobConfigurationQuery queryConfiguration =
-                        new JobConfigurationQuery()
-                                .setQuery(query)
-                                .setUseQueryCache(true)
-                                .setUseLegacySql(false);
-                /** first we need to execute a dry-run to understand the expected query location. */
-                return BigQueryUtils.dryRunQuery(bigquery, projectId, queryConfiguration, null);
-            } catch (Exception ex) {
-                throw new RuntimeException(
-                        "Problems occurred while trying to dry-run a BigQuery query job.", ex);
-            }
-        }
-
-        @Override
-        public Optional<QueryResultInfo> runQuery(String projectId, String query) {
-            try {
-                JobConfigurationQuery queryConfiguration =
-                        new JobConfigurationQuery()
-                                .setQuery(query)
-                                .setUseQueryCache(true)
-                                .setUseLegacySql(false);
-                /** first we need to execute a dry-run to understand the expected query location. */
-                Job dryRun =
-                        BigQueryUtils.dryRunQuery(bigquery, projectId, queryConfiguration, null);
-
-                if (dryRun.getStatus().getErrors() != null) {
-                    return Optional.of(dryRun.getStatus().getErrors())
-                            .map(errors -> processErrorMessages(errors))
-                            .map(errors -> QueryResultInfo.failed(errors));
-                }
-                List<TableReference> referencedTables =
-                        dryRun.getStatistics().getQuery().getReferencedTables();
-                TableReference firstTable = referencedTables.get(0);
-                String region =
-                        BigQueryUtils.datasetInfo(
-                                        bigquery,
-                                        firstTable.getProjectId(),
-                                        firstTable.getDatasetId())
-                                .getLocation();
-
-                /**
-                 * Then we run the query and check the results to provide errors or a set of
-                 * project, dataset and table to be read.
-                 */
-                Job job = BigQueryUtils.runQuery(bigquery, projectId, queryConfiguration, region);
-
-                TableReference queryDestTable =
-                        job.getConfiguration().getQuery().getDestinationTable();
-
-                return Optional.of(
-                        Optional.ofNullable(job.getStatus())
-                                .flatMap(s -> Optional.ofNullable(s.getErrors()))
-                                .map(errors -> processErrorMessages(errors))
-                                .map(errors -> QueryResultInfo.failed(errors))
-                                .orElse(
-                                        QueryResultInfo.succeed(
-                                                queryDestTable.getProjectId(),
-                                                queryDestTable.getDatasetId(),
-                                                queryDestTable.getTableId())));
-            } catch (Exception ex) {
-                throw new RuntimeException(
-                        "Problems occurred while trying to run a BigQuery query job.", ex);
-            }
-        }
-
-        static List<String> processErrorMessages(List<ErrorProto> errors) {
-            return errors.stream()
-                    .map(
-                            error ->
-                                    String.format(
-                                            "Message: '%s'," + " reason: '%s'," + " location: '%s'",
-                                            error.getMessage(),
-                                            error.getReason(),
-                                            error.getLocation()))
-                    .collect(Collectors.toList());
         }
     }
 

@@ -39,37 +39,6 @@ create_cluster(){
   echo "$CLUSTER_NAME" > "$CLUSTER_FILE"
 }
 
-# Function to run the test to check BQ Table Read.
-run_read_only_test(){
-  PROJECT_ID=$1
-  REGION_FILE=$2
-  CLUSTER_FILE=$3
-  PROJECT_NAME=$4
-  DATASET_NAME=$5
-  TABLE_NAME=$6
-  AGG_PROP_NAME=$7
-  QUERY=$8
-  MODE=$9
-  PROPERTIES=${10}
-  # Get the final region and the cluster name.
-  export REGION=$(cat "$REGION_FILE")
-  export CLUSTER_NAME=$(cat "$CLUSTER_FILE")
-  export GCS_JAR_LOCATION=$(cat "$GCS_JAR_LOCATION_FILE")
-  # Run the simple bounded table test.
-  source cloudbuild/nightly/scripts/table_read.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME" "$AGG_PROP_NAME" "$QUERY" "$MODE" "$PROPERTIES"
-}
-
-# Function to run the test to check BQ Table Read.
-# Also, delete the cluster and its buckets.
-run_read_only_test_delete_cluster(){
-  PROJECT_ID=$1
-  # Run the test.
-  run_read_only_test "$PROJECT_ID" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}"
-  # REGION and CLUSTER_NAME should be in scope (from previous function).
-  # Delete the cluster as well as its staging and temp buckets.
-  python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_id "$PROJECT_ID"
-}
-
 # Function to run the test to check BQ Table Read and Write.
 run_read_write_test(){
   PROJECT_ID=$1
@@ -96,15 +65,13 @@ run_read_write_test(){
   source cloudbuild/nightly/scripts/table_write.sh "$PROJECT_ID" "$CLUSTER_NAME" "$REGION" "$PROJECT_NAME" "$DATASET_NAME" "$SOURCE" "$DESTINATION_TABLE_NAME" "$IS_EXACTLY_ONCE_ENABLED" "$MODE" "$PROPERTIES" "$SINK_PARALLELISM" "$IS_SQL" "$ENABLE_TABLE_CREATION"
 }
 
-# Function to run the test to check BQ Table Read and Write.
-# Also, delete the cluster and its buckets.
-run_read_write_test_delete_cluster(){
+# Delete cluster and its buckets.
+delete_cluster(){
   PROJECT_ID=$1
-  IS_SQL=${12:-False}
-  # Run the write test.
-  run_read_write_test "$PROJECT_ID" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}" "$IS_SQL"
-  # REGION and CLUSTER_NAME should be in scope (from previous function).
-  # Delete the cluster as well as its staging and temp buckets.
+  REGION_FILE=$2
+  CLUSTER_FILE=$3
+  export REGION=$(cat "$REGION_FILE")
+  export CLUSTER_NAME=$(cat "$CLUSTER_FILE")
   python3 cloudbuild/nightly/scripts/python-scripts/delete_buckets_and_clusters.py -- --cluster_name "$CLUSTER_NAME" --region "$REGION" --project_id "$PROJECT_ID"
 }
 
@@ -176,17 +143,11 @@ case $STEP in
     exit
     ;;
 
-  # Run the query bounded e2e test.
-  e2e_bounded_query_test)
-    run_read_only_test_delete_cluster "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "" "" "$QUERY" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB"
-    exit
-    ;;
-
   # Run the large table bounded e2e test.
   e2e_bounded_large_table_test)
     # Run the large table test.
     IS_EXACTLY_ONCE_ENABLED=True
-    run_read_write_test_delete_cluster "$PROJECT_ID" "$REGION_LARGE_TABLE_TEST_FILE" "$CLUSTER_LARGE_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_LARGE_TABLE" "$TABLE_NAME_DESTINATION_LARGE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB" "$SINK_PARALLELISM_LARGE_BOUNDED_JOB"
+    run_read_write_test "$PROJECT_ID" "$REGION_LARGE_TABLE_TEST_FILE" "$CLUSTER_LARGE_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_LARGE_TABLE" "$TABLE_NAME_DESTINATION_LARGE_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_LARGE_BOUNDED_JOB" "$SINK_PARALLELISM_LARGE_BOUNDED_JOB"
     exit
     ;;
 
@@ -202,7 +163,7 @@ case $STEP in
   # Run the unbounded e2e test.
   e2e_unbounded_test)
     IS_EXACTLY_ONCE_ENABLED=False
-    run_read_write_test_delete_cluster "$PROJECT_ID" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$GCS_SOURCE_URI" "$TABLE_NAME_DESTINATION_UNBOUNDED_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "unbounded" "$PROPERTIES_UNBOUNDED_JOB" "$SINK_PARALLELISM_UNBOUNDED_JOB"
+    run_read_write_test "$PROJECT_ID" "$REGION_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$GCS_SOURCE_URI" "$TABLE_NAME_DESTINATION_UNBOUNDED_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "unbounded" "$PROPERTIES_UNBOUNDED_JOB" "$SINK_PARALLELISM_UNBOUNDED_JOB"
     exit
     ;;
 
@@ -210,7 +171,13 @@ case $STEP in
   e2e_table_api_unbounded_test)
     IS_SQL=True
     IS_EXACTLY_ONCE_ENABLED=True
-    run_read_write_test_delete_cluster "$PROJECT_ID" "$REGION_TABLE_API_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_TABLE_API_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$GCS_SOURCE_URI" "$TABLE_NAME_DESTINATION_UNBOUNDED_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "unbounded" "$PROPERTIES_UNBOUNDED_JOB" "$SINK_PARALLELISM_UNBOUNDED_JOB" "$IS_SQL"
+    run_read_write_test "$PROJECT_ID" "$REGION_TABLE_API_UNBOUNDED_TABLE_TEST_FILE" "$CLUSTER_TABLE_API_UNBOUNDED_TABLE_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$GCS_SOURCE_URI" "$TABLE_NAME_DESTINATION_UNBOUNDED_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "unbounded" "$PROPERTIES_UNBOUNDED_JOB" "$SINK_PARALLELISM_UNBOUNDED_JOB" "$IS_SQL"
+    exit
+    ;;
+
+  # Relinquish the underlying infra running these tests.
+  delete_cluster)
+    delete_cluster "$PROJECT_ID" "$REGION_FILE" "$CLUSTER_FILE"
     exit
     ;;
 
@@ -219,4 +186,3 @@ case $STEP in
     exit 1
     ;;
 esac
-

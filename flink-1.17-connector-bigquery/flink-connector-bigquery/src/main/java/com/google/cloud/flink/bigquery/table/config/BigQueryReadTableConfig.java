@@ -16,7 +16,6 @@
 
 package com.google.cloud.flink.bigquery.table.config;
 
-import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.table.api.TableDescriptor;
 
 /**
@@ -33,8 +32,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
     private final String columnProjection;
     private final Integer maxStreamCount;
     private final Long snapshotTimestamp;
-    @Deprecated private final Boundedness boundedness;
-    private final Integer partitionDiscoveryInterval;
 
     BigQueryReadTableConfig(
             String project,
@@ -48,9 +45,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             Integer maxStreamCount,
             String rowRestriction,
             Integer limit,
-            Long snapshotTimestamp,
-            Boundedness boundedness,
-            Integer partitionDiscoveryInterval) {
+            Long snapshotTimestamp) {
         super(
                 project,
                 dataset,
@@ -65,8 +60,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         this.limit = limit;
         this.maxStreamCount = maxStreamCount;
         this.snapshotTimestamp = snapshotTimestamp;
-        this.boundedness = boundedness;
-        this.partitionDiscoveryInterval = partitionDiscoveryInterval;
     }
 
     public static BigQueryReadTableConfig.Builder newBuilder() {
@@ -96,14 +89,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             tableDescriptorBuilder.option(
                     BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP, this.snapshotTimestamp);
         }
-        if (this.boundedness != null) {
-            tableDescriptorBuilder.option(BigQueryConnectorOptions.MODE, this.boundedness);
-        }
-        if (this.partitionDiscoveryInterval != null) {
-            tableDescriptorBuilder.option(
-                    BigQueryConnectorOptions.PARTITION_DISCOVERY_INTERVAL,
-                    this.partitionDiscoveryInterval);
-        }
         return tableDescriptorBuilder.build();
     }
 
@@ -116,10 +101,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         private String columnProjection;
         private Integer maxStreamCount;
         private Long snapshotTimestamp;
-
-        private Boundedness boundedness;
-
-        private Integer partitionDiscoveryInterval;
 
         @Override
         public BigQueryReadTableConfig.Builder project(String project) {
@@ -214,29 +195,6 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             return this;
         }
 
-        /**
-         * [OPTIONAL, Read Configuration] Enum value indicating the "BOUNDEDNESS" of the read job.
-         * Can be <code>Boundedness.BOUNDED </code> or <code>Boundedness.CONTINUOUS_UNBOUNDED</code>
-         * <br>
-         * Default: <code>Boundedness.BOUNDED </code> - Bounded mode.
-         */
-        @Deprecated
-        public BigQueryReadTableConfig.Builder boundedness(Boundedness boundedness) {
-            this.boundedness = boundedness;
-            return this;
-        }
-
-        /**
-         * [OPTIONAL, Read Configuration] Integer value indicating periodicity (in minutes) of
-         * partition discovery in table. This config is used in unbounded source.<br>
-         * Default: 10 minutes
-         */
-        public BigQueryReadTableConfig.Builder partitionDiscoveryInterval(
-                Integer partitionDiscoveryInterval) {
-            this.partitionDiscoveryInterval = partitionDiscoveryInterval;
-            return this;
-        }
-
         public BigQueryReadTableConfig build() {
             return new BigQueryReadTableConfig(
                     project,
@@ -250,9 +208,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
                     maxStreamCount,
                     rowRestriction,
                     limit,
-                    snapshotTimestamp,
-                    boundedness,
-                    partitionDiscoveryInterval);
+                    snapshotTimestamp);
         }
     }
 }
