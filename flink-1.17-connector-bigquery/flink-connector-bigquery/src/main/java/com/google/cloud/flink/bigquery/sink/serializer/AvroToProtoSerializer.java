@@ -95,7 +95,11 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         try {
             return getDynamicMessageFromGenericRecord(record, this.descriptor).toByteString();
         } catch (Exception e) {
-            throw new BigQuerySerializationException(e.getMessage());
+            throw new BigQuerySerializationException(
+                    String.format(
+                            "Error while serialising Avro GenericRecord: %s%nError: %s",
+                            record, e.getMessage()),
+                    e);
         }
     }
 
