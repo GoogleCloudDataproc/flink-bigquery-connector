@@ -54,7 +54,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
                 'image_version': dataproc_image_version,
                 'optional_components': ['FLINK']},
             'initialization_actions': [{'executable_file': initialisation_action_script_uri}],
-            'lifecycle_config': {'auto_delete_ttl': '3600s'},
+            'lifecycle_config': {'auto_delete_ttl': '5400s'},
             'gce_cluster_config': {'internal_ip_only': False},
         }
     }
