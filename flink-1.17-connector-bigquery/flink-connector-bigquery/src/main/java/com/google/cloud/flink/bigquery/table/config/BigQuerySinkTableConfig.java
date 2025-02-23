@@ -43,6 +43,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
     private final long partitionExpirationMillis;
     private final List<String> clusteredFields;
     private final String region;
+    private final boolean fatalizeSerializer;
 
     BigQuerySinkTableConfig(
             String project,
@@ -59,7 +60,8 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             TimePartitioning.Type partitionType,
             long partitionExpirationMillis,
             List<String> clusteredFields,
-            String region) {
+            String region,
+            boolean fatalizeSerializer) {
         super(
                 project,
                 dataset,
@@ -76,6 +78,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
         this.partitionExpirationMillis = partitionExpirationMillis;
         this.clusteredFields = clusteredFields;
         this.region = region;
+        this.fatalizeSerializer = fatalizeSerializer;
     }
 
     public static Builder newBuilder() {
@@ -121,6 +124,10 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
         if (!StringUtils.isNullOrWhitespaceOnly(region)) {
             tableDescriptorBuilder.option(BigQueryConnectorOptions.REGION, region);
         }
+        if (fatalizeSerializer) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.FATALIZE_SERIALIZER, fatalizeSerializer);
+        }
         return tableDescriptorBuilder.build();
     }
 
@@ -135,6 +142,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
         private long partitionExpirationMillis;
         private List<String> clusteredFields;
         private String region;
+        private boolean fatalizeSerializer;
         private StreamExecutionEnvironment env;
 
         @Override
@@ -277,6 +285,18 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
         }
 
         /**
+         * [OPTIONAL, Sink Configuration] Fail if serializer throws {@link
+         * BigQuerySerilizerException}.
+         *
+         * @param fatalizeSerializer
+         * @return Updated BigQuerySinkTableConfig builder
+         */
+        public Builder fatalizeSerializer(boolean fatalizeSerializer) {
+            this.fatalizeSerializer = fatalizeSerializer;
+            return this;
+        }
+
+        /**
          * [Required, Sink Configuration] StreamExecutionEnvironment associated with the Flink job.
          *
          * @param streamExecutionEnvironment
@@ -307,7 +327,8 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
                     partitionType,
                     partitionExpirationMillis,
                     clusteredFields,
-                    region);
+                    region,
+                    fatalizeSerializer);
         }
     }
 }

@@ -47,6 +47,7 @@ class BigQueryDefaultSink<IN> extends BigQueryBaseSink<IN> {
                 schemaProvider,
                 serializer,
                 createTableOptions(),
+                fatalizeSerializer,
                 maxParallelism,
                 traceId,
                 context);

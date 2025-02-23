@@ -108,6 +108,7 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS);
         forwardOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
         forwardOptions.add(BigQueryConnectorOptions.REGION);
+        forwardOptions.add(BigQueryConnectorOptions.FATALIZE_SERIALIZER);
 
         return forwardOptions;
     }
@@ -157,6 +158,7 @@ public class BigQueryDynamicTableFactory
                 configProvider.getPartitionType().orElse(null),
                 configProvider.getPartitionExpirationMillis().orElse(null),
                 configProvider.getClusteredFields().orElse(null),
-                configProvider.getRegion().orElse(null));
+                configProvider.getRegion().orElse(null),
+                configProvider.fatalizeSerializer());
     }
 }

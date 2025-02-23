@@ -59,6 +59,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
                 schemaProvider,
                 serializer,
                 createTableOptions(),
+                fatalizeSerializer,
                 maxParallelism,
                 traceId,
                 context);
@@ -86,6 +87,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
                 schemaProvider,
                 serializer,
                 createTableOptions(),
+                fatalizeSerializer,
                 maxParallelism,
                 traceId,
                 context);

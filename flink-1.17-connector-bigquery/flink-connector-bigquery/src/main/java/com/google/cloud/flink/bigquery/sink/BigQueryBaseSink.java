@@ -60,6 +60,7 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
     final Long partitionExpirationMillis;
     final List<String> clusteredFields;
     final String region;
+    final boolean fatalizeSerializer;
     final int maxParallelism;
     String traceId;
 
@@ -84,6 +85,7 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
         partitionExpirationMillis = sinkConfig.getPartitionExpirationMillis();
         clusteredFields = sinkConfig.getClusteredFields();
         region = getRegion(sinkConfig.getRegion());
+        fatalizeSerializer = sinkConfig.fatalizeSerializer();
         maxParallelism = getMaxParallelism();
     }
 

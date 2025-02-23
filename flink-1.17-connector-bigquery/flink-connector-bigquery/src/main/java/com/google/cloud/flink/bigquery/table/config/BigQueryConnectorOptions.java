@@ -215,4 +215,11 @@ public class BigQueryConnectorOptions {
                     .noDefaultValue()
                     .withDescription(
                             "GCP region of destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Fail if serializer cannot convert record to proto. */
+    public static final ConfigOption<Boolean> FATALIZE_SERIALIZER =
+            ConfigOptions.key("write.fatalize-serializer")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Fail if serializer cannot convert record to proto");
 }

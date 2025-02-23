@@ -1149,6 +1149,7 @@ public class BigQueryBufferedWriterTest {
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
                 null,
+                false,
                 128,
                 "traceId",
                 context);
@@ -1190,6 +1191,7 @@ public class BigQueryBufferedWriterTest {
                 schemaProvider,
                 mockSerializer,
                 createTableOptions,
+                false,
                 128,
                 "traceId",
                 context);
@@ -1226,6 +1228,7 @@ public class BigQueryBufferedWriterTest {
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
                 null,
+                false,
                 128,
                 "traceId",
                 context);

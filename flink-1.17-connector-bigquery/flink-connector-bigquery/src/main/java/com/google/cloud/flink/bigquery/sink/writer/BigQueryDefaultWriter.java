@@ -25,6 +25,7 @@ import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
@@ -63,6 +64,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            boolean fatalizeSerializer,
             int maxParallelism,
             String taceId,
             InitContext context) {
@@ -73,6 +75,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                 schemaProvider,
                 serializer,
                 createTableOptions,
+                fatalizeSerializer,
                 maxParallelism,
                 taceId);
         streamName = String.format("%s/streams/_default", tablePath);
@@ -99,6 +102,9 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             addToAppendRequest(protoRow);
         } catch (BigQuerySerializationException e) {
             logger.error(String.format("Unable to serialize record %s. Dropping it!", element), e);
+            if (fatalizeSerializer) {
+                throw new BigQueryConnectorException("Unable to serialize record", e);
+            }
         }
     }
 
