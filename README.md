@@ -437,7 +437,7 @@ The connector supports a number of options to configure the source.
 | `table`                                      | String             | BigQuery table name (not the full ID). This config is required, and assumes no default value.                                                                                                                                                                                                                                                             |
 | `credentialsOptions`                         | CredentialsOptions | Google credentials for connecting to BigQuery. This config is optional, and default behavior is to use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.<br/>**Note**: The query bounded source only uses default application credentials.                                                                                                       |
 | `columnNames`                                | List&lt;String&gt; | Columns to project from the table. If unspecified, all columns are fetched.                                                                                                                                                                                                                                                                               |
-| `limit`                                      | Integer            | Maximum number of rows to read from table. If unspecified, all rows are fetched.                                                                                                                                                                                                                                                                          |
+| `limit`                                      | Integer            | Maximum number of rows to read from source table **per task slot**. If unspecified, all rows are fetched.                                                                                                                                                                                                                                                                          |
 | `maxRecordsPerSplitFetch`                    | Integer            | Maximum number of records to read from a split once Flink requests fetch. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream.                                                           |
 | `maxStreamCount`                             | Integer            | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                                                                                       |
 | `rowRestriction`                             | String             | BigQuery SQL query for row filter pushdown. If unspecified, all rows are fetched.                                                                                                                                                                                                                                                                         |
@@ -446,7 +446,7 @@ The connector supports a number of options to configure the source.
 
 ### Datatypes
 
-All the current BigQuery datatypes are being handled when transforming data from BigQuery to Avro’s `GenericRecord`.
+BigQuery datatypes are transformed to Avro’s `GenericRecord` as follows:
 
 | BigQuery Data Type | Converted Avro Datatype |
 |--------------------|-------------------------|
@@ -512,7 +512,8 @@ metrics.reporter.slf4j.interval: <TIME INTERVAL> //e.g. 10 SECONDS
 
 ## Example Application
 
-The `flink-1.17-connector-bigquery-examples`  and `flink-1.17-connector-bigquery-table-api-examples` modules offer a sample Flink application powered by the connector.
+The `flink-1.17-connector-bigquery-examples`  and `flink-1.17-connector-bigquery-table-api-examples`
+modules offer a sample Flink application powered by the connector.
 It can be found at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API 
 and at `com.google.cloud.flink.bigquery.examples.BigQueryTableExample` for the Table API and SQL.
 It offers an intuitive hands-on application with elaborate guidance to test out the connector and 
@@ -527,6 +528,18 @@ The connector currently does not offer the following:
 * Update or delete in sink
 * Explicit connector artifact for non 1.17 Flink versions
 * Dead letter queue
+
+### Data Types
+
+* Map type is not supported by BigQuery. Alternative is to use array of structs,
+where each struct has fields `key` and `value`.
+* Nullable array is not supported by BigQuery.
+* Array with nullable element is not supported by BigQuery.
+* Avro's decimal precision above 77 is not supported by BigQuery. NUMERIC handles precision up to 38,
+and BIGNUMERIC up to 77.
+* BigQuery's interval type is not supported by the connector.
+* BigQuery's range type is not supported by the connector.
+
 
 ## FAQ
 
