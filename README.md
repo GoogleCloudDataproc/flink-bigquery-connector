@@ -245,6 +245,7 @@ BigQuerySinkConfig<GenericRecord> sinkConfig =
                 .partitionExpirationMillis(...) // OPTIONAL
                 .clusteredFields(...) // OPTIONAL
                 .region(...)  // OPTIONAL
+                .fatalizeSerializer(...) // OPTIONAL
                 .build();
 
 Sink<GenericRecord> sink = BigQuerySink.get(sinkConfig);
@@ -271,6 +272,7 @@ BigQuerySinkTableConfig sinkTableConfig = BigQuerySinkTableConfig.newBuilder()
         .partitionExpirationMillis(...) // OPTIONAL
         .clusteredFields(...) // OPTIONAL
         .region(...)  // OPTIONAL
+        .fatalizeSerializer(...) // OPTIONAL
         .build();
 
 // Register the Sink Table
@@ -303,12 +305,13 @@ The connector supports a number of options to configure the source.
 | `table`                                      | String                 | BigQuery table name (not the full ID). This config is required.                                                                                                        |
 | `credentialsOptions`                         | CredentialsOptions     | Google credentials for connecting to BigQuery. This config is optional, and default behavior is to use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.      |
 | `deliveryGuarantee`                          | DeliveryGuarantee      | Write consistency guarantee of the sink. This config is required.                                                                                                      |
-| `enableTableCreation`                        | Boolean                | Allows the sink to create the destination BigQuery table (mentioned above) if it doesn't already exist. This config is optional.                                       |
+| `enableTableCreation`                        | Boolean                | Allows the sink to create the destination BigQuery table (mentioned above) if it doesn't already exist. This config is optional, and defaults to false.                |
 | `partitionField`                             | String                 | Column to partition new sink table. This config is optional, and considered if enableTableCreation is true.                                                            |
 | `partitionType`                              | TimePartitioning.Type  | Column to partition new sink table. This config is optional, and considered if enableTableCreation is true.                                                            |
 | `partitionExpirationMillis`                  | Long                   | Expiration time of partitions in new sink table. This config is optional, and considered if enableTableCreation is true.                                               |
 | `clusteredFields`                            | List&lt;String&gt;     | Columns used for clustering new sink table. This config is optional, and considered if enableTableCreation is true.                                                    |
 | `region`                                     | String                 | BigQuery region to create the dataset (mentioned above) if it doesn't already exist. This config is optional, and considered if enableTableCreation is true.           |
+| `fatalizeSerializer`                         | Boolean                | If true, throws a fatal error if sink cannot serialize an input record, else logs the error and drops the record. This config is optional, and defaults to false.      |
 | `sinkParallelism`                            | Integer                | Sink's parallelism. This config is optional, and available only when sink is used with Table API.                                                                      |
 
 Knowing that this sink offers limited configurability when creating destination BigQuery table, we'd like to highlight that almost all
