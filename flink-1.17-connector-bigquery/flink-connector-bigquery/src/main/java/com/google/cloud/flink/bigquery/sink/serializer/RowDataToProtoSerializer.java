@@ -91,7 +91,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
         } catch (Exception e) {
             throw new BigQuerySerializationException(
                     String.format(
-                            "Error while serialising Row Data record: %s%nError: %s",
+                            "Error while serialising Row Data record: %s\nError: %s",
                             record, e.getMessage()),
                     e);
         }

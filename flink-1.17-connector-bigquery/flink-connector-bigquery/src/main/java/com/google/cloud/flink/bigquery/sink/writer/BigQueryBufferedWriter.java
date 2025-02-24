@@ -106,6 +106,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            boolean fatalizeSerializer,
             int maxParallelism,
             String traceId,
             InitContext context) {
@@ -120,6 +121,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                 schemaProvider,
                 serializer,
                 createTableOptions,
+                fatalizeSerializer,
                 maxParallelism,
                 traceId,
                 context);
@@ -136,6 +138,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            boolean fatalizeSerializer,
             int maxParallelism,
             String traceId,
             InitContext context) {
@@ -146,6 +149,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                 schemaProvider,
                 serializer,
                 createTableOptions,
+                fatalizeSerializer,
                 maxParallelism,
                 traceId);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
@@ -184,6 +188,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             appendRequestRowCount++;
         } catch (BigQuerySerializationException e) {
             logger.error(String.format("Unable to serialize record %s. Dropping it!", element), e);
+            if (fatalizeSerializer) {
+                throw new BigQueryConnectorException("Unable to serialize record", e);
+            }
         }
     }
 

@@ -98,6 +98,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     private boolean firstWritePostConstructor = true;
 
     final CreateTableOptions createTableOptions;
+    final boolean fatalizeSerializer;
     final String traceId;
     final Queue<AppendInfo> appendResponseFuturesQueue;
     // Initialization of writeClient has been deferred to first append call. BigQuery's best
@@ -124,6 +125,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             BigQuerySchemaProvider schemaProvider,
             BigQueryProtoSerializer serializer,
             CreateTableOptions createTableOptions,
+            boolean fatalizeSerializer,
             int maxParallelism,
             String traceId) {
         this.subtaskId = subtaskId;
@@ -132,6 +134,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         this.schemaProvider = schemaProvider;
         this.serializer = serializer;
         this.createTableOptions = createTableOptions;
+        this.fatalizeSerializer = fatalizeSerializer;
         this.traceId = traceId;
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();

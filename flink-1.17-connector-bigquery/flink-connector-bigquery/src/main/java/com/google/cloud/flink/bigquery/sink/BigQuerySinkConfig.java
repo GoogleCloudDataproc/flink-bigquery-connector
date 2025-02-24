@@ -64,6 +64,7 @@ public class BigQuerySinkConfig<IN> {
     private final Long partitionExpirationMillis;
     private final List<String> clusteredFields;
     private final String region;
+    private final boolean fatalizeSerializer;
 
     public static <IN> Builder<IN> newBuilder() {
         return new Builder<>();
@@ -81,7 +82,8 @@ public class BigQuerySinkConfig<IN> {
                 partitionType,
                 partitionExpirationMillis,
                 clusteredFields,
-                region);
+                region,
+                fatalizeSerializer);
     }
 
     @Override
@@ -106,7 +108,8 @@ public class BigQuerySinkConfig<IN> {
                         this.getPartitionExpirationMillis(), object.getPartitionExpirationMillis()))
                 && (Objects.equals(this.getClusteredFields(), object.getClusteredFields()))
                 && (Objects.equals(this.getRegion(), object.getRegion()))
-                && (Objects.equals(this.getSchemaProvider(), object.getSchemaProvider())));
+                && (Objects.equals(this.getSchemaProvider(), object.getSchemaProvider()))
+                && (this.fatalizeSerializer() == object.fatalizeSerializer()));
     }
 
     private BigQuerySinkConfig(
@@ -119,7 +122,8 @@ public class BigQuerySinkConfig<IN> {
             TimePartitioning.Type partitionType,
             Long partitionExpirationMillis,
             List<String> clusteredFields,
-            String region) {
+            String region,
+            boolean fatalizeSerializer) {
         this.connectOptions = connectOptions;
         this.deliveryGuarantee = deliveryGuarantee;
         this.schemaProvider = schemaProvider;
@@ -130,6 +134,7 @@ public class BigQuerySinkConfig<IN> {
         this.partitionExpirationMillis = partitionExpirationMillis;
         this.clusteredFields = clusteredFields;
         this.region = region;
+        this.fatalizeSerializer = fatalizeSerializer;
     }
 
     public BigQueryConnectOptions getConnectOptions() {
@@ -172,6 +177,10 @@ public class BigQuerySinkConfig<IN> {
         return region;
     }
 
+    public boolean fatalizeSerializer() {
+        return fatalizeSerializer;
+    }
+
     /**
      * Builder for BigQuerySinkConfig.
      *
@@ -189,6 +198,7 @@ public class BigQuerySinkConfig<IN> {
         private Long partitionExpirationMillis;
         private List<String> clusteredFields;
         private String region;
+        private boolean fatalizeSerializer;
         private StreamExecutionEnvironment env;
 
         public Builder<IN> connectOptions(BigQueryConnectOptions connectOptions) {
@@ -241,6 +251,11 @@ public class BigQuerySinkConfig<IN> {
             return this;
         }
 
+        public Builder<IN> fatalizeSerializer(boolean fatalizeSerializer) {
+            this.fatalizeSerializer = fatalizeSerializer;
+            return this;
+        }
+
         public Builder<IN> streamExecutionEnvironment(
                 StreamExecutionEnvironment streamExecutionEnvironment) {
             this.env = streamExecutionEnvironment;
@@ -261,7 +276,8 @@ public class BigQuerySinkConfig<IN> {
                     partitionType,
                     partitionExpirationMillis,
                     clusteredFields,
-                    region);
+                    region,
+                    fatalizeSerializer);
         }
     }
 
@@ -278,7 +294,8 @@ public class BigQuerySinkConfig<IN> {
             TimePartitioning.Type partitionType,
             Long partitionExpirationMillis,
             List<String> clusteredFields,
-            String region) {
+            String region,
+            boolean fatalizeSerializer) {
         return new BigQuerySinkConfig<>(
                 connectOptions,
                 deliveryGuarantee,
@@ -290,7 +307,8 @@ public class BigQuerySinkConfig<IN> {
                 partitionType,
                 partitionExpirationMillis,
                 clusteredFields,
-                region);
+                region,
+                fatalizeSerializer);
     }
 
     public static void validateStreamExecutionEnvironment(StreamExecutionEnvironment env) {

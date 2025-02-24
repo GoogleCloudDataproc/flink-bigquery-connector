@@ -51,12 +51,17 @@ public class BigQueryDefaultWriterTest {
 
     MockedStatic<StreamWriter> streamWriterStaticMock;
     BigQueryConnectOptions connectOptions;
+    Sink.InitContext mockInitContext;
 
     @Before
     public void setUp() {
         streamWriterStaticMock = Mockito.mockStatic(StreamWriter.class);
         streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
         connectOptions = null;
+        mockInitContext = Mockito.mock(Sink.InitContext.class);
+        Mockito.when(mockInitContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+        Mockito.when(mockInitContext.getSubtaskId()).thenReturn(0);
     }
 
     @After
@@ -64,6 +69,7 @@ public class BigQueryDefaultWriterTest {
         streamWriterStaticMock.close();
         streamWriterStaticMock = null;
         connectOptions = null;
+        mockInitContext = null;
     }
 
     @Test
@@ -81,6 +87,7 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(defaultWriter.getProtoRows().getSerializedRowsList().isEmpty());
         assertTrue(defaultWriter.getAppendResponseFuturesQueue().isEmpty());
+        assertFalse(defaultWriter.fatalizeSerializer);
         // Test for metric values.
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuery.getCount());
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
@@ -298,9 +305,10 @@ public class BigQueryDefaultWriterTest {
     }
 
     @Test
-    public void testWrite_withSerializationException() {
+    public void testWrite_withSerializationException_withoutFatalSerializer() {
         BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getErringSerializer(), null);
+        assertFalse(defaultWriter.fatalizeSerializer);
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         // If write experiences a serialization exception, then the element is ignored and no
         // action is taken.
@@ -312,6 +320,14 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+    }
+
+    @Test(expected = BigQueryConnectorException.class)
+    public void testWrite_withSerializationException_withFatalSerializer() {
+        BigQueryDefaultWriter<Object> defaultWriter =
+                createDefaultWriter(FakeBigQuerySerializer.getErringSerializer(), true);
+        assertTrue(defaultWriter.fatalizeSerializer);
+        defaultWriter.write(new Object(), null);
     }
 
     @Test(expected = BigQuerySerializationException.class)
@@ -383,10 +399,6 @@ public class BigQueryDefaultWriterTest {
             AppendRowsResponse appendResponse,
             CreateTableOptions createTableOptions,
             boolean tableExists) {
-        Sink.InitContext mockInitContext = Mockito.mock(Sink.InitContext.class);
-        Mockito.when(mockInitContext.metricGroup())
-                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-        Mockito.when(mockInitContext.getSubtaskId()).thenReturn(0);
         FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient =
                 new FakeBigQueryServices.FakeBigQueryStorageWriteClient(appendResponse);
         FakeBigQueryServices.FakeQueryDataClient queryClient =
@@ -398,6 +410,21 @@ public class BigQueryDefaultWriterTest {
                 schemaProvider,
                 mockSerializer,
                 createTableOptions,
+                false,
+                128,
+                "traceId",
+                mockInitContext);
+    }
+
+    private BigQueryDefaultWriter<Object> createDefaultWriter(
+            BigQueryProtoSerializer<Object> mockSerializer, boolean fatalizeSerializer) {
+        return new BigQueryDefaultWriter<>(
+                "/projects/project/datasets/dataset/tables/table",
+                Mockito.mock(BigQueryConnectOptions.class),
+                TestBigQuerySchemas.getSimpleRecordSchema(),
+                mockSerializer,
+                null,
+                fatalizeSerializer,
                 128,
                 "traceId",
                 mockInitContext);

@@ -23,6 +23,7 @@ import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
@@ -33,6 +34,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
+
+import java.io.IOException;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -76,6 +79,7 @@ public class BigQueryDefaultSinkTest {
         assertNotNull(sink.schemaProvider.getAvroSchema());
         assertFalse(sink.schemaProvider.schemaUnknown());
         assertFalse(sink.enableTableCreation);
+        assertFalse(sink.fatalizeSerializer);
     }
 
     @Test
@@ -180,6 +184,30 @@ public class BigQueryDefaultSinkTest {
                         .build();
         BigQueryDefaultSink defaultSink = new BigQueryDefaultSink<>(sinkConfig);
         assertNotNull(defaultSink.createWriter(mockedContext));
+    }
+
+    @Test
+    public void testCreateWriter_withFatalSerializer() throws IOException, InterruptedException {
+        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
+        InitContext mockedContext = Mockito.mock(InitContext.class);
+        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
+        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        Mockito.when(mockedContext.metricGroup())
+                .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
+                        .connectOptions(getConnectOptions(true))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(FakeBigQuerySerializer.getErringSerializer())
+                        .streamExecutionEnvironment(env)
+                        .fatalizeSerializer(true)
+                        .build();
+        BigQueryDefaultSink<Object> defaultSink = new BigQueryDefaultSink<>(sinkConfig);
+        BigQueryConnectorException exception =
+                assertThrows(
+                        BigQueryConnectorException.class,
+                        () -> defaultSink.createWriter(mockedContext).write(null, null));
+        assertThat(exception).hasMessageThat().contains("Unable to serialize record");
     }
 
     @Test

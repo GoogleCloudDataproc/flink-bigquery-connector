@@ -92,6 +92,10 @@ public class BigQueryTableConfigurationProvider {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.REGION));
     }
 
+    public boolean fatalizeSerializer() {
+        return config.get(BigQueryConnectorOptions.FATALIZE_SERIALIZER);
+    }
+
     public BigQueryReadOptions toBigQueryReadOptions() {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(

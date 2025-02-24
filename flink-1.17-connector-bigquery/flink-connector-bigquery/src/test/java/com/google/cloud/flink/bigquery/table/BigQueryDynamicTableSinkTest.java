@@ -65,7 +65,8 @@ public class BigQueryDynamicTableSinkTest {
                     TimePartitioning.Type.DAY,
                     10000000000000L,
                     CLUSTERED_FIELDS,
-                    REGION);
+                    REGION,
+                    true);
 
     @RegisterExtension
     static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
@@ -93,6 +94,7 @@ public class BigQueryDynamicTableSinkTest {
         assertEquals(REGION, obtainedSinkConfig.getRegion());
         assertEquals(SCHEMA, TABLE_SINK.getLogicalType());
         assertEquals(PARALLELISM, TABLE_SINK.getSinkParallelism());
+        assertTrue(obtainedSinkConfig.fatalizeSerializer());
     }
 
     @Test

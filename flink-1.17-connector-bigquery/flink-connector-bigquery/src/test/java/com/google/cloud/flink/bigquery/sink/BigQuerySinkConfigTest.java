@@ -80,6 +80,7 @@ public class BigQuerySinkConfigTest {
                         .partitionExpirationMillis(10000000000L)
                         .clusteredFields(Arrays.asList("foo", "bar", "qux"))
                         .region("LaLaLand")
+                        .fatalizeSerializer(true)
                         .build();
         assertEquals(connectOptions, sinkConfig.getConnectOptions());
         assertEquals(schemaProvider, sinkConfig.getSchemaProvider());
@@ -91,6 +92,7 @@ public class BigQuerySinkConfigTest {
         assertEquals(10000000000L, sinkConfig.getPartitionExpirationMillis().longValue());
         assertEquals(Arrays.asList("foo", "bar", "qux"), sinkConfig.getClusteredFields());
         assertEquals("LaLaLand", sinkConfig.getRegion());
+        assertTrue(sinkConfig.fatalizeSerializer());
     }
 
     @Test
@@ -108,6 +110,7 @@ public class BigQuerySinkConfigTest {
         assertNull(sinkConfig.getPartitionExpirationMillis());
         assertNull(sinkConfig.getClusteredFields());
         assertNull(sinkConfig.getRegion());
+        assertFalse(sinkConfig.fatalizeSerializer());
     }
 
     @Test

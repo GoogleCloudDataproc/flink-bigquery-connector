@@ -51,7 +51,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
             TimePartitioning.Type partitionType,
             Long partitionExpirationMillis,
             List<String> clusteredFields,
-            String region) {
+            String region,
+            boolean fatalizeSerializer) {
         this.logicalType = logicalType;
         this.parallelism = parallelism;
         this.sinkConfig =
@@ -64,7 +65,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         partitionType,
                         partitionExpirationMillis,
                         clusteredFields,
-                        region);
+                        region,
+                        fatalizeSerializer);
     }
 
     @Override
@@ -121,7 +123,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 this.sinkConfig.getPartitionType(),
                 this.sinkConfig.getPartitionExpirationMillis(),
                 this.sinkConfig.getClusteredFields(),
-                this.sinkConfig.getRegion());
+                this.sinkConfig.getRegion(),
+                this.sinkConfig.fatalizeSerializer());
     }
 
     @Override
