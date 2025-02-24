@@ -88,7 +88,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     protected final int subtaskId;
     private final String tablePath;
     private final BigQueryConnectOptions connectOptions;
-    private final BigQueryProtoSerializer serializer;
+    private final BigQueryProtoSerializer<IN> serializer;
     private final ProtoRows.Builder protoRowsBuilder;
     // Writer must be throttled to ensure proper client usage.
     private final Throttler throttler;

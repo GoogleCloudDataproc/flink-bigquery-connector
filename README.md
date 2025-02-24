@@ -218,6 +218,10 @@ exactly-once.
 
 ### Sink In Datastream API
 
+The DataStream sink uses Java's generics for record type, and the connector offers a
+serializer for Avro's `GenericRecord` to BigQuery's proto format.
+Users can create their own serializers too (check `Sink Details` section).
+
 ```java
 StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 env.enableCheckpointing(checkpointInterval);
@@ -229,8 +233,8 @@ BigQueryConnectOptions sinkConnectOptions =
                 .setTable(...) // REQUIRED
                 .build();
 DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE; // or EXACTLY_ONCE
-BigQuerySinkConfig sinkConfig =
-        BigQuerySinkConfig.newBuilder()
+BigQuerySinkConfig<GenericRecord> sinkConfig =
+        BigQuerySinkConfig.<GenericRecord>newBuilder()
                 .connectOptions(sinkConnectOptions) // REQUIRED
                 .streamExecutionEnvironment(env) // REQUIRED
                 .deliveryGuarantee(deliveryGuarantee) // REQUIRED

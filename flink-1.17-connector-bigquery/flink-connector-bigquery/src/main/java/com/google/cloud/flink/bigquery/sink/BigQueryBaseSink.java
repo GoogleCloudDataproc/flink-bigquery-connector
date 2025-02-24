@@ -52,7 +52,7 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
 
     final BigQueryConnectOptions connectOptions;
     final BigQuerySchemaProvider schemaProvider;
-    final BigQueryProtoSerializer serializer;
+    final BigQueryProtoSerializer<IN> serializer;
     final String tablePath;
     final boolean enableTableCreation;
     final String partitionField;
@@ -63,7 +63,7 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
     final int maxParallelism;
     String traceId;
 
-    BigQueryBaseSink(BigQuerySinkConfig sinkConfig) {
+    BigQueryBaseSink(BigQuerySinkConfig<IN> sinkConfig) {
         validateSinkConfig(sinkConfig);
         connectOptions = sinkConfig.getConnectOptions();
         if (sinkConfig.getSchemaProvider() == null) {
@@ -87,7 +87,7 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
         maxParallelism = getMaxParallelism();
     }
 
-    private void validateSinkConfig(BigQuerySinkConfig sinkConfig) {
+    private void validateSinkConfig(BigQuerySinkConfig<IN> sinkConfig) {
         // Do not use class attribute!
         // This method is invoked before any assignments.
         BigQueryConnectOptions options = sinkConfig.getConnectOptions();

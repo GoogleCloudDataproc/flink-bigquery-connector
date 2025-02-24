@@ -22,6 +22,7 @@ import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 
@@ -81,7 +82,7 @@ public class BigQueryDynamicTableSinkTest {
                                 "{\"type\":\"record\",\"name\":\"record\","
                                         + "\"namespace\":\"org.apache.flink.avro.generated\",\"fields\":"
                                         + "[{\"name\":\"number\",\"type\":\"long\"}]}");
-        BigQuerySinkConfig obtainedSinkConfig = TABLE_SINK.getSinkConfig();
+        BigQuerySinkConfig<RowData> obtainedSinkConfig = TABLE_SINK.getSinkConfig();
         assertEquals(DeliveryGuarantee.AT_LEAST_ONCE, obtainedSinkConfig.getDeliveryGuarantee());
         assertEquals(convertedAvroSchema, obtainedSinkConfig.getSchemaProvider().getAvroSchema());
         assertTrue(obtainedSinkConfig.enableTableCreation());

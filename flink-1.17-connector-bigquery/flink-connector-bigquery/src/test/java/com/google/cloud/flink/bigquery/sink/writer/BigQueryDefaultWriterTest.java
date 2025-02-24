@@ -68,7 +68,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testConstructor() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         assertNotNull(defaultWriter);
         assertNull(defaultWriter.streamWriter);
@@ -90,7 +90,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testWrite_withoutAppend() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")), null);
         // ByteString for "foo" will be 3 bytes in size, and serialization overhead of 2 will be
@@ -114,7 +114,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testAppend() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         TestBigQuerySchemas.getSimpleRecordSchema(),
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
@@ -150,7 +150,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testCreateTable() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new TestSchemaProvider(null, null),
                         new FakeBigQuerySerializer(
@@ -172,7 +172,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test(expected = IllegalStateException.class)
     public void testCreateTable_withTableCreationDisabled() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new TestSchemaProvider(null, null),
                         new FakeBigQuerySerializer(
@@ -189,7 +189,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testWrite_withAppend() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         AppendRowsResponse.newBuilder().build());
@@ -229,7 +229,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testFlush() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         AppendRowsResponse.newBuilder().build());
@@ -269,7 +269,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testClose() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
                         AppendRowsResponse.newBuilder().build());
@@ -299,7 +299,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testWrite_withSerializationException() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getErringSerializer(), null);
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
         // If write experiences a serialization exception, then the element is ignored and no
@@ -317,7 +317,7 @@ public class BigQueryDefaultWriterTest {
     @Test(expected = BigQuerySerializationException.class)
     public void testGetProtoRow_withMaxAppendRequestSizeViolation()
             throws BigQuerySerializationException {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")), null);
         // The serializer.serialize method will return ByteString with 14 bytes, exceeding the
@@ -328,7 +328,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test
     public void testWrite_withLargeElement() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(
                         new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobarbazqux")), null);
         assertEquals(0, defaultWriter.getProtoRows().getSerializedRowsCount());
@@ -346,7 +346,7 @@ public class BigQueryDefaultWriterTest {
 
     @Test(expected = BigQueryConnectorException.class)
     public void testValidateAppendResponse_withResponseError() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         defaultWriter.validateAppendResponse(
                 new BigQueryDefaultWriter.AppendInfo(
@@ -360,15 +360,15 @@ public class BigQueryDefaultWriterTest {
 
     @Test(expected = BigQueryConnectorException.class)
     public void testValidateAppendResponse_withExecutionException() {
-        BigQueryDefaultWriter defaultWriter =
+        BigQueryDefaultWriter<Object> defaultWriter =
                 createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
         defaultWriter.validateAppendResponse(
                 new BigQueryDefaultWriter.AppendInfo(
                         ApiFutures.immediateFailedFuture(new RuntimeException("foo")), -1L, 10L));
     }
 
-    private BigQueryDefaultWriter createDefaultWriter(
-            BigQueryProtoSerializer mockSerializer, AppendRowsResponse appendResponse) {
+    private BigQueryDefaultWriter<Object> createDefaultWriter(
+            BigQueryProtoSerializer<Object> mockSerializer, AppendRowsResponse appendResponse) {
         return createDefaultWriter(
                 TestBigQuerySchemas.getSimpleRecordSchema(),
                 mockSerializer,
@@ -377,9 +377,9 @@ public class BigQueryDefaultWriterTest {
                 true);
     }
 
-    private BigQueryDefaultWriter createDefaultWriter(
+    private BigQueryDefaultWriter<Object> createDefaultWriter(
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer mockSerializer,
+            BigQueryProtoSerializer<Object> mockSerializer,
             AppendRowsResponse appendResponse,
             CreateTableOptions createTableOptions,
             boolean tableExists) {
@@ -392,7 +392,7 @@ public class BigQueryDefaultWriterTest {
         FakeBigQueryServices.FakeQueryDataClient queryClient =
                 new FakeBigQueryServices.FakeQueryDataClient(tableExists, null, null, null);
         connectOptions = StorageClientFaker.createConnectOptions(null, writeClient, queryClient);
-        return new BigQueryDefaultWriter(
+        return new BigQueryDefaultWriter<>(
                 "/projects/project/datasets/dataset/tables/table",
                 connectOptions,
                 schemaProvider,

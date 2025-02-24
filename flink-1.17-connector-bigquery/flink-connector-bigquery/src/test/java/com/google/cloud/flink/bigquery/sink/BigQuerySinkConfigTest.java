@@ -27,6 +27,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.TestSchemaProvider;
+import org.apache.avro.generic.GenericRecord;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,10 +65,10 @@ public class BigQuerySinkConfigTest {
                         .setTable("table")
                         .build();
         BigQuerySchemaProvider schemaProvider = new TestSchemaProvider(null, null);
-        BigQueryProtoSerializer serializer = new AvroToProtoSerializer();
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
         env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, Time.seconds(5)));
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(connectOptions)
                         .schemaProvider(schemaProvider)
                         .serializer(serializer)

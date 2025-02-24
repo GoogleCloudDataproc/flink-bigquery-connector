@@ -39,12 +39,12 @@ import java.util.UUID;
  * <li>{@link CheckpointingMode#AT_LEAST_ONCE}: at-least-once write consistency.
  * <li>Checkpointing disabled (NOT RECOMMENDED!): no consistency guarantee.
  *
- * @param <IN> Type of records written to BigQuery
+ * @param <IN> Type of input to sink.
  */
 public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
         implements TwoPhaseCommittingStatefulSink<IN, BigQueryWriterState, BigQueryCommittable> {
 
-    BigQueryExactlyOnceSink(BigQuerySinkConfig sinkConfig) {
+    BigQueryExactlyOnceSink(BigQuerySinkConfig<IN> sinkConfig) {
         super(sinkConfig);
         traceId = BigQueryServicesImpl.generateTraceId(UUID.randomUUID().toString());
     }
@@ -53,7 +53,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
             createWriter(InitContext context) {
         checkParallelism(context.getNumberOfParallelSubtasks());
-        return new BigQueryBufferedWriter(
+        return new BigQueryBufferedWriter<>(
                 tablePath,
                 connectOptions,
                 schemaProvider,
@@ -75,7 +75,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
                 recoveredState.stream()
                         .max(Comparator.comparingLong(state -> state.getCheckpointId()))
                         .get();
-        return new BigQueryBufferedWriter(
+        return new BigQueryBufferedWriter<>(
                 stateToRestore.getStreamName(),
                 stateToRestore.getStreamOffset(),
                 tablePath,

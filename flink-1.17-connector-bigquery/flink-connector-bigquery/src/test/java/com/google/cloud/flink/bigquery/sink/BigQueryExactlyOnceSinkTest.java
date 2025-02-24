@@ -59,20 +59,20 @@ public class BigQueryExactlyOnceSinkTest {
 
     @Test
     public void testConstructor() {
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        assertNotNull(new BigQueryExactlyOnceSink(sinkConfig));
+        assertNotNull(new BigQueryExactlyOnceSink<>(sinkConfig));
     }
 
     @Test
     public void testConstructor_withoutConnectOptions() {
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(null)
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
@@ -81,7 +81,7 @@ public class BigQueryExactlyOnceSinkTest {
         IllegalArgumentException exception =
                 assertThrows(
                         IllegalArgumentException.class,
-                        () -> new BigQueryExactlyOnceSink(sinkConfig));
+                        () -> new BigQueryExactlyOnceSink<>(sinkConfig));
         assertThat(exception)
                 .hasMessageThat()
                 .contains("connect options in sink config cannot be null");
@@ -94,14 +94,14 @@ public class BigQueryExactlyOnceSinkTest {
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
+        BigQueryExactlyOnceSink<Object> exactlyOnceSink = new BigQueryExactlyOnceSink<>(sinkConfig);
         assertNotNull(exactlyOnceSink.createWriter(mockedContext));
     }
 
@@ -112,8 +112,8 @@ public class BigQueryExactlyOnceSinkTest {
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
@@ -122,7 +122,9 @@ public class BigQueryExactlyOnceSinkTest {
         IllegalStateException exception =
                 assertThrows(
                         IllegalStateException.class,
-                        () -> new BigQueryExactlyOnceSink(sinkConfig).createWriter(mockedContext));
+                        () ->
+                                new BigQueryExactlyOnceSink<>(sinkConfig)
+                                        .createWriter(mockedContext));
         assertThat(exception)
                 .hasMessageThat()
                 .contains("Attempting to create more Sink Writers than allowed");
@@ -135,15 +137,15 @@ public class BigQueryExactlyOnceSinkTest {
         Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
-        BigQueryBufferedWriter restoredWriter =
+        BigQueryExactlyOnceSink<Object> exactlyOnceSink = new BigQueryExactlyOnceSink<>(sinkConfig);
+        BigQueryBufferedWriter<Object> restoredWriter =
                 (BigQueryBufferedWriter)
                         exactlyOnceSink.restoreWriter(
                                 mockedContext,
@@ -160,40 +162,40 @@ public class BigQueryExactlyOnceSinkTest {
 
     @Test
     public void testCreateCommitter() {
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
+        BigQueryExactlyOnceSink<Object> exactlyOnceSink = new BigQueryExactlyOnceSink<>(sinkConfig);
         assertNotNull(exactlyOnceSink.createCommitter());
     }
 
     @Test
     public void testGetCommittableSerializer() {
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
+        BigQueryExactlyOnceSink<Object> exactlyOnceSink = new BigQueryExactlyOnceSink<>(sinkConfig);
         assertNotNull(exactlyOnceSink.getCommittableSerializer());
     }
 
     @Test
     public void testGetWriterStateSerializer() {
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
                         .streamExecutionEnvironment(env)
                         .build();
-        BigQueryExactlyOnceSink exactlyOnceSink = new BigQueryExactlyOnceSink(sinkConfig);
+        BigQueryExactlyOnceSink<Object> exactlyOnceSink = new BigQueryExactlyOnceSink<>(sinkConfig);
         assertNotNull(exactlyOnceSink.getWriterStateSerializer());
     }
 
