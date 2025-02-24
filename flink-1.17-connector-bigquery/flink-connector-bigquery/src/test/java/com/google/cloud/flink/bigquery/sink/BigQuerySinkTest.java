@@ -55,8 +55,8 @@ public class BigQuerySinkTest {
     @Test
     public void testGet_withAtLeastOnce() {
         env.setRestartStrategy(NO_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
@@ -69,8 +69,8 @@ public class BigQuerySinkTest {
     @Test
     public void testGet_withExactlyOnce() {
         env.setRestartStrategy(NO_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
@@ -83,8 +83,8 @@ public class BigQuerySinkTest {
     @Test(expected = UnsupportedOperationException.class)
     public void testGet_withNoneDeliveryGuarantee() {
         env.setRestartStrategy(NO_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
@@ -97,8 +97,8 @@ public class BigQuerySinkTest {
     @Test(expected = IllegalArgumentException.class)
     public void testGet_withInvalidRestartStrategy() {
         env.setRestartStrategy(INVALID_FIXED_DELAY_RESTART_STRATEGY);
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
                         .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
                         .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))

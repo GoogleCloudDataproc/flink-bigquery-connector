@@ -187,8 +187,8 @@ public class BigQueryExample {
                         .setTable(sinkTableName)
                         .build();
 
-        BigQuerySinkConfig.Builder sinkConfigBuilder =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig.Builder<GenericRecord> sinkConfigBuilder =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
                         .streamExecutionEnvironment(env)
                         .deliveryGuarantee(sinkMode)

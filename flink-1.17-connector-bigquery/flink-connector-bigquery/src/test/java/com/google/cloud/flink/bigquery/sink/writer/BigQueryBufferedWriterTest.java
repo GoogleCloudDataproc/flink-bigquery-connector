@@ -86,7 +86,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testConstructor_withNewWriter() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null, 0L, 0L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         assertNotNull(bufferedWriter);
@@ -108,7 +108,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testConstructor_withRestoredWriter() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         "foo", 100L, 210L, 200L, 100L, FakeBigQuerySerializer.getEmptySerializer());
         assertNotNull(bufferedWriter);
@@ -133,7 +133,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testWrite_withoutAppend() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -180,7 +180,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testWrite_withAppend_withNewStream() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -277,7 +277,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testWrite_withAppend_withUsableRestoredStream() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         "restored_stream",
                         100L,
@@ -378,7 +378,7 @@ public class BigQueryBufferedWriterTest {
                         Mockito.mock(OffsetOutOfRange.class),
                         Mockito.mock(StreamFinalizedException.class),
                         Mockito.mock(StreamNotFound.class))) {
-            BigQueryBufferedWriter bufferedWriter =
+            BigQueryBufferedWriter<Object> bufferedWriter =
                     createBufferedWriter(
                             "restored_stream",
                             100L,
@@ -474,7 +474,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test(expected = BigQueryConnectorException.class)
     public void testFirstAppend_withUnusableRestoredStream_withUnexpectedError() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         "restored_stream",
                         100L,
@@ -511,7 +511,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testCreateTable() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -544,7 +544,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testValidateAppendResponse_withOffsetAlreadyExists() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
@@ -555,7 +555,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test(expected = BigQueryConnectorException.class)
     public void testValidateAppendResponse_withResponseError() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
@@ -570,7 +570,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test(expected = BigQueryConnectorException.class)
     public void testValidateAppendResponse_withOffsetMismatch() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
@@ -588,7 +588,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test(expected = BigQueryConnectorException.class)
     public void testValidateAppendResponse_withUnexpectedError() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
         bufferedWriter.validateAppendResponse(
@@ -598,7 +598,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testFlush() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -663,7 +663,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testPrepareCommit_withAppends() throws IOException, InterruptedException {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -709,7 +709,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testPrepareCommit_withoutAppends() throws IOException, InterruptedException {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -733,7 +733,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testSnapshotState_withNewWriter() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -790,7 +790,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testSnapshotState_withNewWriter_metrics() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -844,7 +844,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testSnapshotState_withRestoredWriter_withUsableStream() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         "restored_stream",
                         100L,
@@ -908,7 +908,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testSnapshotState_withRestoredWriter_withUsableStream_testMetrics() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         "restored_stream",
                         100L,
@@ -967,7 +967,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testSnapshotState_withRestoredWriter_withUnusableStream() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         "restored_stream",
                         100L,
@@ -1025,7 +1025,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testClose_withStreamFinalize() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -1056,7 +1056,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testClose_withoutStreamFinalize() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -1080,7 +1080,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testWrite_withSerializationException() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getErringSerializer());
         assertEquals(0, bufferedWriter.getProtoRows().getSerializedRowsCount());
@@ -1094,7 +1094,7 @@ public class BigQueryBufferedWriterTest {
     @Test(expected = BigQuerySerializationException.class)
     public void testGetProtoRow_withMaxAppendRequestSizeViolation()
             throws IOException, BigQuerySerializationException {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -1110,7 +1110,7 @@ public class BigQueryBufferedWriterTest {
 
     @Test
     public void testWrite_withLargeElement() {
-        BigQueryBufferedWriter bufferedWriter =
+        BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
                         0L,
@@ -1126,19 +1126,19 @@ public class BigQueryBufferedWriterTest {
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
     }
 
-    private BigQueryBufferedWriter createBufferedWriter(
+    private BigQueryBufferedWriter<Object> createBufferedWriter(
             String streamName,
             long streamOffset,
             long totalRecordsSeen,
             long totalRecordsWritten,
             long totalRecordsCommitted,
-            BigQueryProtoSerializer mockSerializer) {
+            BigQueryProtoSerializer<Object> mockSerializer) {
         InitContext context = Mockito.mock(InitContext.class);
         Mockito.when(context.getSubtaskId()).thenReturn(1);
         Mockito.when(context.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         connectOptions = StorageClientFaker.createConnectOptionsForWrite(null);
-        return new BigQueryBufferedWriter(
+        return new BigQueryBufferedWriter<>(
                 streamName,
                 streamOffset,
                 "/projects/project/datasets/dataset/tables/table",
@@ -1154,14 +1154,14 @@ public class BigQueryBufferedWriterTest {
                 context);
     }
 
-    private BigQueryBufferedWriter createBufferedWriter(
+    private BigQueryBufferedWriter<Object> createBufferedWriter(
             String streamName,
             long streamOffset,
             long totalRecordsSeen,
             long totalRecordsWritten,
             long totalRecordsCommitted,
             BigQuerySchemaProvider schemaProvider,
-            BigQueryProtoSerializer mockSerializer,
+            BigQueryProtoSerializer<Object> mockSerializer,
             CreateTableOptions createTableOptions,
             boolean tableExists) {
         InitContext context = Mockito.mock(InitContext.class);
@@ -1179,7 +1179,7 @@ public class BigQueryBufferedWriterTest {
         FakeBigQueryServices.FakeQueryDataClient queryClient =
                 new FakeBigQueryServices.FakeQueryDataClient(tableExists, null, null, null);
         connectOptions = StorageClientFaker.createConnectOptions(null, writeClient, queryClient);
-        return new BigQueryBufferedWriter(
+        return new BigQueryBufferedWriter<>(
                 streamName,
                 streamOffset,
                 "/projects/project/datasets/dataset/tables/table",
@@ -1195,13 +1195,13 @@ public class BigQueryBufferedWriterTest {
                 context);
     }
 
-    private BigQueryBufferedWriter createBufferedWriter(
+    private BigQueryBufferedWriter<Object> createBufferedWriter(
             String streamName,
             long streamOffset,
             long totalRecordsSeen,
             long totalRecordsWritten,
             long totalRecordsCommitted,
-            BigQueryProtoSerializer mockSerializer,
+            BigQueryProtoSerializer<Object> mockSerializer,
             ApiFuture[] appendResponseFutures,
             WriteStream writeStream,
             FinalizeWriteStreamResponse finalizeResponse) {
@@ -1215,7 +1215,7 @@ public class BigQueryBufferedWriterTest {
         FakeBigQueryServices.FakeQueryDataClient queryClient =
                 new FakeBigQueryServices.FakeQueryDataClient(true, null, null, null);
         connectOptions = StorageClientFaker.createConnectOptions(null, writeClient, queryClient);
-        return new BigQueryBufferedWriter(
+        return new BigQueryBufferedWriter<>(
                 streamName,
                 streamOffset,
                 "/projects/project/datasets/dataset/tables/table",
@@ -1239,7 +1239,7 @@ public class BigQueryBufferedWriterTest {
                         .createQueryDataClient(null);
     }
 
-    private void checkStreamlessWriterAttributes(BigQueryBufferedWriter bufferedWriter) {
+    private void checkStreamlessWriterAttributes(BigQueryBufferedWriter<Object> bufferedWriter) {
         assertNull(bufferedWriter.streamWriter);
         assertEquals("", bufferedWriter.streamName);
         assertEquals("", bufferedWriter.getStreamNameInState());

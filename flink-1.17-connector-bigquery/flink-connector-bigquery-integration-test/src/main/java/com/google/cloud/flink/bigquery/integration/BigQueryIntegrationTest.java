@@ -357,8 +357,8 @@ public class BigQueryIntegrationTest {
                         .setTable(destTableName)
                         .build();
 
-        BigQuerySinkConfig.Builder sinkConfigBuilder =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig.Builder<GenericRecord> sinkConfigBuilder =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
                         .serializer(new AvroToProtoSerializer())
                         .deliveryGuarantee(
@@ -383,14 +383,10 @@ public class BigQueryIntegrationTest {
                                 "BigQueryBoundedSource",
                                 source.getProducedType())
                         .map(
-                                new MapFunction<GenericRecord, GenericRecord>() {
-                                    @Override
-                                    public GenericRecord map(GenericRecord genericRecord)
-                                            throws Exception {
-                                        genericRecord.put(
-                                                "number", (long) genericRecord.get("number") + 1);
-                                        return genericRecord;
-                                    }
+                                (GenericRecord genericRecord) -> {
+                                    genericRecord.put(
+                                            "number", (long) genericRecord.get("number") + 1);
+                                    return genericRecord;
                                 })
                         .returns(
                                 new GenericRecordAvroTypeInfo(
@@ -432,8 +428,8 @@ public class BigQueryIntegrationTest {
         BigQuerySchemaProvider destSchemaProvider =
                 new BigQuerySchemaProviderImpl(sinkConnectOptions);
 
-        BigQuerySinkConfig sinkConfig =
-                BigQuerySinkConfig.newBuilder()
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
                         .schemaProvider(destSchemaProvider)
                         .serializer(new AvroToProtoSerializer())
@@ -801,30 +797,6 @@ public class BigQueryIntegrationTest {
         @Override
         public void close() throws Exception {
             LOG.info("Number of records read: {} ;", this.counter.getCount());
-        }
-    }
-
-    static class Mapper extends RichMapFunction<GenericRecord, String> {
-
-        private transient Counter counter;
-
-        @Override
-        public void open(Configuration config) {
-            this.counter =
-                    getRuntimeContext()
-                            .getMetricGroup()
-                            .counter("number_of_records_counter_query_map");
-        }
-
-        @Override
-        public void close() throws Exception {
-            LOG.info("Number of records read: {} ;", this.counter.getCount());
-        }
-
-        @Override
-        public String map(GenericRecord value) throws Exception {
-            this.counter.inc();
-            return "[ " + value.get("HOUR") + ", " + value.get("DAY") + " ]";
         }
     }
 
