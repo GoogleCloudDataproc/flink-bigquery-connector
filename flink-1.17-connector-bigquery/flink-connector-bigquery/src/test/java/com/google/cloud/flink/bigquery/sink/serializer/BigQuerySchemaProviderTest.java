@@ -628,7 +628,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(
                 descriptor.findFieldByNumber(4).toProto(),
                 FieldDescriptorProto.newBuilder()
-                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
+                        .setType(FieldDescriptorProto.Type.TYPE_INT32)
                         .setName("date")
                         .setNumber(4)
                         .setLabel(label)

@@ -150,7 +150,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
          */
         LOGICAL_AVRO_TYPES_TO_PROTO = new HashMap<>();
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.date().getName(), FieldDescriptorProto.Type.TYPE_INT64);
+                LogicalTypes.date().getName(), FieldDescriptorProto.Type.TYPE_INT32);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.decimal(1).getName(), FieldDescriptorProto.Type.TYPE_BYTES);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(

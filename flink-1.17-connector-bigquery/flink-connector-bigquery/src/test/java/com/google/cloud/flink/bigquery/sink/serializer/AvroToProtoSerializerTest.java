@@ -753,7 +753,7 @@ public class AvroToProtoSerializerTest {
         assertEquals("14:02:26.554456", message.getField(descriptor.findFieldByNumber(2)));
         assertEquals(
                 "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
-        assertEquals(19802L, message.getField(descriptor.findFieldByNumber(4)));
+        assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
         // TODO: Check the ByteString.
         assertEquals(
                 "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))",
@@ -1177,7 +1177,7 @@ public class AvroToProtoSerializerTest {
         assertEquals("14:02:26.554456", message.getField(descriptor.findFieldByNumber(2)));
         assertEquals(
                 "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
-        assertEquals(19802L, message.getField(descriptor.findFieldByNumber(4)));
+        assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
         // TODO: Check the ByteString.
         assertEquals(
                 "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))",
@@ -1601,7 +1601,7 @@ public class AvroToProtoSerializerTest {
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(4);
-        assertEquals(19802L, arrayResult.get(0));
+        assertEquals(19802, arrayResult.get(0));
 
         ArrayUtils.reverse(bytes);
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(5));

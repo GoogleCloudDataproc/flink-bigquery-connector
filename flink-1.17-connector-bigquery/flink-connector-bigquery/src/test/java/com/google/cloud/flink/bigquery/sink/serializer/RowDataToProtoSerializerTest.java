@@ -425,7 +425,7 @@ public class RowDataToProtoSerializerTest {
         assertEquals("14:02:26.554456", message.getField(descriptor.findFieldByNumber(2)));
         assertEquals(
                 "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
-        assertEquals(19802L, message.getField(descriptor.findFieldByNumber(4)));
+        assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
         bytes = bigDecimal.unscaledValue().toByteArray();
         Bytes.reverse(bytes);
         assertEquals(ByteString.copyFrom(bytes), message.getField(descriptor.findFieldByNumber(5)));
@@ -524,7 +524,7 @@ public class RowDataToProtoSerializerTest {
 
     /**
      * Test to check <code>serialize()</code> for Logical types supported by avro but not by
-     * BigQuery.However, the bigquery fields are <code>NULLABLE</code> so expecting an empty byte
+     * BigQuery. However, the bigquery fields are <code>NULLABLE</code> so expecting an empty byte
      * string.
      *
      * @throws BigQuerySerializationException

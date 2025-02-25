@@ -62,8 +62,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static org.apache.avro.Schema.Type.INT;
-
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
 
@@ -208,9 +206,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             case BOOLEAN:
                 return (boolean) value;
             case FLOAT:
-                return Double.valueOf(value.toString());
             case DOUBLE:
-                return (double) value;
+                return Double.valueOf(value.toString());
             case NULL:
                 throw new IllegalArgumentException("Null Type Field not supported in BigQuery!");
             default:
@@ -428,7 +425,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         }
 
         @VisibleForTesting
-        static Long convertDate(Object value) {
+        static Integer convertDate(Object value) {
             // The value is the number of days since the Unix epoch (1970-01-01).
             // The valid range is `-719162` (0001-01-01) to `2932896` (9999-12-31).
             int date;
@@ -445,7 +442,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 throw new IllegalArgumentException(getErrorMessage("Integer", "DATE"));
             }
             validateDate(date);
-            return Long.valueOf(String.valueOf(date));
+            return date;
         }
 
         static String convertDateTime(Object value, boolean micros) {
