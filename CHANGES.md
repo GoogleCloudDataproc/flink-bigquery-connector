@@ -1,6 +1,6 @@
 # Release Notes
 
-## Next
+## 1.0.0 - 2025-02-25
 
 * Propagate generics to BigQuerySink and BigQuerySinkConfig. Users of DataStream API
 will need to strongly type the sink's input in BigQuerySinkConfig. SQL/Table API users
