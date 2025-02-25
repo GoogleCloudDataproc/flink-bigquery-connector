@@ -3,10 +3,10 @@
 [![CodeQL](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml)
 [![codecov](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector)
 
-The connector supports streaming data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink, 
-and writing results back to BigQuery tables. 
-This data exchange with BigQuery is supported via [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/overview/) 
-as well as [Flink's Table API and SQL](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/table/overview/).
+The connector can stream data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink, 
+and write results back to BigQuery tables. 
+This data exchange with BigQuery is offered for [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/overview/) 
+and [Flink's Table API and SQL](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/table/overview/).
 
 ## Apache Flink
 
@@ -538,6 +538,10 @@ The connector currently does not offer the following:
 
 ### Data Types
 
+* When using the BigQuery sink, prefer long (64 bit integer) and double (64 bit float)
+over smaller variants. This is because BigQuery upcasts numeric types to their largest variants.
+For instance, check [Avro conversion](https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-avro#avro_conversions)
+and [issue 219](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/issues/219).
 * Map type is not supported by BigQuery. Alternative is to use array of structs,
 where each struct has fields `key` and `value`.
 * Nullable array is not supported by BigQuery.

@@ -2,6 +2,16 @@
 
 ## Next
 
+* Propagate generics to BigQuerySink and BigQuerySinkConfig. Users of DataStream API
+will need to strongly type the sink's input in BigQuerySinkConfig. SQL/Table API users
+will not be affected.
+* Increase maximum allowed sink parallelism to 512 for BigQuery's multi-regions (US and EU).
+* Remove unbounded source and bounded query source.
+* Create a shaded jar for the connector library.
+* Allow sink to throw a fatal error if record cannot be serialized to BigQuery's input format in sink.
+* Fix integer and float handling in sink by upcasting to long and double respectively.
+Check [issue 219](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/issues/219) for details.
+
 ## 0.5.0 - 2025-01-15
 
 * Support creation of new table in BigQuery sink. This is integrated with Datastream and Table/SQL API.
