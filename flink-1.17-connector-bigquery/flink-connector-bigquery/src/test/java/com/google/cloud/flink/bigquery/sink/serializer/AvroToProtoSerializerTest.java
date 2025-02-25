@@ -605,9 +605,7 @@ public class AvroToProtoSerializerTest {
         assertEquals(1234L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals(
-                Double.valueOf(Float.valueOf("12345.6789").toString()),
-                message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals((double) 12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
         assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
     }
 
@@ -1131,9 +1129,7 @@ public class AvroToProtoSerializerTest {
         assertEquals(1234L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals(
-                Double.valueOf(String.valueOf(12345.6789f)),
-                message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals((double) 12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
         assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
     }
 
@@ -1523,10 +1519,10 @@ public class AvroToProtoSerializerTest {
         // -- 3. check field [3] - float_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(4);
-        assertEquals(Double.valueOf(String.valueOf(0.26904225f)), arrayResult.get(0));
-        assertEquals(Double.valueOf(String.valueOf(0.558431f)), arrayResult.get(1));
-        assertEquals(Double.valueOf(String.valueOf(0.2269839f)), arrayResult.get(2));
-        assertEquals(Double.valueOf(String.valueOf(0.70421267f)), arrayResult.get(3));
+        assertEquals((double) 0.26904225f, arrayResult.get(0));
+        assertEquals((double) 0.558431f, arrayResult.get(1));
+        assertEquals((double) 0.2269839f, arrayResult.get(2));
+        assertEquals((double) 0.70421267f, arrayResult.get(3));
         // -- 4. check field [4] - enum_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(3);

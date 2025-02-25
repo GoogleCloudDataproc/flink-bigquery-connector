@@ -191,7 +191,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 if (convertedValue != value) {
                     return convertedValue;
                 }
-                return Long.valueOf(value.toString());
+                return ((Number) value).longValue();
             case BYTES:
                 // Find if it is of decimal Type.
                 convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
@@ -207,7 +207,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 return (boolean) value;
             case FLOAT:
             case DOUBLE:
-                return Double.valueOf(value.toString());
+                return ((Number) value).doubleValue();
             case NULL:
                 throw new IllegalArgumentException("Null Type Field not supported in BigQuery!");
             default:
