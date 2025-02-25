@@ -183,7 +183,7 @@ public class RowDataToProtoSerializerTest {
         GenericRowData row = new GenericRowData(4);
         row.setField(0, 1234);
         row.setField(1, byteArray);
-        row.setField(2, Float.parseFloat("12345.6789"));
+        row.setField(2, Float.valueOf("12345.6789"));
         // Enum remains the same as "String"
         row.setField(3, StringData.fromString("C"));
 
@@ -192,10 +192,12 @@ public class RowDataToProtoSerializerTest {
                 rowDataSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
 
         // Check for the desired results.
-        assertEquals(1234, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(1234L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals(12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                Double.valueOf(String.valueOf(12345.6789f)),
+                message.getField(descriptor.findFieldByNumber(3)));
         assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
     }
 
@@ -240,6 +242,8 @@ public class RowDataToProtoSerializerTest {
      * Test to check <code>serialize()</code> for Primitive types supported by BigQuery, but the
      * fields are <b>NULLABLE</b>, so conversion of <code>null</code> is tested - serialized byte
      * string should be empty.
+     *
+     * @throws BigQuerySerializationException
      */
     @Test
     public void testAllBigQuerySupportedNullablePrimitiveTypesConversionToEmptyByteStringCorrectly()
@@ -272,6 +276,8 @@ public class RowDataToProtoSerializerTest {
      * Test to check <code>serialize()</code> for Primitive types supported Avro but not by
      * BigQuery, but the fields are <b>NULLABLE</b>, so conversion of <code>null</code> is tested -
      * serialized byte string should be empty.
+     *
+     * @throws BigQuerySerializationException
      */
     @Test
     public void
@@ -303,20 +309,18 @@ public class RowDataToProtoSerializerTest {
 
     // ------------Test Schemas with UNION of Different Types (Excluding Primitive and Logical)
     /**
-     * Test to check <code>serialize()</code> for NULLABLE ARRAY type. <br>
+     * Test to check <code>serialize()</code> for NULLABLE ARRAY type.<br>
      * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
-     * type float. <br>
+     * type float.<br>
      * A record is created with <code>null</code> value for this field. <br>
      * Byte String is expected to be empty (as Storage API will automatically cast it as <code>[]
      * </code>)
+     *
+     * @throws BigQuerySerializationException
      */
     @Test
     public void testUnionOfArrayConversionToDynamicMessageCorrectly()
             throws BigQuerySerializationException {
-        // Obtaining the Schema Provider and the Avro-Record.
-        // -- Obtaining the nullable type for record formation
-        String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArray();
-        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
         GenericRowData row = new GenericRowData(1);
         row.setField(0, null);
 
@@ -421,7 +425,7 @@ public class RowDataToProtoSerializerTest {
         assertEquals("14:02:26.554456", message.getField(descriptor.findFieldByNumber(2)));
         assertEquals(
                 "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
-        assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
+        assertEquals(19802L, message.getField(descriptor.findFieldByNumber(4)));
         bytes = bigDecimal.unscaledValue().toByteArray();
         Bytes.reverse(bytes);
         assertEquals(ByteString.copyFrom(bytes), message.getField(descriptor.findFieldByNumber(5)));
@@ -434,12 +438,14 @@ public class RowDataToProtoSerializerTest {
     }
 
     /**
-     * Test to check <code>serialize()</code> for NULLABLE ARRAY of Type RECORD. <br>
+     * Test to check <code>serialize()</code> for NULLABLE ARRAY of Type RECORD.<br>
      * Since BigQuery does not support OPTIONAL/NULLABLE arrays, descriptor is created with ARRAY of
-     * type RECORD. <br>
+     * type RECORD.<br>
      * A record is created with <code>null</code> value for this field. <br>
      * Byte String is expected to be empty (as Storage API will automatically cast it as <code>[]
      * </code>)
+     *
+     * @throws BigQuerySerializationException
      */
     @Test
     public void testUnionOfArrayOfRecordConversionToDynamicMessageCorrectly()
@@ -518,8 +524,10 @@ public class RowDataToProtoSerializerTest {
 
     /**
      * Test to check <code>serialize()</code> for Logical types supported by avro but not by
-     * BigQuery. However, the bigquery fields are <code>NULLABLE</code> so expecting an empty byte
+     * BigQuery.However, the bigquery fields are <code>NULLABLE</code> so expecting an empty byte
      * string.
+     *
+     * @throws BigQuerySerializationException
      */
     @Test
     public void
@@ -849,7 +857,7 @@ public class RowDataToProtoSerializerTest {
         byte[] byteArray = "Any String you want".getBytes();
         innerRow.setField(0, 1234);
         innerRow.setField(1, byteArray);
-        innerRow.setField(2, Float.parseFloat("12345.6789"));
+        innerRow.setField(2, Float.valueOf("12345.6789"));
         innerRow.setField(3, StringData.fromString("C"));
         row.setField(0, innerRow);
 
@@ -862,10 +870,12 @@ public class RowDataToProtoSerializerTest {
         descriptor =
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
-        assertEquals(1234, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(1234L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals(
                 ByteString.copyFrom(byteArray), message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals(12345.6789f, message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                Double.valueOf(String.valueOf(12345.6789f)),
+                message.getField(descriptor.findFieldByNumber(3)));
         assertEquals("C", message.getField(descriptor.findFieldByNumber(4)));
     }
 
@@ -1226,7 +1236,7 @@ public class RowDataToProtoSerializerTest {
         // -- 1. check field [1] - quantity
         List<Object> arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(1));
         assertThat(arrayResult).hasSize(1);
-        assertEquals(89767285, arrayResult.get(0));
+        assertEquals(89767285L, arrayResult.get(0));
         // -- 2. check field [21] - fixed_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(2));
         assertThat(arrayResult).hasSize(1);
@@ -1234,10 +1244,10 @@ public class RowDataToProtoSerializerTest {
         // -- 3. check field [3] - float_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(4);
-        assertEquals(0.26904225f, arrayResult.get(0));
-        assertEquals(0.558431f, arrayResult.get(1));
-        assertEquals(0.2269839f, arrayResult.get(2));
-        assertEquals(0.70421267f, arrayResult.get(3));
+        assertEquals(Double.valueOf(String.valueOf(0.26904225f)), arrayResult.get(0));
+        assertEquals(Double.valueOf(String.valueOf(0.558431f)), arrayResult.get(1));
+        assertEquals(Double.valueOf(String.valueOf(0.2269839f)), arrayResult.get(2));
+        assertEquals(Double.valueOf(String.valueOf(0.70421267f)), arrayResult.get(3));
         // -- 4. check field [4] - enum_field
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(3);
@@ -1419,8 +1429,8 @@ public class RowDataToProtoSerializerTest {
         // Check for the desired results.
         DynamicMessage message =
                 rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
-        assertEquals(123, message.getField(descriptor.findFieldByNumber(1)));
-        assertEquals(123, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(123L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(123L, message.getField(descriptor.findFieldByNumber(2)));
     }
 
     /**

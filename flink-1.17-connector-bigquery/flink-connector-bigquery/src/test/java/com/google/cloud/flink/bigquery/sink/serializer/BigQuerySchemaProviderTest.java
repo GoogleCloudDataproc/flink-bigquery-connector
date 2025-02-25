@@ -565,7 +565,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(
                 descriptor.findFieldByNumber(1).toProto(),
                 FieldDescriptorProto.newBuilder()
-                        .setType(FieldDescriptorProto.Type.TYPE_INT32)
+                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
                         .setName("quantity")
                         .setNumber(1)
                         .setLabel(label)
@@ -583,7 +583,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(
                 descriptor.findFieldByNumber(3).toProto(),
                 FieldDescriptorProto.newBuilder()
-                        .setType(FieldDescriptorProto.Type.TYPE_FLOAT)
+                        .setType(FieldDescriptorProto.Type.TYPE_DOUBLE)
                         .setName("float_field")
                         .setNumber(3)
                         .setLabel(label)
@@ -628,7 +628,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(
                 descriptor.findFieldByNumber(4).toProto(),
                 FieldDescriptorProto.newBuilder()
-                        .setType(FieldDescriptorProto.Type.TYPE_INT32)
+                        .setType(FieldDescriptorProto.Type.TYPE_INT64)
                         .setName("date")
                         .setNumber(4)
                         .setLabel(label)

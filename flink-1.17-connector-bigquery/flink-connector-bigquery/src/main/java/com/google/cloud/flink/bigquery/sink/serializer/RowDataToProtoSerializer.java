@@ -123,15 +123,15 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
                 case SMALLINT:
-                    return (int) element.getShort(fieldNumber);
+                    return Long.valueOf(String.valueOf((int) element.getShort(fieldNumber)));
                 case INTEGER:
                 case DATE:
                     // read in the form of - number of days since EPOCH (Integer)
-                    return element.getInt(fieldNumber);
+                    return Long.valueOf(String.valueOf(element.getInt(fieldNumber)));
                 case BIGINT:
                     return element.getLong(fieldNumber);
                 case FLOAT:
-                    return element.getFloat(fieldNumber);
+                    return Double.valueOf(String.valueOf(element.getFloat(fieldNumber)));
                 case DOUBLE:
                     return element.getDouble(fieldNumber);
                 case ROW:

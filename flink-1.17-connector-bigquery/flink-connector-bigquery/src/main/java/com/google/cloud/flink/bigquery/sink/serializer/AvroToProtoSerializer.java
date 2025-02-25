@@ -62,6 +62,8 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static org.apache.avro.Schema.Type.INT;
+
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
 
@@ -186,18 +188,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 }
                 return value.toString();
             case LONG:
-                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
-                if (convertedValue != value) {
-                    return convertedValue;
-                }
-                return Long.parseLong(value.toString());
             case INT:
-                // Return the converted value.
                 convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
                 if (convertedValue != value) {
                     return convertedValue;
                 }
-                return Integer.parseInt(value.toString());
+                return Long.valueOf(value.toString());
             case BYTES:
                 // Find if it is of decimal Type.
                 convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
@@ -212,7 +208,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             case BOOLEAN:
                 return (boolean) value;
             case FLOAT:
-                return Float.parseFloat(String.valueOf((float) value));
+                return Double.valueOf(value.toString());
             case DOUBLE:
                 return (double) value;
             case NULL:
@@ -432,7 +428,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         }
 
         @VisibleForTesting
-        static Integer convertDate(Object value) {
+        static Long convertDate(Object value) {
             // The value is the number of days since the Unix epoch (1970-01-01).
             // The valid range is `-719162` (0001-01-01) to `2932896` (9999-12-31).
             int date;
@@ -449,7 +445,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 throw new IllegalArgumentException(getErrorMessage("Integer", "DATE"));
             }
             validateDate(date);
-            return date;
+            return Long.valueOf(String.valueOf(date));
         }
 
         static String convertDateTime(Object value, boolean micros) {

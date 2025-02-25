@@ -133,10 +133,10 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
          * AVRO_TYPES_TO_PROTO: containing mapping from Primitive Avro Schema Type to FieldDescriptorProto.
          */
         AVRO_TYPES_TO_PROTO = new EnumMap<>(Schema.Type.class);
-        AVRO_TYPES_TO_PROTO.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT32);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.FIXED, FieldDescriptorProto.Type.TYPE_BYTES);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.INT, FieldDescriptorProto.Type.TYPE_INT64);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.LONG, FieldDescriptorProto.Type.TYPE_INT64);
-        AVRO_TYPES_TO_PROTO.put(Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_FLOAT);
+        AVRO_TYPES_TO_PROTO.put(Schema.Type.FLOAT, FieldDescriptorProto.Type.TYPE_DOUBLE);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.DOUBLE, FieldDescriptorProto.Type.TYPE_DOUBLE);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.STRING, FieldDescriptorProto.Type.TYPE_STRING);
         AVRO_TYPES_TO_PROTO.put(Schema.Type.BOOLEAN, FieldDescriptorProto.Type.TYPE_BOOL);
@@ -150,7 +150,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
          */
         LOGICAL_AVRO_TYPES_TO_PROTO = new HashMap<>();
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.date().getName(), FieldDescriptorProto.Type.TYPE_INT32);
+                LogicalTypes.date().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.decimal(1).getName(), FieldDescriptorProto.Type.TYPE_BYTES);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
