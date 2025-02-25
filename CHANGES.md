@@ -9,7 +9,8 @@ will not be affected.
 * Remove unbounded source and bounded query source.
 * Create a shaded jar for the connector library.
 * Allow sink to throw a fatal error if record cannot be serialized to BigQuery's input format in sink.
-* Force upcasting of integer and float to long and double in sink.
+* Fix integer and float handling in sink by upcasting to long and double respectively.
+Check [issue 219](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/issues/219) for details.
 
 ## 0.5.0 - 2025-01-15
 
