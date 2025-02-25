@@ -3,7 +3,7 @@
 [![CodeQL](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/actions/workflows/codeql-analysis.yml)
 [![codecov](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/GoogleCloudDataproc/flink-bigquery-connector)
 
-It can stream data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink, 
+The connector can stream data from [Google BigQuery](https://cloud.google.com/bigquery/) tables to Apache Flink, 
 and write results back to BigQuery tables. 
 This data exchange with BigQuery is offered for [Flink’s Datastream API](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/datastream/overview/) 
 and [Flink's Table API and SQL](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/table/overview/).
