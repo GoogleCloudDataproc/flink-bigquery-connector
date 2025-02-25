@@ -48,6 +48,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.flink.table.types.logical.LogicalTypeRoot.INTEGER;
+
 /** Serializer for converting Flink's {@link RowData} to BigQuery proto. */
 public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
 
@@ -123,15 +125,16 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
                 case SMALLINT:
-                    return (int) element.getShort(fieldNumber);
+                    return Long.valueOf(String.valueOf((int) element.getShort(fieldNumber)));
                 case INTEGER:
+                    return Long.valueOf(String.valueOf(element.getInt(fieldNumber)));
                 case DATE:
                     // read in the form of - number of days since EPOCH (Integer)
                     return element.getInt(fieldNumber);
                 case BIGINT:
                     return element.getLong(fieldNumber);
                 case FLOAT:
-                    return element.getFloat(fieldNumber);
+                    return Double.valueOf(String.valueOf(element.getFloat(fieldNumber)));
                 case DOUBLE:
                     return element.getDouble(fieldNumber);
                 case ROW:
@@ -289,8 +292,9 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
      * Function to convert a Generic Avro Record to Dynamic Message to write using the Storage Write
      * API.
      *
-     * @param element {@link GenericRecord} Object to convert to {@link DynamicMessage}
+     * @param element {@link GenericRecord} object to convert to {@link DynamicMessage}
      * @param descriptor {@link Descriptor} describing the schema of the sink table.
+     * @param type {@link LogicalType} representing Flink's Table data type.
      * @return {@link DynamicMessage} Object converted from the Generic Avro Record.
      */
     public DynamicMessage getDynamicMessageFromRowData(
