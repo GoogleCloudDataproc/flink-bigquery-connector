@@ -60,6 +60,15 @@ public class BigQueryConnectorOptions {
                     .withDescription("Specifies the BigQuery table name.");
 
     /**
+     * [OPTIONAL] The quota project ID to use when connecting.
+     */
+    public static final ConfigOption<String> QUOTA_PROJECT_ID =
+            ConfigOptions.key("quota-project-id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the BigQuery quota project to use.");
+
+    /**
      * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of rows/records to
      * be read from source. <br>
      * Default: -1 - Reads all rows from the source table.

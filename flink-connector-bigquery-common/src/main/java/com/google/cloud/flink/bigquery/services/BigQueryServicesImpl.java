@@ -29,6 +29,7 @@ import com.google.api.gax.rpc.UnaryCallSettings;
 import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.auth.Credentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Dataset;
@@ -135,12 +136,16 @@ public class BigQueryServicesImpl implements BigQueryServices {
     /** Implementation of a BigQuery read client wrapper. */
     public static class StorageReadClientImpl implements StorageReadClient {
         private final BigQueryReadClient client;
+        private final String quotaProjectId;
 
         private StorageReadClientImpl(CredentialsOptions options) throws IOException {
+            Credentials credentials = options.getCredentials();
+            quotaProjectId = BigQueryUtils.getQuotaProjectId(options, credentials);
+
             BigQueryReadSettings.Builder settingsBuilder =
                     BigQueryReadSettings.newBuilder()
-                            .setCredentialsProvider(
-                                    FixedCredentialsProvider.create(options.getCredentials()))
+                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
+                            .setQuotaProjectId(quotaProjectId)
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
@@ -177,7 +182,9 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
         @Override
         public ReadSession createReadSession(CreateReadSessionRequest request) {
-            return client.createReadSession(request);
+            CreateReadSessionRequest updatedRequest =
+                    BigQueryUtils.updateWithQuotaProject(request, quotaProjectId);
+            return client.createReadSession(updatedRequest);
         }
 
         @Override
@@ -196,10 +203,12 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private final BigQueryWriteClient client;
 
         private StorageWriteClientImpl(CredentialsOptions options) throws IOException {
+            Credentials credentials = options.getCredentials();
+            String quotaProjectId = BigQueryUtils.getQuotaProjectId(options, credentials);
             BigQueryWriteSettings.Builder settingsBuilder =
                     BigQueryWriteSettings.newBuilder()
-                            .setCredentialsProvider(
-                                    FixedCredentialsProvider.create(options.getCredentials()))
+                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
+                            .setQuotaProjectId(quotaProjectId)
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
@@ -320,9 +329,12 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private final Bigquery bigquery;
 
         public QueryDataClientImpl(CredentialsOptions options) {
+            Credentials credentials = options.getCredentials();
+            String quotaProjectId = BigQueryUtils.getQuotaProjectId(options, credentials);
             bigQuery =
                     BigQueryOptions.newBuilder()
-                            .setCredentials(options.getCredentials())
+                            .setCredentials(credentials)
+                            .setQuotaProjectId(quotaProjectId)
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .build()
                             .getService();
