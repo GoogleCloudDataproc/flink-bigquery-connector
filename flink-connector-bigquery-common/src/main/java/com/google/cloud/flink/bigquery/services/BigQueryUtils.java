@@ -16,8 +16,6 @@
 
 package com.google.cloud.flink.bigquery.services;
 
-import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
-
 import org.apache.flink.FlinkVersion;
 import org.apache.flink.annotation.Internal;
 
@@ -35,6 +33,7 @@ import com.google.api.services.bigquery.model.Table;
 import com.google.auth.Credentials;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.QuotaProjectIdProvider;
+import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
