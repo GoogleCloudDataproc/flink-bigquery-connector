@@ -72,6 +72,7 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_ACCESS_TOKEN);
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_FILE);
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
+        additionalOptions.add(BigQueryConnectorOptions.QUOTA_PROJECT_ID);
         additionalOptions.add(BigQueryConnectorOptions.TEST_MODE);
         additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         additionalOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
@@ -100,6 +101,7 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_ACCESS_TOKEN);
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_FILE);
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_KEY);
+        forwardOptions.add(BigQueryConnectorOptions.QUOTA_PROJECT_ID);
         forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         forwardOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
         forwardOptions.add(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
