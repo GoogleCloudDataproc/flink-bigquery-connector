@@ -174,7 +174,7 @@ public interface BigQueryServices extends Serializable {
      * An interface representing the client interactions needed to retrieve data from BigQuery using
      * SQL queries.
      */
-    interface QueryDataClient extends Serializable {
+    interface QueryDataClient extends Serializable, AutoCloseable {
         /**
          * Returns a list with the table's existing partitions.
          *
@@ -244,5 +244,14 @@ public interface BigQueryServices extends Serializable {
          */
         void createTable(
                 String project, String dataset, String table, TableDefinition tableDefinition);
+
+        /**
+         * Closes this resource, relinquishing any underlying resources. This method is invoked
+         * automatically on objects managed by the try-with-resources statement.
+         *
+         * @throws Exception if this resource cannot be closed
+         */
+        @Override
+        void close() throws Exception;
     }
 }

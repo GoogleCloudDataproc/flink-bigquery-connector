@@ -317,7 +317,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
     /** A wrapper implementation for the BigQuery service client library methods. */
     public static class QueryDataClientImpl implements QueryDataClient {
         private final BigQuery bigQuery;
-        private final Bigquery bigquery;
+        private final Bigquery bigquery; // Instance of com.google.api.services.bigquery.Bigquery
 
         public QueryDataClientImpl(CredentialsOptions options) {
             bigQuery =
@@ -454,6 +454,24 @@ public class BigQueryServicesImpl implements BigQueryServices {
             TableId tableId = TableId.of(project, dataset, table);
             TableInfo tableInfo = TableInfo.of(tableId, tableDefinition);
             bigQuery.create(tableInfo);
+        }
+
+        @Override
+        public void close() throws Exception {
+            if (this.bigQuery != null) {
+                // The com.google.cloud.bigquery.BigQuery client does not implement
+                // AutoCloseable, however it has a close() method that should be called
+                // to clean up resources, especially the underlying transport channel.
+                // Not calling close() can lead to resource leaks, particularly in scenarios
+                // where many instances of QueryDataClientImpl are created and discarded.
+                this.bigQuery.close();
+                LOG.debug("BigQuery client closed successfully.");
+            }
+            // For the bigqueryLower (instance of com.google.api.services.bigquery.Bigquery),
+            // it uses a HttpTransport, which might need to be shut down if it's not managed
+            // elsewhere (e.g. by a shared instance or application lifecycle).
+            // However, its lifecycle management is not straightforward from the client object itself.
+            // In this context, we are focusing on the BigQuery client.
         }
     }
 

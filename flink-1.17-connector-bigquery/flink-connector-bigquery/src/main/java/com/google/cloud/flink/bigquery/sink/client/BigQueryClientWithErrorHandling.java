@@ -39,9 +39,8 @@ public class BigQueryClientWithErrorHandling {
 
     public static boolean tableExists(BigQueryConnectOptions connectOptions)
             throws BigQueryConnectorException {
-        try {
-            BigQueryServices.QueryDataClient queryDataClient =
-                    BigQueryServicesFactory.instance(connectOptions).queryClient();
+        try (BigQueryServices.QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient()) {
             return queryDataClient.tableExists(
                     connectOptions.getProjectId(),
                     connectOptions.getDataset(),
@@ -49,19 +48,19 @@ public class BigQueryClientWithErrorHandling {
         } catch (Exception e) {
             throw new BigQueryConnectorException(
                     String.format(
-                            "Unable to check existence of BigQuery table %s.%s.%s",
+                            "Failed operation for table %s.%s.%s or closing client: %s",
                             connectOptions.getProjectId(),
                             connectOptions.getDataset(),
-                            connectOptions.getTable()),
+                            connectOptions.getTable(),
+                            e.getMessage()),
                     e);
         }
     }
 
     public static TableSchema getTableSchema(BigQueryConnectOptions connectOptions)
             throws BigQueryConnectorException {
-        try {
-            BigQueryServices.QueryDataClient queryDataClient =
-                    BigQueryServicesFactory.instance(connectOptions).queryClient();
+        try (BigQueryServices.QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient()) {
             return queryDataClient.getTableSchema(
                     connectOptions.getProjectId(),
                     connectOptions.getDataset(),
@@ -69,18 +68,18 @@ public class BigQueryClientWithErrorHandling {
         } catch (Exception e) {
             throw new BigQueryConnectorException(
                     String.format(
-                            "Unable to get schema of BigQuery table %s.%s.%s",
+                            "Failed operation for table %s.%s.%s or closing client: %s",
                             connectOptions.getProjectId(),
                             connectOptions.getDataset(),
-                            connectOptions.getTable()),
+                            connectOptions.getTable(),
+                            e.getMessage()),
                     e);
         }
     }
 
     public static void createDataset(BigQueryConnectOptions connectOptions, String region) {
-        try {
-            BigQueryServices.QueryDataClient queryDataClient =
-                    BigQueryServicesFactory.instance(connectOptions).queryClient();
+        try (BigQueryServices.QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient()) {
             queryDataClient.createDataset(
                     connectOptions.getProjectId(), connectOptions.getDataset(), region);
             LOG.info(
@@ -97,17 +96,26 @@ public class BigQueryClientWithErrorHandling {
             }
             throw new BigQueryConnectorException(
                     String.format(
-                            "Unable to create BigQuery dataset %s.%s",
-                            connectOptions.getProjectId(), connectOptions.getDataset()),
+                            "Unable to create BigQuery dataset %s.%s or closing client: %s",
+                            connectOptions.getProjectId(),
+                            connectOptions.getDataset(),
+                            e.getMessage()),
+                    e);
+        } catch (Exception e) {
+            throw new BigQueryConnectorException(
+                    String.format(
+                            "Failed operation for dataset %s.%s or closing client: %s",
+                            connectOptions.getProjectId(),
+                            connectOptions.getDataset(),
+                            e.getMessage()),
                     e);
         }
     }
 
     public static void createTable(
             BigQueryConnectOptions connectOptions, TableDefinition tableDefinition) {
-        try {
-            BigQueryServices.QueryDataClient queryDataClient =
-                    BigQueryServicesFactory.instance(connectOptions).queryClient();
+        try (BigQueryServices.QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient()) {
             queryDataClient.createTable(
                     connectOptions.getProjectId(),
                     connectOptions.getDataset(),
@@ -129,25 +137,36 @@ public class BigQueryClientWithErrorHandling {
             }
             throw new BigQueryConnectorException(
                     String.format(
-                            "Unable to create BigQuery table %s.%s.%s",
+                            "Unable to create BigQuery table %s.%s.%s or closing client: %s",
                             connectOptions.getProjectId(),
                             connectOptions.getDataset(),
-                            connectOptions.getTable()),
+                            connectOptions.getTable(),
+                            e.getMessage()),
+                    e);
+        } catch (Exception e) {
+            throw new BigQueryConnectorException(
+                    String.format(
+                            "Failed operation for table %s.%s.%s or closing client: %s",
+                            connectOptions.getProjectId(),
+                            connectOptions.getDataset(),
+                            connectOptions.getTable(),
+                            e.getMessage()),
                     e);
         }
     }
 
     public static Dataset getDataset(BigQueryConnectOptions connectOptions) {
-        try {
-            BigQueryServices.QueryDataClient queryDataClient =
-                    BigQueryServicesFactory.instance(connectOptions).queryClient();
+        try (BigQueryServices.QueryDataClient queryDataClient =
+                BigQueryServicesFactory.instance(connectOptions).queryClient()) {
             return queryDataClient.getDataset(
                     connectOptions.getProjectId(), connectOptions.getDataset());
-        } catch (BigQueryException e) {
+        } catch (Exception e) {
             throw new BigQueryConnectorException(
                     String.format(
-                            "Unable to check existence of BigQuery dataset %s.%s",
-                            connectOptions.getProjectId(), connectOptions.getDataset()),
+                            "Failed operation for dataset %s.%s or closing client: %s",
+                            connectOptions.getProjectId(),
+                            connectOptions.getDataset(),
+                            e.getMessage()),
                     e);
         }
     }
