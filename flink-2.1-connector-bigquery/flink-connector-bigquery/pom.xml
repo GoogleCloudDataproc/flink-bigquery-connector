@@ -23,12 +23,12 @@ under the License.
 
     <parent>
         <groupId>com.google.cloud.flink</groupId>
-        <artifactId>flink-1.17-connector-bigquery-parent</artifactId>
+        <artifactId>flink-2.1-connector-bigquery-parent</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>flink-1.17-connector-bigquery</artifactId>
-    <name>Flink : Connectors : Google BigQuery Connector (Flink v1.17)</name>
+    <artifactId>flink-2.1-connector-bigquery</artifactId>
+    <name>Flink : Connectors : Google BigQuery Connector (Flink v2.1)</name>
 
     <packaging>jar</packaging>
 
