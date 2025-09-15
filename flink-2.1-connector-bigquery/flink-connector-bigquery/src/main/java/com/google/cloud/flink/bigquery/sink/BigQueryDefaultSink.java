@@ -17,6 +17,8 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
+import org.apache.flink.core.execution.CheckpointingMode;
 
 import com.google.cloud.flink.bigquery.services.BigQueryServicesImpl;
 import com.google.cloud.flink.bigquery.sink.writer.BigQueryDefaultWriter;
@@ -39,8 +41,8 @@ class BigQueryDefaultSink<IN> extends BigQueryBaseSink<IN> {
     }
 
     @Override
-    public SinkWriter createWriter(InitContext context) {
-        checkParallelism(context.getNumberOfParallelSubtasks());
+    public SinkWriter createWriter(WriterInitContext context) {
+        checkParallelism(context.getTaskInfo().getNumberOfParallelSubtasks());
         return new BigQueryDefaultWriter<>(
                 tablePath,
                 connectOptions,

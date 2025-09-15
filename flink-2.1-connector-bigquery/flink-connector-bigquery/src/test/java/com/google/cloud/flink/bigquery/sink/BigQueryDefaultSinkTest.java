@@ -16,9 +16,7 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
-import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -36,7 +34,9 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.time.Duration;
 
+import static com.google.cloud.flink.bigquery.RestartStrategyConfigUtils.fixedDelayRestartStrategyConfig;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -48,14 +48,13 @@ import static org.junit.Assert.assertTrue;
 /** Tests for {@link BigQueryDefaultSink}. */
 public class BigQueryDefaultSinkTest {
 
-    private static final RestartStrategies.RestartStrategyConfiguration
-            FIXED_DELAY_RESTART_STRATEGY = RestartStrategies.fixedDelayRestart(5, Time.seconds(3));
-
     private StreamExecutionEnvironment env;
 
     @Before
     public void setUp() {
-        env = new StreamExecutionEnvironment();
+        env =
+                new StreamExecutionEnvironment(
+                        fixedDelayRestartStrategyConfig(5, Duration.ofSeconds(3)));
     }
 
     @After
@@ -65,7 +64,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testConstructor() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
@@ -84,7 +82,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testConstructor_withoutConnectOptions() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(null)
@@ -103,7 +100,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testConstructor_withoutSerializer() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
@@ -120,7 +116,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testConstructor_withCreateTable_withoutExistingTable() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(false))
@@ -136,7 +131,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testConstructor_withCreateTable_withExistingTable() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
@@ -152,7 +146,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testConstructor_withoutCreateTable_withoutExistingTable() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(false))
@@ -169,10 +162,10 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testCreateWriter() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        InitContext mockedContext = Mockito.mock(InitContext.class);
-        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
-        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        WriterInitContext mockedContext =
+                Mockito.mock(WriterInitContext.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(mockedContext.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
+        Mockito.when(mockedContext.getTaskInfo().getNumberOfParallelSubtasks()).thenReturn(50);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig<Object> sinkConfig =
@@ -188,10 +181,10 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testCreateWriter_withFatalSerializer() throws IOException, InterruptedException {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        InitContext mockedContext = Mockito.mock(InitContext.class);
-        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
-        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        WriterInitContext mockedContext =
+                Mockito.mock(WriterInitContext.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(mockedContext.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
+        Mockito.when(mockedContext.getTaskInfo().getNumberOfParallelSubtasks()).thenReturn(50);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig<Object> sinkConfig =
@@ -212,10 +205,10 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testCreateWriter_withMoreWritersThanAllowed() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
-        InitContext mockedContext = Mockito.mock(InitContext.class);
-        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
-        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
+        WriterInitContext mockedContext =
+                Mockito.mock(WriterInitContext.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(mockedContext.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
+        Mockito.when(mockedContext.getTaskInfo().getNumberOfParallelSubtasks()).thenReturn(129);
         BigQuerySinkConfig<Object> sinkConfig =
                 BigQuerySinkConfig.<Object>newBuilder()
                         .connectOptions(getConnectOptions(true))
@@ -234,7 +227,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testRegionAndParallelism_datasetExists_providedRegionOverridden() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<GenericRecord> sinkConfig =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(
@@ -252,7 +244,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testRegionAndParallelism_datasetExistsMultiRegion_providedRegionOverridden() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<GenericRecord> sinkConfig =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(StorageClientFaker.createConnectOptionsForQuery(true, "us"))
@@ -268,7 +259,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testRegionAndParallelism_useProvidedRegion() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<GenericRecord> sinkConfig =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(
@@ -285,7 +275,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testRegionAndParallelism_useProvidedMultiRegion() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<GenericRecord> sinkConfig =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(
@@ -302,7 +291,6 @@ public class BigQueryDefaultSinkTest {
 
     @Test
     public void testRegionAndParallelism_useDefaultRegion() {
-        env.setRestartStrategy(FIXED_DELAY_RESTART_STRATEGY);
         BigQuerySinkConfig<GenericRecord> sinkConfig =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(

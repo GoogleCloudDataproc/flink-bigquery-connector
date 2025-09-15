@@ -17,7 +17,8 @@
 package com.google.cloud.flink.bigquery.sink.writer;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
+import org.apache.flink.core.execution.CheckpointingMode;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 import org.apache.flink.util.StringUtils;
@@ -35,6 +36,7 @@ import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.sink.TwoPhaseCommittingStatefulSink;
 import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommittable;
+import com.google.cloud.flink.bigquery.sink.committer.BigQueryCommitter;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
@@ -109,7 +111,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             boolean fatalizeSerializer,
             int maxParallelism,
             String traceId,
-            InitContext context) {
+            WriterInitContext context) {
         this(
                 "",
                 0L,
@@ -141,9 +143,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             boolean fatalizeSerializer,
             int maxParallelism,
             String traceId,
-            InitContext context) {
+            WriterInitContext context) {
         super(
-                context.getSubtaskId(),
+                context.getTaskInfo().getIndexOfThisSubtask(),
                 tablePath,
                 connectOptions,
                 schemaProvider,
@@ -392,7 +394,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
      *
      * @param context Sink Context to derive the Metric Group.
      */
-    private void initializeExactlyOnceMetrics(InitContext context) {
+    private void initializeExactlyOnceMetrics(WriterInitContext context) {
         SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
         initializeMetrics(sinkWriterMetricGroup);
         numberOfRecordsBufferedByBigQuerySinceCheckpoint =

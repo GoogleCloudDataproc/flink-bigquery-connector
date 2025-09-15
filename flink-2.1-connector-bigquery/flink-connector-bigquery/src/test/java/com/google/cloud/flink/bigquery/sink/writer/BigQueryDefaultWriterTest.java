@@ -16,7 +16,7 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
-import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import com.google.api.core.ApiFutures;
@@ -51,17 +51,17 @@ public class BigQueryDefaultWriterTest {
 
     MockedStatic<StreamWriter> streamWriterStaticMock;
     BigQueryConnectOptions connectOptions;
-    Sink.InitContext mockInitContext;
+    WriterInitContext mockInitContext;
 
     @Before
     public void setUp() {
         streamWriterStaticMock = Mockito.mockStatic(StreamWriter.class);
         streamWriterStaticMock.when(StreamWriter::getApiMaxRequestBytes).thenReturn(10L);
         connectOptions = null;
-        mockInitContext = Mockito.mock(Sink.InitContext.class);
+        mockInitContext = Mockito.mock(WriterInitContext.class, Mockito.RETURNS_DEEP_STUBS);
         Mockito.when(mockInitContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-        Mockito.when(mockInitContext.getSubtaskId()).thenReturn(0);
+        Mockito.when(mockInitContext.getTaskInfo().getIndexOfThisSubtask()).thenReturn(0);
     }
 
     @After

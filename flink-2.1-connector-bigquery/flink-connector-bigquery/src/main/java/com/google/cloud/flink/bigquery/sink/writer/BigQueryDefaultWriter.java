@@ -16,7 +16,8 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
-import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
+import org.apache.flink.core.execution.CheckpointingMode;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 
@@ -67,9 +68,9 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             boolean fatalizeSerializer,
             int maxParallelism,
             String taceId,
-            InitContext context) {
+            WriterInitContext context) {
         super(
-                context.getSubtaskId(),
+                context.getTaskInfo().getIndexOfThisSubtask(),
                 tablePath,
                 connectOptions,
                 schemaProvider,
@@ -172,7 +173,7 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
      *
      * @param context Sink Context to derive the Metric Group.
      */
-    private void initializeAtleastOnceFlinkMetrics(InitContext context) {
+    private void initializeAtleastOnceFlinkMetrics(WriterInitContext context) {
         SinkWriterMetricGroup sinkWriterMetricGroup = context.metricGroup();
         // Call BaseWriter's initializeMetrics() for common metrics.
         initializeMetrics(sinkWriterMetricGroup);

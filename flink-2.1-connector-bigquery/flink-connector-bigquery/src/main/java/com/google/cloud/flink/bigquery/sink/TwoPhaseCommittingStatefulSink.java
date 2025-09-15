@@ -17,15 +17,18 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.connector.sink2.CommittingSinkWriter;
 import org.apache.flink.api.connector.sink2.Sink;
-import org.apache.flink.api.connector.sink2.StatefulSink;
-import org.apache.flink.api.connector.sink2.TwoPhaseCommittingSink;
+import org.apache.flink.api.connector.sink2.StatefulSinkWriter;
+import org.apache.flink.api.connector.sink2.SupportsCommitter;
+import org.apache.flink.api.connector.sink2.SupportsWriterState;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 
 import java.io.IOException;
 import java.util.Collection;
 
 /**
- * A combination of {@link TwoPhaseCommittingSink} and {@link StatefulSink}.
+ * A combination of {@link Sink}, {@link SupportsCommitter} and {@link SupportsWriterState}.
  *
  * <p>Interface for a sink that supports TPC protocol and statefulness.
  *
@@ -35,18 +38,18 @@ import java.util.Collection;
  */
 @Internal
 public interface TwoPhaseCommittingStatefulSink<IN, WriterStateT, CommittableT>
-        extends TwoPhaseCommittingSink<IN, CommittableT>, StatefulSink<IN, WriterStateT> {
+        extends Sink<IN>, SupportsCommitter<CommittableT>, SupportsWriterState<IN, WriterStateT> {
 
     @Override
     PrecommittingStatefulSinkWriter<IN, WriterStateT, CommittableT> createWriter(
-            Sink.InitContext context) throws IOException;
+            WriterInitContext context) throws IOException;
 
     @Override
     PrecommittingStatefulSinkWriter<IN, WriterStateT, CommittableT> restoreWriter(
-            Sink.InitContext context, Collection<WriterStateT> recoveredState) throws IOException;
+            WriterInitContext context, Collection<WriterStateT> recoveredState) throws IOException;
 
     /**
-     * A combination of {@link PrecommittingSinkWriter} and {@link StatefulSinkWriter}.
+     * A combination of {@link CommittingSinkWriter} and {@link StatefulSinkWriter}.
      *
      * <p>Interface for a writer that supports TPC protocol and statefulness.
      *
@@ -55,6 +58,5 @@ public interface TwoPhaseCommittingStatefulSink<IN, WriterStateT, CommittableT>
      * @param <CommittableT> Type of the committables.
      */
     interface PrecommittingStatefulSinkWriter<IN, WriterStateT, CommittableT>
-            extends TwoPhaseCommittingSink.PrecommittingSinkWriter<IN, CommittableT>,
-                    StatefulSink.StatefulSinkWriter<IN, WriterStateT> {}
+            extends CommittingSinkWriter<IN, CommittableT>, StatefulSinkWriter<IN, WriterStateT> {}
 }
