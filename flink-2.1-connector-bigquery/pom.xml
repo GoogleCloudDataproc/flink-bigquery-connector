@@ -27,8 +27,8 @@ under the License.
         <version>${revision}</version>
     </parent>
 
-    <artifactId>flink-1.17-connector-bigquery-parent</artifactId>
-    <name>Flink : Connectors : Google BigQuery Connector Parent (Flink v1.17)</name>
+    <artifactId>flink-2.1-connector-bigquery-parent</artifactId>
+    <name>Flink : Connectors : Google BigQuery Connector Parent (Flink v2.1)</name>
 
     <packaging>pom</packaging>
 
