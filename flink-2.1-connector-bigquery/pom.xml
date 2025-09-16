@@ -41,7 +41,7 @@ under the License.
     </licenses>
 
     <properties>
-        <flink.version>1.17.1</flink.version>
+		<flink.version>2.1.0</flink.version>
         <flink.shaded.version>17.0</flink.shaded.version>
     </properties>
 
