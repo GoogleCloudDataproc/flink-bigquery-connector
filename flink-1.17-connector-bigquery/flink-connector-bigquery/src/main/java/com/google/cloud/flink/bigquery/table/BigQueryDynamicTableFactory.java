@@ -81,6 +81,7 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS);
         additionalOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
         additionalOptions.add(BigQueryConnectorOptions.REGION);
+        additionalOptions.add(BigQueryConnectorOptions.FATALIZE_SERIALIZER);
 
         return additionalOptions;
     }
