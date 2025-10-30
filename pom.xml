@@ -421,7 +421,13 @@ under the License.
         </plugins>
     </build>
     <profiles>
-        <profile>
+		<profile>
+			<id>flink_2.1</id>
+			<modules>
+				<module>flink-2.1-connector-bigquery</module>
+			</modules>
+		</profile>
+		<profile>
             <id>flink_1.17</id>
             <modules>
                 <module>flink-1.17-connector-bigquery</module>
