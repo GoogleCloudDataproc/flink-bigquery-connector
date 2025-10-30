@@ -126,6 +126,8 @@ public class BigQueryTableConfigurationProvider {
                                         config.get(BigQueryConnectorOptions.CREDENTIALS_FILE))
                                 .setCredentialsKey(
                                         config.get(BigQueryConnectorOptions.CREDENTIALS_KEY))
+                                .setQuotaProjectId(
+                                        config.get(BigQueryConnectorOptions.QUOTA_PROJECT_ID))
                                 .build())
                 .build();
     }
