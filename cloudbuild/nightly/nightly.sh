@@ -80,7 +80,7 @@ case $STEP in
   init)
     timestamp=$(date +"%Y%m%d%H%M%S")
     export GCS_JAR_LOCATION="$GCS_JAR_LOCATION"/"$timestamp"/"$GCS_JAR_NAME"
-    $MVN clean install -DskipTests -Pflink_1.17,flink_2.1
+    $MVN clean install -DskipTests -Pflink_1.17
     gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
     echo "$GCS_JAR_LOCATION" > "$GCS_JAR_LOCATION_FILE"
     exit
