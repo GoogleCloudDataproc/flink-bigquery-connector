@@ -16,9 +16,9 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import org.apache.flink.api.common.serialization.SerializerConfigImpl;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.legacy.types.logical.TypeInformationRawType;
 import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.ArrayType;
@@ -29,7 +29,6 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.MultisetType;
-import org.apache.flink.table.types.logical.RawType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.table.types.logical.TimeType;
@@ -123,11 +122,7 @@ public class AvroSchemaConvertor {
                 } else {
                     // use Kryo for serialization
                     return new AtomicDataType(
-                            new RawType<>(
-                                    false,
-                                    Object.class,
-                                    Types.GENERIC(Object.class)
-                                            .createSerializer(new SerializerConfigImpl())));
+                            new TypeInformationRawType<>(false, Types.GENERIC(Object.class)));
                 }
                 DataType converted = convertToDataType(actualSchema);
                 dataType = nullable ? converted.nullable() : converted;
