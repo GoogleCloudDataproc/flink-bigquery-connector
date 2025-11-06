@@ -25,9 +25,7 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
-import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
-import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import com.google.api.services.bigquery.model.TableSchema;
@@ -113,9 +111,6 @@ public abstract class BigQuerySource<OUT>
     @Override
     public SourceReader<OUT, BigQuerySourceSplit> createReader(SourceReaderContext readerContext)
             throws Exception {
-        FutureCompletingBlockingQueue<RecordsWithSplitIds<GenericRecord>> elementsQueue =
-                new FutureCompletingBlockingQueue<>();
-
         BigQuerySourceReaderContext bqReaderContext =
                 new BigQuerySourceReaderContext(
                         readerContext, getReadOptions().getLimit().orElse(-1));
@@ -124,7 +119,6 @@ public abstract class BigQuerySource<OUT>
                 () -> new BigQuerySourceSplitReader(getReadOptions(), bqReaderContext);
 
         return new BigQuerySourceReader<>(
-                elementsQueue,
                 splitReaderSupplier,
                 new BigQueryRecordEmitter<>(getDeserializationSchema()),
                 bqReaderContext);

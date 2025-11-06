@@ -20,10 +20,8 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.source.reader.RecordEmitter;
-import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
-import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplitState;
@@ -46,20 +44,10 @@ public class BigQuerySourceReader<OUT>
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySourceReader.class);
 
     public BigQuerySourceReader(
-            FutureCompletingBlockingQueue<RecordsWithSplitIds<GenericRecord>> elementsQueue,
-            Supplier<SplitReader<GenericRecord, BigQuerySourceSplit>> splitReaderSupplier,
-            RecordEmitter<GenericRecord, OUT, BigQuerySourceSplitState> recordEmitter,
-            Configuration config,
-            SourceReaderContext context) {
-        super(elementsQueue, splitReaderSupplier, recordEmitter, config, context);
-    }
-
-    public BigQuerySourceReader(
-            FutureCompletingBlockingQueue<RecordsWithSplitIds<GenericRecord>> elementsQueue,
             Supplier<SplitReader<GenericRecord, BigQuerySourceSplit>> splitReaderSupplier,
             RecordEmitter<GenericRecord, OUT, BigQuerySourceSplitState> recordEmitter,
             SourceReaderContext context) {
-        super(elementsQueue, splitReaderSupplier, recordEmitter, new Configuration(), context);
+        super(splitReaderSupplier, recordEmitter, new Configuration(), context);
     }
 
     @Override
