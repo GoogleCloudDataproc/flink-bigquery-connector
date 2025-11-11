@@ -197,14 +197,17 @@ Follow [this document](https://cloud.google.com/dataproc/docs/concepts/component
 * This includes the table's schema (column names and data types), partitioning information, constraints etc.
   It doesn't contain the actual table data.
 * SQL Command for Catalog Table Creation
-  ```java
+  ```sql
     CREATE TABLE sample_catalog_table
-    (name STRING) // Schema Details
+    (name STRING) -- Schema Details
     WITH
-    ('connector' = 'bigquery',
-    'project' = '<bigquery_project_name>',
-    'dataset' = '<bigquery_dataset_name>',
-    'table' = '<bigquery_table_name>');
+    (
+        'connector' = 'bigquery',
+        'project' = '<bigquery_project_name>',
+        'dataset' = '<bigquery_dataset_name>',
+        'table' = '<bigquery_table_name>',
+        'quota-project-id' = '<gcp_project_name>' -- Optional, defaults to credentials or project
+    );
   ```
 
 
@@ -296,7 +299,7 @@ wait for the job to complete.
 
 ### Sink Configurations
 
-The connector supports a number of options to configure the source.
+The connector supports a number of options to configure the sink.
 
 | Property                                     | Data Type              | Description                                                                                                                                                            |
 |----------------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -437,18 +440,18 @@ sourceTable = sourceTable.select($("*"));
 
 The connector supports a number of options to configure the source.
 
-| Property                                     | Data Type          | Description                                                                                                                                                                                                                                                                                                                                               |
-|----------------------------------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `projectId`                                  | String             | Google Cloud Project ID of the table. This config is required, and assumes no default value.                                                                                                                                                                                                                                                              |
-| `dataset`                                    | String             | Dataset containing the table. This config is required, and assumes no default value.                                                                                                                                                                                                                                                                      |
-| `table`                                      | String             | BigQuery table name (not the full ID). This config is required, and assumes no default value.                                                                                                                                                                                                                                                             |
-| `credentialsOptions`                         | CredentialsOptions | Google credentials for connecting to BigQuery. This config is optional, and default behavior is to use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.<br/>**Note**: The query bounded source only uses default application credentials.                                                                                                       |
-| `columnNames`                                | List&lt;String&gt; | Columns to project from the table. If unspecified, all columns are fetched.                                                                                                                                                                                                                                                                               |
-| `limit`                                      | Integer            | Maximum number of rows to read from source table **per task slot**. If unspecified, all rows are fetched.                                                                                                                                                                                                                                                                          |
-| `maxRecordsPerSplitFetch`                    | Integer            | Maximum number of records to read from a split once Flink requests fetch. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream.                                                           |
-| `maxStreamCount`                             | Integer            | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                                                                                       |
-| `rowRestriction`                             | String             | BigQuery SQL query for row filter pushdown. If unspecified, all rows are fetched.                                                                                                                                                                                                                                                                         |
-| `snapshotTimeInMillis`                       | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. If unspecified, the latest snapshot is read.                                                                                                                                                                                                                                  |
+| Property                  | Data Type          | Description                                                                                                                                                                                                                                                                                     |
+|---------------------------|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `projectId`               | String             | Google Cloud Project ID of the table. This config is required, and assumes no default value.                                                                                                                                                                                                    |
+| `dataset`                 | String             | Dataset containing the table. This config is required, and assumes no default value.                                                                                                                                                                                                            |
+| `table`                   | String             | BigQuery table name (not the full ID). This config is required, and assumes no default value.                                                                                                                                                                                                   |
+| `credentialsOptions`      | CredentialsOptions | Google credentials for connecting to BigQuery. This config is optional, and default behavior is to use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.<br/>**Note**: The query bounded source only uses default application credentials.                                             |
+| `columnNames`             | List&lt;String&gt; | Columns to project from the table. If unspecified, all columns are fetched.                                                                                                                                                                                                                     |
+| `limit`                   | Integer            | Maximum number of rows to read from source table **per task slot**. If unspecified, all rows are fetched.                                                                                                                                                                                       |
+| `maxRecordsPerSplitFetch` | Integer            | Maximum number of records to read from a split once Flink requests fetch. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream. |
+| `maxStreamCount`          | Integer            | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                             |
+| `rowRestriction`          | String             | BigQuery SQL query for row filter pushdown. If unspecified, all rows are fetched.                                                                                                                                                                                                               |
+| `snapshotTimeInMillis`    | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. If unspecified, the latest snapshot is read.                                                                                                                                                                        |
 
 
 ### Datatypes
@@ -568,6 +571,7 @@ to provide it:
 [here](https://cloud.google.com/docs/authentication/client-libraries).
 - In case the environment variable cannot be changed, the credentials file can be configured as a connector option. The 
 file should reside on the same path on all the nodes of the cluster.
+- The quota project can be set in the connector options or through the credentials.
 
 ### How to fix classloader error in Flink application?
 

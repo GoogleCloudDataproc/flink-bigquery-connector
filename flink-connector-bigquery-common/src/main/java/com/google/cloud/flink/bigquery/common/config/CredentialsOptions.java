@@ -42,6 +42,9 @@ public abstract class CredentialsOptions implements Serializable {
     @Nullable
     public abstract String getAccessToken();
 
+    @Nullable
+    public abstract String getQuotaProjectId();
+
     /**
      * Returns the Google Credentials created given the provided configuration.
      *
@@ -60,6 +63,7 @@ public abstract class CredentialsOptions implements Serializable {
         hash = 61 * hash + Objects.hashCode(getCredentialsFile());
         hash = 61 * hash + Objects.hashCode(getCredentialsKey());
         hash = 61 * hash + Objects.hashCode(getAccessToken());
+        hash = 61 * hash + Objects.hashCode(getQuotaProjectId());
         return hash;
     }
 
@@ -77,6 +81,7 @@ public abstract class CredentialsOptions implements Serializable {
         final CredentialsOptions other = (CredentialsOptions) obj;
         return Objects.equals(this.getCredentialsFile(), other.getCredentialsFile())
                 && Objects.equals(this.getCredentialsKey(), other.getCredentialsKey())
+                && Objects.equals(this.getQuotaProjectId(), other.getQuotaProjectId())
                 && Objects.equals(this.getAccessToken(), other.getAccessToken());
     }
 
@@ -116,6 +121,14 @@ public abstract class CredentialsOptions implements Serializable {
          * @return this builder's instance
          */
         public abstract Builder setAccessToken(String credentialsToken);
+
+        /**
+         * Sets the BigQuery quota project ID to use.
+         *
+         * @param quotaProjectId The BigQuery project ID
+         * @return this builder's instance
+         */
+        public abstract Builder setQuotaProjectId(String quotaProjectId);
 
         /**
          * Builds a fully initialized {@link CredentialsOptions} instance.
