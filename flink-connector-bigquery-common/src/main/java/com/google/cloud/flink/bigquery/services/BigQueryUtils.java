@@ -30,9 +30,7 @@ import com.google.api.services.bigquery.model.JobConfiguration;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.Table;
-import com.google.auth.Credentials;
 import com.google.auth.http.HttpCredentialsAdapter;
-import com.google.auth.oauth2.QuotaProjectIdProvider;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import dev.failsafe.Failsafe;
@@ -191,17 +189,6 @@ public class BigQueryUtils {
                                 .get(projectId, datasetId, tableId)
                                 .setPrettyPrint(false)
                                 .execute());
-    }
-
-    @Nullable
-    public static String getQuotaProjectId(CredentialsOptions options, Credentials credentials) {
-        if (options.getQuotaProjectId() != null) {
-            return options.getQuotaProjectId();
-        }
-        if (credentials instanceof QuotaProjectIdProvider) {
-            return ((QuotaProjectIdProvider) credentials).getQuotaProjectId();
-        }
-        return null;
     }
 
     static CreateReadSessionRequest updateWithQuotaProject(

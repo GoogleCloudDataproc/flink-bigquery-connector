@@ -43,6 +43,15 @@ public class BigQueryConnectorOptions {
                     .withDescription("Specifies the GCP project for BigQuery.");
 
     /**
+     * [OPTIONAL] The quota project ID to use when connecting.
+     */
+    public static final ConfigOption<String> QUOTA_PROJECT_ID =
+            ConfigOptions.key("quota-project-id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the BigQuery quota project to use.");
+
+    /**
      * [REQUIRED] The GCP BigQuery Dataset Name which contains the desired connector(source or sink)
      * table.
      */
