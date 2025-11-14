@@ -29,7 +29,6 @@ import com.google.api.gax.rpc.UnaryCallSettings;
 import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableSchema;
-import com.google.auth.Credentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Dataset;
@@ -139,17 +138,19 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private final String quotaProjectId;
 
         private StorageReadClientImpl(CredentialsOptions options) throws IOException {
-            Credentials credentials = options.getCredentials();
-            quotaProjectId = BigQueryUtils.getQuotaProjectId(options, credentials);
+            quotaProjectId = options.getQuotaProjectId();
 
             BigQueryReadSettings.Builder settingsBuilder =
                     BigQueryReadSettings.newBuilder()
-                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
-                            .setQuotaProjectId(quotaProjectId)
+                            .setCredentialsProvider(FixedCredentialsProvider.create(options.getCredentials()))
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
                                             .build());
+
+            if (quotaProjectId != null) {
+                settingsBuilder = settingsBuilder.setQuotaProjectId(quotaProjectId);
+            }
 
             UnaryCallSettings.Builder<CreateReadSessionRequest, ReadSession>
                     createReadSessionSettings =
@@ -203,16 +204,18 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private final BigQueryWriteClient client;
 
         private StorageWriteClientImpl(CredentialsOptions options) throws IOException {
-            Credentials credentials = options.getCredentials();
-            String quotaProjectId = BigQueryUtils.getQuotaProjectId(options, credentials);
             BigQueryWriteSettings.Builder settingsBuilder =
                     BigQueryWriteSettings.newBuilder()
-                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
-                            .setQuotaProjectId(quotaProjectId)
+                            .setCredentialsProvider(FixedCredentialsProvider.create(options.getCredentials()))
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
                                             .build());
+
+            String quotaProjectId = options.getQuotaProjectId();
+            if (quotaProjectId != null) {
+                settingsBuilder = settingsBuilder.setQuotaProjectId(quotaProjectId);
+            }
 
             UnaryCallSettings.Builder<CreateWriteStreamRequest, WriteStream>
                     createWriteStreamSettings =
@@ -329,15 +332,15 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private final Bigquery bigquery;
 
         public QueryDataClientImpl(CredentialsOptions options) {
-            Credentials credentials = options.getCredentials();
-            String quotaProjectId = BigQueryUtils.getQuotaProjectId(options, credentials);
-            bigQuery =
-                    BigQueryOptions.newBuilder()
-                            .setCredentials(credentials)
-                            .setQuotaProjectId(quotaProjectId)
-                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
-                            .build()
-                            .getService();
+            BigQueryOptions.Builder bigQueryBuilder = BigQueryOptions.newBuilder()
+                    .setCredentials(options.getCredentials())
+                    .setHeaderProvider(USER_AGENT_HEADER_PROVIDER);
+            String quotaProjectId = options.getQuotaProjectId();
+            if (quotaProjectId != null) {
+                bigQueryBuilder = bigQueryBuilder.setProjectId(quotaProjectId);
+            }
+
+            bigQuery = bigQueryBuilder.build().getService();
             bigquery = BigQueryUtils.newBigqueryBuilder(options).build();
         }
 

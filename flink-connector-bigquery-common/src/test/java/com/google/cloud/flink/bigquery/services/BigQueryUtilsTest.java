@@ -21,8 +21,6 @@ import com.google.api.services.bigquery.model.Dataset;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.Table;
-import com.google.auth.Credentials;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import org.junit.Test;
@@ -123,20 +121,8 @@ public class BigQueryUtilsTest {
         CredentialsOptions credentialsOptions = CredentialsOptions.builder()
                 .setQuotaProjectId("test")
                 .build();
-        Credentials credentials = Mockito.mock(Credentials.class);
 
-        String quotaProjectId = BigQueryUtils.getQuotaProjectId(credentialsOptions, credentials);
-
-        assertEquals("test", quotaProjectId);
-    }
-
-    @Test
-    public void testGetQuotaProjectFromCredentials() {
-        CredentialsOptions credentialsOptions = CredentialsOptions.builder().build();
-        GoogleCredentials credentials = Mockito.spy(GoogleCredentials.class);
-        Mockito.doReturn("test").when(credentials).getQuotaProjectId();
-
-        String quotaProjectId = BigQueryUtils.getQuotaProjectId(credentialsOptions, credentials);
+        String quotaProjectId = credentialsOptions.getQuotaProjectId();
 
         assertEquals("test", quotaProjectId);
     }
@@ -144,9 +130,8 @@ public class BigQueryUtilsTest {
     @Test
     public void testGetQuotaProjectMissing() {
         CredentialsOptions credentialsOptions = CredentialsOptions.builder().build();
-        GoogleCredentials credentials = Mockito.spy(GoogleCredentials.class);
 
-        String quotaProjectId = BigQueryUtils.getQuotaProjectId(credentialsOptions, credentials);
+        String quotaProjectId = credentialsOptions.getQuotaProjectId();
 
         assertNull(quotaProjectId);
     }
