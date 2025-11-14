@@ -26,6 +26,7 @@ import org.apache.flink.table.api.TableDescriptor;
 public abstract class BigQueryTableConfig {
 
     private final String project;
+    private final String quotaProjectId;
     private final String dataset;
     private final String table;
     private final String credentialAccessToken;
@@ -35,6 +36,7 @@ public abstract class BigQueryTableConfig {
 
     BigQueryTableConfig(
             String project,
+            String quotaProjectId,
             String dataset,
             String table,
             String credentialAccessToken,
@@ -42,6 +44,7 @@ public abstract class BigQueryTableConfig {
             String credentialKey,
             Boolean testMode) {
         this.project = project;
+        this.quotaProjectId = quotaProjectId;
         this.dataset = dataset;
         this.table = table;
         this.credentialAccessToken = credentialAccessToken;
@@ -57,6 +60,10 @@ public abstract class BigQueryTableConfig {
         }
         if (this.project != null) {
             tableDescriptorBuilder.option(BigQueryConnectorOptions.PROJECT, this.project);
+        }
+        if (this.quotaProjectId != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.QUOTA_PROJECT_ID, this.quotaProjectId);
         }
         if (this.dataset != null) {
             tableDescriptorBuilder.option(BigQueryConnectorOptions.DATASET, this.dataset);
@@ -103,10 +110,15 @@ public abstract class BigQueryTableConfig {
         return credentialKey;
     }
 
+    public String getQuotaProjectId() {
+        return quotaProjectId;
+    }
+
     /** Builder for BigQueryTableConfig. */
     public abstract static class Builder {
 
         String project;
+        String quotaProjectId;
         String dataset;
         String table;
         String credentialAccessToken;
@@ -125,6 +137,11 @@ public abstract class BigQueryTableConfig {
          * sink) table.
          */
         public abstract BigQueryTableConfig.Builder dataset(String dataset);
+
+        /**
+         * [OPTIONAL] The quota project ID to use when connecting.
+         */
+        public abstract BigQueryTableConfig.Builder quotaProjectId(String quotaProjectId);
 
         /** [REQUIRED] Name of the table to connect to in BigQuery. */
         public abstract BigQueryTableConfig.Builder table(String table);
