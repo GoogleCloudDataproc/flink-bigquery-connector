@@ -337,7 +337,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                     .setHeaderProvider(USER_AGENT_HEADER_PROVIDER);
             String quotaProjectId = options.getQuotaProjectId();
             if (quotaProjectId != null) {
-                bigQueryBuilder = bigQueryBuilder.setProjectId(quotaProjectId);
+                bigQueryBuilder = bigQueryBuilder.setQuotaProjectId(quotaProjectId);
             }
 
             bigQuery = bigQueryBuilder.build().getService();
