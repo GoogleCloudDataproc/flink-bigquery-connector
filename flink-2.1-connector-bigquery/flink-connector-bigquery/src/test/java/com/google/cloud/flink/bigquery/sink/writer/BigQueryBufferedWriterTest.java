@@ -16,7 +16,7 @@
 
 package com.google.cloud.flink.bigquery.sink.writer;
 
-import org.apache.flink.api.connector.sink2.Sink.InitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import com.google.api.core.ApiFuture;
@@ -1133,8 +1133,9 @@ public class BigQueryBufferedWriterTest {
             long totalRecordsWritten,
             long totalRecordsCommitted,
             BigQueryProtoSerializer<Object> mockSerializer) {
-        InitContext context = Mockito.mock(InitContext.class);
-        Mockito.when(context.getSubtaskId()).thenReturn(1);
+        WriterInitContext context =
+                Mockito.mock(WriterInitContext.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(context.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
         Mockito.when(context.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         connectOptions = StorageClientFaker.createConnectOptionsForWrite(null);
@@ -1165,8 +1166,9 @@ public class BigQueryBufferedWriterTest {
             BigQueryProtoSerializer<Object> mockSerializer,
             CreateTableOptions createTableOptions,
             boolean tableExists) {
-        InitContext context = Mockito.mock(InitContext.class);
-        Mockito.when(context.getSubtaskId()).thenReturn(1);
+        WriterInitContext context =
+                Mockito.mock(WriterInitContext.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(context.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
         Mockito.when(context.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient =
@@ -1207,8 +1209,9 @@ public class BigQueryBufferedWriterTest {
             ApiFuture[] appendResponseFutures,
             WriteStream writeStream,
             FinalizeWriteStreamResponse finalizeResponse) {
-        InitContext context = Mockito.mock(InitContext.class);
-        Mockito.when(context.getSubtaskId()).thenReturn(1);
+        WriterInitContext context =
+                Mockito.mock(WriterInitContext.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(context.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
         Mockito.when(context.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         FakeBigQueryServices.FakeBigQueryStorageWriteClient writeClient =

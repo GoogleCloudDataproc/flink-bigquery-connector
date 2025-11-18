@@ -16,9 +16,8 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
-import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.api.connector.sink2.CommitterInitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -34,12 +33,16 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import java.time.Duration;
 import java.util.Collections;
 
+import static com.google.cloud.flink.bigquery.RestartStrategyConfigUtils.fixedDelayRestartStrategyConfig;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
 
 /** Tests for {@link BigQueryExactlyOnceSink}. */
 public class BigQueryExactlyOnceSinkTest {
@@ -48,8 +51,9 @@ public class BigQueryExactlyOnceSinkTest {
 
     @Before
     public void setUp() {
-        env = new StreamExecutionEnvironment();
-        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, Time.seconds(3)));
+        env =
+                new StreamExecutionEnvironment(
+                        fixedDelayRestartStrategyConfig(5, Duration.ofSeconds(3)));
     }
 
     @After
@@ -89,9 +93,9 @@ public class BigQueryExactlyOnceSinkTest {
 
     @Test
     public void testCreateWriter() {
-        Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
-        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
-        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        WriterInitContext mockedContext = mock(WriterInitContext.class, RETURNS_DEEP_STUBS);
+        Mockito.when(mockedContext.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
+        Mockito.when(mockedContext.getTaskInfo().getNumberOfParallelSubtasks()).thenReturn(50);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig<Object> sinkConfig =
@@ -107,9 +111,9 @@ public class BigQueryExactlyOnceSinkTest {
 
     @Test
     public void testCreate_withMoreWritersThanAllowed() {
-        Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
-        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
-        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(129);
+        WriterInitContext mockedContext = mock(WriterInitContext.class, RETURNS_DEEP_STUBS);
+        Mockito.when(mockedContext.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
+        Mockito.when(mockedContext.getTaskInfo().getNumberOfParallelSubtasks()).thenReturn(129);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig<Object> sinkConfig =
@@ -132,9 +136,9 @@ public class BigQueryExactlyOnceSinkTest {
 
     @Test
     public void testRestoreWriter() {
-        Sink.InitContext mockedContext = Mockito.mock(Sink.InitContext.class);
-        Mockito.when(mockedContext.getSubtaskId()).thenReturn(1);
-        Mockito.when(mockedContext.getNumberOfParallelSubtasks()).thenReturn(50);
+        WriterInitContext mockedContext = mock(WriterInitContext.class, RETURNS_DEEP_STUBS);
+        Mockito.when(mockedContext.getTaskInfo().getIndexOfThisSubtask()).thenReturn(1);
+        Mockito.when(mockedContext.getTaskInfo().getNumberOfParallelSubtasks()).thenReturn(50);
         Mockito.when(mockedContext.metricGroup())
                 .thenReturn(UnregisteredMetricsGroup.createSinkWriterMetricGroup());
         BigQuerySinkConfig<Object> sinkConfig =
@@ -170,7 +174,7 @@ public class BigQueryExactlyOnceSinkTest {
                         .streamExecutionEnvironment(env)
                         .build();
         BigQueryExactlyOnceSink<Object> exactlyOnceSink = new BigQueryExactlyOnceSink<>(sinkConfig);
-        assertNotNull(exactlyOnceSink.createCommitter());
+        assertNotNull(exactlyOnceSink.createCommitter(mock(CommitterInitContext.class)));
     }
 
     @Test

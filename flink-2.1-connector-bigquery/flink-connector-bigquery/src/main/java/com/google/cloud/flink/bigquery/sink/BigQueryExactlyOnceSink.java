@@ -17,6 +17,9 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Committer;
+import org.apache.flink.api.connector.sink2.CommitterInitContext;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
+import org.apache.flink.core.execution.CheckpointingMode;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import com.google.cloud.flink.bigquery.services.BigQueryServicesImpl;
@@ -51,8 +54,8 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
 
     @Override
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
-            createWriter(InitContext context) {
-        checkParallelism(context.getNumberOfParallelSubtasks());
+            createWriter(WriterInitContext context) {
+        checkParallelism(context.getTaskInfo().getNumberOfParallelSubtasks());
         return new BigQueryBufferedWriter<>(
                 tablePath,
                 connectOptions,
@@ -67,7 +70,8 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
 
     @Override
     public PrecommittingStatefulSinkWriter<IN, BigQueryWriterState, BigQueryCommittable>
-            restoreWriter(InitContext context, Collection<BigQueryWriterState> recoveredState) {
+            restoreWriter(
+                    WriterInitContext context, Collection<BigQueryWriterState> recoveredState) {
         if (recoveredState == null || recoveredState.isEmpty()) {
             return createWriter(context);
         }
@@ -94,7 +98,7 @@ public class BigQueryExactlyOnceSink<IN> extends BigQueryBaseSink<IN>
     }
 
     @Override
-    public Committer<BigQueryCommittable> createCommitter() {
+    public Committer<BigQueryCommittable> createCommitter(CommitterInitContext context) {
         return new BigQueryCommitter(connectOptions);
     }
 
