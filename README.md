@@ -573,7 +573,7 @@ to provide it:
 [here](https://cloud.google.com/docs/authentication/client-libraries).
 - In case the environment variable cannot be changed, the credentials file can be configured as a connector option. The 
 file should reside on the same path on all the nodes of the cluster.
-- The quota project can be set in the connector options or through the credentials.
+- The [quota project](https://docs.cloud.google.com/docs/quotas/quota-project) can be set in the connector options or through the credentials.
 
 ### How to fix classloader error in Flink application?
 
