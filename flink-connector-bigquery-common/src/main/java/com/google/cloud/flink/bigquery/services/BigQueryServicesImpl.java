@@ -341,7 +341,33 @@ public class BigQueryServicesImpl implements BigQueryServices {
             }
 
             bigQuery = bigQueryBuilder.build().getService();
-            bigquery = BigQueryUtils.newBigqueryBuilder(options).build();
+        
+            // com.google.api.services.bigquery.Bigquery only supports a quota project ID
+            // via the credentials object, so we manually set it in the credentials if provided.
+            com.google.auth.Credentials credentials = options.getCredentials();
+            if (quotaProjectId != null
+                    && credentials instanceof com.google.auth.oauth2.GoogleCredentials) {
+                credentials =
+                        ((com.google.auth.oauth2.GoogleCredentials) credentials)
+                                .toBuilder()
+                                .setQuotaProjectId(quotaProjectId)
+                                .build();
+            }
+            try {
+                bigquery =
+                        new com.google.api.services.bigquery.Bigquery.Builder(
+                                        com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+                                                .newTrustedTransport(),
+                                        com.google.api.client.json.gson.GsonFactory
+                                                .getDefaultInstance(),
+                                        new com.google.auth.http.HttpCredentialsAdapter(credentials))
+                                .setApplicationName(
+                                        "BigQuery Connector for Apache Flink version "
+                                                + FlinkVersion.current().toString())
+                                .build();
+            } catch (java.security.GeneralSecurityException | java.io.IOException e) {
+                throw new RuntimeException("Failed to build Bigquery client", e);
+            }
         }
 
         @Override
