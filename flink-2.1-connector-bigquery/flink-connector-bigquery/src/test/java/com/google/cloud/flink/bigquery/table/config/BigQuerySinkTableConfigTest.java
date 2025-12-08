@@ -16,12 +16,14 @@
 
 package com.google.cloud.flink.bigquery.table.config;
 
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import org.junit.Test;
 
+import java.time.Duration;
+
+import static com.google.cloud.flink.bigquery.RestartStrategyConfigUtils.fixedDelayRestartStrategyConfig;
 import static org.junit.Assert.assertEquals;
 
 /** Tests for {@link BigQuerySinkTableConfig}. */
@@ -42,8 +44,9 @@ public class BigQuerySinkTableConfigTest {
 
     @Test
     public void testConstructor_withExactlyOnce() {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, 300000L));
+        StreamExecutionEnvironment env =
+                StreamExecutionEnvironment.getExecutionEnvironment(
+                        fixedDelayRestartStrategyConfig(5, Duration.ofSeconds(3)));
         BigQuerySinkTableConfig config =
                 BigQuerySinkTableConfig.newBuilder()
                         .project("foo")
