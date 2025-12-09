@@ -341,7 +341,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
             }
 
             bigQuery = bigQueryBuilder.build().getService();
-            // It is not possible to set the quota project on the legacy 
+            // It is not possible to set the quota project on the legacy
             // bigquery client without modifying the credentials, so the
             // configured quota project is ignored by this client.
             bigquery = BigQueryUtils.newBigqueryBuilder(options).build();
