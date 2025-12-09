@@ -142,7 +142,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
             BigQueryReadSettings.Builder settingsBuilder =
                     BigQueryReadSettings.newBuilder()
-                            .setCredentialsProvider(FixedCredentialsProvider.create(options.getCredentials()))
+                            .setCredentialsProvider(
+                                    FixedCredentialsProvider.create(options.getCredentials()))
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
@@ -206,7 +207,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private StorageWriteClientImpl(CredentialsOptions options) throws IOException {
             BigQueryWriteSettings.Builder settingsBuilder =
                     BigQueryWriteSettings.newBuilder()
-                            .setCredentialsProvider(FixedCredentialsProvider.create(options.getCredentials()))
+                            .setCredentialsProvider(
+                                    FixedCredentialsProvider.create(options.getCredentials()))
                             .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
@@ -332,9 +334,10 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private final Bigquery bigquery;
 
         public QueryDataClientImpl(CredentialsOptions options) {
-            BigQueryOptions.Builder bigQueryBuilder = BigQueryOptions.newBuilder()
-                    .setCredentials(options.getCredentials())
-                    .setHeaderProvider(USER_AGENT_HEADER_PROVIDER);
+            BigQueryOptions.Builder bigQueryBuilder =
+                    BigQueryOptions.newBuilder()
+                            .setCredentials(options.getCredentials())
+                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER);
             String quotaProjectId = options.getQuotaProjectId();
             if (quotaProjectId != null) {
                 bigQueryBuilder = bigQueryBuilder.setQuotaProjectId(quotaProjectId);

@@ -138,9 +138,7 @@ public abstract class BigQueryTableConfig {
          */
         public abstract BigQueryTableConfig.Builder dataset(String dataset);
 
-        /**
-         * [OPTIONAL] The quota project ID to use when connecting.
-         */
+        /** [OPTIONAL] The quota project ID to use when connecting. */
         public abstract BigQueryTableConfig.Builder quotaProjectId(String quotaProjectId);
 
         /** [REQUIRED] Name of the table to connect to in BigQuery. */

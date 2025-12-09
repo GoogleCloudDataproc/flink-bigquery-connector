@@ -59,9 +59,7 @@ public class BigQueryConnectorOptions {
                     .noDefaultValue()
                     .withDescription("Specifies the BigQuery table name.");
 
-    /**
-     * [OPTIONAL] The quota project ID to use when connecting.
-     */
+    /** [OPTIONAL] The quota project ID to use when connecting. */
     public static final ConfigOption<String> QUOTA_PROJECT_ID =
             ConfigOptions.key("quota-project-id")
                     .stringType()

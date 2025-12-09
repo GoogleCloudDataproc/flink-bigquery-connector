@@ -198,8 +198,6 @@ public class BigQueryUtils {
             parent = "projects/" + quotaProjectId;
         }
 
-        return request.toBuilder()
-                .setParent(parent)
-                .build();
+        return request.toBuilder().setParent(parent).build();
     }
 }

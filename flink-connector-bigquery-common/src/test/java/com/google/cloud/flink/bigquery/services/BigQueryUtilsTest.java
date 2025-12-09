@@ -118,9 +118,8 @@ public class BigQueryUtilsTest {
 
     @Test
     public void testGetQuotaProjectFromOptions() {
-        CredentialsOptions credentialsOptions = CredentialsOptions.builder()
-                .setQuotaProjectId("test")
-                .build();
+        CredentialsOptions credentialsOptions =
+                CredentialsOptions.builder().setQuotaProjectId("test").build();
 
         String quotaProjectId = credentialsOptions.getQuotaProjectId();
 
@@ -138,9 +137,8 @@ public class BigQueryUtilsTest {
 
     @Test
     public void testUpdateReadSessionWithQuotaProject() {
-        CreateReadSessionRequest request = CreateReadSessionRequest.newBuilder()
-                .setParent("projects/test-1")
-                .build();
+        CreateReadSessionRequest request =
+                CreateReadSessionRequest.newBuilder().setParent("projects/test-1").build();
 
         CreateReadSessionRequest updated = BigQueryUtils.updateWithQuotaProject(request, "test");
 
@@ -149,9 +147,8 @@ public class BigQueryUtilsTest {
 
     @Test
     public void testUpdateReadSessionWithQuotaProjectMissing() {
-        CreateReadSessionRequest request = CreateReadSessionRequest.newBuilder()
-                .setParent("projects/test-1")
-                .build();
+        CreateReadSessionRequest request =
+                CreateReadSessionRequest.newBuilder().setParent("projects/test-1").build();
 
         CreateReadSessionRequest updated = BigQueryUtils.updateWithQuotaProject(request, null);
 
