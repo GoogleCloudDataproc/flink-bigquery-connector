@@ -419,6 +419,7 @@ push-down, and partition push-down.
 // Create the Config.
 BigQueryTableConfig readTableConfig =  new BigQueryReadTableConfig.Builder()
         .table(...) // REQUIRED
+        .quotaProjectId(...) // OPTIONAL
         .project(...) // REQUIRED
         .dataset(...) // REQUIRED
         .limit(...) // OPTIONAL

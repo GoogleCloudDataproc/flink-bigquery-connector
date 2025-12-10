@@ -35,6 +35,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
 
     BigQueryReadTableConfig(
             String project,
+            String quotaProjectId,
             String dataset,
             String table,
             String credentialAccessToken,
@@ -48,6 +49,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             Long snapshotTimestamp) {
         super(
                 project,
+                quotaProjectId,
                 dataset,
                 table,
                 credentialAccessToken,
@@ -105,6 +107,12 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         @Override
         public BigQueryReadTableConfig.Builder project(String project) {
             super.project = project;
+            return this;
+        }
+
+        @Override
+        public BigQueryReadTableConfig.Builder quotaProjectId(String quotaProjectId) {
+            super.quotaProjectId = quotaProjectId;
             return this;
         }
 
@@ -198,6 +206,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         public BigQueryReadTableConfig build() {
             return new BigQueryReadTableConfig(
                     project,
+                    quotaProjectId,
                     dataset,
                     table,
                     credentialAccessToken,
