@@ -47,6 +47,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
 
     BigQuerySinkTableConfig(
             String project,
+            String quotaProjectId,
             String dataset,
             String table,
             String credentialAccessToken,
@@ -64,6 +65,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             boolean fatalizeSerializer) {
         super(
                 project,
+                quotaProjectId,
                 dataset,
                 table,
                 credentialAccessToken,
@@ -172,6 +174,12 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
         @Override
         public Builder credentialKey(String credentialKey) {
             super.credentialKey = credentialKey;
+            return this;
+        }
+
+        @Override
+        public Builder quotaProjectId(String quotaProjectId) {
+            super.quotaProjectId = quotaProjectId;
             return this;
         }
 
@@ -314,6 +322,7 @@ public class BigQuerySinkTableConfig extends BigQueryTableConfig {
             }
             return new BigQuerySinkTableConfig(
                     project,
+                    quotaProjectId,
                     dataset,
                     table,
                     credentialAccessToken,

@@ -31,6 +31,7 @@ import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.Table;
 import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
@@ -38,6 +39,8 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -186,5 +189,15 @@ public class BigQueryUtils {
                                 .get(projectId, datasetId, tableId)
                                 .setPrettyPrint(false)
                                 .execute());
+    }
+
+    static CreateReadSessionRequest updateWithQuotaProject(
+            CreateReadSessionRequest request, @Nullable final String quotaProjectId) {
+        String parent = request.getParent();
+        if (quotaProjectId != null) {
+            parent = "projects/" + quotaProjectId;
+        }
+
+        return request.toBuilder().setParent(parent).build();
     }
 }

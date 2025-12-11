@@ -59,6 +59,7 @@ public class BigQueryTableSchemaProvider {
                                 .setAccessToken(tableConfig.getCredentialAccessToken())
                                 .setCredentialsFile(tableConfig.getCredentialFile())
                                 .setCredentialsKey(tableConfig.getCredentialKey())
+                                .setQuotaProjectId(tableConfig.getQuotaProjectId())
                                 .build())
                 .build();
     }
