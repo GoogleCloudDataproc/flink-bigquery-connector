@@ -176,6 +176,9 @@ under the License.
                                     <include>joda-time:joda-time</include>
                                     <include>org.json:json</include>
                                 </includes>
+								<excludes>
+									<include>org.apache.flink:*</include>
+								</excludes>
                             </artifactSet>
                             <relocations>
                                 <relocation>
@@ -188,6 +191,9 @@ under the License.
                                 <relocation>
                                     <pattern>org.apache</pattern>
                                     <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.apache</shadedPattern>
+									<excludes>
+										<exclude>org.apache.flink.**</exclude>
+									</excludes>
                                 </relocation>
                             </relocations>
                         </configuration>
