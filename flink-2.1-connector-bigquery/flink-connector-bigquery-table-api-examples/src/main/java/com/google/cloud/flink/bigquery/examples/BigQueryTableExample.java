@@ -200,8 +200,7 @@ public class BigQueryTableExample {
                 BigQueryTableSchemaProvider.getTableDescriptor(readTableConfig));
 
         // Read the table and pass to flatmap.
-        // Hardcoded source schema to extract three columns: name (string), number (int) and ts
-        // (timestamp).
+        // Read all columns from the source table.
         Table sourceTable = tEnv.from("bigQuerySourceTable").select($("*"));
 
         BigQuerySinkTableConfig.Builder sinkTableConfigBuilder =
