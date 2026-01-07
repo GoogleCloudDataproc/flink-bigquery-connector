@@ -332,9 +332,13 @@ public class BigQueryTableExample {
 
         // Join Example - SQL
         tEnv.executeSql(
-                "insert into bigQuerySinkTable Select leftSourceTable.id AS id, "
-                        + "leftSourceTable.name_left AS name_left, rightSourceTable.name_right as name_right from leftSourceTable JOIN rightSourceTable ON "
-                        + "leftSourceTable.id = rightSourceTable.id;");
+                "INSERT INTO bigQuerySinkTable "
+                        + "SELECT "
+                        + "  leftSourceTable.id AS id, "
+                        + "  leftSourceTable.name_left AS name_left, "
+                        + "  rightSourceTable.name_right AS name_right "
+                        + "FROM leftSourceTable "
+                        + "JOIN rightSourceTable ON leftSourceTable.id = rightSourceTable.id");
     }
 
     private static org.apache.flink.table.api.Schema getFlinkTableSchema(
