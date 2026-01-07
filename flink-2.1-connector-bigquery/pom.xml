@@ -226,8 +226,8 @@ under the License.
 
     <modules>
         <module>flink-connector-bigquery</module>
-		<module>flink-connector-bigquery-examples</module>
-		<module>flink-connector-bigquery-table-api-examples</module>
+        <module>flink-connector-bigquery-examples</module>
+        <module>flink-connector-bigquery-table-api-examples</module>
     </modules>
 
     <build>
