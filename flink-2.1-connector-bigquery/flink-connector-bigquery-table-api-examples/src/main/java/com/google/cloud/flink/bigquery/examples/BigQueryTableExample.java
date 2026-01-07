@@ -245,7 +245,7 @@ public class BigQueryTableExample {
      * <code>STRING</code>) in bounded mode and then writes the modified records back to another
      * BigQuery table.
      *
-     * <p>This example is for reference only, and cannot be invoked from this class's main method.
+     * <p>This example is for reference only, and is not invoked from this class's main method.
      *
      * @param sourceGcpProjectName The GCP Project name of the source table.
      * @param sourceDatasetName Dataset name of the source table.
@@ -260,7 +260,7 @@ public class BigQueryTableExample {
      * @param checkpointInterval Long value, Interval between two check points (milliseconds)
      * @throws Exception in a case of error, obtaining Table Descriptor.
      */
-    public static void runBoundedJoinFlinkJob(
+    private static void runBoundedJoinFlinkJob(
             String sourceGcpProjectName,
             String sourceDatasetName,
             String leftSourceTableName,
