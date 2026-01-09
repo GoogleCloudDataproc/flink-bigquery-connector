@@ -21,11 +21,16 @@ import com.google.api.services.bigquery.model.Dataset;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationQuery;
 import com.google.api.services.bigquery.model.Table;
+import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
+import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /** */
 public class BigQueryUtilsTest {
@@ -109,5 +114,44 @@ public class BigQueryUtilsTest {
         BigQueryUtils.tableInfo(client, "", "", "");
         // check no retries either
         Mockito.verify(got, Mockito.times(1)).execute();
+    }
+
+    @Test
+    public void testGetQuotaProjectFromOptions() {
+        CredentialsOptions credentialsOptions =
+                CredentialsOptions.builder().setQuotaProjectId("test").build();
+
+        String quotaProjectId = credentialsOptions.getQuotaProjectId();
+
+        assertEquals("test", quotaProjectId);
+    }
+
+    @Test
+    public void testGetQuotaProjectMissing() {
+        CredentialsOptions credentialsOptions = CredentialsOptions.builder().build();
+
+        String quotaProjectId = credentialsOptions.getQuotaProjectId();
+
+        assertNull(quotaProjectId);
+    }
+
+    @Test
+    public void testUpdateReadSessionWithQuotaProject() {
+        CreateReadSessionRequest request =
+                CreateReadSessionRequest.newBuilder().setParent("projects/test-1").build();
+
+        CreateReadSessionRequest updated = BigQueryUtils.updateWithQuotaProject(request, "test");
+
+        assertEquals("projects/test", updated.getParent());
+    }
+
+    @Test
+    public void testUpdateReadSessionWithQuotaProjectMissing() {
+        CreateReadSessionRequest request =
+                CreateReadSessionRequest.newBuilder().setParent("projects/test-1").build();
+
+        CreateReadSessionRequest updated = BigQueryUtils.updateWithQuotaProject(request, null);
+
+        assertEquals("projects/test-1", updated.getParent());
     }
 }

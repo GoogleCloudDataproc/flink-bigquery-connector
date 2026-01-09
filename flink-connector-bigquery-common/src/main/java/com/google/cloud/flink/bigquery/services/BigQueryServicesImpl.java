@@ -135,8 +135,11 @@ public class BigQueryServicesImpl implements BigQueryServices {
     /** Implementation of a BigQuery read client wrapper. */
     public static class StorageReadClientImpl implements StorageReadClient {
         private final BigQueryReadClient client;
+        private final String quotaProjectId;
 
         private StorageReadClientImpl(CredentialsOptions options) throws IOException {
+            quotaProjectId = options.getQuotaProjectId();
+
             BigQueryReadSettings.Builder settingsBuilder =
                     BigQueryReadSettings.newBuilder()
                             .setCredentialsProvider(
@@ -145,6 +148,10 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
                                             .build());
+
+            if (quotaProjectId != null) {
+                settingsBuilder = settingsBuilder.setQuotaProjectId(quotaProjectId);
+            }
 
             UnaryCallSettings.Builder<CreateReadSessionRequest, ReadSession>
                     createReadSessionSettings =
@@ -177,7 +184,9 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
         @Override
         public ReadSession createReadSession(CreateReadSessionRequest request) {
-            return client.createReadSession(request);
+            CreateReadSessionRequest updatedRequest =
+                    BigQueryUtils.updateWithQuotaProject(request, quotaProjectId);
+            return client.createReadSession(updatedRequest);
         }
 
         @Override
@@ -204,6 +213,11 @@ public class BigQueryServicesImpl implements BigQueryServices {
                             .setTransportChannelProvider(
                                     BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
                                             .build());
+
+            String quotaProjectId = options.getQuotaProjectId();
+            if (quotaProjectId != null) {
+                settingsBuilder = settingsBuilder.setQuotaProjectId(quotaProjectId);
+            }
 
             UnaryCallSettings.Builder<CreateWriteStreamRequest, WriteStream>
                     createWriteStreamSettings =
@@ -320,12 +334,19 @@ public class BigQueryServicesImpl implements BigQueryServices {
         private final Bigquery bigquery;
 
         public QueryDataClientImpl(CredentialsOptions options) {
-            bigQuery =
+            BigQueryOptions.Builder bigQueryBuilder =
                     BigQueryOptions.newBuilder()
                             .setCredentials(options.getCredentials())
-                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER)
-                            .build()
-                            .getService();
+                            .setHeaderProvider(USER_AGENT_HEADER_PROVIDER);
+            String quotaProjectId = options.getQuotaProjectId();
+            if (quotaProjectId != null) {
+                bigQueryBuilder = bigQueryBuilder.setQuotaProjectId(quotaProjectId);
+            }
+
+            bigQuery = bigQueryBuilder.build().getService();
+            // It is not possible to set the quota project on the legacy
+            // bigquery client without modifying the credentials, so the
+            // configured quota project is ignored by this client.
             bigquery = BigQueryUtils.newBigqueryBuilder(options).build();
         }
 
