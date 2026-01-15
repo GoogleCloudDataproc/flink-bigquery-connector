@@ -101,9 +101,8 @@ public class StorageClientFaker {
                 FakeBigQueryStorageWriteClient storageWriteClient,
                 FakeQueryDataClient queryDataClient) {
             FakeBigQueryServices instance =
-                    Mockito.spy(
-                            new FakeBigQueryServices(
-                                    storageReadClient, storageWriteClient, queryDataClient));
+                    new FakeBigQueryServices(
+                            storageReadClient, storageWriteClient, queryDataClient);
             return instance;
         }
 
@@ -174,7 +173,7 @@ public class StorageClientFaker {
             }
 
             static FakeQueryDataClient defaultInstance =
-                    Mockito.spy(new FakeQueryDataClient(true, null, null, null));
+                    new FakeQueryDataClient(true, null, null, null);
 
             static QueryDataClient getInstance() {
                 return defaultInstance;
