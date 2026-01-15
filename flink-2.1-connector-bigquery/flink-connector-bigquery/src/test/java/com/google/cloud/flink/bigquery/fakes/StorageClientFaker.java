@@ -116,7 +116,7 @@ public class StorageClientFaker {
                     (FakeQueryDataClient) FakeQueryDataClient.getInstance());
         }
 
-        public static int storageReadClientInvocations = 0;
+        public static final java.util.concurrent.atomic.AtomicInteger storageReadClientInvocations = new java.util.concurrent.atomic.AtomicInteger(0);
 
         @Override
         public StorageReadClient createStorageReadClient(CredentialsOptions options)
