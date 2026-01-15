@@ -135,7 +135,7 @@ public class BigQuerySourceSplitReaderTest {
     @Test
     public void testClientReuse() throws IOException {
         // Reset the counter
-        StorageClientFaker.FakeBigQueryServices.storageReadClientInvocations = 0;
+        StorageClientFaker.FakeBigQueryServices.storageReadClientInvocations.set(0);
 
         // init the read options for BQ
         BigQueryReadOptions readOptions =
