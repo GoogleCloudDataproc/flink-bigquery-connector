@@ -121,7 +121,7 @@ public class StorageClientFaker {
         @Override
         public StorageReadClient createStorageReadClient(CredentialsOptions options)
                 throws IOException {
-            storageReadClientInvocations++;
+            storageReadClientInvocations.incrementAndGet();
             return storageReadClient;
         }
 
