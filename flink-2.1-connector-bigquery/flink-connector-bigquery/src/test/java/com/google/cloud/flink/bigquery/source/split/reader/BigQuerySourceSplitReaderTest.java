@@ -131,4 +131,49 @@ public class BigQuerySourceSplitReaderTest {
         records = reader.fetch();
         assertThat(records.finishedSplits()).isEmpty();
     }
+
+    @Test
+    public void testClientReuse() throws IOException {
+        // Reset the counter
+        StorageClientFaker.FakeBigQueryServices.storageReadClientInvocations = 0;
+
+        // init the read options for BQ
+        BigQueryReadOptions readOptions =
+                StorageClientFaker.createReadOptions(
+                        10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
+        SourceReaderContext readerContext = Mockito.mock(SourceReaderContext.class);
+        BigQuerySourceReaderContext context = new BigQuerySourceReaderContext(readerContext, 10);
+        BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(readOptions, context);
+        // wake the thing up
+        reader.wakeUp();
+
+        // Assign 2 splits. If client is NOT reused, it would be created twice (once per split).
+        // If reused, it should be created only once.
+        String splitName1 = "stream1";
+        BigQuerySourceSplit split1 = new BigQuerySourceSplit(splitName1, 0L);
+        String splitName2 = "stream2";
+        BigQuerySourceSplit split2 = new BigQuerySourceSplit(splitName2, 0L);
+        SplitsAddition<BigQuerySourceSplit> change =
+                new SplitsAddition<>(Arrays.asList(split1, split2));
+
+        // send an assignment
+        reader.handleSplitsChanges(change);
+
+        // Fetch data for first split
+        RecordsWithSplitIds<GenericRecord> records = reader.fetch();
+        // Consume first split fully
+        while (records.nextSplit() != null) {
+            while (records.nextRecordFromSplit() != null) {}
+        }
+
+        // Fetch again to process second split
+        records = reader.fetch();
+        // Consume second split fully
+        while (records.nextSplit() != null) {
+            while (records.nextRecordFromSplit() != null) {}
+        }
+
+        // Assert that the client was created exactly ONCE
+        assertThat(StorageClientFaker.FakeBigQueryServices.storageReadClientInvocations).isEqualTo(1);
+    }
 }
