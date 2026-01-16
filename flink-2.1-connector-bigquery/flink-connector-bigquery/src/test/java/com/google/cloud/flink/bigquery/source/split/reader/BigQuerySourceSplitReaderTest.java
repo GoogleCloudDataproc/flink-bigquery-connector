@@ -174,6 +174,7 @@ public class BigQuerySourceSplitReaderTest {
         }
 
         // Assert that the client was created exactly ONCE
-        assertThat(StorageClientFaker.FakeBigQueryServices.STORAGE_READ_CLIENT_INVOCATIONS.get()).isEqualTo(1);
+        assertThat(StorageClientFaker.FakeBigQueryServices.STORAGE_READ_CLIENT_INVOCATIONS.get())
+                .isEqualTo(1);
     }
 }
