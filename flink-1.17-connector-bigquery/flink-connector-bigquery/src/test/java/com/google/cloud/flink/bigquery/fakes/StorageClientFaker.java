@@ -101,9 +101,8 @@ public class StorageClientFaker {
                 FakeBigQueryStorageWriteClient storageWriteClient,
                 FakeQueryDataClient queryDataClient) {
             FakeBigQueryServices instance =
-                    Mockito.spy(
-                            new FakeBigQueryServices(
-                                    storageReadClient, storageWriteClient, queryDataClient));
+                    new FakeBigQueryServices(
+                            storageReadClient, storageWriteClient, queryDataClient);
             return instance;
         }
 
@@ -117,9 +116,13 @@ public class StorageClientFaker {
                     (FakeQueryDataClient) FakeQueryDataClient.getInstance());
         }
 
+        public static final java.util.concurrent.atomic.AtomicInteger
+                STORAGE_READ_CLIENT_INVOCATIONS = new java.util.concurrent.atomic.AtomicInteger(0);
+
         @Override
         public StorageReadClient createStorageReadClient(CredentialsOptions options)
                 throws IOException {
+            STORAGE_READ_CLIENT_INVOCATIONS.incrementAndGet();
             return storageReadClient;
         }
 
@@ -174,7 +177,7 @@ public class StorageClientFaker {
             }
 
             static FakeQueryDataClient defaultInstance =
-                    Mockito.spy(new FakeQueryDataClient(true, null, null, null));
+                    new FakeQueryDataClient(true, null, null, null);
 
             static QueryDataClient getInstance() {
                 return defaultInstance;
