@@ -135,7 +135,7 @@ public class BigQuerySourceSplitReaderTest {
     @Test
     public void testClientReuse() throws IOException {
         // Reset the counter
-        StorageClientFaker.FakeBigQueryServices.storageReadClientInvocations.set(0);
+        StorageClientFaker.FakeBigQueryServices.STORAGE_READ_CLIENT_INVOCATIONS.set(0);
 
         // init the read options for BQ
         BigQueryReadOptions readOptions =
@@ -174,6 +174,6 @@ public class BigQuerySourceSplitReaderTest {
         }
 
         // Assert that the client was created exactly ONCE
-        assertThat(StorageClientFaker.FakeBigQueryServices.storageReadClientInvocations.get()).isEqualTo(1);
+        assertThat(StorageClientFaker.FakeBigQueryServices.STORAGE_READ_CLIENT_INVOCATIONS.get()).isEqualTo(1);
     }
 }
