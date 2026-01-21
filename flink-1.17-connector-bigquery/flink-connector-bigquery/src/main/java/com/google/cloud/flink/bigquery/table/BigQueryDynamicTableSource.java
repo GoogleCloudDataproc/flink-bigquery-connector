@@ -166,6 +166,11 @@ public class BigQueryDynamicTableSource
                 filters);
     }
 
+    @VisibleForTesting
+    BigQueryReadOptions getReadOptions() {
+        return this.readOptions;
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(this.readOptions, this.producedDataType);
@@ -264,8 +269,7 @@ public class BigQueryDynamicTableSource
                 .collect(Collectors.toList());
     }
 
-    @VisibleForTesting
-    static String rebuildRestrictionsApplyingPartitions(
+    private static String rebuildRestrictionsApplyingPartitions(
             String currentRestriction,
             Optional<TablePartitionInfo> partitionInfo,
             List<Map<String, String>> remainingPartitions) {
@@ -285,7 +289,10 @@ public class BigQueryDynamicTableSource
                                                         entry.getValue()))
                         .collect(Collectors.joining(" OR "));
 
-        if (currentRestriction.isEmpty()) {
+        if (partitionRestrictions.isEmpty()) {
+            return currentRestriction == null ? "" : currentRestriction;
+        }
+        if (currentRestriction == null || currentRestriction.isEmpty()) {
             return "(" + partitionRestrictions + ")";
         }
         return currentRestriction + " AND (" + partitionRestrictions + ")";

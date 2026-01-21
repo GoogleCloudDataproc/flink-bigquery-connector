@@ -380,12 +380,12 @@ public class BigQueryPartitionUtils {
 
         if (!partitionIds.isEmpty()) {
             switch (dataType) {
-                // integer range partition
+                    // integer range partition
                 case INT64:
                     // we add them as they are
                     partitionValues.addAll(partitionIds);
                     break;
-                // time based partitioning (hour, date, month, year)
+                    // time based partitioning (hour, date, month, year)
                 case DATE:
                 case DATETIME:
                 case TIMESTAMP:
@@ -436,7 +436,7 @@ public class BigQueryPartitionUtils {
                                             + firstId);
                     }
                     break;
-                // non supported data types for partitions
+                    // non supported data types for partitions
                 default:
                     throw new IllegalArgumentException(
                             String.format(
