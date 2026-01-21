@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -263,7 +264,8 @@ public class BigQueryDynamicTableSource
                 .collect(Collectors.toList());
     }
 
-    private static String rebuildRestrictionsApplyingPartitions(
+    @VisibleForTesting
+    static String rebuildRestrictionsApplyingPartitions(
             String currentRestriction,
             Optional<TablePartitionInfo> partitionInfo,
             List<Map<String, String>> remainingPartitions) {
@@ -282,6 +284,10 @@ public class BigQueryDynamicTableSource
                                                         entry.getKey(),
                                                         entry.getValue()))
                         .collect(Collectors.joining(" OR "));
+
+        if (currentRestriction.isEmpty()) {
+            return "(" + partitionRestrictions + ")";
+        }
         return currentRestriction + " AND (" + partitionRestrictions + ")";
     }
 }

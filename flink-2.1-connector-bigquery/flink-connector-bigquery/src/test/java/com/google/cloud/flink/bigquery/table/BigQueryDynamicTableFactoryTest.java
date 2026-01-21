@@ -42,7 +42,9 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -205,5 +207,29 @@ public class BigQueryDynamicTableFactoryTest {
                                 .setCredentialsOptions(CredentialsOptions.builder().build())
                                 .build())
                 .build();
+    }
+
+    @Test
+    public void testRebuildRestrictionsWithEmptyCurrentRestriction() {
+        List<Map<String, String>> partitions =
+                Arrays.asList(Collections.singletonMap("ts", "2026-01-01 00:00:00"));
+
+        String result =
+                BigQueryDynamicTableSource.rebuildRestrictionsApplyingPartitions(
+                        "", Optional.empty(), partitions);
+
+        assertThat(result).isEqualTo("(ts = 2026-01-01 00:00:00)");
+    }
+
+    @Test
+    public void testRebuildRestrictionsWithExistingRestriction() {
+        List<Map<String, String>> partitions =
+                Arrays.asList(Collections.singletonMap("ts", "2026-01-01 00:00:00"));
+
+        String result =
+                BigQueryDynamicTableSource.rebuildRestrictionsApplyingPartitions(
+                        "id > 10", Optional.empty(), partitions);
+
+        assertThat(result).isEqualTo("id > 10 AND (ts = 2026-01-01 00:00:00)");
     }
 }
