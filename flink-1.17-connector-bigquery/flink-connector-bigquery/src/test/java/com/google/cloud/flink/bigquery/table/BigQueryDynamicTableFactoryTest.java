@@ -232,4 +232,15 @@ public class BigQueryDynamicTableFactoryTest {
 
         assertThat(result).isEqualTo("id > 10 AND (ts = 2026-01-01 00:00:00)");
     }
+
+    @Test
+    public void testRebuildRestrictionsWithNullPartitionValue() {
+        List<Map<String, String>> partitions = Arrays.asList(Collections.singletonMap("ts", null));
+
+        String result =
+                BigQueryDynamicTableSource.rebuildRestrictionsApplyingPartitions(
+                        "", Optional.empty(), partitions);
+
+        assertThat(result).isEqualTo("(ts IS NULL)");
+    }
 }

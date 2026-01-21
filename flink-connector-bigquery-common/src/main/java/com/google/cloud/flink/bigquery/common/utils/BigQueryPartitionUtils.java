@@ -88,6 +88,9 @@ public class BigQueryPartitionUtils {
     private static final SimpleDateFormat SQL_YEAR_FORMAT =
             new SimpleDateFormat(SQL_YEAR_FORMAT_STRING);
 
+    private static final String NULL_PARTITION_ID = "__NULL__";
+    private static final String UNPARTITIONED_PARTITION_ID = "__UNPARTITIONED__";
+
     static {
         BQPARTITION_HOUR_FORMAT.setTimeZone(UTC_TIME_ZONE);
         BQPARTITION_DAY_FORMAT.setTimeZone(UTC_TIME_ZONE);
@@ -319,101 +322,135 @@ public class BigQueryPartitionUtils {
             Optional<TablePartitionInfo> tablePartitionInfo,
             String columnNameFromSQL,
             String valueFromSQL) {
-        return tablePartitionInfo
-                .map(
-                        info -> {
-                            switch (info.getColumnType()) {
-                                    // integer range partition
-                                case INT64:
-                                    return String.format(
-                                            "%s = %s", info.getColumnName(), valueFromSQL);
-                                    // date based partitioning (hour, date, month, year)
-                                case DATE:
-                                    return dateRestrictionFromPartitionType(
-                                            info.getPartitionType(),
-                                            columnNameFromSQL,
-                                            valueFromSQL);
-                                    // date based partitioning (hour, date, month, year)
-                                case DATETIME:
-                                case TIMESTAMP:
-                                    return timestampRestrictionFromPartitionType(
-                                            info.getPartitionType(),
-                                            columnNameFromSQL,
-                                            valueFromSQL);
-                                    // non supported data types for partitions
-                                default:
-                                    throw new IllegalArgumentException(
-                                            String.format(
-                                                    "The provided SQL type name (%s) is not supported"
-                                                            + " as a partition column in BigQuery.",
-                                                    info.getColumnType()));
-                            }
-                        })
-                .orElse(String.format("%s = %s", columnNameFromSQL, valueFromSQL));
+        if (valueFromSQL == null) {
+            return String.format("%s IS NULL", columnNameFromSQL);
+        } else {
+            return tablePartitionInfo
+                    .map(
+                            info -> {
+                                switch (info.getColumnType()) {
+                                        // integer range partition
+                                    case INT64:
+                                        return String.format(
+                                                "%s = %s", info.getColumnName(), valueFromSQL);
+                                        // date based partitioning (hour, date, month, year)
+                                    case DATE:
+                                        return dateRestrictionFromPartitionType(
+                                                info.getPartitionType(),
+                                                columnNameFromSQL,
+                                                valueFromSQL);
+                                        // date based partitioning (hour, date, month, year)
+                                    case DATETIME:
+                                    case TIMESTAMP:
+                                        return timestampRestrictionFromPartitionType(
+                                                info.getPartitionType(),
+                                                columnNameFromSQL,
+                                                valueFromSQL);
+                                        // non supported data types for partitions
+                                    default:
+                                        throw new IllegalArgumentException(
+                                                String.format(
+                                                        "The provided SQL type name (%s) is not supported"
+                                                                + " as a partition column in BigQuery.",
+                                                        info.getColumnType()));
+                                }
+                            })
+                    .orElse(String.format("%s = %s", columnNameFromSQL, valueFromSQL));
+        }
     }
 
     public static List<String> partitionValuesFromIdAndDataType(
-            List<String> partitionIds, StandardSQLTypeName dataType) {
-        List<String> partitionValues = new ArrayList<>();
-        switch (dataType) {
-                // integer range partition
-            case INT64:
-                // we add them as they are
-                partitionValues.addAll(partitionIds);
-                break;
-                // time based partitioning (hour, date, month, year)
-            case DATE:
-            case DATETIME:
-            case TIMESTAMP:
-                // lets first check that all the partition ids have the same length
-                String firstId = partitionIds.get(0);
-                Preconditions.checkState(
-                        partitionIds.stream()
-                                .allMatch(
-                                        pid ->
-                                                (pid.length() == firstId.length())
-                                                        && StringUtils.isNumeric(pid)),
-                        "Some elements in the partition id list have a different length: "
-                                + partitionIds.toString());
-                switch (firstId.length()) {
-                    case 4:
-                        // we have yearly partitions
-                        partitionValues.addAll(
-                                partitionIdToDateFormat(
-                                        partitionIds, BQPARTITION_YEAR_FORMAT, SQL_YEAR_FORMAT));
-                        break;
-                    case 6:
-                        // we have monthly partitions
-                        partitionValues.addAll(
-                                partitionIdToDateFormat(
-                                        partitionIds, BQPARTITION_MONTH_FORMAT, SQL_MONTH_FORMAT));
-                        break;
-                    case 8:
-                        // we have daily partitions
-                        partitionValues.addAll(
-                                partitionIdToDateFormat(
-                                        partitionIds, BQPARTITION_DAY_FORMAT, SQL_DAY_FORMAT));
-                        break;
-                    case 10:
-                        // we have hourly partitions
-                        partitionValues.addAll(
-                                partitionIdToDateFormat(
-                                        partitionIds, BQPARTITION_HOUR_FORMAT, SQL_HOUR_FORMAT));
-                        break;
-                    default:
-                        throw new IllegalArgumentException(
-                                "The lenght of the partition id is not one of the expected ones: "
-                                        + firstId);
-                }
-                break;
-                // non supported data types for partitions
-            default:
+            List<String> allPartitionIds, StandardSQLTypeName dataType) {
+        boolean hasNullPartition = false;
+        List<String> partitionIds = new ArrayList<>();
+        for (String pid : allPartitionIds) {
+            if (UNPARTITIONED_PARTITION_ID.equals(pid)) {
                 throw new IllegalArgumentException(
-                        String.format(
-                                "The provided SQL type name (%s) is not supported"
-                                        + " as a partition column.",
-                                dataType.name()));
+                        "The __UNPARTITIONED__ partition is not supported. "
+                                + "This partition contains rows with values outside the allowed range "
+                                + "and cannot be represented as discrete partition values.");
+            } else if (NULL_PARTITION_ID.equals(pid)) {
+                hasNullPartition = true;
+            } else {
+                partitionIds.add(pid);
+            }
         }
+
+        List<String> partitionValues = new ArrayList<>();
+
+        if (!partitionIds.isEmpty()) {
+            switch (dataType) {
+                // integer range partition
+                case INT64:
+                    // we add them as they are
+                    partitionValues.addAll(partitionIds);
+                    break;
+                // time based partitioning (hour, date, month, year)
+                case DATE:
+                case DATETIME:
+                case TIMESTAMP:
+                    // lets first check that all the partition ids have the same length
+                    String firstId = partitionIds.get(0);
+                    Preconditions.checkState(
+                            partitionIds.stream()
+                                    .allMatch(
+                                            pid ->
+                                                    (pid.length() == firstId.length())
+                                                            && StringUtils.isNumeric(pid)),
+                            "Some elements in the partition id list have a different length: "
+                                    + partitionIds);
+                    switch (firstId.length()) {
+                        case 4:
+                            // we have yearly partitions
+                            partitionValues.addAll(
+                                    partitionIdToDateFormat(
+                                            partitionIds,
+                                            BQPARTITION_YEAR_FORMAT,
+                                            SQL_YEAR_FORMAT));
+                            break;
+                        case 6:
+                            // we have monthly partitions
+                            partitionValues.addAll(
+                                    partitionIdToDateFormat(
+                                            partitionIds,
+                                            BQPARTITION_MONTH_FORMAT,
+                                            SQL_MONTH_FORMAT));
+                            break;
+                        case 8:
+                            // we have daily partitions
+                            partitionValues.addAll(
+                                    partitionIdToDateFormat(
+                                            partitionIds, BQPARTITION_DAY_FORMAT, SQL_DAY_FORMAT));
+                            break;
+                        case 10:
+                            // we have hourly partitions
+                            partitionValues.addAll(
+                                    partitionIdToDateFormat(
+                                            partitionIds,
+                                            BQPARTITION_HOUR_FORMAT,
+                                            SQL_HOUR_FORMAT));
+                            break;
+                        default:
+                            throw new IllegalArgumentException(
+                                    "The length of the partition id is not one of the expected ones: "
+                                            + firstId);
+                    }
+                    break;
+                // non supported data types for partitions
+                default:
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "The provided SQL type name (%s) is not supported"
+                                            + " as a partition column.",
+                                    dataType.name()));
+            }
+        }
+
+        // Add null for the __NULL__ partition if it was present
+        if (hasNullPartition) {
+            partitionValues.add(null);
+        }
+
         return partitionValues;
     }
 }
