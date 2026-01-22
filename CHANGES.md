@@ -2,6 +2,8 @@
 
 ## Next
 
+* Fix temporal type formatting in BigQueryRestriction to consistently use 6 decimal digits
+
 ## 1.0.0 - 2025-02-25
 
 * Propagate generics to BigQuerySink and BigQuerySinkConfig. Users of DataStream API
