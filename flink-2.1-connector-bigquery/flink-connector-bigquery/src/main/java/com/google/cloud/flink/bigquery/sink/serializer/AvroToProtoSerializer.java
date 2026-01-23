@@ -55,12 +55,9 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.function.UnaryOperator;
 
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
@@ -313,51 +310,35 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          */
         private static Object handleLogicalTypeSchema(Schema fieldSchema, Object value) {
             String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
-            if (logicalTypeString != null) {
-                // 1. In case, the Schema has a Logical Type.
-                @Nullable
-                UnaryOperator<Object> encoder = getLogicalEncoder(fieldSchema, logicalTypeString);
-                // 2. Check if this is supported, Return the value
-                if (encoder != null) {
-                    return encoder.apply(value);
-                }
+            if (logicalTypeString == null) {
+                return value;
             }
-            // Otherwise, return the value as it is.
-            return value;
-        }
-
-        /**
-         * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to
-         * Dynamic Message.
-         *
-         * @param logicalTypeString String containing the name for Logical Schema Type.
-         * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
-         */
-        private static UnaryOperator<Object> getLogicalEncoder(
-                Schema fieldSchema, String logicalTypeString) {
-            Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
-            mapping.put(LogicalTypes.date().getName(), AvroSchemaHandler::convertDate);
-            mapping.put(
-                    LogicalTypes.decimal(1).getName(),
-                    value -> AvroSchemaHandler.convertBigDecimal(value, fieldSchema));
-            mapping.put(
-                    LogicalTypes.timestampMicros().getName(),
-                    value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
-            mapping.put(
-                    LogicalTypes.timestampMillis().getName(),
-                    value -> convertTimestamp(value, false, "Timestamp(micros/millis)"));
-            mapping.put(LogicalTypes.uuid().getName(), AvroSchemaHandler::convertUUID);
-            mapping.put(LogicalTypes.timeMillis().getName(), value -> convertTime(value, false));
-            mapping.put(LogicalTypes.timeMicros().getName(), value -> convertTime(value, true));
-            mapping.put(
-                    LogicalTypes.localTimestampMillis().getName(),
-                    value -> convertDateTime(value, false));
-            mapping.put(
-                    LogicalTypes.localTimestampMicros().getName(),
-                    value -> convertDateTime(value, true));
-            mapping.put("geography_wkt", AvroSchemaHandler::convertGeography);
-            mapping.put("Json", AvroSchemaHandler::convertJson);
-            return mapping.get(logicalTypeString);
+            switch (logicalTypeString) {
+                case "date":
+                    return convertDate(value);
+                case "decimal":
+                    return convertBigDecimal(value, fieldSchema);
+                case "geography_wkt":
+                    return convertGeography(value);
+                case "Json":
+                    return convertJson(value);
+                case "local-timestamp-micros":
+                    return convertDateTime(value, true);
+                case "local-timestamp-millis":
+                    return convertDateTime(value, false);
+                case "time-micros":
+                    return convertTime(value, true);
+                case "time-millis":
+                    return convertTime(value, false);
+                case "timestamp-micros":
+                    return convertTimestamp(value, true, "Timestamp(micros/millis)");
+                case "timestamp-millis":
+                    return convertTimestamp(value, false, "Timestamp(micros/millis)");
+                case "uuid":
+                    return convertUUID(value);
+                default:
+                    return value;
+            }
         }
 
         // ---- Utilities to enable Conversions for Logical Types ------------
