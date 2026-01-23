@@ -62,6 +62,11 @@ under the License.
             <artifactId>guava</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
+
         <!-- org.apache.avro - used by SchemaTransform -->
         <dependency>
             <groupId>org.apache.avro</groupId>
@@ -72,6 +77,7 @@ under the License.
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
         </dependency>
         <!-- commons-lang3 used in common.utils BigQueryPartitionUtils for StringUtils -->
         <dependency>
@@ -83,6 +89,7 @@ under the License.
             <groupId>org.junit.vintage</groupId>
             <artifactId>junit-vintage-engine</artifactId>
             <version>${junit5.version}</version>
+            <scope>test</scope>
         </dependency>
         <!-- Dependency required for annotations across the project. -->
         <dependency>

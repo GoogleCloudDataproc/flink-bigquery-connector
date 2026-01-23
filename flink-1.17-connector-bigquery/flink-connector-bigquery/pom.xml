@@ -68,12 +68,14 @@ under the License.
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-test-utils-junit</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- ArchUit test dependencies -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-architecture-tests-production</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- Additional Flink Modules -->
@@ -93,23 +95,27 @@ under the License.
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-test-utils</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-test-utils</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-runtime</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <!-- Table API integration tests -->
@@ -127,18 +133,21 @@ under the License.
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-common</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-base</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <!-- ArchUit test dependencies -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-architecture-tests-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
