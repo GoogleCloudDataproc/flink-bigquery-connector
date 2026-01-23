@@ -33,8 +33,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,24 +53,13 @@ public class BigQueryRestriction {
     private static final Pattern STARTS_WITH_PATTERN = Pattern.compile("([^%]+)%");
 
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
-            new DateTimeFormatterBuilder()
-                    .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
-                    .appendFraction(ChronoField.MICRO_OF_SECOND, 6, 6, true)
-                    .toFormatter();
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
 
     private static final DateTimeFormatter LOCAL_TIME_FORMATTER =
-            new DateTimeFormatterBuilder()
-                    .appendPattern("HH:mm:ss")
-                    .appendFraction(ChronoField.MICRO_OF_SECOND, 6, 6, true)
-                    .toFormatter();
+            DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
     private static final DateTimeFormatter INSTANT_FORMATTER =
-            new DateTimeFormatterBuilder()
-                    .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
-                    .appendFraction(ChronoField.MICRO_OF_SECOND, 6, 6, true)
-                    .appendPattern("'Z'")
-                    .toFormatter()
-                    .withZone(ZoneOffset.UTC);
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'").withZone(ZoneOffset.UTC);
 
     /** Represents the possible BQ expressions supported for the correspondent flink ones. */
     enum Operation {
