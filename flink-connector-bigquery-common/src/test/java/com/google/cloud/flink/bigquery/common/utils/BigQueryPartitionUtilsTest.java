@@ -26,6 +26,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -90,6 +91,62 @@ public class BigQueryPartitionUtilsTest {
                         partitionIds, StandardSQLTypeName.INT64);
 
         Assertions.assertThat(values).isEqualTo(expectedValues);
+    }
+
+    @Test
+    public void testPartitionWithOnlyNull() {
+        List<String> partitionIds = Collections.singletonList("__NULL__");
+        List<String> expectedValues = Collections.singletonList(null);
+        List<String> values =
+                BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
+                        partitionIds, StandardSQLTypeName.TIMESTAMP);
+
+        Assertions.assertThat(values).isEqualTo(expectedValues);
+    }
+
+    @Test
+    public void testPartitionHourWithNull() {
+        List<String> partitionIds = Arrays.asList("2023062822", "2023062823", "__NULL__");
+        // ISO formatted dates plus null for the __NULL__ partition
+        List<String> expectedValues =
+                Arrays.asList("2023-06-28 22:00:00", "2023-06-28 23:00:00", null);
+        List<String> values =
+                BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
+                        partitionIds, StandardSQLTypeName.TIMESTAMP);
+
+        Assertions.assertThat(values).isEqualTo(expectedValues);
+    }
+
+    @Test
+    public void testPartitionIntegerWithNull() {
+        List<String> partitionIds = Arrays.asList("2023", "2022", "__NULL__");
+        List<String> expectedValues = Arrays.asList("2023", "2022", null);
+        List<String> values =
+                BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
+                        partitionIds, StandardSQLTypeName.INT64);
+
+        Assertions.assertThat(values).isEqualTo(expectedValues);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPartitionWithOnlyWithUnpartitionedThrowsError() {
+        List<String> partitionIds = Collections.singletonList("__UNPARTITIONED__");
+        BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
+                partitionIds, StandardSQLTypeName.TIMESTAMP);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPartitionHourWithUnpartitionedThrowsError() {
+        List<String> partitionIds = Arrays.asList("2023062822", "__UNPARTITIONED__");
+        BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
+                partitionIds, StandardSQLTypeName.TIMESTAMP);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPartitionIntegerWithUnpartitionedThrowsError() {
+        List<String> partitionIds = Arrays.asList("2023", "__UNPARTITIONED__");
+        BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
+                partitionIds, StandardSQLTypeName.INT64);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -380,6 +437,23 @@ public class BigQueryPartitionUtilsTest {
                                         Instant.now())),
                         "dragon",
                         "2023-01-01 03:00:00");
+
+        Assertions.assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testFormatPartitionRestrictionBasedOnInfoNullValue() {
+        String expected = "dragon IS NULL";
+        String actual =
+                BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon",
+                                        BigQueryPartitionUtils.PartitionType.DAY,
+                                        StandardSQLTypeName.TIMESTAMP,
+                                        Instant.now())),
+                        "dragon",
+                        null);
 
         Assertions.assertThat(actual).isEqualTo(expected);
     }

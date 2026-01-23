@@ -17,6 +17,7 @@
 package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -165,6 +166,11 @@ public class BigQueryDynamicTableSource
                 filters);
     }
 
+    @VisibleForTesting
+    BigQueryReadOptions getReadOptions() {
+        return this.readOptions;
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(this.readOptions, this.producedDataType);
@@ -282,6 +288,13 @@ public class BigQueryDynamicTableSource
                                                         entry.getKey(),
                                                         entry.getValue()))
                         .collect(Collectors.joining(" OR "));
+
+        if (partitionRestrictions.isEmpty()) {
+            return currentRestriction == null ? "" : currentRestriction;
+        }
+        if (currentRestriction == null || currentRestriction.isEmpty()) {
+            return "(" + partitionRestrictions + ")";
+        }
         return currentRestriction + " AND (" + partitionRestrictions + ")";
     }
 }
