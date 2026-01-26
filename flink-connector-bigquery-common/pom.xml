@@ -103,6 +103,18 @@ under the License.
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.google.auto.value</groupId>
+            <artifactId>auto-value-annotations</artifactId>
+            <version>1.11.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.auto.value</groupId>
+            <artifactId>auto-value</artifactId>
+            <version>1.11.0</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
