@@ -97,8 +97,10 @@ under the License.
 
     <dependencies>
         <!-- Root dependencies for all projects -->
-
-
+        <dependency>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
 
         <!-- Logging API -->
         <dependency>
