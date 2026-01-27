@@ -54,6 +54,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -252,9 +253,11 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                         "ARRAY cannot have multiple datatypes in BigQuery.");
             }
             // Convert each value one by one.
-            return StreamSupport.stream(iterable.spliterator(), false)
-                    .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
-                    .collect(Collectors.toList());
+            List<Object> result = new ArrayList<>();
+            for (Object v : iterable) {
+                result.add(toProtoValue(fieldDescriptor, arrayElementType, v));
+            }
+            return result;
         }
 
         /**
