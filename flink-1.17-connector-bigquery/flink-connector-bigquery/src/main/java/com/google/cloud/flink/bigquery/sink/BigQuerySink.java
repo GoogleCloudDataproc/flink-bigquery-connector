@@ -74,14 +74,14 @@ public class BigQuerySink {
      */
     private static <IN> void validateCdcConfiguration(BigQuerySinkConfig<IN> sinkConfig) {
         if (sinkConfig.getDeliveryGuarantee() != DeliveryGuarantee.AT_LEAST_ONCE) {
-            LOG.error(
-                    "CDC mode requires AT_LEAST_ONCE delivery guarantee. "
-                            + "BigQuery CDC uses the default stream which provides at-least-once semantics. "
-                            + "Found: {}",
-                    sinkConfig.getDeliveryGuarantee());
-            throw new IllegalArgumentException(
-                    "CDC mode requires AT_LEAST_ONCE delivery guarantee. "
-                            + "BigQuery CDC uses the default stream which provides at-least-once semantics.");
+            String errorMessage =
+                    String.format(
+                            "CDC mode requires AT_LEAST_ONCE delivery guarantee. "
+                                    + "BigQuery CDC uses the default stream which provides at-least-once semantics. "
+                                    + "Found: %s",
+                            sinkConfig.getDeliveryGuarantee());
+            LOG.error(errorMessage);
+            throw new IllegalArgumentException(errorMessage);
         }
         LOG.info(
                 "CDC mode enabled. Ensure the destination BigQuery table has a PRIMARY KEY "

@@ -166,29 +166,41 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             return "0";
         }
 
-        // Handle different value types - always return hexadecimal
-        // BigQuery CDC compares _change_sequence_number as unsigned numeric hex values
-        if (value instanceof Long) {
-            return Long.toHexString((Long) value).toUpperCase();
-        } else if (value instanceof Integer) {
-            return Long.toHexString(((Integer) value).longValue()).toUpperCase();
-        } else if (value instanceof java.time.Instant) {
-            return Long.toHexString(((java.time.Instant) value).toEpochMilli()).toUpperCase();
-        } else if (value instanceof org.joda.time.Instant) {
-            return Long.toHexString(((org.joda.time.Instant) value).getMillis()).toUpperCase();
-        } else if (value instanceof org.joda.time.ReadableInstant) {
-            return Long.toHexString(((org.joda.time.ReadableInstant) value).getMillis())
-                    .toUpperCase();
+        // Convert value to long based on type
+        // BigQuery CDC compares _change_sequence_number as string, so consistent
+        // 16-character zero-padded hex ensures correct lexicographic ordering
+        Long longValue = convertToLong(value);
+        if (longValue == null) {
+            return "0";
         }
 
-        // Fallback: try to parse as number and convert to hex
-        // This ensures we always return valid hexadecimal for BigQuery CDC
+        return String.format("%016X", longValue);
+    }
+
+    /**
+     * Converts various value types to Long for sequence number extraction.
+     *
+     * @param value The value to convert.
+     * @return Long value, or null if conversion is not possible.
+     */
+    private Long convertToLong(Object value) {
+        if (value instanceof Long) {
+            return (Long) value;
+        } else if (value instanceof Integer) {
+            return ((Integer) value).longValue();
+        } else if (value instanceof java.time.Instant) {
+            return ((java.time.Instant) value).toEpochMilli();
+        } else if (value instanceof org.joda.time.Instant) {
+            return ((org.joda.time.Instant) value).getMillis();
+        } else if (value instanceof org.joda.time.ReadableInstant) {
+            return ((org.joda.time.ReadableInstant) value).getMillis();
+        }
+
+        // Fallback: try to parse as number
         try {
-            long longValue = Long.parseLong(value.toString());
-            return Long.toHexString(longValue).toUpperCase();
+            return Long.parseLong(value.toString());
         } catch (NumberFormatException e) {
-            // Cannot convert to valid hex number - return 0 as safe default
-            return "0";
+            return null;
         }
     }
 

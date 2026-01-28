@@ -327,8 +327,9 @@ public class AvroToProtoSerializerCdcTest {
         // Extract from string field containing numeric value
         String sequenceNumber = serializer.extractSequenceNumber(record, "string_field");
 
-        // "12345" decimal should be converted to hex "3039"
-        assertEquals("3039", sequenceNumber);
+        // "12345" decimal should be converted to 16-character zero-padded hex
+        assertEquals(16, sequenceNumber.length());
+        assertEquals("0000000000003039", sequenceNumber);
     }
 
     @Test
