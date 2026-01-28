@@ -50,6 +50,9 @@ class BigQueryDefaultSink<IN> extends BigQueryBaseSink<IN> {
                 fatalizeSerializer,
                 maxParallelism,
                 traceId,
+                cdcEnabled,
+                cdcSequenceField,
+                cdcChangeTypeProvider,
                 context);
     }
 }
