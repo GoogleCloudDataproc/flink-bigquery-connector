@@ -60,6 +60,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
     private final BigQuerySourceReaderContext readerContext;
     private final Queue<BigQuerySourceSplit> assignedSplits = new ArrayDeque<>();
     private final Configuration configuration;
+    private BigQueryServices.StorageReadClient client;
 
     private Boolean closed = false;
     private Schema avroSchema = null;
@@ -72,6 +73,17 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         this.readOptions = readOptions;
         this.readerContext = readerContext;
         this.configuration = readerContext.getConfiguration();
+    }
+
+    private void closeClient() {
+        if (client != null) {
+            try {
+                client.close();
+            } catch (Exception e) {
+                LOG.warn("Error closing BigQuery Storage Read Client", e);
+            }
+            client = null;
+        }
     }
 
     Long offsetToFetch(BigQuerySourceSplit split) {
@@ -93,9 +105,12 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     BigQueryServices.BigQueryServerStream<ReadRowsResponse> retrieveReadStream(
             BigQuerySourceSplit split) throws IOException {
-        try (BigQueryServices.StorageReadClient client =
-                BigQueryServicesFactory.instance(readOptions.getBigQueryConnectOptions())
-                        .storageRead()) {
+        try {
+            if (client == null) {
+                client =
+                        BigQueryServicesFactory.instance(readOptions.getBigQueryConnectOptions())
+                                .storageRead();
+            }
             ReadRowsRequest readRequest =
                     ReadRowsRequest.newBuilder()
                             .setReadStream(split.getStreamName())
@@ -104,6 +119,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
             return client.readRows(readRequest);
         } catch (Exception ex) {
+            closeClient();
             throw new IOException(
                     String.format(
                             "[subtask #%d][hostname %s] Problems while opening the stream %s"
@@ -260,8 +276,9 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             readOptions.toString(),
                             assignedSplit.getOffset(),
                             readSoFar,
-                            configuration.toString()),
+                            Optional.ofNullable(configuration).map(Object::toString).orElse("NA")),
                     ex);
+            closeClient();
             // release the iterator just in case
             readStreamIterator = null;
             /**
@@ -305,7 +322,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             closed = true;
             readSoFar = 0L;
             readStreamIterator = null;
-            // complete closing with what may be needed
+            closeClient();
         }
     }
 

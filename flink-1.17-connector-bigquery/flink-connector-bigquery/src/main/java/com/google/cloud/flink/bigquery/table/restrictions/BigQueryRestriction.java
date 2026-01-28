@@ -31,6 +31,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +51,15 @@ public class BigQueryRestriction {
     private BigQueryRestriction() {}
 
     private static final Pattern STARTS_WITH_PATTERN = Pattern.compile("([^%]+)%");
+
+    private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+
+    private static final DateTimeFormatter LOCAL_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
+
+    private static final DateTimeFormatter INSTANT_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'").withZone(ZoneOffset.UTC);
 
     /** Represents the possible BQ expressions supported for the correspondent flink ones. */
     enum Operation {
@@ -229,11 +240,12 @@ public class BigQueryRestriction {
         return value.map(
                 o -> {
                     if (o instanceof LocalDateTime) {
-                        return addSingleQuotes(((LocalDateTime) o).toString());
+                        return addSingleQuotes(
+                                ((LocalDateTime) o).format(LOCAL_DATE_TIME_FORMATTER));
                     } else if (o instanceof Instant) {
-                        return addSingleQuotes(((Instant) o).toString());
+                        return addSingleQuotes(INSTANT_FORMATTER.format((Instant) o));
                     } else if (o instanceof LocalTime) {
-                        return addSingleQuotes(((LocalTime) o).toString());
+                        return addSingleQuotes(((LocalTime) o).format(LOCAL_TIME_FORMATTER));
                     } else if (o instanceof LocalDate) {
                         return addSingleQuotes(((LocalDate) o).toString());
                     } else if (o instanceof String) {
