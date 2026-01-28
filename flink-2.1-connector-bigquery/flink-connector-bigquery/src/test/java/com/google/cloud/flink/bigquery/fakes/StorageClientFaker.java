@@ -412,8 +412,10 @@ public class StorageClientFaker {
                 mockedWriter = Mockito.mock(StreamWriter.class);
                 // Mockito cannot unbox "any()" for primitive types, throwing the dreaded
                 // NullPointerException. Use primitive variants for argument matching.
-                OngoingStubbing stubbing =
-                                Mockito.when(mockedWriter.append(Mockito.any(ProtoRows.class), Mockito.anyLong()));
+                OngoingStubbing stubbing = Mockito.when(
+                                mockedWriter.append(
+                                                Mockito.any(ProtoRows.class), Mockito.anyLong()));
+
                 if (appendResponseFutures.length == 0) {
                     stubbing.thenThrow(
                             new IllegalStateException(
