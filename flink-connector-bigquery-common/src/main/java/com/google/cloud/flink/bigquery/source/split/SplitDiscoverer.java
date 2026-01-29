@@ -54,6 +54,8 @@ public class SplitDiscoverer {
      * @param snapshotTimeInMillis The storage snapshot time in millis since epoch, if null is
      *     considered as now.
      * @param maxStreamCount The max stream count required, -1 let BigQuery decide the stream count.
+     * @param preferredMinStreamCount The preferred minimum stream count, BigQuery will make a best
+     *     effort to provide at least this many streams.
      * @return A list with the read stream identifiers.
      */
     public static List<String> discoverSplits(
@@ -62,7 +64,8 @@ public class SplitDiscoverer {
             List<String> columnNames,
             String rowRestriction,
             Optional<Long> snapshotTimeInMillis,
-            Integer maxStreamCount) {
+            Integer maxStreamCount,
+            Integer preferredMinStreamCount) {
         try (BigQueryServices.StorageReadClient client =
                 BigQueryServicesFactory.instance(connectionOptions).storageRead()) {
             String parent = String.format("projects/%s", connectionOptions.getProjectId());
@@ -109,7 +112,8 @@ public class SplitDiscoverer {
                     CreateReadSessionRequest.newBuilder()
                             .setParent(parent)
                             .setReadSession(sessionBuilder)
-                            .setMaxStreamCount(maxStreamCount);
+                            .setMaxStreamCount(maxStreamCount)
+                            .setPreferredMinStreamCount(preferredMinStreamCount);
 
             // request the session
             ReadSession session = client.createReadSession(builder.build());
@@ -118,7 +122,7 @@ public class SplitDiscoverer {
                             + " estimated row count {}, estimated scanned bytes {},"
                             + " streams count {}, expired time {} (seconds after epoch), "
                             + " format: {}, column names: {}, row restriction: \"{}\","
-                            + " snapshot time: {}, max stream count: {}.",
+                            + " snapshot time: {}, max stream count: {}, preferred min stream count: {}.",
                     session.getName(),
                     session.getEstimatedRowCount(),
                     session.getEstimatedTotalBytesScanned(),
@@ -128,7 +132,8 @@ public class SplitDiscoverer {
                     columnNames,
                     rowRestriction,
                     snapshotTimeInMillis,
-                    maxStreamCount);
+                    maxStreamCount,
+                    preferredMinStreamCount);
             // get all the stream names added to the initialized state
             return session.getStreamsList().stream()
                     .map(stream -> stream.getName())

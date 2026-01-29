@@ -37,7 +37,6 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
 
     @Override
     public void discoverSplits() {
-
         this.remainingTableStreams.addAll(
                 SplitDiscoverer.discoverSplits(
                         this.readOptions.getBigQueryConnectOptions(),
@@ -45,7 +44,8 @@ public class BoundedSplitAssigner extends BigQuerySourceSplitAssigner {
                         this.readOptions.getColumnNames(),
                         this.readOptions.getRowRestriction(),
                         this.readOptions.getSnapshotTimestampInMillis(),
-                        this.readOptions.getMaxStreamCount()));
+                        this.readOptions.getEffectiveMaxStreamCount(),
+                        this.readOptions.getEffectivePreferredMinStreamCount()));
     }
 
     @Override
