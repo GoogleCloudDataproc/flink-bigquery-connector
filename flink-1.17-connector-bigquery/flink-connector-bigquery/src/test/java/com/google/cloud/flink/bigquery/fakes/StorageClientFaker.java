@@ -35,6 +35,7 @@ import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
+import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -101,8 +102,9 @@ public class StorageClientFaker {
                 FakeBigQueryStorageWriteClient storageWriteClient,
                 FakeQueryDataClient queryDataClient) {
             FakeBigQueryServices instance =
-                    new FakeBigQueryServices(
-                            storageReadClient, storageWriteClient, queryDataClient);
+                    Mockito.spy(
+                            new FakeBigQueryServices(
+                                    storageReadClient, storageWriteClient, queryDataClient));
             return instance;
         }
 
@@ -177,7 +179,7 @@ public class StorageClientFaker {
             }
 
             static FakeQueryDataClient defaultInstance =
-                    new FakeQueryDataClient(true, null, null, null);
+                    Mockito.spy(new FakeQueryDataClient(true, null, null, null));
 
             static QueryDataClient getInstance() {
                 return defaultInstance;
@@ -396,7 +398,7 @@ public class StorageClientFaker {
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
-                Mockito.when(mockedWriter.append(Mockito.any()))
+                Mockito.when(mockedWriter.append(Mockito.any(ProtoRows.class)))
                         .thenReturn(ApiFutures.immediateFuture(appendResponse));
                 writeStream = null;
                 flushResponse = null;
@@ -412,7 +414,10 @@ public class StorageClientFaker {
                 // Mockito cannot unbox "any()" for primitive types, throwing the dreaded
                 // NullPointerException. Use primitive variants for argument matching.
                 OngoingStubbing stubbing =
-                        Mockito.when(mockedWriter.append(Mockito.any(), Mockito.anyLong()));
+                        Mockito.when(
+                                mockedWriter.append(
+                                        Mockito.any(ProtoRows.class), Mockito.anyLong()));
+
                 if (appendResponseFutures.length == 0) {
                     stubbing.thenThrow(
                             new IllegalStateException(
@@ -482,7 +487,7 @@ public class StorageClientFaker {
 
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
                 Mockito.verify(mockedWriter, Mockito.times(expectedInvocations))
-                        .append(Mockito.any(), Mockito.anyLong());
+                        .append(Mockito.any(ProtoRows.class), Mockito.anyLong());
             }
         }
 
@@ -596,7 +601,8 @@ public class StorageClientFaker {
             List<GenericRecord> genericRecords,
             double progressAtResponseStart,
             double progressAtResponseEnd) {
-        // BigQuery delivers the data in 1024 elements chunks, so we partition the generated list
+        // BigQuery delivers the data in 1024 elements chunks, so we partition the
+        // generated list
         // into multiple ones with that size max.
         return IntStream.range(0, genericRecords.size())
                 .collect(

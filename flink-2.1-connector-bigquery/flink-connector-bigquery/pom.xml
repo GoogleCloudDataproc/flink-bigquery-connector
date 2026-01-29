@@ -27,6 +27,10 @@ under the License.
         <version>${revision}</version>
     </parent>
 
+    <properties>
+        <shade.skip>false</shade.skip>
+    </properties>
+
     <artifactId>flink-2.1-connector-bigquery</artifactId>
     <name>Flink : Connectors : Google BigQuery Connector (Flink v2.1)</name>
 
@@ -56,6 +60,19 @@ under the License.
             <artifactId>joda-time</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.auto.value</groupId>
+            <artifactId>auto-value-annotations</artifactId>
+            <version>1.11.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.auto.value</groupId>
+            <artifactId>auto-value</artifactId>
+            <version>1.11.0</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- Flink Dependencies -->
         <dependency>
             <groupId>org.apache.avro</groupId>
@@ -68,12 +85,14 @@ under the License.
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-test-utils-junit</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- ArchUit test dependencies -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-architecture-tests-production</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- Additional Flink Modules -->
@@ -93,23 +112,27 @@ under the License.
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-test-utils</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-test-utils</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-runtime</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <!-- Table API integration tests -->
@@ -127,18 +150,21 @@ under the License.
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-common</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-base</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <!-- ArchUit test dependencies -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-architecture-tests-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -155,43 +181,6 @@ under the License.
                         <goals>
                             <goal>shade</goal>
                         </goals>
-                        <configuration>
-                            <minimizeJar>true</minimizeJar>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <shadedArtifactAttached>true</shadedArtifactAttached>
-                            <shadedClassifierName>shaded</shadedClassifierName>
-                            <artifactSet>
-                                <includes>
-                                    <include>org.apache.*:*</include>
-                                    <include>com.google.*:*</include>
-                                    <include>commons-codec:commons-codec</include>
-                                    <include>dev.failsafe:*</include>
-                                    <include>org.codehaus.mojo:animal-sniffer-annotations</include>
-                                    <include>org.conscrypt:*</include>
-                                    <include>com.fasterxml.jackson.*:*</include>
-                                    <include>org.threeten:*</include>
-                                    <include>org.checkerframework:*</include>
-                                    <include>io.grpc:*</include>
-                                    <include>io.opencensus:*</include>
-                                    <include>io.perfmark:*</include>
-                                    <include>joda-time:joda-time</include>
-                                    <include>org.json:json</include>
-                                </includes>
-                            </artifactSet>
-                            <relocations>
-                                <relocation>
-                                    <pattern>com.google</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.com.google</shadedPattern>
-                                    <excludes>
-                                        <exclude>com.google.cloud.flink.bigquery.**</exclude>
-                                    </excludes>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.apache</shadedPattern>
-                                </relocation>
-                            </relocations>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
