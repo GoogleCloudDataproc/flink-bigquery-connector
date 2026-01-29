@@ -43,6 +43,8 @@ under the License.
     <properties>
 		<flink.version>2.1.0</flink.version>
         <flink.shaded.version>17.0</flink.shaded.version>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
     </properties>
 
     <dependencies>
