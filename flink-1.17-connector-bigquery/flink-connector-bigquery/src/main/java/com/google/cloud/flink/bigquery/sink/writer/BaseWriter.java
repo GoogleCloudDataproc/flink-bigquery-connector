@@ -39,9 +39,11 @@ import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.sink.client.BigQueryClientWithErrorHandling;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryCdcSchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
 import com.google.cloud.flink.bigquery.sink.throttle.BigQueryWriterThrottler;
 import com.google.cloud.flink.bigquery.sink.throttle.Throttler;
 import com.google.protobuf.ByteString;
@@ -101,6 +103,10 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     final boolean fatalizeSerializer;
     final String traceId;
     final Queue<AppendInfo> appendResponseFuturesQueue;
+    // CDC configuration
+    final boolean cdcEnabled;
+    final String cdcSequenceField;
+    final CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
     // Initialization of writeClient has been deferred to first append call. BigQuery's best
     // practices suggest that client connections should be opened when needed.
     BigQueryServices.StorageWriteClient writeClient;
@@ -127,7 +133,10 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             CreateTableOptions createTableOptions,
             boolean fatalizeSerializer,
             int maxParallelism,
-            String traceId) {
+            String traceId,
+            boolean cdcEnabled,
+            String cdcSequenceField,
+            CdcChangeTypeProvider<IN> cdcChangeTypeProvider) {
         this.subtaskId = subtaskId;
         this.tablePath = tablePath;
         this.connectOptions = connectOptions;
@@ -136,6 +145,12 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         this.createTableOptions = createTableOptions;
         this.fatalizeSerializer = fatalizeSerializer;
         this.traceId = traceId;
+        this.cdcEnabled = cdcEnabled;
+        this.cdcSequenceField = cdcSequenceField;
+        this.cdcChangeTypeProvider =
+                cdcChangeTypeProvider != null
+                        ? cdcChangeTypeProvider
+                        : CdcChangeTypeProvider.upsertOnly();
         appendRequestSizeBytes = 0L;
         appendResponseFuturesQueue = new LinkedList<>();
         protoRowsBuilder = ProtoRows.newBuilder();
@@ -197,8 +212,19 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                 schemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
             }
         }
-        protoSchema = getProtoSchema(schemaProvider);
-        serializer.init(schemaProvider);
+
+        // For CDC mode, wrap the schema provider with CDC schema provider
+        if (cdcEnabled) {
+            BigQuerySchemaProvider cdcSchemaProvider =
+                    new BigQueryCdcSchemaProvider(schemaProvider);
+            protoSchema = getProtoSchema(cdcSchemaProvider);
+            // Initialize serializer with both regular and CDC schemas
+            serializer.init(schemaProvider);
+            serializer.initForCdc(cdcSchemaProvider);
+        } else {
+            protoSchema = getProtoSchema(schemaProvider);
+            serializer.init(schemaProvider);
+        }
     }
 
     /** Add serialized record to append request. */
@@ -292,12 +318,23 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /**
      * Serializes a record to BigQuery's proto format.
      *
+     * <p>If CDC mode is enabled, this method will include CDC pseudocolumns (_change_type and
+     * _change_sequence_number) in the serialized output.
+     *
      * @param element Record to serialize.
      * @return ByteString.
      * @throws BigQuerySerializationException If serialization to proto format failed.
      */
     ByteString getProtoRow(IN element) throws BigQuerySerializationException {
-        ByteString protoRow = serializer.serialize(element);
+        ByteString protoRow;
+        if (cdcEnabled) {
+            String changeType = cdcChangeTypeProvider.getChangeType(element);
+            String sequenceNumber = serializer.extractSequenceNumber(element, cdcSequenceField);
+            protoRow = serializer.serializeWithCdc(element, changeType, sequenceNumber);
+        } else {
+            protoRow = serializer.serialize(element);
+        }
+
         if (getProtoRowBytes(protoRow) > MAX_APPEND_REQUEST_BYTES) {
             logger.error(
                     "A single row of size %d bytes exceeded the allowed maximum of %d bytes for an append request",

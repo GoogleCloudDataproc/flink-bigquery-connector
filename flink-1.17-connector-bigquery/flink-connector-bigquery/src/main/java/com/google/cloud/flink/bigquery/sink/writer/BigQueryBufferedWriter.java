@@ -151,7 +151,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                 createTableOptions,
                 fatalizeSerializer,
                 maxParallelism,
-                traceId);
+                traceId,
+                false, // CDC not supported with exactly-once (uses buffered streams)
+                null,
+                null);
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;

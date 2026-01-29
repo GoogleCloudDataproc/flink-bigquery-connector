@@ -20,6 +20,8 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import org.apache.avro.Schema;
 
+import java.util.Objects;
+
 /**
  * Class inheriting {@link BigQuerySchemaProvider} for {@link AvroToProtoSerializerTest} and {@link
  * BigQuerySchemaProviderTest}.
@@ -51,5 +53,22 @@ public class TestSchemaProvider implements BigQuerySchemaProvider {
     @Override
     public boolean schemaUnknown() {
         return schema == null;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(schema);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        TestSchemaProvider other = (TestSchemaProvider) obj;
+        return Objects.equals(schema, other.schema);
     }
 }

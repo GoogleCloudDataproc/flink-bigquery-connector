@@ -26,6 +26,7 @@ import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.TestSchemaProvider;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.After;
@@ -37,6 +38,7 @@ import java.util.Arrays;
 import static com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig.validateStreamExecutionEnvironment;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -202,5 +204,100 @@ public class BigQuerySinkConfigTest {
     public void testValidation_withFallbackRestart() {
         env.setRestartStrategy(RestartStrategies.fallBackRestart());
         validateStreamExecutionEnvironment(env);
+    }
+
+    // ---------- CDC Configuration Tests ----------
+
+    @Test
+    public void testCdcConfiguration() {
+        BigQueryConnectOptions connectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId("project")
+                        .setDataset("dataset")
+                        .setTable("table")
+                        .build();
+        BigQuerySchemaProvider schemaProvider = new TestSchemaProvider(null, null);
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        CdcChangeTypeProvider<GenericRecord> changeTypeProvider =
+                CdcChangeTypeProvider.upsertOnly();
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, Time.seconds(5)));
+
+        BigQuerySinkConfig<GenericRecord> sinkConfig =
+                BigQuerySinkConfig.<GenericRecord>newBuilder()
+                        .connectOptions(connectOptions)
+                        .schemaProvider(schemaProvider)
+                        .serializer(serializer)
+                        .streamExecutionEnvironment(env)
+                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .enableCdc(true)
+                        .cdcSequenceField("timestamp_field")
+                        .cdcChangeTypeProvider(changeTypeProvider)
+                        .build();
+
+        assertTrue(sinkConfig.isCdcEnabled());
+        assertEquals("timestamp_field", sinkConfig.getCdcSequenceField());
+        assertNotNull(sinkConfig.getCdcChangeTypeProvider());
+        assertEquals("UPSERT", sinkConfig.getCdcChangeTypeProvider().getChangeType(null));
+    }
+
+    @Test
+    public void testCdcConfiguration_defaults() {
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(5, Time.seconds(5)));
+        BigQuerySinkConfig sinkConfig =
+                BigQuerySinkConfig.newBuilder().streamExecutionEnvironment(env).build();
+
+        assertFalse(sinkConfig.isCdcEnabled());
+        assertNull(sinkConfig.getCdcSequenceField());
+        assertNull(sinkConfig.getCdcChangeTypeProvider());
+    }
+
+    @Test
+    public void testCdcConfiguration_withCustomChangeTypeProvider() {
+        BigQueryConnectOptions connectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId("project")
+                        .setDataset("dataset")
+                        .setTable("table")
+                        .build();
+        BigQuerySchemaProvider schemaProvider = new TestSchemaProvider(null, null);
+        BigQueryProtoSerializer<String> serializer =
+                new BigQueryProtoSerializer<String>() {
+                    @Override
+                    public void init(BigQuerySchemaProvider schemaProvider) {}
+
+                    @Override
+                    public com.google.protobuf.ByteString serialize(String record) {
+                        return com.google.protobuf.ByteString.copyFromUtf8(record);
+                    }
+
+                    @Override
+                    public org.apache.avro.Schema getAvroSchema(String record) {
+                        return null;
+                    }
+                };
+
+        CdcChangeTypeProvider<String> customProvider =
+                record -> {
+                    if (record != null && record.startsWith("DELETE:")) {
+                        return "DELETE";
+                    }
+                    return "UPSERT";
+                };
+
+        env.setRestartStrategy(RestartStrategies.noRestart());
+        BigQuerySinkConfig<String> sinkConfig =
+                BigQuerySinkConfig.<String>newBuilder()
+                        .connectOptions(connectOptions)
+                        .schemaProvider(schemaProvider)
+                        .serializer(serializer)
+                        .streamExecutionEnvironment(env)
+                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .enableCdc(true)
+                        .cdcChangeTypeProvider(customProvider)
+                        .build();
+
+        assertTrue(sinkConfig.isCdcEnabled());
+        assertEquals("UPSERT", sinkConfig.getCdcChangeTypeProvider().getChangeType("INSERT:data"));
+        assertEquals("DELETE", sinkConfig.getCdcChangeTypeProvider().getChangeType("DELETE:data"));
     }
 }
