@@ -29,6 +29,7 @@ import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorExcept
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
 import com.google.protobuf.ByteString;
 
 import java.util.concurrent.ExecutionException;
@@ -67,6 +68,9 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
             boolean fatalizeSerializer,
             int maxParallelism,
             String taceId,
+            boolean cdcEnabled,
+            String cdcSequenceField,
+            CdcChangeTypeProvider<IN> cdcChangeTypeProvider,
             InitContext context) {
         super(
                 context.getSubtaskId(),
@@ -77,7 +81,10 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
                 createTableOptions,
                 fatalizeSerializer,
                 maxParallelism,
-                taceId);
+                taceId,
+                cdcEnabled,
+                cdcSequenceField,
+                cdcChangeTypeProvider);
         streamName = String.format("%s/streams/_default", tablePath);
         totalRecordsSeen = 0L;
         totalRecordsWritten = 0L;

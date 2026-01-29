@@ -107,4 +107,53 @@ public class BigQuerySinkTest {
                         .build();
         assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryExactlyOnceSink);
     }
+
+    @Test
+    public void testGet_withCdcEnabled_atLeastOnce() {
+        env.setRestartStrategy(NO_RESTART_STRATEGY);
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                        .streamExecutionEnvironment(env)
+                        .enableCdc(true)
+                        .cdcSequenceField("timestamp")
+                        .build();
+        // CDC with AT_LEAST_ONCE should return BigQueryDefaultSink
+        assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryDefaultSink);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGet_withCdcEnabled_exactlyOnce_shouldFail() {
+        env.setRestartStrategy(NO_RESTART_STRATEGY);
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                        .streamExecutionEnvironment(env)
+                        .enableCdc(true)
+                        .build();
+        // CDC with EXACTLY_ONCE should throw IllegalArgumentException
+        BigQuerySink.get(sinkConfig);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGet_withCdcEnabled_noneDeliveryGuarantee_shouldFail() {
+        env.setRestartStrategy(NO_RESTART_STRATEGY);
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
+                        .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .deliveryGuarantee(DeliveryGuarantee.NONE)
+                        .streamExecutionEnvironment(env)
+                        .enableCdc(true)
+                        .build();
+        // CDC with NONE delivery guarantee should throw IllegalArgumentException
+        BigQuerySink.get(sinkConfig);
+    }
 }
