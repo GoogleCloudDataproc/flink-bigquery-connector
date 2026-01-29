@@ -89,6 +89,7 @@ under the License.
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
         <surefire.report.dir>${maven.multiModuleProjectDirectory}/target/test-report</surefire.report.dir>
+        <shade.skip>true</shade.skip>
     </properties>
 
     <modules>
@@ -365,11 +366,91 @@ under the License.
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <minimizeJar>true</minimizeJar>
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>shaded</shadedClassifierName>
                             <artifactSet>
                                 <includes>
-                                    <include>com.google.guava:guava:*</include>
+                                    <include>org.apache.*:*</include>
+                                    <include>com.google.*:*</include>
+                                    <include>commons-codec:commons-codec</include>
+                                    <include>dev.failsafe:*</include>
+                                    <include>org.codehaus.mojo:animal-sniffer-annotations</include>
+                                    <include>org.conscrypt:*</include>
+                                    <include>com.fasterxml.jackson.*:*</include>
+                                    <include>org.threeten:*</include>
+                                    <include>org.checkerframework:*</include>
+                                    <include>io.grpc:*</include>
+                                    <include>io.opencensus:*</include>
+                                    <include>io.perfmark:*</include>
+                                    <include>joda-time:joda-time</include>
+                                    <include>org.json:json</include>
                                 </includes>
+                                <excludes>
+                                    <exclude>org.apache.flink:*</exclude>
+                                </excludes>
                             </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.google</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.com.google</shadedPattern>
+                                    <excludes>
+                                        <exclude>com.google.cloud.flink.bigquery.**</exclude>
+                                    </excludes>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.apache</shadedPattern>
+                                    <excludes>
+                                        <exclude>org.apache.flink.**</exclude>
+                                    </excludes>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.grpc</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.grpc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opencensus</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.opencensus</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.perfmark</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.perfmark</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.com.fasterxml</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.checkerframework</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.checkerframework</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.codehaus</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.codehaus</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.threeten</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.threeten</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.json</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.json</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>dev.failsafe</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.dev.failsafe</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.conscrypt</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.conscrypt</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.joda.time</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.joda.time</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
@@ -399,6 +480,27 @@ under the License.
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>verify-shaded-artifact</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <skip>${shade.skip}</skip>
+                    <executable>${maven.multiModuleProjectDirectory}/scripts/verify-shading.sh</executable>
+                    <arguments>
+                        <argument>${project.build.directory}/${project.build.finalName}-shaded.jar</argument>
+                    </arguments>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.commonjava.maven.plugins</groupId>
