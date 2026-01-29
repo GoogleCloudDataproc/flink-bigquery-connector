@@ -54,6 +54,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -251,7 +252,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                         "ARRAY cannot have multiple datatypes in BigQuery.");
             }
             // Convert each value one by one.
-            List<Object> result = new ArrayList<>();
+            int size = (iterable instanceof Collection) ? ((Collection<?>) iterable).size() : 10;
+            List<Object> result = new ArrayList<>(size);
             for (Object v : iterable) {
                 result.add(toProtoValue(fieldDescriptor, arrayElementType, v));
             }
