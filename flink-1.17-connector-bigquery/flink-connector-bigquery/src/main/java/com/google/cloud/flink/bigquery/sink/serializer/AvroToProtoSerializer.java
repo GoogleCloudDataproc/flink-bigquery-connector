@@ -158,12 +158,29 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
     @Override
     public String extractSequenceNumber(GenericRecord record, String sequenceField) {
         if (sequenceField == null || sequenceField.isEmpty()) {
-            return "0";
+            // Return null to omit _change_sequence_number field.
+            // BigQuery will use ingestion time for ordering.
+            return null;
+        }
+
+        // Check if the field exists in the schema before accessing it
+        Schema recordSchema = record.getSchema();
+        if (recordSchema.getField(sequenceField) == null) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Sequence field '%s' does not exist in the record schema. "
+                                    + "Available fields: %s",
+                            sequenceField,
+                            recordSchema.getFields().stream()
+                                    .map(Schema.Field::name)
+                                    .collect(java.util.stream.Collectors.toList())));
         }
 
         Object value = record.get(sequenceField);
         if (value == null) {
-            return "0";
+            // Return null to omit _change_sequence_number field.
+            // BigQuery will use ingestion time for ordering.
+            return null;
         }
 
         // Convert value to long based on type
@@ -171,7 +188,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         // 16-character zero-padded hex ensures correct lexicographic ordering
         Long longValue = convertToLong(value);
         if (longValue == null) {
-            return "0";
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Cannot convert sequence field '%s' value '%s' of type '%s' to Long. "
+                                    + "Supported types: Long, Integer, java.time.Instant, "
+                                    + "org.joda.time.Instant, or numeric String.",
+                            sequenceField, value, value.getClass().getName()));
         }
 
         return String.format("%016X", longValue);

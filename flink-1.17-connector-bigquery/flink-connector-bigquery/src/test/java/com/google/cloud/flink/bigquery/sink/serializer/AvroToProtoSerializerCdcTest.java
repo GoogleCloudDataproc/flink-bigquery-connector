@@ -30,6 +30,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /** Tests for CDC (Change Data Capture) functionality in {@link AvroToProtoSerializer}. */
@@ -212,7 +213,7 @@ public class AvroToProtoSerializerCdcTest {
     }
 
     @Test
-    public void testExtractSequenceNumber_nullField_returnsZero() {
+    public void testExtractSequenceNumber_nullFieldValue_returnsNull() {
         String fieldString =
                 "\"fields\": "
                         + "["
@@ -231,13 +232,14 @@ public class AvroToProtoSerializerCdcTest {
                         .set("name", "test")
                         .build();
 
+        // Null field value returns null to omit _change_sequence_number
         String sequenceNumber = serializer.extractSequenceNumber(record, "nullable_long");
 
-        assertEquals("0", sequenceNumber);
+        assertNull(sequenceNumber);
     }
 
     @Test
-    public void testExtractSequenceNumber_missingField_returnsZero() {
+    public void testExtractSequenceNumber_nullSequenceFieldParam_returnsNull() {
         BigQuerySchemaProvider baseProvider = TestBigQuerySchemas.getSimpleRecordSchema();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(baseProvider);
@@ -249,10 +251,26 @@ public class AvroToProtoSerializerCdcTest {
                         .set("string_field", "test")
                         .build();
 
-        // Try to extract from a non-existent field
-        String sequenceNumber = serializer.extractSequenceNumber(record, "nonexistent_field");
+        // Null sequenceField param returns null to omit _change_sequence_number
+        assertNull(serializer.extractSequenceNumber(record, null));
+        assertNull(serializer.extractSequenceNumber(record, ""));
+    }
 
-        assertEquals("0", sequenceNumber);
+    @Test(expected = IllegalArgumentException.class)
+    public void testExtractSequenceNumber_missingField_throwsException() {
+        BigQuerySchemaProvider baseProvider = TestBigQuerySchemas.getSimpleRecordSchema();
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(baseProvider);
+
+        Schema avroSchema = baseProvider.getAvroSchema();
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("long_field", 123L)
+                        .set("string_field", "test")
+                        .build();
+
+        // Try to extract from a non-existent field - should throw exception
+        serializer.extractSequenceNumber(record, "nonexistent_field");
     }
 
     @Test
@@ -332,9 +350,9 @@ public class AvroToProtoSerializerCdcTest {
         assertEquals("0000000000003039", sequenceNumber);
     }
 
-    @Test
-    public void testExtractSequenceNumber_nonNumericString_returnsZero() {
-        // Test that non-numeric strings return "0" as safe default
+    @Test(expected = IllegalArgumentException.class)
+    public void testExtractSequenceNumber_nonNumericString_throwsException() {
+        // Test that non-numeric strings throw exception
         BigQuerySchemaProvider baseProvider = TestBigQuerySchemas.getSimpleRecordSchema();
         AvroToProtoSerializer serializer = new AvroToProtoSerializer();
         serializer.init(baseProvider);
@@ -346,10 +364,7 @@ public class AvroToProtoSerializerCdcTest {
                         .set("string_field", "not_a_number")
                         .build();
 
-        // Extract from string field containing non-numeric value
-        String sequenceNumber = serializer.extractSequenceNumber(record, "string_field");
-
-        // Non-numeric string should return "0"
-        assertEquals("0", sequenceNumber);
+        // Extract from string field containing non-numeric value - should throw exception
+        serializer.extractSequenceNumber(record, "string_field");
     }
 }
