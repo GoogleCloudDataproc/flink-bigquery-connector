@@ -65,6 +65,8 @@ import java.util.stream.StreamSupport;
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(AvroToProtoSerializer.class);
+
     private Descriptor descriptor;
     // CDC-augmented descriptor (includes _change_type and _change_sequence_number fields)
     private Descriptor cdcDescriptor;
@@ -243,12 +245,23 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         Schema recordSchema = element.getSchema();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
 
-        // Serialize all regular fields from the record
+        // Serialize all regular fields from the record.
+        // Field names are converted to lowercase to match the descriptor convention
+        // (see BigQuerySchemaProviderImpl.fieldDescriptorFromSchemaField which stores
+        // all field names as lowercase). BigQuery column names are case-insensitive.
         for (Schema.Field field : recordSchema.getFields()) {
-            FieldDescriptor fieldDescriptor =
-                    descriptor.findFieldByName(field.name().toLowerCase());
+            String lowercaseFieldName = field.name().toLowerCase();
+            FieldDescriptor fieldDescriptor = descriptor.findFieldByName(lowercaseFieldName);
             if (fieldDescriptor == null) {
-                // Field not in descriptor, skip (should not happen normally)
+                // Field not in descriptor, skip. This should not happen normally.
+                LOG.debug(
+                        "Field '{}' (lowercase: '{}') not found in descriptor, skipping. "
+                                + "Available descriptor fields: {}",
+                        field.name(),
+                        lowercaseFieldName,
+                        descriptor.getFields().stream()
+                                .map(FieldDescriptor::getName)
+                                .collect(Collectors.toList()));
                 continue;
             }
             @Nullable Object value = element.get(field.name());
