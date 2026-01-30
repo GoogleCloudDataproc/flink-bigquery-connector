@@ -21,6 +21,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.Timestamp;
 import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
+import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -465,9 +466,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#datetime_type.
             try {
                 return LocalDateTime.parse(
-                                obtainedValue,
-                                DateTimeFormatter.ofPattern(
-                                        "yyyy-M[M]-d[d][[' ']['T']['t']H[H]':'m[m]':'s[s]['.'SSSSSS]['.'SSSSS]['.'SSSS]['.'SSS]['.'SS]['.'S]]"))
+                                obtainedValue, DateTimeFormatterPatterns.DATETIME_FORMATTER)
                         .toString();
             } catch (DateTimeParseException e) {
                 throw new IllegalArgumentException(
@@ -501,10 +500,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 // according to
                 // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#time_type.
                 try {
-                    return LocalTime.parse(
-                                    (String) value,
-                                    DateTimeFormatter.ofPattern(
-                                            "H[H]':'m[m]':'s[s]['.'SSSSSS]['.'SSSSS]['.'SSSS]['.'SSS]['.'SS]['.'S]"))
+                    return LocalTime.parse((String) value, DateTimeFormatterPatterns.TIME_FORMATTER)
                             .toString();
                 } catch (DateTimeParseException e) {
                     throw new IllegalArgumentException(

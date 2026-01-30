@@ -38,6 +38,7 @@ import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.Timestamp;
+import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
@@ -53,7 +54,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.HashMap;
@@ -303,10 +303,7 @@ public class AvroToRowDataConverters {
             try {
                 // LocalDateTime will handle the precision.
                 return TimestampData.fromLocalDateTime(
-                        LocalDateTime.parse(
-                                tsValue,
-                                DateTimeFormatter.ofPattern(
-                                        "yyyy-M[M]-d[d][[' ']['T']['t']H[H]':'m[m]':'s[s]['.'SSSSSS]['.'SSSSS]['.'SSSS]['.'SSS]['.'SS]['.'S]]")));
+                        LocalDateTime.parse(tsValue, DateTimeFormatterPatterns.DATETIME_FORMATTER));
             } catch (DateTimeParseException e) {
                 String invalidFormatError =
                         String.format(
