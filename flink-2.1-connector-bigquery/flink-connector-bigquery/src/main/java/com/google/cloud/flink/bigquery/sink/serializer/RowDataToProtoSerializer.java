@@ -43,10 +43,9 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.DateTimeException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.apache.flink.table.types.logical.LogicalTypeRoot.INTEGER;
 
@@ -180,18 +179,20 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     LogicalType arrayElementType = getArrayElementType(fieldType);
                     ArrayData.ElementGetter elementGetter =
                             ArrayData.createElementGetter(arrayElementType);
-                    return Stream.iterate(0, pos -> pos + 1)
-                            .limit(element.getArray(fieldNumber).size())
-                            .map(
-                                    pos ->
-                                            convertArrayElement(
-                                                    elementGetter,
-                                                    element,
-                                                    fieldNumber,
-                                                    pos,
-                                                    arrayElementType,
-                                                    fieldDescriptor))
-                            .collect(Collectors.toList());
+                    ArrayData arrayData = element.getArray(fieldNumber);
+                    int arraySize = arrayData.size();
+                    List<Object> arrayResult = new ArrayList<>(arraySize);
+                    for (int pos = 0; pos < arraySize; pos++) {
+                        arrayResult.add(
+                                convertArrayElement(
+                                        elementGetter,
+                                        element,
+                                        fieldNumber,
+                                        pos,
+                                        arrayElementType,
+                                        fieldDescriptor));
+                    }
+                    return arrayResult;
                     // all the below types are not supported yet.
                 case INTERVAL_YEAR_MONTH:
                 case INTERVAL_DAY_TIME:

@@ -53,14 +53,14 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
@@ -252,9 +252,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                         "ARRAY cannot have multiple datatypes in BigQuery.");
             }
             // Convert each value one by one.
-            return StreamSupport.stream(iterable.spliterator(), false)
-                    .map(v -> toProtoValue(fieldDescriptor, arrayElementType, v))
-                    .collect(Collectors.toList());
+            int size = (iterable instanceof Collection) ? ((Collection<?>) iterable).size() : 10;
+            List<Object> result = new ArrayList<>(size);
+            for (Object v : iterable) {
+                result.add(toProtoValue(fieldDescriptor, arrayElementType, v));
+            }
+            return result;
         }
 
         /**
