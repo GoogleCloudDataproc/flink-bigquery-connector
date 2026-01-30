@@ -691,8 +691,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 // according to
                 // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#time_type.
                 try {
-                    return LocalTime.parse(
-                                    (String) value, DateTimeFormatterPatterns.TIME_FORMATTER)
+                    return LocalTime.parse((String) value, DateTimeFormatterPatterns.TIME_FORMATTER)
                             .toString();
                 } catch (DateTimeParseException e) {
                     throw new IllegalArgumentException(

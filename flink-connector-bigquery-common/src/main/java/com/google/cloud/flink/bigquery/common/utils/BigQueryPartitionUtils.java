@@ -218,12 +218,12 @@ public class BigQueryPartitionUtils {
                                 SQL_MONTH_FORMAT.format(day),
                                 columnName,
                                 SQL_DAY_FORMATTER.format(
-                                                day.toInstant()
-                                                        .atZone(UTC_ZONE)
-                                                        .toLocalDate()
-                                                        .plusMonths(1)
-                                                        .atTime(LocalTime.MIDNIGHT)
-                                                        .toInstant(ZoneOffset.UTC)));
+                                        day.toInstant()
+                                                .atZone(UTC_ZONE)
+                                                .toLocalDate()
+                                                .plusMonths(1)
+                                                .atTime(LocalTime.MIDNIGHT)
+                                                .toInstant(ZoneOffset.UTC)));
                     }
                 case YEAR:
                     {
@@ -236,12 +236,12 @@ public class BigQueryPartitionUtils {
                                 SQL_YEAR_FORMAT.format(day),
                                 columnName,
                                 SQL_YEAR_FORMATTER.format(
-                                                day.toInstant()
-                                                        .atZone(UTC_ZONE)
-                                                        .toLocalDate()
-                                                        .plusYears(1)
-                                                        .atTime(LocalTime.MIDNIGHT)
-                                                        .toInstant(ZoneOffset.UTC)));
+                                        day.toInstant()
+                                                .atZone(UTC_ZONE)
+                                                .toLocalDate()
+                                                .plusYears(1)
+                                                .atTime(LocalTime.MIDNIGHT)
+                                                .toInstant(ZoneOffset.UTC)));
                     }
                 default:
                     throw new IllegalArgumentException(

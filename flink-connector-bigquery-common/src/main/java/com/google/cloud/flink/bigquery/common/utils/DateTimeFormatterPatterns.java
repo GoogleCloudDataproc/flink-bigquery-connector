@@ -32,12 +32,13 @@ public final class DateTimeFormatterPatterns {
      * Formatter for BigQuery DATETIME/TIMESTAMP strings.
      *
      * <p>Supports formats like:
+     *
      * <ul>
-     *   <li>2024-01-15</li>
-     *   <li>2024-1-5</li>
-     *   <li>2024-01-15 10:30:45</li>
-     *   <li>2024-01-15T10:30:45</li>
-     *   <li>2024-01-15T10:30:45.123456</li>
+     *   <li>2024-01-15
+     *   <li>2024-1-5
+     *   <li>2024-01-15 10:30:45
+     *   <li>2024-01-15T10:30:45
+     *   <li>2024-01-15T10:30:45.123456
      * </ul>
      */
     public static final DateTimeFormatter DATETIME_FORMATTER =
@@ -48,10 +49,11 @@ public final class DateTimeFormatterPatterns {
      * Formatter for BigQuery TIME strings.
      *
      * <p>Supports formats like:
+     *
      * <ul>
-     *   <li>10:30:45</li>
-     *   <li>9:5:3</li>
-     *   <li>10:30:45.123456</li>
+     *   <li>10:30:45
+     *   <li>9:5:3
+     *   <li>10:30:45.123456
      * </ul>
      */
     public static final DateTimeFormatter TIME_FORMATTER =
