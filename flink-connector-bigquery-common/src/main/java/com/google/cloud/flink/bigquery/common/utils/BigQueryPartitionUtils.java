@@ -69,6 +69,19 @@ public class BigQueryPartitionUtils {
     private static final String SQL_DAY_FORMAT_STRING = "yyyy-MM-dd";
     private static final String SQL_MONTH_FORMAT_STRING = "yyyy-MM-01";
     private static final String SQL_YEAR_FORMAT_STRING = "yyyy-01-01";
+    private static final String SQL_TIMESTAMP_FORMAT_STRING = "yyyy-MM-dd HH:mm:ss";
+
+    // Static DateTimeFormatters to avoid repeated pattern compilation
+    private static final DateTimeFormatter SQL_HOUR_FORMATTER =
+            DateTimeFormatter.ofPattern(SQL_HOUR_FORMAT_STRING).withZone(UTC_ZONE);
+    private static final DateTimeFormatter SQL_DAY_FORMATTER =
+            DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING).withZone(UTC_ZONE);
+    private static final DateTimeFormatter SQL_MONTH_FORMATTER =
+            DateTimeFormatter.ofPattern(SQL_MONTH_FORMAT_STRING).withZone(UTC_ZONE);
+    private static final DateTimeFormatter SQL_YEAR_FORMATTER =
+            DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING).withZone(UTC_ZONE);
+    private static final DateTimeFormatter SQL_TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern(SQL_TIMESTAMP_FORMAT_STRING).withZone(UTC_ZONE);
 
     private static final SimpleDateFormat BQPARTITION_HOUR_FORMAT =
             new SimpleDateFormat(BQPARTITION_HOUR_FORMAT_STRING);
@@ -204,15 +217,13 @@ public class BigQueryPartitionUtils {
                                 columnName,
                                 SQL_MONTH_FORMAT.format(day),
                                 columnName,
-                                DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING)
-                                        .withZone(UTC_ZONE)
-                                        .format(
-                                                day.toInstant()
-                                                        .atZone(UTC_ZONE)
-                                                        .toLocalDate()
-                                                        .plusMonths(1)
-                                                        .atTime(LocalTime.MIDNIGHT)
-                                                        .toInstant(ZoneOffset.UTC)));
+                                SQL_DAY_FORMATTER.format(
+                                        day.toInstant()
+                                                .atZone(UTC_ZONE)
+                                                .toLocalDate()
+                                                .plusMonths(1)
+                                                .atTime(LocalTime.MIDNIGHT)
+                                                .toInstant(ZoneOffset.UTC)));
                     }
                 case YEAR:
                     {
@@ -224,15 +235,13 @@ public class BigQueryPartitionUtils {
                                 columnName,
                                 SQL_YEAR_FORMAT.format(day),
                                 columnName,
-                                DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING)
-                                        .withZone(UTC_ZONE)
-                                        .format(
-                                                day.toInstant()
-                                                        .atZone(UTC_ZONE)
-                                                        .toLocalDate()
-                                                        .plusYears(1)
-                                                        .atTime(LocalTime.MIDNIGHT)
-                                                        .toInstant(ZoneOffset.UTC)));
+                                SQL_YEAR_FORMATTER.format(
+                                        day.toInstant()
+                                                .atZone(UTC_ZONE)
+                                                .toLocalDate()
+                                                .plusYears(1)
+                                                .atTime(LocalTime.MIDNIGHT)
+                                                .toInstant(ZoneOffset.UTC)));
                     }
                 default:
                     throw new IllegalArgumentException(
@@ -250,64 +259,52 @@ public class BigQueryPartitionUtils {
     static String timestampRestrictionFromPartitionType(
             PartitionType partitionType, String columnName, String valueFromSQL) {
         ZonedDateTime parsedDateTime =
-                LocalDateTime.parse(
-                                valueFromSQL,
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                                        .withZone(UTC_ZONE))
-                        .atZone(UTC_ZONE);
+                LocalDateTime.parse(valueFromSQL, SQL_TIMESTAMP_FORMATTER).atZone(UTC_ZONE);
         String temporalFormat = "%s >= '%s' AND %s < '%s'";
         switch (partitionType) {
             case HOUR:
                 {
                     // extract a datetime from the value and restrict
                     // between previous and next hour
-                    DateTimeFormatter hourFormatter =
-                            DateTimeFormatter.ofPattern(SQL_HOUR_FORMAT_STRING).withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
-                            parsedDateTime.format(hourFormatter),
+                            parsedDateTime.format(SQL_HOUR_FORMATTER),
                             columnName,
-                            parsedDateTime.plusHours(1).format(hourFormatter));
+                            parsedDateTime.plusHours(1).format(SQL_HOUR_FORMATTER));
                 }
             case DAY:
                 {
                     // extract a date from the value and restrict
                     // between previous and next day
-                    DateTimeFormatter dayFormatter =
-                            DateTimeFormatter.ofPattern(SQL_DAY_FORMAT_STRING).withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
-                            parsedDateTime.format(dayFormatter),
+                            parsedDateTime.format(SQL_DAY_FORMATTER),
                             columnName,
-                            parsedDateTime.plusDays(1).format(dayFormatter));
+                            parsedDateTime.plusDays(1).format(SQL_DAY_FORMATTER));
                 }
             case MONTH:
                 {
                     // extract a date from the value and restrict
                     // between previous and next month
-                    DateTimeFormatter monthFormatter =
-                            DateTimeFormatter.ofPattern(SQL_MONTH_FORMAT_STRING).withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
-                            parsedDateTime.format(monthFormatter),
+                            parsedDateTime.format(SQL_MONTH_FORMATTER),
                             columnName,
-                            parsedDateTime.plusMonths(1).format(monthFormatter));
+                            parsedDateTime.plusMonths(1).format(SQL_MONTH_FORMATTER));
                 }
             case YEAR:
                 {
                     // extract a date from the value and restrict
                     // between previous and next year
-                    DateTimeFormatter yearFormatter =
-                            DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING).withZone(UTC_ZONE);
                     return String.format(
                             temporalFormat,
                             columnName,
-                            parsedDateTime.format(yearFormatter),
+                            parsedDateTime.format(SQL_YEAR_FORMATTER),
                             columnName,
-                            parsedDateTime.plusYears(1).format(yearFormatter));
+                            parsedDateTime.plusYears(1).format(SQL_YEAR_FORMATTER));
                 }
             default:
                 throw new IllegalArgumentException(
