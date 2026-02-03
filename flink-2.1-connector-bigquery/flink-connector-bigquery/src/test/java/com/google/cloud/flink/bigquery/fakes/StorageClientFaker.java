@@ -263,7 +263,7 @@ public class StorageClientFaker {
 
             private final Iterator<T> realIterator;
             private final Double errorPercentage;
-            private final Random random = new Random(42);
+            private final Random random = new Random();
 
             public FaultyIterator(Iterator<T> realIterator, Double errorPercentage) {
                 this.realIterator = realIterator;

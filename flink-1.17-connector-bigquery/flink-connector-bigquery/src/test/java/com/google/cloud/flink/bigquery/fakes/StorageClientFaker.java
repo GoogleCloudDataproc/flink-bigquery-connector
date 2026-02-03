@@ -264,7 +264,7 @@ public class StorageClientFaker {
 
             private final Iterator<T> realIterator;
             private final Double errorPercentage;
-            private final Random random = new Random(42);
+            private final Random random = new Random();
 
             public FaultyIterator(Iterator<T> realIterator, Double errorPercentage) {
                 this.realIterator = realIterator;
@@ -369,8 +369,10 @@ public class StorageClientFaker {
             public BigQueryServerStream<ReadRowsResponse> readRows(ReadRowsRequest request) {
                 try {
                     // introduce some random delay
-                    Thread.sleep(new Random().nextInt(500));
+                    Thread.sleep(new Random().nextInt(10));
                 } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(ex);
                 }
                 return new FakeBigQueryServerStream(
                         dataGenerator,

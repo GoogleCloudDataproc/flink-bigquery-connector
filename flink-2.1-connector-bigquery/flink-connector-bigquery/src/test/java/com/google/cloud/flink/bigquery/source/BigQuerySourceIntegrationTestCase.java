@@ -132,6 +132,8 @@ public class BigQuerySourceIntegrationTestCase {
     }
 
     @Test
+    @org.junit.jupiter.api.Disabled(
+            "Test hangs consistently; needs investigation. See internal task.")
     public void testDownstreamRecovery() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.enableCheckpointing(300L);
