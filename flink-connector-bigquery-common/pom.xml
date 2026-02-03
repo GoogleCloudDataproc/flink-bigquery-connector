@@ -131,6 +131,7 @@ under the License.
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
+                    <compilerId>javac</compilerId>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>com.google.auto.value</groupId>
