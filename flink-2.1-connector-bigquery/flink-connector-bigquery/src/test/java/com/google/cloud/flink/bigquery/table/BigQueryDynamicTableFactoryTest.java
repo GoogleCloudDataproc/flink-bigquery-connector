@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -293,5 +294,23 @@ public class BigQueryDynamicTableFactoryTest {
 
         DataType dataType = SCHEMA.toPhysicalRowDataType();
         return new BigQueryDynamicTableSource(readOptions, dataType);
+    }
+
+    @Test
+    public void testApplyLimitActuallyAppliesLimit() throws IOException {
+        // Create a source without a limit
+        BigQueryReadOptions readOptionsWithoutLimit = getConnectorOptions();
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        readOptionsWithoutLimit, SCHEMA.toPhysicalRowDataType());
+
+        // Verify the initial state has no limit
+        assertThat(source.getReadOptions().getLimit()).isEqualTo(Optional.empty());
+
+        // Apply a limit to the source
+        source.applyLimit(100);
+
+        // Verify the limit is now set
+        assertThat(source.getReadOptions().getLimit()).isEqualTo(Optional.of(100));
     }
 }

@@ -124,7 +124,7 @@ public class BigQueryDynamicTableSource
 
     @Override
     public void applyLimit(long limit) {
-        this.readOptions.toBuilder().setLimit((int) limit).build();
+        this.readOptions = this.readOptions.toBuilder().setLimit((int) limit).build();
     }
 
     @Override
