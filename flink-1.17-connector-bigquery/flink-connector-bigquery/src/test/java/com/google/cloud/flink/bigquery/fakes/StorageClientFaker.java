@@ -46,10 +46,10 @@ import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo.PartitionType;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.protobuf.ByteString;
 import org.apache.avro.Schema;
@@ -203,7 +203,7 @@ public class StorageClientFaker {
                 return Optional.of(
                         new TablePartitionInfo(
                                 "ts",
-                                BigQueryPartitionUtils.PartitionType.HOUR,
+                                PartitionType.HOUR,
                                 StandardSQLTypeName.TIMESTAMP,
                                 Instant.now()));
             }
@@ -264,7 +264,7 @@ public class StorageClientFaker {
 
             private final Iterator<T> realIterator;
             private final Double errorPercentage;
-            private final Random random = new Random(42);
+            private final Random random = new Random();
 
             public FaultyIterator(Iterator<T> realIterator, Double errorPercentage) {
                 this.realIterator = realIterator;
@@ -369,8 +369,10 @@ public class StorageClientFaker {
             public BigQueryServerStream<ReadRowsResponse> readRows(ReadRowsRequest request) {
                 try {
                     // introduce some random delay
-                    Thread.sleep(new Random().nextInt(500));
+                    Thread.sleep(new Random().nextInt(10));
                 } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(ex);
                 }
                 return new FakeBigQueryServerStream(
                         dataGenerator,

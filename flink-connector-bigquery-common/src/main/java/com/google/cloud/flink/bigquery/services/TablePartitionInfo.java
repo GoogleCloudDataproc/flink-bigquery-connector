@@ -19,7 +19,6 @@ package com.google.cloud.flink.bigquery.services;
 import org.apache.flink.annotation.Internal;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils.PartitionType;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -114,5 +113,14 @@ public class TablePartitionInfo {
                 + ", streamingBufferOldestEntryTime="
                 + streamingBufferOldestEntryTime
                 + '}';
+    }
+
+    /** Represents the partition types the BigQuery can use in partitioned tables. */
+    public enum PartitionType {
+        HOUR,
+        DAY,
+        MONTH,
+        YEAR,
+        INT_RANGE
     }
 }
