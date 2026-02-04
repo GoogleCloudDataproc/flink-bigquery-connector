@@ -20,6 +20,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.table.factories.FactoryUtil;
 
 import com.google.cloud.bigquery.TimePartitioning;
 
@@ -175,6 +176,9 @@ public class BigQueryConnectorOptions {
                     .intType()
                     .noDefaultValue()
                     .withDescription("Sink parallelism");
+
+    /** [OPTIONAL, Read Configuration] Int value indicating the parallelism of the source. */
+    public static final ConfigOption<Integer> SOURCE_PARALLELISM = FactoryUtil.SOURCE_PARALLELISM;
 
     /** [OPTIONAL, Sink Configuration] Boolean flag controlling table creation in the sink. */
     public static final ConfigOption<Boolean> ENABLE_TABLE_CREATION =

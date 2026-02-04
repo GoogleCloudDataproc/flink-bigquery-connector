@@ -49,6 +49,7 @@ import java.util.Optional;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
 public class BigQueryDynamicTableFactoryTest {
@@ -71,7 +72,7 @@ public class BigQueryDynamicTableFactoryTest {
 
         BigQueryDynamicTableSource expectedSource =
                 new BigQueryDynamicTableSource(
-                        getConnectorOptions(), SCHEMA.toPhysicalRowDataType());
+                        getConnectorOptions(), SCHEMA.toPhysicalRowDataType(), null);
         assertThat(actualSource).isEqualTo(expectedSource);
     }
 
@@ -99,7 +100,7 @@ public class BigQueryDynamicTableFactoryTest {
                         .build();
 
         BigQueryDynamicTableSource expected =
-                new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType());
+                new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType(), null);
 
         assertThat(actual).isEqualTo(expected);
         assertThat(actual.hashCode()).isEqualTo(expected.hashCode());
@@ -117,6 +118,29 @@ public class BigQueryDynamicTableFactoryTest {
                 BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP.key(),
                 "-1000",
                 "The oldest timestamp should be equal or bigger than epoch.");
+    }
+
+    @Test
+    public void testBigQuerySourceWithParallelism() throws IOException {
+        Map<String, String> properties = getRequiredOptions();
+        Integer sourceParallelism = 100;
+        properties.put(
+                BigQueryConnectorOptions.SOURCE_PARALLELISM.key(),
+                String.valueOf(sourceParallelism));
+
+        DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, properties);
+
+        assertThat(actual).isInstanceOf(BigQueryDynamicTableSource.class);
+        assertEquals(
+                sourceParallelism, ((BigQueryDynamicTableSource) actual).getSourceParallelism());
+    }
+
+    @Test
+    public void testBigQuerySourceWithoutParallelism() throws IOException {
+        DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, getRequiredOptions());
+
+        assertThat(actual).isInstanceOf(BigQueryDynamicTableSource.class);
+        assertNull(((BigQueryDynamicTableSource) actual).getSourceParallelism());
     }
 
     @Test
@@ -293,7 +317,7 @@ public class BigQueryDynamicTableFactoryTest {
                         .build();
 
         DataType dataType = SCHEMA.toPhysicalRowDataType();
-        return new BigQueryDynamicTableSource(readOptions, dataType);
+        return new BigQueryDynamicTableSource(readOptions, dataType, null);
     }
 
     @Test
@@ -302,7 +326,7 @@ public class BigQueryDynamicTableFactoryTest {
         BigQueryReadOptions readOptionsWithoutLimit = getConnectorOptions();
         BigQueryDynamicTableSource source =
                 new BigQueryDynamicTableSource(
-                        readOptionsWithoutLimit, SCHEMA.toPhysicalRowDataType());
+                        readOptionsWithoutLimit, SCHEMA.toPhysicalRowDataType(), null);
 
         // Verify the initial state has no limit
         assertThat(source.getReadOptions().getLimit()).isEqualTo(Optional.empty());
