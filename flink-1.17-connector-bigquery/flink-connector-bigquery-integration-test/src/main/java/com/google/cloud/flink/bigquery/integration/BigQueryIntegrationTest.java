@@ -476,26 +476,21 @@ public class BigQueryIntegrationTest {
                                     public GenericRecord map(String value) throws Exception {
                                         String[] csvColumns = value.split(",");
                                         GenericRecord record = new GenericData.Record(schema);
-                                                                        if (csvColumns.length == 4) {
-                                                                                record.put("unique_key", csvColumns[0]);
-                                                                                record.put("name", csvColumns[1]);
-                                                                                record.put(
-                                                                                                "number",
-                                                                                                Long.parseLong(csvColumns[2])
-                                                                                                                + 1L);
-                                                                                DateTimeFormatter formatter = DateTimeFormatter
-                                                                                                .ofPattern(
-                                                                                                                "yyyy-MM-dd HH:mm:ss z");
-                                                                                Instant instant =
-                                                                                                Instant.from(
-                                                                                                                formatter.parse(csvColumns[3]));
-                                                                                long timestampMicros = instant
-                                                                                                .toEpochMilli() * 1000;
-                                                                                record.put("ts", timestampMicros);
-                                                                        } else {
-                                                                                LOG.error("Invalid csv input: "
-                                                                                                + value);
-                                                                        }
+                                        if (csvColumns.length == 4) {
+                                            record.put("unique_key", csvColumns[0]);
+                                            record.put("name", csvColumns[1]);
+                                            record.put(
+                                                    "number", Long.parseLong(csvColumns[2]) + 1L);
+                                            DateTimeFormatter formatter =
+                                                    DateTimeFormatter.ofPattern(
+                                                            "yyyy-MM-dd HH:mm:ss z");
+                                            Instant instant =
+                                                    Instant.from(formatter.parse(csvColumns[3]));
+                                            long timestampMicros = instant.toEpochMilli() * 1000;
+                                            record.put("ts", timestampMicros);
+                                        } else {
+                                            LOG.error("Invalid csv input: " + value);
+                                        }
                                         return record;
                                     }
                                 })
@@ -520,7 +515,7 @@ public class BigQueryIntegrationTest {
                             try {
                                 env.execute(jobName);
                             } catch (Exception e) {
-                                                        throw new RuntimeException(e);
+                                throw new RuntimeException(e);
                             }
                         });
         try {
