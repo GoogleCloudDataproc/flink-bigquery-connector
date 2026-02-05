@@ -68,10 +68,13 @@ public class BigQueryDynamicTableSource
 
     private BigQueryReadOptions readOptions;
     private DataType producedDataType;
+    private final Integer parallelism;
 
-    public BigQueryDynamicTableSource(BigQueryReadOptions readOptions, DataType producedDataType) {
+    public BigQueryDynamicTableSource(
+            BigQueryReadOptions readOptions, DataType producedDataType, Integer parallelism) {
         this.readOptions = readOptions;
         this.producedDataType = producedDataType;
+        this.parallelism = parallelism;
     }
 
     @Override
@@ -93,12 +96,12 @@ public class BigQueryDynamicTableSource
                                 new AvroToRowDataDeserializationSchema(rowType, typeInfo))
                         .build();
 
-        return SourceProvider.of(bqSource);
+        return SourceProvider.of(bqSource, parallelism);
     }
 
     @Override
     public DynamicTableSource copy() {
-        return new BigQueryDynamicTableSource(readOptions, producedDataType);
+        return new BigQueryDynamicTableSource(readOptions, producedDataType, parallelism);
     }
 
     @Override
@@ -173,7 +176,7 @@ public class BigQueryDynamicTableSource
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.readOptions, this.producedDataType);
+        return Objects.hash(this.readOptions, this.producedDataType, this.parallelism);
     }
 
     @Override
@@ -189,7 +192,8 @@ public class BigQueryDynamicTableSource
         }
         final BigQueryDynamicTableSource other = (BigQueryDynamicTableSource) obj;
         return Objects.equals(this.readOptions, other.readOptions)
-                && Objects.equals(this.producedDataType, other.producedDataType);
+                && Objects.equals(this.producedDataType, other.producedDataType)
+                && Objects.equals(this.parallelism, other.parallelism);
     }
 
     Optional<TablePartitionInfo> retrievePartitionInfo() {
@@ -296,5 +300,10 @@ public class BigQueryDynamicTableSource
             return "(" + partitionRestrictions + ")";
         }
         return currentRestriction + " AND (" + partitionRestrictions + ")";
+    }
+
+    @VisibleForTesting
+    Integer getSourceParallelism() {
+        return this.parallelism;
     }
 }
