@@ -476,20 +476,33 @@ public class BigQueryIntegrationTest {
                                     public GenericRecord map(String value) throws Exception {
                                         String[] csvColumns = value.split(",");
                                         GenericRecord record = new GenericData.Record(schema);
-                                        if (csvColumns.length == 4) {
-                                            record.put("unique_key", csvColumns[0]);
-                                            record.put("name", csvColumns[1]);
-                                            record.put(
-                                                    "number", Long.parseLong(csvColumns[2]) + 1L);
-                                            DateTimeFormatter formatter =
-                                                    DateTimeFormatter.ofPattern(
-                                                            "yyyy-MM-dd HH:mm:ss z");
-                                            Instant instant =
-                                                    Instant.from(formatter.parse(csvColumns[3]));
-                                            long timestampMicros = instant.toEpochMilli() * 1000;
-                                            record.put("ts", timestampMicros);
-                                        } else {
-                                            LOG.error("Invalid csv input: " + value);
+                                        try {
+                                            if (csvColumns.length == 4) {
+                                                record.put("unique_key", csvColumns[0]);
+                                                record.put("name", csvColumns[1]);
+                                                record.put(
+                                                        "number",
+                                                        Long.parseLong(csvColumns[2]) + 1L);
+                                                DateTimeFormatter formatter =
+                                                        DateTimeFormatter.ofPattern(
+                                                                "yyyy-MM-dd HH:mm:ss z");
+                                                String tsStr = csvColumns[3].trim();
+                                                Instant instant =
+                                                        Instant.from(formatter.parse(tsStr));
+                                                long timestampMicros =
+                                                        instant.toEpochMilli() * 1000;
+                                                record.put("ts", timestampMicros);
+                                            } else {
+                                                throw new RuntimeException(
+                                                        "Invalid csv input (length="
+                                                                + csvColumns.length
+                                                                + "): "
+                                                                + value);
+                                            }
+                                        } catch (Exception e) {
+                                            LOG.error("Error parsing value: " + value, e);
+                                            throw new RuntimeException(
+                                                    "Error parsing value: " + value, e);
                                         }
                                         return record;
                                     }
