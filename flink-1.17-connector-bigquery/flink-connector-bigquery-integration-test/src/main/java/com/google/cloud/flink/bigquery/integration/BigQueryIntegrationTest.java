@@ -476,20 +476,33 @@ public class BigQueryIntegrationTest {
                                     public GenericRecord map(String value) throws Exception {
                                         String[] csvColumns = value.split(",");
                                         GenericRecord record = new GenericData.Record(schema);
-                                        if (csvColumns.length == 4) {
-                                            record.put("unique_key", csvColumns[0]);
-                                            record.put("name", csvColumns[1]);
-                                            record.put(
-                                                    "number", Long.parseLong(csvColumns[2]) + 1L);
-                                            DateTimeFormatter formatter =
-                                                    DateTimeFormatter.ofPattern(
-                                                            "yyyy-MM-dd HH:mm:ss z");
-                                            Instant instant =
-                                                    Instant.from(formatter.parse(csvColumns[3]));
-                                            long timestampMicros = instant.toEpochMilli() * 1000;
-                                            record.put("ts", timestampMicros);
-                                        } else {
-                                            LOG.error("Invalid csv input");
+                                        try {
+                                            if (csvColumns.length == 4) {
+                                                record.put("unique_key", csvColumns[0]);
+                                                record.put("name", csvColumns[1]);
+                                                record.put(
+                                                        "number",
+                                                        Long.parseLong(csvColumns[2]) + 1L);
+                                                DateTimeFormatter formatter =
+                                                        DateTimeFormatter.ofPattern(
+                                                                "yyyy-MM-dd HH:mm:ss z");
+                                                String tsStr = csvColumns[3].trim();
+                                                Instant instant =
+                                                        Instant.from(formatter.parse(tsStr));
+                                                long timestampMicros =
+                                                        instant.toEpochMilli() * 1000;
+                                                record.put("ts", timestampMicros);
+                                            } else {
+                                                throw new RuntimeException(
+                                                        "Invalid csv input (length="
+                                                                + csvColumns.length
+                                                                + "): "
+                                                                + value);
+                                            }
+                                        } catch (Exception e) {
+                                            LOG.error("Error parsing value: " + value, e);
+                                            throw new RuntimeException(
+                                                    "Error parsing value: " + value, e);
                                         }
                                         return record;
                                     }
@@ -515,7 +528,7 @@ public class BigQueryIntegrationTest {
                             try {
                                 env.execute(jobName);
                             } catch (Exception e) {
-                                LOG.error(e.getMessage());
+                                throw new RuntimeException(e);
                             }
                         });
         try {
@@ -697,7 +710,7 @@ public class BigQueryIntegrationTest {
                                         .build())
                         .format("csv")
                         .option("path", gcsSourceUri)
-                        .option("csv.ignore-parse-errors", "true")
+                        .option("csv.ignore-parse-errors", "false")
                         .option(
                                 "source.monitor-interval",
                                 String.valueOf(fileDiscoveryInterval) + "m")
@@ -755,14 +768,19 @@ public class BigQueryIntegrationTest {
         public void eval(Row row) {
             String str = (String) row.getField("name");
             String timestampString = (String) row.getField("ts");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'");
-            LocalDateTime ts = LocalDateTime.parse(timestampString, formatter);
-            collect(
-                    Row.of(
-                            row.getField("unique_key"),
-                            str + "_write_test",
-                            row.getField("number"),
-                            ts));
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
+                LocalDateTime ts = LocalDateTime.parse(timestampString, formatter);
+                collect(
+                        Row.of(
+                                row.getField("unique_key"),
+                                str + "_write_test",
+                                row.getField("number"),
+                                ts));
+            } catch (Exception e) {
+                LOG.error("Error parsing timestamp in MySQLFlatMapFunction: " + timestampString, e);
+                throw new RuntimeException("Error parsing timestamp: " + timestampString, e);
+            }
         }
     }
 
