@@ -83,6 +83,7 @@ under the License.
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <minimizeJar>false</minimizeJar>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
@@ -90,7 +91,7 @@ under the License.
                                     <mainClass>com.google.cloud.flink.bigquery.integration.BigQueryIntegrationTest</mainClass>
                                 </transformer>
                             </transformers>
-                            <artifactSet>
+                            <artifactSet combine.self="override">
                                 <includes>
                                     <include>org.apache.flink:flink-connector-bigquery</include>
                                     <include>org.apache.flink:flink-avro</include>
@@ -124,6 +125,15 @@ under the License.
                             </relocations>
 
                             <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>module-info.class</exclude>
+                                    </excludes>
+                                </filter>
                                 <filter>
                                     <artifact>org.apache.flink:flink-connector-bigquery-integration*</artifact>
                                     <includes>
