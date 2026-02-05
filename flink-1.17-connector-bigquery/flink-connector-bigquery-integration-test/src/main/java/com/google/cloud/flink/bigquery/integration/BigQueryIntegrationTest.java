@@ -755,7 +755,7 @@ public class BigQueryIntegrationTest {
         public void eval(Row row) {
             String str = (String) row.getField("name");
             String timestampString = (String) row.getField("ts");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
             LocalDateTime ts = LocalDateTime.parse(timestampString, formatter);
             collect(
                     Row.of(
