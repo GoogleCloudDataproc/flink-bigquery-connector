@@ -755,14 +755,19 @@ public class BigQueryIntegrationTest {
         public void eval(Row row) {
             String str = (String) row.getField("name");
             String timestampString = (String) row.getField("ts");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
-            LocalDateTime ts = LocalDateTime.parse(timestampString, formatter);
-            collect(
-                    Row.of(
-                            row.getField("unique_key"),
-                            str + "_write_test",
-                            row.getField("number"),
-                            ts));
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
+                LocalDateTime ts = LocalDateTime.parse(timestampString, formatter);
+                collect(
+                        Row.of(
+                                row.getField("unique_key"),
+                                str + "_write_test",
+                                row.getField("number"),
+                                ts));
+            } catch (Exception e) {
+                LOG.error("Error parsing timestamp in MySQLFlatMapFunction: " + timestampString, e);
+                throw new RuntimeException("Error parsing timestamp: " + timestampString, e);
+            }
         }
     }
 
