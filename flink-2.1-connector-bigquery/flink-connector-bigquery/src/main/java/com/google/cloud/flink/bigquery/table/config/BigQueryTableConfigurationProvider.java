@@ -63,6 +63,10 @@ public class BigQueryTableConfigurationProvider {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.SINK_PARALLELISM));
     }
 
+    public Optional<Integer> getSourceParallelism() {
+        return config.getOptional(BigQueryConnectorOptions.SOURCE_PARALLELISM);
+    }
+
     public boolean enableTableCreation() {
         return config.get(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
     }

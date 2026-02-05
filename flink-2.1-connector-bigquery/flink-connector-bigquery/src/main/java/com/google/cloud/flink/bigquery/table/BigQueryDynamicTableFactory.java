@@ -76,6 +76,7 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.TEST_MODE);
         additionalOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         additionalOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+        additionalOptions.add(BigQueryConnectorOptions.SOURCE_PARALLELISM);
         additionalOptions.add(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_FIELD);
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_TYPE);
@@ -104,6 +105,7 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.QUOTA_PROJECT_ID);
         forwardOptions.add(BigQueryConnectorOptions.DELIVERY_GUARANTEE);
         forwardOptions.add(BigQueryConnectorOptions.SINK_PARALLELISM);
+        forwardOptions.add(BigQueryConnectorOptions.SOURCE_PARALLELISM);
         forwardOptions.add(BigQueryConnectorOptions.ENABLE_TABLE_CREATION);
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_FIELD);
         forwardOptions.add(BigQueryConnectorOptions.PARTITION_TYPE);
@@ -128,9 +130,13 @@ public class BigQueryDynamicTableFactory
             configProvider = configProvider.withTestingServices(testingServices);
         }
 
+        Integer sourceParallelism = configProvider.getSourceParallelism().orElse(null);
+
         // Create a Source depending on the boundedness.
         return new BigQueryDynamicTableSource(
-                configProvider.toBigQueryReadOptions(), context.getPhysicalRowDataType());
+                configProvider.toBigQueryReadOptions(),
+                context.getPhysicalRowDataType(),
+                sourceParallelism);
     }
 
     static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {
