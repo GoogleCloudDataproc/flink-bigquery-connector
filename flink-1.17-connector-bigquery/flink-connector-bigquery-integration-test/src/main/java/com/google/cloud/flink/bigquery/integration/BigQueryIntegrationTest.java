@@ -697,7 +697,7 @@ public class BigQueryIntegrationTest {
                                         .build())
                         .format("csv")
                         .option("path", gcsSourceUri)
-                        .option("csv.ignore-parse-errors", "true")
+                        .option("csv.ignore-parse-errors", "false")
                         .option(
                                 "source.monitor-interval",
                                 String.valueOf(fileDiscoveryInterval) + "m")
