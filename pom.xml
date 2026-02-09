@@ -76,7 +76,7 @@ under the License.
         <revision>1.0-SNAPSHOT</revision>
         <flink.version>1.17.1</flink.version>
         <bigquery.guava.version>33.4.8-jre</bigquery.guava.version>
-        <google-lib-bom.version>26.74.0</google-lib-bom.version>
+        <google-lib-bom.version>26.33.0</google-lib-bom.version>
 
         <junit5.version>5.10.2</junit5.version>
         <google-truth.version>1.4.5</google-truth.version>
@@ -84,7 +84,7 @@ under the License.
 
         <clover.version>4.5.1</clover.version>
 
-        <slf4j.version>2.0.17</slf4j.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <log4j.version>2.25.3</log4j.version>
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
