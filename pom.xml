@@ -367,7 +367,6 @@ under the License.
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <minimizeJar>true</minimizeJar>
                             <createDependencyReducedPom>true</createDependencyReducedPom>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>shaded</shadedClassifierName>
@@ -410,6 +409,8 @@ under the License.
                                     <excludes>
                                         <exclude>org.apache.flink.**</exclude>
                                         <exclude>org.apache.avro.**</exclude>
+                                        <exclude>org.apache.hadoop.**</exclude>
+                                        <exclude>org.apache.commons.**</exclude>
                                     </excludes>
                                 </relocation>
                                 <relocation>
