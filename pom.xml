@@ -543,6 +543,7 @@ under the License.
             <id>flink_1.17</id>
             <modules>
                 <module>flink-1.17-connector-bigquery</module>
+                <module>flink-1.17-connector-bigquery/flink-connector-bigquery-integration-test</module>
             </modules>
         </profile>
         <profile>
