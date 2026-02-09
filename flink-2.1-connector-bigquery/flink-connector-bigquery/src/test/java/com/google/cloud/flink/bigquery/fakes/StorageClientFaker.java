@@ -484,7 +484,7 @@ public class StorageClientFaker {
 
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
                 Mockito.verify(mockedWriter, Mockito.times(expectedInvocations))
-                        .append(Mockito.any(), Mockito.anyLong());
+                        .append((ProtoRows) Mockito.any(), Mockito.anyLong());
             }
         }
 
