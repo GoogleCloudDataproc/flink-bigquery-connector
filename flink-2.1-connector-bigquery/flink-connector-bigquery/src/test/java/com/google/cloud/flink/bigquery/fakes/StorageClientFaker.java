@@ -35,7 +35,6 @@ import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
-import com.google.cloud.bigquery.storage.v1.ProtoRows;
 import com.google.cloud.bigquery.storage.v1.ProtoSchema;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -397,7 +396,7 @@ public class StorageClientFaker {
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
-                Mockito.when(mockedWriter.append(Mockito.any(ProtoRows.class)))
+                Mockito.when(mockedWriter.append(Mockito.any()))
                         .thenReturn(ApiFutures.immediateFuture(appendResponse));
                 writeStream = null;
                 flushResponse = null;
@@ -413,10 +412,7 @@ public class StorageClientFaker {
                 // Mockito cannot unbox "any()" for primitive types, throwing the dreaded
                 // NullPointerException. Use primitive variants for argument matching.
                 OngoingStubbing stubbing =
-                        Mockito.when(
-                                mockedWriter.append(
-                                        Mockito.any(ProtoRows.class), Mockito.anyLong()));
-
+                        Mockito.when(mockedWriter.append(Mockito.any(), Mockito.anyLong()));
                 if (appendResponseFutures.length == 0) {
                     stubbing.thenThrow(
                             new IllegalStateException(
@@ -486,7 +482,7 @@ public class StorageClientFaker {
 
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
                 Mockito.verify(mockedWriter, Mockito.times(expectedInvocations))
-                        .append(Mockito.any(ProtoRows.class), Mockito.anyLong());
+                        .append(Mockito.any(), Mockito.anyLong());
             }
         }
 

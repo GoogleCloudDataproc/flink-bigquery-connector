@@ -75,21 +75,20 @@ under the License.
     <properties>
         <revision>1.0-SNAPSHOT</revision>
         <flink.version>1.17.1</flink.version>
-        <bigquery.guava.version>33.4.8-jre</bigquery.guava.version>
-        <google-lib-bom.version>26.74.0</google-lib-bom.version>
+        <bigquery.guava.version>32.1.3-jre</bigquery.guava.version>
+        <google-lib-bom.version>26.33.0</google-lib-bom.version>
 
-        <junit5.version>5.10.2</junit5.version>
-        <google-truth.version>1.4.5</google-truth.version>
+        <junit5.version>5.9.3</junit5.version>
+        <google-truth.version>1.1.4</google-truth.version>
         <mockito.version>4.11.0</mockito.version>
 
-        <clover.version>4.5.1</clover.version>
+        <clover.version>4.4.1</clover.version>
 
-        <slf4j.version>2.0.17</slf4j.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <log4j.version>2.25.3</log4j.version>
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
         <surefire.report.dir>${maven.multiModuleProjectDirectory}/target/test-report</surefire.report.dir>
-        <shade.skip>true</shade.skip>
     </properties>
 
     <modules>
@@ -102,6 +101,7 @@ under the License.
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
+
 
         <!-- Logging API -->
         <dependency>
@@ -199,7 +199,7 @@ under the License.
             <dependency>
                 <groupId>com.google.code.findbugs</groupId>
                 <artifactId>jsr305</artifactId>
-                <version>3.0.2</version>
+                <version>1.3.9</version>
             </dependency>
 
             <dependency>
@@ -336,9 +336,6 @@ under the License.
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <configuration>
-                    <skip>false</skip>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -366,91 +363,11 @@ under the License.
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <minimizeJar>true</minimizeJar>
-                            <createDependencyReducedPom>true</createDependencyReducedPom>
-                            <shadedArtifactAttached>true</shadedArtifactAttached>
-                            <shadedClassifierName>shaded</shadedClassifierName>
                             <artifactSet>
                                 <includes>
-                                    <include>org.apache.*:*</include>
-                                    <include>com.google.*:*</include>
-                                    <include>commons-codec:commons-codec</include>
-                                    <include>dev.failsafe:*</include>
-                                    <include>org.codehaus.mojo:animal-sniffer-annotations</include>
-                                    <include>org.conscrypt:*</include>
-                                    <include>com.fasterxml.jackson.*:*</include>
-                                    <include>org.threeten:*</include>
-                                    <include>org.checkerframework:*</include>
-                                    <include>io.grpc:*</include>
-                                    <include>io.opencensus:*</include>
-                                    <include>io.perfmark:*</include>
-                                    <include>joda-time:joda-time</include>
-                                    <include>org.json:json</include>
+                                    <include>com.google.guava:guava:*</include>
                                 </includes>
-                                <excludes>
-                                    <exclude>org.apache.flink:*</exclude>
-                                </excludes>
                             </artifactSet>
-                            <relocations>
-                                <relocation>
-                                    <pattern>com.google</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.com.google</shadedPattern>
-                                    <excludes>
-                                        <exclude>com.google.cloud.flink.bigquery.**</exclude>
-                                    </excludes>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.apache</shadedPattern>
-                                    <excludes>
-                                        <exclude>org.apache.flink.**</exclude>
-                                    </excludes>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.grpc</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.grpc</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.opencensus</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.opencensus</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.perfmark</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.perfmark</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>com.fasterxml</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.com.fasterxml</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.checkerframework</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.checkerframework</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.codehaus</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.codehaus</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.threeten</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.threeten</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.json</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.json</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>dev.failsafe</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.dev.failsafe</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.conscrypt</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.conscrypt</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.joda.time</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.joda.time</shadedPattern>
-                                </relocation>
-                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
@@ -480,27 +397,6 @@ under the License.
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.3.0</version>
-                <executions>
-                    <execution>
-                        <id>verify-shaded-artifact</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <skip>${shade.skip}</skip>
-                    <executable>${maven.multiModuleProjectDirectory}/scripts/verify-shading.sh</executable>
-                    <arguments>
-                        <argument>${project.build.directory}/${project.build.finalName}-shaded.jar</argument>
-                    </arguments>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.commonjava.maven.plugins</groupId>
