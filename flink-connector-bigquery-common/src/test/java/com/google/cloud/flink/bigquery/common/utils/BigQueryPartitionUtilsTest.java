@@ -19,7 +19,6 @@ package com.google.cloud.flink.bigquery.common.utils;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
-import com.google.cloud.flink.bigquery.services.TablePartitionInfo.PartitionType;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
@@ -314,7 +313,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.INT_RANGE,
+                                        BigQueryPartitionUtils.PartitionType.INT_RANGE,
                                         StandardSQLTypeName.INT64,
                                         Instant.now())),
                         "dragon",
@@ -331,7 +330,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.DAY,
+                                        BigQueryPartitionUtils.PartitionType.DAY,
                                         StandardSQLTypeName.DATE,
                                         Instant.now())),
                         "dragon",
@@ -348,7 +347,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.MONTH,
+                                        BigQueryPartitionUtils.PartitionType.MONTH,
                                         StandardSQLTypeName.DATE,
                                         Instant.now())),
                         "dragon",
@@ -365,7 +364,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.YEAR,
+                                        BigQueryPartitionUtils.PartitionType.YEAR,
                                         StandardSQLTypeName.DATE,
                                         Instant.now())),
                         "dragon",
@@ -382,7 +381,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.HOUR,
+                                        BigQueryPartitionUtils.PartitionType.HOUR,
                                         StandardSQLTypeName.TIMESTAMP,
                                         Instant.now())),
                         "dragon",
@@ -399,7 +398,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.DAY,
+                                        BigQueryPartitionUtils.PartitionType.DAY,
                                         StandardSQLTypeName.TIMESTAMP,
                                         Instant.now())),
                         "dragon",
@@ -416,7 +415,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.MONTH,
+                                        BigQueryPartitionUtils.PartitionType.MONTH,
                                         StandardSQLTypeName.TIMESTAMP,
                                         Instant.now())),
                         "dragon",
@@ -433,7 +432,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.YEAR,
+                                        BigQueryPartitionUtils.PartitionType.YEAR,
                                         StandardSQLTypeName.TIMESTAMP,
                                         Instant.now())),
                         "dragon",
@@ -450,7 +449,7 @@ public class BigQueryPartitionUtilsTest {
                         Optional.of(
                                 new TablePartitionInfo(
                                         "dragon",
-                                        PartitionType.DAY,
+                                        BigQueryPartitionUtils.PartitionType.DAY,
                                         StandardSQLTypeName.TIMESTAMP,
                                         Instant.now())),
                         "dragon",

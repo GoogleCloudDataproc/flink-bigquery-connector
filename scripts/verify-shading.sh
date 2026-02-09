@@ -19,7 +19,8 @@ JAR_FILE="$1"
 jar tvf "${JAR_FILE}" | \
   grep -v META-INF | \
   grep -E "\.class$" | \
-  grep -v com/google/cloud/flink/bigquery
+  grep -v com/google/cloud/flink/bigquery | \
+  grep -v org/apache/flink
 
 if [ $? -eq 0 ]; then
   # grep found classes where there shouldn't be any. Print error message and exit

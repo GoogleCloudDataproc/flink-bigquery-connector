@@ -90,7 +90,6 @@ under the License.
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
         <surefire.report.dir>${maven.multiModuleProjectDirectory}/target/test-report</surefire.report.dir>
         <shade.skip>true</shade.skip>
-        <maven.compiler.release>8</maven.compiler.release>
     </properties>
 
     <modules>

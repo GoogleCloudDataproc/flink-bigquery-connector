@@ -17,7 +17,7 @@
 package com.google.cloud.flink.bigquery.services;
 
 import com.google.cloud.bigquery.StandardSQLTypeName;
-import com.google.cloud.flink.bigquery.services.TablePartitionInfo.PartitionType;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import org.junit.Test;
 
 import java.time.Instant;
@@ -33,11 +33,14 @@ public class TablePartitionInfoTest {
         Instant now = Instant.now();
         TablePartitionInfo info1 =
                 new TablePartitionInfo(
-                        columnName, PartitionType.MONTH, StandardSQLTypeName.TIMESTAMP, now);
+                        columnName,
+                        BigQueryPartitionUtils.PartitionType.MONTH,
+                        StandardSQLTypeName.TIMESTAMP,
+                        now);
         TablePartitionInfo info2 =
                 new TablePartitionInfo(
                         columnName,
-                        PartitionType.INT_RANGE,
+                        BigQueryPartitionUtils.PartitionType.INT_RANGE,
                         StandardSQLTypeName.INT64,
                         Instant.now());
 
@@ -45,7 +48,10 @@ public class TablePartitionInfoTest {
 
         TablePartitionInfo info3 =
                 new TablePartitionInfo(
-                        columnName, PartitionType.MONTH, StandardSQLTypeName.TIMESTAMP, now);
+                        columnName,
+                        BigQueryPartitionUtils.PartitionType.MONTH,
+                        StandardSQLTypeName.TIMESTAMP,
+                        now);
 
         assertThat(info1).isEqualTo(info3);
     }

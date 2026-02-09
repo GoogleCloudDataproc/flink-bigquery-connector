@@ -61,7 +61,6 @@ import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.common.utils.BigQueryTableInfo;
-import com.google.cloud.flink.bigquery.services.TablePartitionInfo.PartitionType;
 import com.google.protobuf.Int64Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -417,7 +416,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                         Optional.of(
                                                 new TablePartitionInfo(
                                                         tp.getField(),
-                                                        PartitionType.valueOf(tp.getType()),
+                                                        BigQueryPartitionUtils.PartitionType
+                                                                .valueOf(tp.getType()),
                                                         BigQueryPartitionUtils
                                                                 .retrievePartitionColumnType(
                                                                         tableInfo.getSchema(),
@@ -428,7 +428,8 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                         Optional.of(
                                                 new TablePartitionInfo(
                                                         tableInfo.getRangePartitioning().getField(),
-                                                        PartitionType.INT_RANGE,
+                                                        BigQueryPartitionUtils.PartitionType
+                                                                .INT_RANGE,
                                                         StandardSQLTypeName.INT64,
                                                         bqStreamingBufferOldestEntryTime)));
             } catch (Exception ex) {

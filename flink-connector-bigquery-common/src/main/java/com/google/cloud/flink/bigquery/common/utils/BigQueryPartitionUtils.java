@@ -22,7 +22,6 @@ import org.apache.flink.util.Preconditions;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
-import com.google.cloud.flink.bigquery.services.TablePartitionInfo.PartitionType;
 import org.apache.commons.lang3.StringUtils;
 
 import java.text.ParseException;
@@ -117,6 +116,15 @@ public class BigQueryPartitionUtils {
     }
 
     private BigQueryPartitionUtils() {}
+
+    /** Represents the partition types the BigQuery can use in partitioned tables. */
+    public enum PartitionType {
+        HOUR,
+        DAY,
+        MONTH,
+        YEAR,
+        INT_RANGE
+    }
 
     /** Represents the completion status of a BigQuery partition. */
     public enum PartitionStatus {
