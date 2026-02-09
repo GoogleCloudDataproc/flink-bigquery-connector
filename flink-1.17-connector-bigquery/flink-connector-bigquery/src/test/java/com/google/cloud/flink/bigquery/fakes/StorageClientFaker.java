@@ -101,10 +101,9 @@ public class StorageClientFaker {
                 FakeBigQueryStorageReadClient storageReadClient,
                 FakeBigQueryStorageWriteClient storageWriteClient,
                 FakeQueryDataClient queryDataClient) {
-            FakeBigQueryServices instance =
-                    Mockito.spy(
+                FakeBigQueryServices instance =
                             new FakeBigQueryServices(
-                                    storageReadClient, storageWriteClient, queryDataClient));
+                                            storageReadClient, storageWriteClient, queryDataClient);
             return instance;
         }
 
@@ -179,7 +178,7 @@ public class StorageClientFaker {
             }
 
             static FakeQueryDataClient defaultInstance =
-                    Mockito.spy(new FakeQueryDataClient(true, null, null, null));
+                            new FakeQueryDataClient(true, null, null, null);
 
             static QueryDataClient getInstance() {
                 return defaultInstance;
@@ -369,10 +368,8 @@ public class StorageClientFaker {
             public BigQueryServerStream<ReadRowsResponse> readRows(ReadRowsRequest request) {
                 try {
                     // introduce some random delay
-                    Thread.sleep(new Random().nextInt(10));
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(ex);
+                    Thread.sleep(new Random().nextInt(500));
+            } catch (InterruptedException ex) {
                 }
                 return new FakeBigQueryServerStream(
                         dataGenerator,
@@ -603,8 +600,8 @@ public class StorageClientFaker {
             List<GenericRecord> genericRecords,
             double progressAtResponseStart,
             double progressAtResponseEnd) {
-        // BigQuery delivers the data in 1024 elements chunks, so we partition the
-        // generated list
+            // BigQuery delivers the data in 1024 elements chunks, so we partition the
+            // generated list
         // into multiple ones with that size max.
         return IntStream.range(0, genericRecords.size())
                 .collect(
