@@ -190,7 +190,74 @@ under the License.
                                     <pattern>org.apache</pattern>
                                     <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.apache</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>dev.failsafe</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.dev.failsafe</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.com.fasterxml</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.joda</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.joda</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>autovalue</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.autovalue</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.grpc</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.grpc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opencensus</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.opencensus</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.perfmark</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.perfmark</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.json</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.json</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.threeten</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.threeten</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.codehaus</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.codehaus</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.checkerframework</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.checkerframework</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.conscrypt</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.conscrypt</shadedPattern>
+                                </relocation>
                             </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>verify-shading</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${project.basedir}/../../scripts/verify-shading.sh</executable>
+                            <arguments>
+                                <argument>${project.build.directory}/${project.artifactId}-${project.version}-shaded.jar</argument>
+                            </arguments>
                         </configuration>
                     </execution>
                 </executions>
