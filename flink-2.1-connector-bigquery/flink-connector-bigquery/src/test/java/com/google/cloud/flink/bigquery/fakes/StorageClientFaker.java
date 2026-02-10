@@ -397,6 +397,8 @@ public class StorageClientFaker {
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
+                Mockito.when(mockedWriter.append((ProtoRows) Mockito.any()))
+                        .thenReturn(ApiFutures.immediateFuture(appendResponse));
                 Mockito.when(mockedWriter.append((ProtoRows) Mockito.any(), Mockito.anyLong()))
                         .thenReturn(ApiFutures.immediateFuture(appendResponse));
                 writeStream = null;
@@ -423,6 +425,18 @@ public class StorageClientFaker {
                 }
                 for (ApiFuture future : appendResponseFutures) {
                     stubbing = stubbing.thenReturn(future);
+                }
+
+                OngoingStubbing stubbing2 =
+                        Mockito.when(mockedWriter.append((ProtoRows) Mockito.any()));
+
+                if (appendResponseFutures.length == 0) {
+                    stubbing2.thenThrow(
+                            new IllegalStateException(
+                                    "Test should provide append response future if append is invoked"));
+                }
+                for (ApiFuture future : appendResponseFutures) {
+                    stubbing2 = stubbing2.thenReturn(future);
                 }
                 this.writeStream = writeStream;
                 this.flushResponse = flushResponse;
@@ -599,7 +613,8 @@ public class StorageClientFaker {
             List<GenericRecord> genericRecords,
             double progressAtResponseStart,
             double progressAtResponseEnd) {
-        // BigQuery delivers the data in 1024 elements chunks, so we partition the generated list
+        // BigQuery delivers the data in 1024 elements chunks, so we partition the
+        // generated list
         // into multiple ones with that size max.
         return IntStream.range(0, genericRecords.size())
                 .collect(
