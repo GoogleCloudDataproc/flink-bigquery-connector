@@ -66,6 +66,12 @@ under the License.
             <artifactId>google-cloud-bigquery</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+            <version>1.3.2</version>
+        </dependency>
+
         <!-- Flink Dependencies -->
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -243,6 +249,38 @@ under the License.
                 <configuration>
                     <reuseForks>false</reuseForks>
                     <forkCount>1</forkCount>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>shade-flink</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.google.auto.value</groupId>
+                            <artifactId>auto-value</artifactId>
+                            <version>1.11.0</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <compilerArgs>
+                        <arg>--add-modules</arg>
+                        <arg>java.compiler</arg>
+                    </compilerArgs>
+                    <fork>true</fork>
                 </configuration>
             </plugin>
             <plugin>

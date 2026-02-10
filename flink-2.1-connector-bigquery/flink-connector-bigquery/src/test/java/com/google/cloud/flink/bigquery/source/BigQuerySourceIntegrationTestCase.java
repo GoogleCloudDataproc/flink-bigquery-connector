@@ -36,6 +36,7 @@ import org.apache.flink.util.CollectionUtil;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataDeserializationSchema;
+import com.google.cloud.flink.bigquery.source.reader.deserializer.BigQueryDeserializationSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -88,7 +89,8 @@ public class BigQuerySourceIntegrationTestCase {
         return BigQuerySource.<RowData>builder()
                 .setReadOptions(rOptions)
                 .setDeserializationSchema(
-                        new AvroToRowDataDeserializationSchema(rowType, typeInfo));
+                        (BigQueryDeserializationSchema)
+                                new AvroToRowDataDeserializationSchema(rowType, typeInfo));
     }
 
     private static RowType defaultSourceRowType() {

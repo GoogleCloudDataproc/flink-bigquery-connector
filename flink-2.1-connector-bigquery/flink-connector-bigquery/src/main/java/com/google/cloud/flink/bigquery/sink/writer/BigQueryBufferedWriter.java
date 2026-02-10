@@ -230,7 +230,19 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             createWriteStream(WriteStream.Type.BUFFERED);
             createStreamWriter(false);
         }
+
         ApiFuture<AppendRowsResponse> future = streamWriter.append(protoRows, streamOffset);
+        if (future == null) {
+            String msg =
+                    "StreamWriter.append() returned null. Offset: "
+                            + streamOffset
+                            + ", Rows: "
+                            + protoRows.getSerializedRowsCount()
+                            + ", StreamWriter: "
+                            + streamWriter;
+            logger.error(msg);
+            logAndThrowFatalException(new BigQueryConnectorException(msg));
+        }
         postAppendOps(future, rowCount);
     }
 
@@ -238,6 +250,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     @Override
     void validateAppendResponse(AppendInfo appendInfo) {
         ApiFuture<AppendRowsResponse> appendResponseFuture = appendInfo.getFuture();
+        if (appendResponseFuture == null) {
+            logAndThrowFatalException("AppendInfo contained null future");
+            return;
+        }
         long expectedOffset = appendInfo.getExpectedOffset();
         long recordsAppended = appendInfo.getRecordsAppended();
         AppendRowsResponse response;
@@ -333,6 +349,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         try {
             // Get this future immediately to check whether append worked or not, inferring stream
             // is usable or not.
+            if (future == null) {
+                logAndThrowFatalException(
+                        new BigQueryConnectorException("StreamWriter.append() returned null"));
+            }
             response = future.get();
             postAppendOps(ApiFutures.immediateFuture(response), rowCount);
         } catch (ExecutionException | InterruptedException e) {

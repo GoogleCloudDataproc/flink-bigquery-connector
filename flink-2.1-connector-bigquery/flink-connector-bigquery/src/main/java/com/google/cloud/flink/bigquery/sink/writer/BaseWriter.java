@@ -326,7 +326,12 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     void validateAppendResponses(boolean waitForResponse) {
         while (!appendResponseFuturesQueue.isEmpty()) {
             AppendInfo appendInfo = appendResponseFuturesQueue.peek();
-            if (waitForResponse || appendInfo.getFuture().isDone()) {
+            // If future is null, it might be due to a test fake or failed append setup.
+            // We treat it as "done" to avoid NPE and proceed to validation (which might
+            // fail or handle it).
+            if (waitForResponse
+                    || appendInfo.getFuture() == null
+                    || appendInfo.getFuture().isDone()) {
                 appendResponseFuturesQueue.poll();
                 validateAppendResponse(appendInfo);
             } else {

@@ -397,7 +397,7 @@ public class StorageClientFaker {
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
-                Mockito.when(mockedWriter.append((ProtoRows) Mockito.any()))
+                Mockito.when(mockedWriter.append((ProtoRows) Mockito.any(), Mockito.anyLong()))
                         .thenReturn(ApiFutures.immediateFuture(appendResponse));
                 writeStream = null;
                 flushResponse = null;
@@ -413,7 +413,8 @@ public class StorageClientFaker {
                 // Mockito cannot unbox "any()" for primitive types, throwing the dreaded
                 // NullPointerException. Use primitive variants for argument matching.
                 OngoingStubbing stubbing =
-                        Mockito.when(mockedWriter.append((ProtoRows) Mockito.any()));
+                        Mockito.when(
+                                mockedWriter.append((ProtoRows) Mockito.any(), Mockito.anyLong()));
 
                 if (appendResponseFutures.length == 0) {
                     stubbing.thenThrow(
