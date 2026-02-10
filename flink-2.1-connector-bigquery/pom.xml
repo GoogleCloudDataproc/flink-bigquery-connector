@@ -280,7 +280,6 @@ under the License.
                         <arg>--add-modules</arg>
                         <arg>java.compiler</arg>
                     </compilerArgs>
-                    <fork>true</fork>
                 </configuration>
             </plugin>
             <plugin>
