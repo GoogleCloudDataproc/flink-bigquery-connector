@@ -370,6 +370,8 @@ public class StorageClientFaker {
                     // introduce some random delay
                     Thread.sleep(new Random().nextInt(500));
                 } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(ex);
                 }
                 return new FakeBigQueryServerStream(
                         dataGenerator,
