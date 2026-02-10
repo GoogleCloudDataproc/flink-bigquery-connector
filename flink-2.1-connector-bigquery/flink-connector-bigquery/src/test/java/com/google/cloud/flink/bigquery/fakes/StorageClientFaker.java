@@ -429,17 +429,6 @@ public class StorageClientFaker {
                     stubbing = stubbing.thenReturn(future);
                 }
 
-                OngoingStubbing stubbing2 =
-                        Mockito.when(mockedWriter.append((ProtoRows) Mockito.any()));
-
-                if (appendResponseFutures.length == 0) {
-                    stubbing2.thenThrow(
-                            new IllegalStateException(
-                                    "Test should provide append response future if append is invoked"));
-                }
-                for (ApiFuture future : appendResponseFutures) {
-                    stubbing2 = stubbing2.thenReturn(future);
-                }
                 this.writeStream = writeStream;
                 this.flushResponse = flushResponse;
                 this.finalizeResponse = finalizeResponse;
