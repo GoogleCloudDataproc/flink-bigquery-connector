@@ -32,6 +32,7 @@ under the License.
     <version>${revision}</version>
 
     <name>Flink : Connectors : Google BigQuery Parent</name>
+    <description>The Flink BigQuery Connector Parent.</description>
     <packaging>pom</packaging>
     <url>https://github.com/GoogleCloudDataproc/flink-bigquery-connector</url>
     <inceptionYear>2023</inceptionYear>
@@ -595,7 +596,7 @@ under the License.
                         <extensions>true</extensions>
                         <configuration>
                             <serverId>ossrh</serverId>
-                            <nexusUrl>https://ossrh-staging-api.central.sonatype.com</nexusUrl>
+                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                             <autoReleaseAfterClose>false</autoReleaseAfterClose>
                             <skipRemoteStaging>${nexus.remote.skip}</skipRemoteStaging>
                         </configuration>

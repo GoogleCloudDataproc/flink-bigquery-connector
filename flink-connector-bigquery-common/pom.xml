@@ -29,6 +29,7 @@ under the License.
 
     <artifactId>flink-connector-bigquery-common</artifactId>
     <name>Flink : Connectors : Google BigQuery Common</name>
+    <description>The Flink BigQuery Connector Common library.</description>
     <version>${revision}</version>
 
     <packaging>jar</packaging>
