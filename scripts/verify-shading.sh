@@ -28,5 +28,20 @@ if [ $? -eq 0 ]; then
   exit 1
 else
   echo "No unshaded classes found"
-  exit 0
 fi
+
+# Verify required dependencies are present (not stripped by minimizeJar)
+REQUIRED_SHADED_PACKAGES=(
+  "com/google/cloud/flink/bigquery/shaded/org/joda/time"
+)
+
+JAR_CONTENT=$(jar tvf "${JAR_FILE}")
+for pkg in "${REQUIRED_SHADED_PACKAGES[@]}"; do
+  if ! echo "${JAR_CONTENT}" | grep -q "${pkg}"; then
+    echo "ERROR: Required shaded package '${pkg}' not found in JAR"
+    exit 1
+  fi
+done
+
+echo "All required shaded packages found"
+exit 0

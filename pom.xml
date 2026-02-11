@@ -395,6 +395,14 @@ under the License.
                                     <exclude>org.apache.flink:*</exclude>
                                 </excludes>
                             </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>joda-time:joda-time</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                            </filters>
                             <relocations>
                                 <relocation>
                                     <pattern>com.google</pattern>
