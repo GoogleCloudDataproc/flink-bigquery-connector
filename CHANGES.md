@@ -1,6 +1,6 @@
 # Release Notes
 
-## Next
+## 1.1.0 - 2026-02-11
 * PR #260: Upgrade dependencies versions.
 * PR #258: Fix temporal type formatting in BigQueryRestriction to consistently use 6 decimal digits
 
