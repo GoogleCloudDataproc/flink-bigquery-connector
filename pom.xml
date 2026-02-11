@@ -388,6 +388,7 @@ under the License.
                                     <include>io.grpc:*</include>
                                     <include>io.opencensus:*</include>
                                     <include>io.perfmark:*</include>
+                                    <include>io.opentelemetry:*</include>
                                     <include>joda-time:joda-time</include>
                                     <include>org.json:json</include>
                                 </includes>
@@ -429,6 +430,10 @@ under the License.
                                 <relocation>
                                     <pattern>io.perfmark</pattern>
                                     <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.perfmark</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opentelemetry</pattern>
+                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.io.opentelemetry</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.fasterxml</pattern>

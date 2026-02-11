@@ -33,6 +33,7 @@ fi
 # Verify required dependencies are present (not stripped by minimizeJar)
 REQUIRED_SHADED_PACKAGES=(
   "com/google/cloud/flink/bigquery/shaded/org/joda/time"
+  "com/google/cloud/flink/bigquery/shaded/io/opentelemetry"
 )
 
 JAR_CONTENT=$(jar tvf "${JAR_FILE}")
