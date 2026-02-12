@@ -80,8 +80,15 @@ case $STEP in
   init)
     timestamp=$(date +"%Y%m%d%H%M%S")
     export GCS_JAR_LOCATION="$GCS_JAR_LOCATION"/"$timestamp"/"$GCS_JAR_NAME"
+
+    # Extract revision from pom.xml
+    RELEASE_VERSION=$($MVN help:evaluate -Dexpression=project.version -q -DforceStdout)
+    # Construct the path to the JAR in the local maven repository
+    ARTIFACT_ID="flink-1.17-connector-bigquery-integration-test"
+    MVN_JAR_PATH="/workspace/.repository/com/google/cloud/flink/${ARTIFACT_ID}/${RELEASE_VERSION}/${ARTIFACT_ID}-${RELEASE_VERSION}.jar"
+
     $MVN clean install -DskipTests -Pflink_1.17
-    gcloud storage cp "$MVN_JAR_LOCATION" "$GCS_JAR_LOCATION"
+    gcloud storage cp "${MVN_JAR_PATH}" "$GCS_JAR_LOCATION"
     echo "$GCS_JAR_LOCATION" > "$GCS_JAR_LOCATION_FILE"
     exit
     ;;

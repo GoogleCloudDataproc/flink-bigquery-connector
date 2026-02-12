@@ -74,7 +74,7 @@ under the License.
     </distributionManagement>
 
     <properties>
-        <revision>1.0-SNAPSHOT</revision>
+        <revision>1.1-SNAPSHOT</revision>
         <flink.version>1.17.1</flink.version>
         <bigquery.guava.version>33.4.8-jre</bigquery.guava.version>
         <google-lib-bom.version>26.33.0</google-lib-bom.version>
