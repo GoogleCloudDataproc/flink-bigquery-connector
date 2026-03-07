@@ -16,6 +16,8 @@
 
 package com.google.cloud.flink.bigquery.source.split.assigner;
 
+import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.enumerator.BigQuerySourceEnumState;
@@ -39,7 +41,10 @@ public class BigQuerySourceSplitAssignerTest {
     public void beforeTest() throws IOException {
         this.readOptions =
                 StorageClientFaker.createReadOptions(
-                        0, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
+                                0, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING)
+                        .toBuilder()
+                        .setParallelism(1)
+                        .build();
     }
 
     @Test
@@ -77,5 +82,48 @@ public class BigQuerySourceSplitAssignerTest {
         maybeSplit = assigner.getNext();
         Truth8.assertThat(maybeSplit).isEmpty();
         assertThat(assigner.noMoreSplits()).isTrue();
+    }
+
+    @Test
+    public void
+            testOptimizeStreamCountSetsMaxToHundredTimesAndPreferredMinToThreeTimesParallelism() {
+        assertStreamCounts(0, 1, 100, 3);
+        assertStreamCounts(0, 2, 200, 6);
+        assertStreamCounts(0, 4, 400, 12);
+    }
+
+    @Test
+    public void testOptimizeReadStreamCountDisabledWhenMaxStreamCountSet() {
+        // When max-count is explicitly set, optimization is skipped
+        assertStreamCounts(20, 4, 20, 20);
+    }
+
+    private void assertStreamCounts(
+            int configuredMaxStreamCount,
+            int parallelism,
+            int expectedMaxStreamCount,
+            int expectedPreferredMin) {
+        StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageReadClient readClient =
+                new StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageReadClient(
+                        StorageClientFaker.fakeReadSession(
+                                0, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING),
+                        params -> StorageClientFaker.createRecordList(params));
+        BigQueryConnectOptions connectOptions =
+                StorageClientFaker.createConnectOptions(readClient, null);
+        BigQueryReadOptions options =
+                BigQueryReadOptions.builder()
+                        .setBigQueryConnectOptions(connectOptions)
+                        .setMaxStreamCount(configuredMaxStreamCount)
+                        .setParallelism(parallelism)
+                        .build();
+
+        BigQuerySourceSplitAssigner assigner =
+                BigQuerySourceSplitAssigner.createBounded(
+                        options, BigQuerySourceEnumState.initialState());
+        assigner.openAndDiscoverSplits();
+
+        CreateReadSessionRequest request = readClient.getLastCreateReadSessionRequest();
+        assertThat(request.getMaxStreamCount()).isEqualTo(expectedMaxStreamCount);
+        assertThat(request.getPreferredMinStreamCount()).isEqualTo(expectedPreferredMin);
     }
 }
