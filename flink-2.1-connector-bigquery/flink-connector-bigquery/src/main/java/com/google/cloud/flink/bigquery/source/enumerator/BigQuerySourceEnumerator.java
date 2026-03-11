@@ -65,7 +65,13 @@ public class BigQuerySourceEnumerator
             BigQueryReadOptions readOptions, BigQuerySourceEnumState sourceEnumState) {
         switch (this.boundedness) {
             case BOUNDED:
-                return BigQuerySourceSplitAssigner.createBounded(readOptions, sourceEnumState);
+                BigQueryReadOptions optionsWithParallelism =
+                        readOptions
+                                .toBuilder()
+                                .setParallelism(context.currentParallelism())
+                                .build();
+                return BigQuerySourceSplitAssigner.createBounded(
+                        optionsWithParallelism, sourceEnumState);
             default:
                 throw new IllegalArgumentException(
                         "Non supported boundedness: " + this.boundedness);

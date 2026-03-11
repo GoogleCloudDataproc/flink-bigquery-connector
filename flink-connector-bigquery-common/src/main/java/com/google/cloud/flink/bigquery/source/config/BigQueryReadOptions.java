@@ -38,6 +38,9 @@ import java.util.Optional;
 @PublicEvolving
 public abstract class BigQueryReadOptions implements Serializable {
 
+    private static final int PREFERRED_MIN_STREAM_COUNT_MULTIPLIER = 3;
+    private static final int MAX_STREAM_COUNT_MULTIPLIER = 100;
+
     public abstract List<String> getColumnNames();
 
     public abstract String getRowRestriction();
@@ -50,7 +53,33 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract Integer getMaxRecordsPerSplitFetch();
 
+    public abstract Integer getParallelism();
+
     public abstract BigQueryConnectOptions getBigQueryConnectOptions();
+
+    public int getEffectiveMaxStreamCount() {
+        Preconditions.checkState(
+                getParallelism() > 0,
+                "parallelism must be set before calling getEffectiveMaxStreamCount()");
+
+        if (getMaxStreamCount() == 0) {
+            return MAX_STREAM_COUNT_MULTIPLIER * getParallelism();
+        } else {
+            return getMaxStreamCount();
+        }
+    }
+
+    public int getEffectivePreferredMinStreamCount() {
+        Preconditions.checkState(
+                getParallelism() > 0,
+                "parallelism must be set before calling getEffectivePreferredMinStreamCount()");
+
+        if (getMaxStreamCount() == 0) {
+            return PREFERRED_MIN_STREAM_COUNT_MULTIPLIER * getParallelism();
+        } else {
+            return getMaxStreamCount();
+        }
+    }
 
     @Override
     public final int hashCode() {
@@ -59,6 +88,7 @@ public abstract class BigQueryReadOptions implements Serializable {
                 getRowRestriction(),
                 getSnapshotTimestampInMillis(),
                 getMaxStreamCount(),
+                getParallelism(),
                 getBigQueryConnectOptions());
     }
 
@@ -79,6 +109,7 @@ public abstract class BigQueryReadOptions implements Serializable {
                 && Objects.equals(
                         this.getSnapshotTimestampInMillis(), other.getSnapshotTimestampInMillis())
                 && Objects.equals(this.getMaxStreamCount(), other.getMaxStreamCount())
+                && Objects.equals(this.getParallelism(), other.getParallelism())
                 && Objects.equals(
                         this.getBigQueryConnectOptions(), other.getBigQueryConnectOptions());
     }
@@ -101,6 +132,7 @@ public abstract class BigQueryReadOptions implements Serializable {
                 .setColumnNames(Arrays.asList())
                 .setMaxStreamCount(0)
                 .setMaxRecordsPerSplitFetch(10000)
+                .setParallelism(0)
                 .setSnapshotTimestampInMillis(null);
     }
 
@@ -160,6 +192,15 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @return This {@link Builder} instance.
          */
         public abstract Builder setMaxRecordsPerSplitFetch(Integer maxRecordsPerSplitFetch);
+
+        /**
+         * Sets the parallelism of the source, used to compute effective stream counts when {@code
+         * maxStreamCount} is not explicitly set.
+         *
+         * @param parallelism The parallelism of the source.
+         * @return This {@link Builder} instance.
+         */
+        public abstract Builder setParallelism(Integer parallelism);
 
         /**
          * Sets the {@link BigQueryConnectOptions} instance.

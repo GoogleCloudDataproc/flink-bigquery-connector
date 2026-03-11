@@ -342,6 +342,7 @@ public class StorageClientFaker {
             private final SerializableFunction<RecordGenerationParams, List<GenericRecord>>
                     dataGenerator;
             private final Double errorPercentage;
+            private CreateReadSessionRequest lastCreateReadSessionRequest;
 
             public FakeBigQueryStorageReadClient(
                     ReadSession session,
@@ -361,7 +362,12 @@ public class StorageClientFaker {
 
             @Override
             public ReadSession createReadSession(CreateReadSessionRequest request) {
+                this.lastCreateReadSessionRequest = request;
                 return session;
+            }
+
+            public CreateReadSessionRequest getLastCreateReadSessionRequest() {
+                return lastCreateReadSessionRequest;
             }
 
             @Override
