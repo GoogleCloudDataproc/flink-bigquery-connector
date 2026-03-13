@@ -118,13 +118,13 @@ public class AvroToRowDataConverters {
 
     private static int[] computeIndexMapping(GenericRecord record, String[] fieldNames) {
         int[] mapping = new int[fieldNames.length];
-        List<String> avroFieldNames = new java.util.ArrayList<>();
-        for (org.apache.avro.Schema.Field f : record.getSchema().getFields()) {
-            avroFieldNames.add(f.name());
-        }
         for (int i = 0; i < fieldNames.length; i++) {
             org.apache.avro.Schema.Field field = record.getSchema().getField(fieldNames[i]);
             if (field == null) {
+                List<String> avroFieldNames = new java.util.ArrayList<>();
+                for (org.apache.avro.Schema.Field f : record.getSchema().getFields()) {
+                    avroFieldNames.add(f.name());
+                }
                 throw new IllegalArgumentException(
                         String.format(
                                 "Field '%s' not found in Avro schema. Available fields: %s",
