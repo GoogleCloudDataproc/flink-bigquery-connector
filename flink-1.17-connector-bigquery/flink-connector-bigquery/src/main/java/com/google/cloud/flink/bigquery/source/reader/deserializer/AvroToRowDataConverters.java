@@ -42,7 +42,6 @@ import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.util.Utf8;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,17 +95,44 @@ public class AvroToRowDataConverters {
                         .map(AvroToRowDataConverters::createNullableConverter)
                         .toArray(AvroToRowDataConverter[]::new);
         final int arity = rowType.getFieldCount();
+        final String[] fieldNames =
+                rowType.getFields().stream().map(RowType.RowField::getName).toArray(String[]::new);
 
-        return avroObject -> {
-            IndexedRecord record = (IndexedRecord) avroObject;
-            GenericRowData row = new GenericRowData(arity);
-            for (int i = 0; i < arity; ++i) {
-                // avro always deserialize successfully even though the type isn't matched
-                // so no need to throw exception about which field can't be deserialized
-                row.setField(i, fieldConverters[i].convert(record.get(i)));
+        return new AvroToRowDataConverter() {
+            private int[] indexMapping;
+
+            @Override
+            public Object convert(Object avroObject) {
+                GenericRecord record = (GenericRecord) avroObject;
+                if (indexMapping == null) {
+                    indexMapping = computeIndexMapping(record, fieldNames);
+                }
+                GenericRowData row = new GenericRowData(arity);
+                for (int i = 0; i < arity; ++i) {
+                    row.setField(i, fieldConverters[i].convert(record.get(indexMapping[i])));
+                }
+                return row;
             }
-            return row;
         };
+    }
+
+    private static int[] computeIndexMapping(GenericRecord record, String[] fieldNames) {
+        int[] mapping = new int[fieldNames.length];
+        List<String> avroFieldNames = new java.util.ArrayList<>();
+        for (org.apache.avro.Schema.Field f : record.getSchema().getFields()) {
+            avroFieldNames.add(f.name());
+        }
+        for (int i = 0; i < fieldNames.length; i++) {
+            org.apache.avro.Schema.Field field = record.getSchema().getField(fieldNames[i]);
+            if (field == null) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Field '%s' not found in Avro schema. Available fields: %s",
+                                fieldNames[i], avroFieldNames));
+            }
+            mapping[i] = field.pos();
+        }
+        return mapping;
     }
 
     /** Creates a runtime converter which is null safe. */
