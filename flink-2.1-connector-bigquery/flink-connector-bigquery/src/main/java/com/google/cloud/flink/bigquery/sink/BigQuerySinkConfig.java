@@ -351,6 +351,38 @@ public class BigQuerySinkConfig<IN> {
             List<String> clusteredFields,
             String region,
             boolean fatalizeSerializer) {
+        return forTable(
+                connectOptions,
+                deliveryGuarantee,
+                logicalType,
+                enableTableCreation,
+                partitionField,
+                partitionType,
+                partitionExpirationMillis,
+                clusteredFields,
+                region,
+                fatalizeSerializer,
+                false,
+                null,
+                null);
+    }
+
+    /** Table API overload with CDC support. */
+    @Internal
+    public static BigQuerySinkConfig<RowData> forTable(
+            BigQueryConnectOptions connectOptions,
+            DeliveryGuarantee deliveryGuarantee,
+            LogicalType logicalType,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            Long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region,
+            boolean fatalizeSerializer,
+            boolean cdcEnabled,
+            String cdcSequenceField,
+            CdcChangeTypeProvider<RowData> cdcChangeTypeProvider) {
         return new BigQuerySinkConfig<>(
                 connectOptions,
                 deliveryGuarantee,
@@ -364,9 +396,9 @@ public class BigQuerySinkConfig<IN> {
                 clusteredFields,
                 region,
                 fatalizeSerializer,
-                false, // CDC not supported for Table API yet
-                null,
-                null);
+                cdcEnabled,
+                cdcSequenceField,
+                cdcChangeTypeProvider);
     }
 
     public static void validateStreamExecutionEnvironment(StreamExecutionEnvironment env) {

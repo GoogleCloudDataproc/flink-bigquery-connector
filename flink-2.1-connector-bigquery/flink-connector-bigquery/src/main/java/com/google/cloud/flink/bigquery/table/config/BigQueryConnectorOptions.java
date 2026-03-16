@@ -233,4 +233,26 @@ public class BigQueryConnectorOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Fail if serializer cannot convert record to proto");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Enable CDC (Change Data Capture) for upsert/delete support.
+     * Requires AT_LEAST_ONCE delivery guarantee. The destination table must have a PRIMARY KEY.
+     */
+    public static final ConfigOption<Boolean> CDC_ENABLED =
+            ConfigOptions.key("write.cdc-enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable CDC for upsert/delete. Requires AT_LEAST_ONCE. Table must have PRIMARY KEY.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Field name to use for CDC sequence number ordering. Required
+     * when CDC is enabled. Supports LONG, INT, TIMESTAMP types.
+     */
+    public static final ConfigOption<String> CDC_SEQUENCE_FIELD =
+            ConfigOptions.key("write.cdc-sequence-field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Field for CDC sequence number (required when CDC enabled). Supports LONG, INT, TIMESTAMP.");
 }

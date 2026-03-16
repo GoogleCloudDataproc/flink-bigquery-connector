@@ -81,6 +81,11 @@ public class BigQuerySink {
                     "CDC mode requires AT_LEAST_ONCE delivery guarantee. "
                             + "BigQuery CDC uses the default stream which provides at-least-once semantics.");
         }
+        if (sinkConfig.getCdcSequenceField() == null
+                || sinkConfig.getCdcSequenceField().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "CDC mode requires write.cdc-sequence-field to be set for ordering changes.");
+        }
         LOG.info(
                 "CDC mode enabled. Ensure the destination BigQuery table has a PRIMARY KEY "
                         + "constraint and max_staleness option configured for CDC to work properly.");
