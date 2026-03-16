@@ -64,6 +64,8 @@ import java.util.concurrent.TimeUnit;
 public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
 
     private Descriptor descriptor;
+    // CDC-augmented descriptor (includes _change_type and _change_sequence_number fields)
+    private Descriptor cdcDescriptor;
 
     /**
      * Prepares the serializer before its serialize method can be called. It allows contextual
@@ -83,6 +85,23 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         this.descriptor = derivedDescriptor;
     }
 
+    /**
+     * Initializes the serializer for CDC mode with an augmented schema.
+     *
+     * @param bigQuerySchemaProvider The CDC-augmented schema provider.
+     */
+    @Override
+    public void initForCdc(BigQuerySchemaProvider bigQuerySchemaProvider) {
+        Preconditions.checkNotNull(
+                bigQuerySchemaProvider,
+                "BigQuerySchemaProvider not found while initializing AvroToProtoSerializer for CDC");
+        Descriptor derivedDescriptor = bigQuerySchemaProvider.getDescriptor();
+        Preconditions.checkNotNull(
+                derivedDescriptor,
+                "Destination BigQuery table's CDC Proto Schema could not be found.");
+        this.cdcDescriptor = derivedDescriptor;
+    }
+
     @Override
     public Schema getAvroSchema(GenericRecord record) {
         return record.getSchema();
@@ -99,6 +118,130 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                             record, e.getMessage()),
                     e);
         }
+    }
+
+    @Override
+    public ByteString serializeWithCdc(
+            GenericRecord record, String changeType, String changeSequenceNumber)
+            throws BigQuerySerializationException {
+        try {
+            return getDynamicMessageFromGenericRecordWithCdc(
+                            record, this.cdcDescriptor, changeType, changeSequenceNumber)
+                    .toByteString();
+        } catch (Exception e) {
+            throw new BigQuerySerializationException(
+                    String.format(
+                            "Error while serialising Avro GenericRecord with CDC: %s\nError: %s",
+                            record, e.getMessage()),
+                    e);
+        }
+    }
+
+    @Override
+    public String extractSequenceNumber(GenericRecord record, String sequenceField) {
+        if (sequenceField == null || sequenceField.isEmpty()) {
+            return null;
+        }
+
+        Schema recordSchema = record.getSchema();
+        if (recordSchema.getField(sequenceField) == null) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Sequence field '%s' does not exist in the record schema. "
+                                    + "Available fields: %s",
+                            sequenceField,
+                            recordSchema.getFields().stream()
+                                    .map(Schema.Field::name)
+                                    .collect(java.util.stream.Collectors.toList())));
+        }
+
+        Object value = record.get(sequenceField);
+        if (value == null) {
+            return null;
+        }
+
+        Long longValue = convertToLong(value);
+        if (longValue == null) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Cannot convert sequence field '%s' value '%s' of type '%s' to Long. "
+                                    + "Supported types: Long, Integer, java.time.Instant, "
+                                    + "org.joda.time.Instant, or numeric String.",
+                            sequenceField, value, value.getClass().getName()));
+        }
+
+        return String.format("%016X", longValue);
+    }
+
+    private Long convertToLong(Object value) {
+        if (value instanceof Long) {
+            return (Long) value;
+        } else if (value instanceof Integer) {
+            return ((Integer) value).longValue();
+        } else if (value instanceof java.time.Instant) {
+            return ((java.time.Instant) value).toEpochMilli();
+        } else if (value instanceof org.joda.time.Instant) {
+            return ((org.joda.time.Instant) value).getMillis();
+        } else if (value instanceof org.joda.time.ReadableInstant) {
+            return ((org.joda.time.ReadableInstant) value).getMillis();
+        }
+
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Converts a Generic Avro Record to Dynamic Message with CDC pseudocolumns included.
+     *
+     * @param element The GenericRecord to convert.
+     * @param descriptor The CDC-augmented descriptor.
+     * @param changeType The CDC change type.
+     * @param changeSequenceNumber The sequence number.
+     * @return DynamicMessage with CDC fields.
+     */
+    public static DynamicMessage getDynamicMessageFromGenericRecordWithCdc(
+            GenericRecord element,
+            Descriptor descriptor,
+            String changeType,
+            String changeSequenceNumber) {
+        Schema recordSchema = element.getSchema();
+        DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+
+        for (Schema.Field field : recordSchema.getFields()) {
+            FieldDescriptor fieldDescriptor =
+                    descriptor.findFieldByName(field.name().toLowerCase());
+            if (fieldDescriptor == null) {
+                continue;
+            }
+            @Nullable Object value = element.get(field.name());
+            if (value == null) {
+                if (fieldDescriptor.isRequired()) {
+                    throw new IllegalArgumentException(
+                            "Received null value for non-nullable field "
+                                    + fieldDescriptor.getName());
+                }
+            } else {
+                value = toProtoValue(fieldDescriptor, field.schema(), value);
+                builder.setField(fieldDescriptor, value);
+            }
+        }
+
+        FieldDescriptor changeTypeField =
+                descriptor.findFieldByName(BigQueryCdcSchemaProvider.CDC_CHANGE_TYPE_FIELD);
+        FieldDescriptor sequenceField =
+                descriptor.findFieldByName(BigQueryCdcSchemaProvider.CDC_SEQUENCE_NUMBER_FIELD);
+
+        if (changeTypeField != null && changeType != null) {
+            builder.setField(changeTypeField, changeType);
+        }
+        if (sequenceField != null && changeSequenceNumber != null) {
+            builder.setField(sequenceField, changeSequenceNumber);
+        }
+
+        return builder.build();
     }
 
     /**

@@ -30,6 +30,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +69,10 @@ public class BigQuerySinkConfig<IN> {
     private final List<String> clusteredFields;
     private final String region;
     private final boolean fatalizeSerializer;
+    // CDC (Change Data Capture) configuration
+    private final boolean cdcEnabled;
+    private final String cdcSequenceField;
+    private final CdcChangeTypeProvider<?> cdcChangeTypeProvider;
 
     public static <IN> Builder<IN> newBuilder() {
         return new Builder<>();
@@ -86,7 +91,10 @@ public class BigQuerySinkConfig<IN> {
                 partitionExpirationMillis,
                 clusteredFields,
                 region,
-                fatalizeSerializer);
+                fatalizeSerializer,
+                cdcEnabled,
+                cdcSequenceField,
+                cdcChangeTypeProvider);
     }
 
     @Override
@@ -112,7 +120,11 @@ public class BigQuerySinkConfig<IN> {
                 && (Objects.equals(this.getClusteredFields(), object.getClusteredFields()))
                 && (Objects.equals(this.getRegion(), object.getRegion()))
                 && (Objects.equals(this.getSchemaProvider(), object.getSchemaProvider()))
-                && (this.fatalizeSerializer() == object.fatalizeSerializer()));
+                && (this.fatalizeSerializer() == object.fatalizeSerializer())
+                && (this.isCdcEnabled() == object.isCdcEnabled())
+                && (Objects.equals(this.getCdcSequenceField(), object.getCdcSequenceField()))
+                && (Objects.equals(
+                        this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider())));
     }
 
     private BigQuerySinkConfig(
@@ -126,7 +138,10 @@ public class BigQuerySinkConfig<IN> {
             Long partitionExpirationMillis,
             List<String> clusteredFields,
             String region,
-            boolean fatalizeSerializer) {
+            boolean fatalizeSerializer,
+            boolean cdcEnabled,
+            String cdcSequenceField,
+            CdcChangeTypeProvider<?> cdcChangeTypeProvider) {
         this.connectOptions = connectOptions;
         this.deliveryGuarantee = deliveryGuarantee;
         this.schemaProvider = schemaProvider;
@@ -138,6 +153,9 @@ public class BigQuerySinkConfig<IN> {
         this.clusteredFields = clusteredFields;
         this.region = region;
         this.fatalizeSerializer = fatalizeSerializer;
+        this.cdcEnabled = cdcEnabled;
+        this.cdcSequenceField = cdcSequenceField;
+        this.cdcChangeTypeProvider = cdcChangeTypeProvider;
     }
 
     public BigQueryConnectOptions getConnectOptions() {
@@ -184,6 +202,18 @@ public class BigQuerySinkConfig<IN> {
         return fatalizeSerializer;
     }
 
+    public boolean isCdcEnabled() {
+        return cdcEnabled;
+    }
+
+    public String getCdcSequenceField() {
+        return cdcSequenceField;
+    }
+
+    public CdcChangeTypeProvider<?> getCdcChangeTypeProvider() {
+        return cdcChangeTypeProvider;
+    }
+
     /**
      * Builder for BigQuerySinkConfig.
      *
@@ -203,6 +233,10 @@ public class BigQuerySinkConfig<IN> {
         private String region;
         private boolean fatalizeSerializer;
         private StreamExecutionEnvironment env;
+        // CDC configuration
+        private boolean cdcEnabled;
+        private String cdcSequenceField;
+        private CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
 
         public Builder<IN> connectOptions(BigQueryConnectOptions connectOptions) {
             this.connectOptions = connectOptions;
@@ -265,6 +299,21 @@ public class BigQuerySinkConfig<IN> {
             return this;
         }
 
+        public Builder<IN> enableCdc(boolean cdcEnabled) {
+            this.cdcEnabled = cdcEnabled;
+            return this;
+        }
+
+        public Builder<IN> cdcSequenceField(String cdcSequenceField) {
+            this.cdcSequenceField = cdcSequenceField;
+            return this;
+        }
+
+        public Builder<IN> cdcChangeTypeProvider(CdcChangeTypeProvider<IN> cdcChangeTypeProvider) {
+            this.cdcChangeTypeProvider = cdcChangeTypeProvider;
+            return this;
+        }
+
         public BigQuerySinkConfig<IN> build() {
             if (deliveryGuarantee == DeliveryGuarantee.EXACTLY_ONCE) {
                 validateStreamExecutionEnvironment(env);
@@ -280,7 +329,10 @@ public class BigQuerySinkConfig<IN> {
                     partitionExpirationMillis,
                     clusteredFields,
                     region,
-                    fatalizeSerializer);
+                    fatalizeSerializer,
+                    cdcEnabled,
+                    cdcSequenceField,
+                    cdcChangeTypeProvider);
         }
     }
 
@@ -311,7 +363,10 @@ public class BigQuerySinkConfig<IN> {
                 partitionExpirationMillis,
                 clusteredFields,
                 region,
-                fatalizeSerializer);
+                fatalizeSerializer,
+                false, // CDC not supported for Table API yet
+                null,
+                null);
     }
 
     public static void validateStreamExecutionEnvironment(StreamExecutionEnvironment env) {

@@ -413,6 +413,9 @@ public class BigQueryDefaultWriterTest {
                 false,
                 128,
                 "traceId",
+                false,
+                null,
+                null,
                 mockInitContext);
     }
 
@@ -427,6 +430,9 @@ public class BigQueryDefaultWriterTest {
                 fatalizeSerializer,
                 128,
                 "traceId",
+                false,
+                null,
+                null,
                 mockInitContext);
     }
 
