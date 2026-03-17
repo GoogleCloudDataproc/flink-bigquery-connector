@@ -1,3 +1,5 @@
-# JitPack build config: use Flink 2.1 profile (flink-2.1-connector-bigquery module)
+# JitPack build config: use Flink 2.1 profile, Java 17 for --release support
+jdk:
+  - openjdk17
 jitpack:
   install: mvn clean install -Pflink_2.1 -DskipTests -Dspotless.check.skip
