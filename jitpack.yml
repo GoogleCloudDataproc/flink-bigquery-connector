@@ -1,5 +1,0 @@
-# JitPack build config: use Flink 2.1 profile, Java 17 for --release support
-jdk:
-  - openjdk17
-install:
-  - ./mvnw clean install -Pflink_2.1 -DskipTests -Dspotless.check.skip
