@@ -26,6 +26,7 @@ import com.google.cloud.flink.bigquery.sink.client.BigQueryClientWithErrorHandli
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
 import com.google.cloud.flink.bigquery.sink.writer.CreateTableOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,10 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
     final boolean fatalizeSerializer;
     final int maxParallelism;
     String traceId;
+    // CDC configuration
+    final boolean cdcEnabled;
+    final String cdcSequenceField;
+    final CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
 
     BigQueryBaseSink(BigQuerySinkConfig<IN> sinkConfig) {
         validateSinkConfig(sinkConfig);
@@ -87,6 +92,9 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
         region = getRegion(sinkConfig.getRegion());
         fatalizeSerializer = sinkConfig.fatalizeSerializer();
         maxParallelism = getMaxParallelism();
+        cdcEnabled = sinkConfig.isCdcEnabled();
+        cdcSequenceField = sinkConfig.getCdcSequenceField();
+        cdcChangeTypeProvider = (CdcChangeTypeProvider<IN>) sinkConfig.getCdcChangeTypeProvider();
     }
 
     private void validateSinkConfig(BigQuerySinkConfig<IN> sinkConfig) {

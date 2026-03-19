@@ -41,6 +41,9 @@ public class BigQuerySink {
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
 
     public static <IN> Sink<IN> get(BigQuerySinkConfig<IN> sinkConfig) {
+        if (sinkConfig.isCdcEnabled()) {
+            validateCdcConfiguration(sinkConfig);
+        }
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
             return new BigQueryDefaultSink<>(sinkConfig);
         }
@@ -52,5 +55,39 @@ public class BigQuerySink {
                 sinkConfig.getDeliveryGuarantee());
         throw new UnsupportedOperationException(
                 String.format("%s is not supported", sinkConfig.getDeliveryGuarantee()));
+    }
+
+    /**
+     * Validates CDC configuration requirements.
+     *
+     * <p>CDC mode has the following requirements: - Must use AT_LEAST_ONCE delivery guarantee (CDC
+     * uses the default stream) - The destination BigQuery table must have a PRIMARY KEY constraint
+     * - The destination BigQuery table must have max_staleness option configured
+     *
+     * <p>Note: Table-level requirements (PRIMARY KEY, max_staleness) are not validated here as they
+     * require BigQuery API calls. They will be validated at runtime.
+     *
+     * @param sinkConfig The sink configuration to validate.
+     * @throws IllegalArgumentException if CDC configuration is invalid.
+     */
+    private static void validateCdcConfiguration(BigQuerySinkConfig<?> sinkConfig) {
+        if (sinkConfig.getDeliveryGuarantee() != DeliveryGuarantee.AT_LEAST_ONCE) {
+            LOG.error(
+                    "CDC mode requires AT_LEAST_ONCE delivery guarantee. "
+                            + "BigQuery CDC uses the default stream which provides at-least-once semantics. "
+                            + "Found: {}",
+                    sinkConfig.getDeliveryGuarantee());
+            throw new IllegalArgumentException(
+                    "CDC mode requires AT_LEAST_ONCE delivery guarantee. "
+                            + "BigQuery CDC uses the default stream which provides at-least-once semantics.");
+        }
+        if (sinkConfig.getCdcSequenceField() == null
+                || sinkConfig.getCdcSequenceField().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "CDC mode requires write.cdc-sequence-field to be set for ordering changes.");
+        }
+        LOG.info(
+                "CDC mode enabled. Ensure the destination BigQuery table has a PRIMARY KEY "
+                        + "constraint and max_staleness option configured for CDC to work properly.");
     }
 }

@@ -100,6 +100,14 @@ public class BigQueryTableConfigurationProvider {
         return config.get(BigQueryConnectorOptions.FATALIZE_SERIALIZER);
     }
 
+    public boolean isCdcEnabled() {
+        return config.get(BigQueryConnectorOptions.CDC_ENABLED);
+    }
+
+    public Optional<String> getCdcSequenceField() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.CDC_SEQUENCE_FIELD));
+    }
+
     public BigQueryReadOptions toBigQueryReadOptions() {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(

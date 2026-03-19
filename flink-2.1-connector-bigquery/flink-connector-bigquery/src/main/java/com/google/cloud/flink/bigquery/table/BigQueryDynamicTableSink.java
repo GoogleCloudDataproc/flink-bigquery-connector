@@ -28,6 +28,8 @@ import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.RowDataCdcChangeTypeProvider;
 
 import java.util.List;
 import java.util.Objects;
@@ -53,6 +55,38 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
             List<String> clusteredFields,
             String region,
             boolean fatalizeSerializer) {
+        this(
+                connectOptions,
+                deliveryGuarantee,
+                logicalType,
+                parallelism,
+                enableTableCreation,
+                partitionField,
+                partitionType,
+                partitionExpirationMillis,
+                clusteredFields,
+                region,
+                fatalizeSerializer,
+                false,
+                null,
+                null);
+    }
+
+    public BigQueryDynamicTableSink(
+            BigQueryConnectOptions connectOptions,
+            DeliveryGuarantee deliveryGuarantee,
+            LogicalType logicalType,
+            Integer parallelism,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            Long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region,
+            boolean fatalizeSerializer,
+            boolean cdcEnabled,
+            String cdcSequenceField,
+            CdcChangeTypeProvider<org.apache.flink.table.data.RowData> cdcChangeTypeProvider) {
         this.logicalType = logicalType;
         this.parallelism = parallelism;
         this.sinkConfig =
@@ -66,7 +100,12 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         partitionExpirationMillis,
                         clusteredFields,
                         region,
-                        fatalizeSerializer);
+                        fatalizeSerializer,
+                        cdcEnabled,
+                        cdcSequenceField,
+                        cdcEnabled && cdcChangeTypeProvider == null
+                                ? RowDataCdcChangeTypeProvider.getInstance()
+                                : cdcChangeTypeProvider);
     }
 
     @Override
@@ -99,7 +138,7 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
 
     @Override
     public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
-        return ChangelogMode.insertOnly();
+        return sinkConfig.isCdcEnabled() ? ChangelogMode.all() : ChangelogMode.insertOnly();
     }
 
     @Override
@@ -124,7 +163,11 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 this.sinkConfig.getPartitionExpirationMillis(),
                 this.sinkConfig.getClusteredFields(),
                 this.sinkConfig.getRegion(),
-                this.sinkConfig.fatalizeSerializer());
+                this.sinkConfig.fatalizeSerializer(),
+                this.sinkConfig.isCdcEnabled(),
+                this.sinkConfig.getCdcSequenceField(),
+                (CdcChangeTypeProvider<org.apache.flink.table.data.RowData>)
+                        this.sinkConfig.getCdcChangeTypeProvider());
     }
 
     @Override
