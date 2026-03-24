@@ -26,6 +26,7 @@ import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.file.src.FileSource;
@@ -176,6 +177,7 @@ public class BigQueryIntegrationTest {
 
     private static Configuration restartConfig() {
         final Configuration config = new Configuration();
+        config.set(DeploymentOptions.TARGET, "yarn-session");
         config.set(RestartStrategyOptions.RESTART_STRATEGY, "exponential-delay");
         config.set(
                 RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_INITIAL_BACKOFF,

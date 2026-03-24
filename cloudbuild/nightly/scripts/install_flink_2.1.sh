@@ -31,7 +31,8 @@ wget -q -O /usr/lib/flink/lib/flink-yarn-${FLINK_VERSION}.jar "https://repo1.mav
 
 ln -sf /usr/lib/flink/bin/flink /usr/bin/flink
 
-# Restart Flink HistoryServer
-systemctl start flink-history-server || true
+# Restart Flink HistoryServer and YARN session
+systemctl restart flink-history-server || true
+systemctl restart flink-yarn-session || true
 
 echo "Flink ${FLINK_VERSION} installation complete."
