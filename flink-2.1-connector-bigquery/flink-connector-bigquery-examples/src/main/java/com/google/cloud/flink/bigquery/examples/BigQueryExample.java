@@ -21,7 +21,6 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.util.ParameterTool;
 
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -79,7 +78,7 @@ public class BigQueryExample {
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
-        final ParameterTool parameterTool = ParameterTool.fromArgs(args);
+        final SimpleParameterTool parameterTool = SimpleParameterTool.fromArgs(args);
 
         if (parameterTool.getNumberOfParameters() < 1) {
             LOG.error(
