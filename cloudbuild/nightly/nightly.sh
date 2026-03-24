@@ -17,6 +17,7 @@
 set -euxo pipefail
 readonly MVN="./mvnw -B -e -s /workspace/cloudbuild/nightly/gcp-settings.xml -Dmaven.repo.local=/workspace/.repository"
 readonly STEP=$1
+readonly FLINK_VERSION=${FLINK_VERSION:-1.17}
 
 cd /workspace
 
@@ -84,10 +85,10 @@ case $STEP in
     # Extract revision from pom.xml
     RELEASE_VERSION=$($MVN help:evaluate -Dexpression=project.version -q -DforceStdout)
     # Construct the path to the JAR in the local maven repository
-    ARTIFACT_ID="flink-1.17-connector-bigquery-integration-test"
+    ARTIFACT_ID="flink-${FLINK_VERSION}-connector-bigquery-integration-test"
     MVN_JAR_PATH="/workspace/.repository/com/google/cloud/flink/${ARTIFACT_ID}/${RELEASE_VERSION}/${ARTIFACT_ID}-${RELEASE_VERSION}.jar"
 
-    $MVN clean install -DskipTests -Pflink_1.17
+    $MVN clean install -DskipTests -P"flink_${FLINK_VERSION}"
     gcloud storage cp "${MVN_JAR_PATH}" "$GCS_JAR_LOCATION"
     echo "$GCS_JAR_LOCATION" > "$GCS_JAR_LOCATION_FILE"
     exit
