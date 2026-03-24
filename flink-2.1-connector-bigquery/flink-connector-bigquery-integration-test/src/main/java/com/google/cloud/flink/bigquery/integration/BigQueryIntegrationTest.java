@@ -19,15 +19,14 @@
 package com.google.cloud.flink.bigquery.integration;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.functions.OpenContext;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
-import org.apache.flink.api.common.restartstrategy.RestartStrategies.RestartStrategyConfiguration;
 import org.apache.flink.api.common.state.CheckpointListener;
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.file.src.FileSource;
 import org.apache.flink.connector.file.src.reader.TextLineInputFormat;
@@ -48,6 +47,7 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.ParameterTool;
 
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -173,9 +173,24 @@ public class BigQueryIntegrationTest {
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryIntegrationTest.class);
 
     private static final Long CHECKPOINT_INTERVAL = 60000L;
-    private static final RestartStrategyConfiguration RESTART_STRATEGY =
-            RestartStrategies.exponentialDelayRestart(
-                    Time.seconds(5), Time.minutes(10), 2.0, Time.hours(2), 0);
+
+    private static Configuration restartConfig() {
+        final Configuration config = new Configuration();
+        config.set(RestartStrategyOptions.RESTART_STRATEGY, "exponential-delay");
+        config.set(
+                RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_INITIAL_BACKOFF,
+                Duration.ofSeconds(5));
+        config.set(
+                RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_MAX_BACKOFF,
+                Duration.ofMinutes(10));
+        config.set(
+                RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_BACKOFF_MULTIPLIER, 2.0);
+        config.set(
+                RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_RESET_BACKOFF_THRESHOLD,
+                Duration.ofHours(2));
+        config.set(RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_JITTER_FACTOR, 0.0);
+        return config;
+    }
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
@@ -333,9 +348,9 @@ public class BigQueryIntegrationTest {
             boolean enableTableCreation)
             throws Exception {
 
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        final StreamExecutionEnvironment env =
+                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY);
 
         BigQueryConnectOptions sourceConnectOptions =
                 BigQueryConnectOptions.builder()
@@ -409,9 +424,9 @@ public class BigQueryIntegrationTest {
             Integer timeoutTimePeriod)
             throws Exception {
 
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        final StreamExecutionEnvironment env =
+                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY);
 
         FileSource<String> source =
                 FileSource.forRecordStreamFormat(new TextLineInputFormat(), new Path(gcsSourceUri))
@@ -457,14 +472,12 @@ public class BigQueryIntegrationTest {
                 stringStream
                         .map(
                                 new RichMapFunction<String, GenericRecord>() {
-                                    private transient org.apache.avro.Schema schema;
+                                    private transient Schema schema;
 
                                     @Override
-                                    public void open(Configuration parameters) throws Exception {
-                                        super.open(parameters);
-                                        this.schema =
-                                                new org.apache.avro.Schema.Parser()
-                                                        .parse(schemaString);
+                                    public void open(OpenContext openContext) throws Exception {
+                                        super.open(openContext);
+                                        this.schema = new Schema.Parser().parse(schemaString);
                                     }
 
                                     // This method maps a CSV string to a GenericRecord based on the
@@ -583,9 +596,9 @@ public class BigQueryIntegrationTest {
             boolean enableTableCreation)
             throws Exception {
 
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        final StreamExecutionEnvironment env =
+                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
 
         BigQueryConnectOptions sourceConnectOptions =
@@ -677,9 +690,9 @@ public class BigQueryIntegrationTest {
             Integer sinkParallelism)
             throws Exception {
 
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        final StreamExecutionEnvironment env =
+                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
-        env.setRestartStrategy(RESTART_STRATEGY);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
         tEnv.createTemporarySystemFunction("func", MySQLFlatMapFunction.class);
 
@@ -771,7 +784,7 @@ public class BigQueryIntegrationTest {
         private transient Counter counter;
 
         @Override
-        public void open(Configuration config) {
+        public void open(OpenContext openContext) {
             this.counter =
                     getRuntimeContext().getMetricGroup().counter("number_of_records_counter_map");
         }
@@ -799,47 +812,30 @@ public class BigQueryIntegrationTest {
         }
     }
 
-    /**
-     * This mapper class is explicitly for testing the fault tolerance of the sink. It fails on
-     * checkpoint with 20% probability.
-     */
-    private static class FailingMapper extends RichMapFunction<GenericRecord, GenericRecord>
-            implements CheckpointListener {
-        private int count = 0;
-        private boolean failOnCheckpoint = false;
-        private Random random = new Random();
+    static class FailingMapper
+            implements MapFunction<GenericRecord, GenericRecord>, CheckpointListener {
 
         @Override
-        public GenericRecord map(GenericRecord value) throws Exception {
-            count++;
-            if (failOnCheckpoint) {
-                // Reset the flag
-                failOnCheckpoint = false;
-                throw new RuntimeException("Intentional failure on checkpoint");
-            }
+        public GenericRecord map(GenericRecord value) {
             return value;
         }
 
         @Override
-        public void notifyCheckpointComplete(long checkpointId) {
-            // No action needed
-        }
-
-        @Override
-        public void notifyCheckpointAborted(long checkpointId) {
-            // No action needed
+        public void notifyCheckpointComplete(long checkpointId) throws Exception {
+            int seed = new Random().nextInt(5);
+            if (seed % 5 == 2) {
+                throw new RuntimeException("Intentional failure in map");
+            }
         }
     }
 
-    private static Schema getAvroTableSchema(BigQueryConnectOptions connectOptions)
-            throws Exception {
-        BigQuerySchemaProvider bqSchemaProvider = new BigQuerySchemaProviderImpl(connectOptions);
-        return bqSchemaProvider.getAvroSchema();
+    private static Schema getAvroTableSchema(BigQueryConnectOptions connectOptions) {
+        return new BigQuerySchemaProviderImpl(connectOptions).getAvroSchema();
     }
 
     private static org.apache.flink.table.api.Schema getFlinkTableSchema(
-            BigQueryConnectOptions connectOptions) throws Exception {
-        BigQuerySchemaProvider bqSchemaProvider = new BigQuerySchemaProviderImpl(connectOptions);
-        return bqSchemaProvider.getFlinkSchema();
+            BigQueryConnectOptions connectOptions) {
+        Schema avroSchema = new BigQuerySchemaProviderImpl(connectOptions).getAvroSchema();
+        return BigQueryTableSchemaProvider.getTableApiSchemaFromAvroSchema(avroSchema);
     }
 }
