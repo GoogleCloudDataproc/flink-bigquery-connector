@@ -22,6 +22,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.util.ParameterTool;
 
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -72,7 +73,7 @@ public class BigQueryTableExample {
 
     public static void main(String[] args) throws Exception {
         // parse input arguments
-        final SimpleParameterTool parameterTool = SimpleParameterTool.fromArgs(args);
+        final ParameterTool parameterTool = ParameterTool.fromArgs(args);
 
         if (parameterTool.getNumberOfParameters() < 1) {
             LOG.error(
