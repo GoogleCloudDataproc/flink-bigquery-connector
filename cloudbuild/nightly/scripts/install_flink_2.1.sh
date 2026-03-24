@@ -4,24 +4,10 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 
 # This script replaces the default Dataproc Flink installation with Flink 2.1.0
-# Dataproc initialization actions run BEFORE optional components.
-# This means /usr/lib/flink does not exist when this script runs.
-# We spawn a background daemon to wait for Dataproc Flink to finish installing,
-# then we perform the swap.
+# Dataproc optional components install BEFORE initialization actions.
+# This means /usr/lib/flink already exists when this script runs.
 
 set -euxo pipefail
-
-cat << 'INNER_EOF' > /usr/local/bin/swap_flink.sh
-#!/bin/bash
-set -x
-
-# Wait for the optional component to install Flink
-while [ ! -f /usr/lib/flink/bin/flink ]; do
-  sleep 5
-done
-
-# Wait for Dataproc to finish whatever it's doing so we don't disrupt it
-sleep 15
 
 export FLINK_VERSION="2.1.0"
 export FLINK_TAR="flink-${FLINK_VERSION}-bin-scala_2.12.tgz"
@@ -30,6 +16,9 @@ export DOWNLOAD_URL="https://archive.apache.org/dist/flink/flink-${FLINK_VERSION
 wget -q -O "/tmp/${FLINK_TAR}" "${DOWNLOAD_URL}"
 tar -xzf "/tmp/${FLINK_TAR}" -C /usr/lib
 
+# Stop any running Flink HistoryServer or processes
+systemctl stop flink-history-server || true
+
 mv /usr/lib/flink /usr/lib/flink-dataproc
 mv "/usr/lib/flink-${FLINK_VERSION}" /usr/lib/flink
 
@@ -37,8 +26,7 @@ mv "/usr/lib/flink-${FLINK_VERSION}" /usr/lib/flink
 cp -a /usr/lib/flink-dataproc/conf/* /usr/lib/flink/conf/
 ln -sf /usr/lib/flink/bin/flink /usr/bin/flink
 
-echo "Flink ${FLINK_VERSION} installation complete."
-INNER_EOF
+# Restart Flink HistoryServer
+systemctl start flink-history-server || true
 
-chmod +x /usr/local/bin/swap_flink.sh
-nohup /usr/local/bin/swap_flink.sh > /var/log/swap_flink.log 2>&1 &
+echo "Flink ${FLINK_VERSION} installation complete."
