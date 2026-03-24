@@ -170,10 +170,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 return (long) record.getInt(fieldIndex);
             case TIMESTAMP_WITHOUT_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                int precision = fieldType.getChildren().isEmpty() ? 3 : 6; // Default 3 for millis
+                int precision;
                 if (fieldType instanceof TimestampType) {
                     precision = ((TimestampType) fieldType).getPrecision();
-                } else if (fieldType instanceof LocalZonedTimestampType) {
+                } else {
                     precision = ((LocalZonedTimestampType) fieldType).getPrecision();
                 }
                 TimestampData ts = record.getTimestamp(fieldIndex, precision);

@@ -213,15 +213,13 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
             }
         }
 
+        protoSchema = getProtoSchema(schemaProvider);
+        serializer.init(schemaProvider);
         if (cdcEnabled) {
             BigQuerySchemaProvider cdcSchemaProvider =
                     new BigQueryCdcSchemaProvider(schemaProvider);
             protoSchema = getProtoSchema(cdcSchemaProvider);
-            serializer.init(schemaProvider);
             serializer.initForCdc(cdcSchemaProvider);
-        } else {
-            protoSchema = getProtoSchema(schemaProvider);
-            serializer.init(schemaProvider);
         }
     }
 

@@ -59,6 +59,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
 public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord> {
@@ -152,7 +153,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                             sequenceField,
                             recordSchema.getFields().stream()
                                     .map(Schema.Field::name)
-                                    .collect(java.util.stream.Collectors.toList())));
+                                    .collect(Collectors.toList())));
         }
 
         Object value = record.get(sequenceField);

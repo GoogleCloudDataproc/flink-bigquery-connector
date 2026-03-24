@@ -104,6 +104,7 @@ public abstract class BigQueryProtoSerializer<IN> implements Serializable {
      * @return Hexadecimal string representation of the sequence number, or null to omit.
      */
     public String extractSequenceNumber(IN record, String sequenceField) {
+        // Intentionally return null so non-CDC serializers can omit sequence numbers.
         return null;
     }
 }

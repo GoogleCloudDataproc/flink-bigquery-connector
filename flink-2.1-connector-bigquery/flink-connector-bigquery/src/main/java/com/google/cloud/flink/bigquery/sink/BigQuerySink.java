@@ -79,7 +79,9 @@ public class BigQuerySink {
                     sinkConfig.getDeliveryGuarantee());
             throw new IllegalArgumentException(
                     "CDC mode requires AT_LEAST_ONCE delivery guarantee. "
-                            + "BigQuery CDC uses the default stream which provides at-least-once semantics.");
+                            + "BigQuery CDC uses the default stream which provides at-least-once semantics. "
+                            + "Found: "
+                            + sinkConfig.getDeliveryGuarantee());
         }
         if (sinkConfig.getCdcSequenceField() == null
                 || sinkConfig.getCdcSequenceField().isEmpty()) {
