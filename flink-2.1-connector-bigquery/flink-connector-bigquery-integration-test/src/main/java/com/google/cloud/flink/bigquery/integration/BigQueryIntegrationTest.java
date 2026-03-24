@@ -348,8 +348,8 @@ public class BigQueryIntegrationTest {
             boolean enableTableCreation)
             throws Exception {
 
-        final StreamExecutionEnvironment env =
-                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.configure(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
         BigQueryConnectOptions sourceConnectOptions =
@@ -424,8 +424,8 @@ public class BigQueryIntegrationTest {
             Integer timeoutTimePeriod)
             throws Exception {
 
-        final StreamExecutionEnvironment env =
-                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.configure(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
 
         FileSource<String> source =
@@ -596,8 +596,8 @@ public class BigQueryIntegrationTest {
             boolean enableTableCreation)
             throws Exception {
 
-        final StreamExecutionEnvironment env =
-                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.configure(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
 
@@ -690,8 +690,8 @@ public class BigQueryIntegrationTest {
             Integer sinkParallelism)
             throws Exception {
 
-        final StreamExecutionEnvironment env =
-                StreamExecutionEnvironment.getExecutionEnvironment(restartConfig());
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.configure(restartConfig());
         env.enableCheckpointing(CHECKPOINT_INTERVAL);
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
         tEnv.createTemporarySystemFunction("func", MySQLFlatMapFunction.class);
