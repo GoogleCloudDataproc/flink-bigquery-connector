@@ -24,6 +24,11 @@ mv "/usr/lib/flink-${FLINK_VERSION}" /usr/lib/flink
 
 # Copy Dataproc configuration so YARN and History Server integration works
 cp -a /usr/lib/flink-dataproc/conf/* /usr/lib/flink/conf/
+
+# Flink 2.0+ deprecated and moved YARN support out of the main distribution.
+# Dataproc requires YARN to submit jobs, so we must manually download the flink-yarn plugin.
+wget -q -O /usr/lib/flink/lib/flink-yarn-${FLINK_VERSION}.jar "https://repo1.maven.org/maven2/org/apache/flink/flink-yarn/${FLINK_VERSION}/flink-yarn-${FLINK_VERSION}.jar"
+
 ln -sf /usr/lib/flink/bin/flink /usr/bin/flink
 
 # Restart Flink HistoryServer
