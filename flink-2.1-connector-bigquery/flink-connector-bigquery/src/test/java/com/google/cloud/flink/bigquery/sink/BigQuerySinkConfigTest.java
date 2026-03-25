@@ -277,11 +277,16 @@ public class BigQuerySinkConfigTest {
                             .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
                             .enableCdc(true)
                             .cdcSequenceField("timestamp_field")
+                            .cdcPrimaryKeyColumns(Arrays.asList("shop_id", "event_date"))
+                            .cdcMaxStaleness("INTERVAL 10 MINUTE")
                             .cdcChangeTypeProvider(changeTypeProvider)
                             .build();
 
             assertTrue(sinkConfig.isCdcEnabled());
             assertEquals("timestamp_field", sinkConfig.getCdcSequenceField());
+            assertEquals(
+                    Arrays.asList("shop_id", "event_date"), sinkConfig.getCdcPrimaryKeyColumns());
+            assertEquals("INTERVAL 10 MINUTE", sinkConfig.getCdcMaxStaleness());
             assertNotNull(sinkConfig.getCdcChangeTypeProvider());
             assertEquals("UPSERT", sinkConfig.getCdcChangeTypeProvider().getChangeType(null));
         }
@@ -297,6 +302,8 @@ public class BigQuerySinkConfigTest {
 
             assertFalse(sinkConfig.isCdcEnabled());
             assertNull(sinkConfig.getCdcSequenceField());
+            assertNull(sinkConfig.getCdcPrimaryKeyColumns());
+            assertNull(sinkConfig.getCdcMaxStaleness());
             assertNull(sinkConfig.getCdcChangeTypeProvider());
         }
     }

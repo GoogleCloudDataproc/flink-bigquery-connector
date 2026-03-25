@@ -256,4 +256,29 @@ public class BigQueryConnectorOptions {
                     .withDescription(
                             "Optional field for CDC sequence number ordering. Supports LONG, INT, TIMESTAMP. "
                                     + "If omitted, the connector will not populate _change_sequence_number.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Comma-separated list of BigQuery primary key columns to apply
+     * when auto-creating a CDC destination table.
+     */
+    public static final ConfigOption<String> CDC_PRIMARY_KEY_COLUMNS =
+            ConfigOptions.key("write.cdc-primary-key-columns")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Comma-separated list of primary key columns to apply when the connector "
+                                    + "auto-creates a CDC destination table.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] BigQuery INTERVAL literal used as max_staleness when
+     * auto-creating a CDC destination table.
+     */
+    public static final ConfigOption<String> CDC_MAX_STALENESS =
+            ConfigOptions.key("write.cdc-max-staleness")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "BigQuery INTERVAL literal for max_staleness when the connector "
+                                    + "auto-creates a CDC destination table, for example "
+                                    + "INTERVAL 10 MINUTE.");
 }

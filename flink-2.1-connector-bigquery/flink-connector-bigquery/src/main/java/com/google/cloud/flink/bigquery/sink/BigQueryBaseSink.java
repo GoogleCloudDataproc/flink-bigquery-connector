@@ -67,6 +67,8 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
     // CDC configuration
     final boolean cdcEnabled;
     final String cdcSequenceField;
+    final List<String> cdcPrimaryKeyColumns;
+    final String cdcMaxStaleness;
     final CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
 
     BigQueryBaseSink(BigQuerySinkConfig<IN> sinkConfig) {
@@ -94,6 +96,8 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
         maxParallelism = getMaxParallelism();
         cdcEnabled = sinkConfig.isCdcEnabled();
         cdcSequenceField = sinkConfig.getCdcSequenceField();
+        cdcPrimaryKeyColumns = sinkConfig.getCdcPrimaryKeyColumns();
+        cdcMaxStaleness = sinkConfig.getCdcMaxStaleness();
         cdcChangeTypeProvider = (CdcChangeTypeProvider<IN>) sinkConfig.getCdcChangeTypeProvider();
     }
 
@@ -133,7 +137,10 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
                 partitionType,
                 partitionExpirationMillis,
                 clusteredFields,
-                region);
+                region,
+                cdcEnabled,
+                cdcPrimaryKeyColumns,
+                cdcMaxStaleness);
     }
 
     private String getRegion(String userProvidedRegion) {

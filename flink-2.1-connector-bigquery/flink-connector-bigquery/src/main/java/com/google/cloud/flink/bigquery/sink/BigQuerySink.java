@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,8 +91,21 @@ public class BigQuerySink {
                             + "Records will be written without _change_sequence_number, so ordering "
                             + "between multiple changes to the same primary key may be nondeterministic.");
         }
+        if (sinkConfig.enableTableCreation()) {
+            if (sinkConfig.getCdcPrimaryKeyColumns() == null
+                    || sinkConfig.getCdcPrimaryKeyColumns().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "CDC table auto-creation requires write.cdc-primary-key-columns to be set.");
+            }
+            if (StringUtils.isNullOrWhitespaceOnly(sinkConfig.getCdcMaxStaleness())) {
+                throw new IllegalArgumentException(
+                        "CDC table auto-creation requires write.cdc-max-staleness to be set.");
+            }
+        }
         LOG.info(
                 "CDC mode enabled. Ensure the destination BigQuery table has a PRIMARY KEY "
-                        + "constraint and max_staleness option configured for CDC to work properly.");
+                        + "constraint and max_staleness option configured for CDC to work properly. "
+                        + "If table auto-creation is enabled, configure them with "
+                        + "write.cdc-primary-key-columns and write.cdc-max-staleness.");
     }
 }

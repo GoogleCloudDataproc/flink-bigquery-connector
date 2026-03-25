@@ -265,7 +265,8 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                 connectOptions.getProjectId(),
                 connectOptions.getDataset(),
                 connectOptions.getTable());
-        BigQueryClientWithErrorHandling.createTable(connectOptions, getTableDefinition());
+        BigQueryClientWithErrorHandling.createTable(
+                connectOptions, getTableDefinition(), createTableOptions);
     }
 
     /** Creates a StreamWriter for appending to BigQuery table. */

@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * A BigQuery Configuration class which can be used to transform to the option objects the source
@@ -106,6 +107,22 @@ public class BigQueryTableConfigurationProvider {
 
     public Optional<String> getCdcSequenceField() {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.CDC_SEQUENCE_FIELD));
+    }
+
+    public Optional<List<String>> getCdcPrimaryKeyColumns() {
+        String primaryKeyColumns = config.get(BigQueryConnectorOptions.CDC_PRIMARY_KEY_COLUMNS);
+        if (primaryKeyColumns == null) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                Arrays.stream(primaryKeyColumns.split(","))
+                        .map(String::trim)
+                        .filter(entry -> !entry.isEmpty())
+                        .collect(Collectors.toList()));
+    }
+
+    public Optional<String> getCdcMaxStaleness() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.CDC_MAX_STALENESS));
     }
 
     public BigQueryReadOptions toBigQueryReadOptions() {

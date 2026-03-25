@@ -144,6 +144,44 @@ public class BigQuerySinkTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
+    public void testGet_withCdcTableAutoCreation_withoutPrimaryKeys_shouldFail() throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .enableTableCreation(true)
+                            .cdcMaxStaleness("INTERVAL 10 MINUTE")
+                            .build();
+            BigQuerySink.get(sinkConfig);
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGet_withCdcTableAutoCreation_withoutMaxStaleness_shouldFail() throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .enableTableCreation(true)
+                            .cdcPrimaryKeyColumns(java.util.Arrays.asList("shop_id"))
+                            .build();
+            BigQuerySink.get(sinkConfig);
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
     public void testGet_withCdcEnabled_exactlyOnce_shouldFail() throws Exception {
         try (StreamExecutionEnvironment env =
                 new StreamExecutionEnvironment(noRestartStrategyConfig())) {

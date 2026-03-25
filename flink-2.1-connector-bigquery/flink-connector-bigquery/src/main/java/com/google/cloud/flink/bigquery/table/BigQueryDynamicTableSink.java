@@ -69,6 +69,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 fatalizeSerializer,
                 false,
                 null,
+                null,
+                null,
                 null);
     }
 
@@ -86,6 +88,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
             boolean fatalizeSerializer,
             boolean cdcEnabled,
             String cdcSequenceField,
+            List<String> cdcPrimaryKeyColumns,
+            String cdcMaxStaleness,
             CdcChangeTypeProvider<org.apache.flink.table.data.RowData> cdcChangeTypeProvider) {
         this.logicalType = logicalType;
         this.parallelism = parallelism;
@@ -103,6 +107,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         fatalizeSerializer,
                         cdcEnabled,
                         cdcSequenceField,
+                        cdcPrimaryKeyColumns,
+                        cdcMaxStaleness,
                         cdcEnabled && cdcChangeTypeProvider == null
                                 ? RowDataCdcChangeTypeProvider.getInstance()
                                 : cdcChangeTypeProvider);
@@ -166,6 +172,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 this.sinkConfig.fatalizeSerializer(),
                 this.sinkConfig.isCdcEnabled(),
                 this.sinkConfig.getCdcSequenceField(),
+                this.sinkConfig.getCdcPrimaryKeyColumns(),
+                this.sinkConfig.getCdcMaxStaleness(),
                 (CdcChangeTypeProvider<org.apache.flink.table.data.RowData>)
                         this.sinkConfig.getCdcChangeTypeProvider());
     }

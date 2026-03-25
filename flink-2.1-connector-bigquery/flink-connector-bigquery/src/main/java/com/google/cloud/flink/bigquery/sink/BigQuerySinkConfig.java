@@ -72,6 +72,8 @@ public class BigQuerySinkConfig<IN> {
     // CDC (Change Data Capture) configuration
     private final boolean cdcEnabled;
     private final String cdcSequenceField;
+    private final List<String> cdcPrimaryKeyColumns;
+    private final String cdcMaxStaleness;
     private final CdcChangeTypeProvider<?> cdcChangeTypeProvider;
 
     public static <IN> Builder<IN> newBuilder() {
@@ -94,6 +96,8 @@ public class BigQuerySinkConfig<IN> {
                 fatalizeSerializer,
                 cdcEnabled,
                 cdcSequenceField,
+                cdcPrimaryKeyColumns,
+                cdcMaxStaleness,
                 cdcChangeTypeProvider);
     }
 
@@ -124,6 +128,9 @@ public class BigQuerySinkConfig<IN> {
                 && (this.isCdcEnabled() == object.isCdcEnabled())
                 && (Objects.equals(this.getCdcSequenceField(), object.getCdcSequenceField()))
                 && (Objects.equals(
+                        this.getCdcPrimaryKeyColumns(), object.getCdcPrimaryKeyColumns()))
+                && (Objects.equals(this.getCdcMaxStaleness(), object.getCdcMaxStaleness()))
+                && (Objects.equals(
                         this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider())));
     }
 
@@ -141,6 +148,8 @@ public class BigQuerySinkConfig<IN> {
             boolean fatalizeSerializer,
             boolean cdcEnabled,
             String cdcSequenceField,
+            List<String> cdcPrimaryKeyColumns,
+            String cdcMaxStaleness,
             CdcChangeTypeProvider<?> cdcChangeTypeProvider) {
         this.connectOptions = connectOptions;
         this.deliveryGuarantee = deliveryGuarantee;
@@ -155,6 +164,8 @@ public class BigQuerySinkConfig<IN> {
         this.fatalizeSerializer = fatalizeSerializer;
         this.cdcEnabled = cdcEnabled;
         this.cdcSequenceField = cdcSequenceField;
+        this.cdcPrimaryKeyColumns = cdcPrimaryKeyColumns;
+        this.cdcMaxStaleness = cdcMaxStaleness;
         this.cdcChangeTypeProvider = cdcChangeTypeProvider;
     }
 
@@ -210,6 +221,14 @@ public class BigQuerySinkConfig<IN> {
         return cdcSequenceField;
     }
 
+    public List<String> getCdcPrimaryKeyColumns() {
+        return cdcPrimaryKeyColumns;
+    }
+
+    public String getCdcMaxStaleness() {
+        return cdcMaxStaleness;
+    }
+
     public CdcChangeTypeProvider<?> getCdcChangeTypeProvider() {
         return cdcChangeTypeProvider;
     }
@@ -236,6 +255,8 @@ public class BigQuerySinkConfig<IN> {
         // CDC configuration
         private boolean cdcEnabled;
         private String cdcSequenceField;
+        private List<String> cdcPrimaryKeyColumns;
+        private String cdcMaxStaleness;
         private CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
 
         public Builder<IN> connectOptions(BigQueryConnectOptions connectOptions) {
@@ -309,6 +330,16 @@ public class BigQuerySinkConfig<IN> {
             return this;
         }
 
+        public Builder<IN> cdcPrimaryKeyColumns(List<String> cdcPrimaryKeyColumns) {
+            this.cdcPrimaryKeyColumns = cdcPrimaryKeyColumns;
+            return this;
+        }
+
+        public Builder<IN> cdcMaxStaleness(String cdcMaxStaleness) {
+            this.cdcMaxStaleness = cdcMaxStaleness;
+            return this;
+        }
+
         public Builder<IN> cdcChangeTypeProvider(CdcChangeTypeProvider<IN> cdcChangeTypeProvider) {
             this.cdcChangeTypeProvider = cdcChangeTypeProvider;
             return this;
@@ -332,6 +363,8 @@ public class BigQuerySinkConfig<IN> {
                     fatalizeSerializer,
                     cdcEnabled,
                     cdcSequenceField,
+                    cdcPrimaryKeyColumns,
+                    cdcMaxStaleness,
                     cdcChangeTypeProvider);
         }
     }
@@ -364,6 +397,8 @@ public class BigQuerySinkConfig<IN> {
                 fatalizeSerializer,
                 false,
                 null,
+                null,
+                null,
                 null);
     }
 
@@ -382,6 +417,8 @@ public class BigQuerySinkConfig<IN> {
             boolean fatalizeSerializer,
             boolean cdcEnabled,
             String cdcSequenceField,
+            List<String> cdcPrimaryKeyColumns,
+            String cdcMaxStaleness,
             CdcChangeTypeProvider<RowData> cdcChangeTypeProvider) {
         return new BigQuerySinkConfig<>(
                 connectOptions,
@@ -398,6 +435,8 @@ public class BigQuerySinkConfig<IN> {
                 fatalizeSerializer,
                 cdcEnabled,
                 cdcSequenceField,
+                cdcPrimaryKeyColumns,
+                cdcMaxStaleness,
                 cdcChangeTypeProvider);
     }
 

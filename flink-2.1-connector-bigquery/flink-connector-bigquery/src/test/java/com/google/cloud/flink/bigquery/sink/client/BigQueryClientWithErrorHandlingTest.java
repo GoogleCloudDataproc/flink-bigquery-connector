@@ -16,10 +16,15 @@
 
 package com.google.cloud.flink.bigquery.sink.client;
 
+import com.google.api.services.bigquery.model.Table;
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.sink.writer.CreateTableOptions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -86,7 +91,13 @@ public class BigQueryClientWithErrorHandlingTest {
         BigQueryConnectorException exception =
                 assertThrows(
                         BigQueryConnectorException.class,
-                        () -> BigQueryClientWithErrorHandling.createTable(options, null));
+                        () ->
+                                BigQueryClientWithErrorHandling.createTable(
+                                        options,
+                                        null,
+                                        new CreateTableOptions(
+                                                false, null, null, null, null, null, false, null,
+                                                null)));
         assertThat(exception).hasMessageThat().contains("Unable to create BigQuery table");
     }
 
@@ -95,6 +106,46 @@ public class BigQueryClientWithErrorHandlingTest {
         when(mockedException.getCode()).thenReturn(409);
         BigQueryConnectOptions options =
                 StorageClientFaker.createConnectOptionsForQuery(false, null, null, mockedException);
-        BigQueryClientWithErrorHandling.createTable(options, null);
+        BigQueryClientWithErrorHandling.createTable(
+                options,
+                null,
+                new CreateTableOptions(false, null, null, null, null, null, false, null, null));
+    }
+
+    @Test
+    public void testToCdcTable() {
+        BigQueryConnectOptions options =
+                BigQueryConnectOptions.builder()
+                        .setProjectId("project")
+                        .setDataset("dataset")
+                        .setTable("table")
+                        .build();
+        StandardTableDefinition tableDefinition =
+                StandardTableDefinition.newBuilder()
+                        .setSchema(
+                                Schema.of(
+                                        com.google.cloud.bigquery.Field.of(
+                                                "shop_id", StandardSQLTypeName.INT64)))
+                        .build();
+
+        Table table =
+                BigQueryClientWithErrorHandling.toCdcTable(
+                        options,
+                        tableDefinition,
+                        new CreateTableOptions(
+                                true,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                true,
+                                java.util.Arrays.asList("shop_id"),
+                                "INTERVAL 10 MINUTE"));
+
+        assertThat(table.getTableReference().getProjectId()).isEqualTo("project");
+        assertThat(table.getTableConstraints().getPrimaryKey().getColumns())
+                .containsExactly("shop_id");
+        assertThat(table.getMaxStaleness()).isEqualTo("INTERVAL 10 MINUTE");
     }
 }
