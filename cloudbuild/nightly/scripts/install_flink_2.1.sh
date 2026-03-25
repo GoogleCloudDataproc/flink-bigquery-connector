@@ -25,11 +25,12 @@ mv "/usr/lib/flink-${FLINK_VERSION}" /usr/lib/flink
 # Copy Dataproc configuration so YARN and History Server integration works
 cp -a /usr/lib/flink-dataproc/conf/* /usr/lib/flink/conf/
 
-# The Dataproc environment relies on Hadoop, but standard Flink 2.1 does not bundle it.
-# We must ensure Flink explicitly sets HADOOP_CLASSPATH from the master node.
-HADOOP_CP=$(hadoop classpath)
-echo "export HADOOP_CLASSPATH=\"${HADOOP_CP}\"" >> /usr/lib/flink/conf/flink-env.sh
-
+# The Dataproc agent constructs the classpath for Flink jobs by globbing /usr/lib/flink/lib/*.
+# It natively ignores the HADOOP_CLASSPATH environment variable inside flink-env.sh.
+# Since Flink 2.0 no longer bundles YARN/Hadoop support, we must symlink the Hadoop and YARN client jars directly into Flink s lib directory so Dataproc natively loads them.
+for jar in $(find /usr/lib/hadoop/ /usr/lib/hadoop-hdfs/ /usr/lib/hadoop-mapreduce/ /usr/lib/hadoop-yarn/ -type f -name "*.jar" ! -name "*test*" 2>/dev/null); do
+  ln -sf "$jar" /usr/lib/flink/lib/$(basename "$jar") || true
+done
 # Flink 2.0+ deprecated and moved YARN support out of the main distribution.
 # Dataproc requires YARN to submit jobs, so we must manually download the flink-yarn plugin.
 wget -q -O /usr/lib/flink/lib/flink-yarn-${FLINK_VERSION}.jar "https://repo1.maven.org/maven2/org/apache/flink/flink-yarn/${FLINK_VERSION}/flink-yarn-${FLINK_VERSION}.jar"
