@@ -27,7 +27,8 @@ cp -a /usr/lib/flink-dataproc/conf/* /usr/lib/flink/conf/
 
 # The Dataproc environment relies on Hadoop, but standard Flink 2.1 does not bundle it.
 # We must ensure Flink explicitly sets HADOOP_CLASSPATH from the master node.
-echo "export HADOOP_CLASSPATH=\$(hadoop classpath)" >> /usr/lib/flink/conf/flink-env.sh
+HADOOP_CP=$(hadoop classpath)
+echo "export HADOOP_CLASSPATH=\"${HADOOP_CP}\"" >> /usr/lib/flink/conf/flink-env.sh
 
 # Flink 2.0+ deprecated and moved YARN support out of the main distribution.
 # Dataproc requires YARN to submit jobs, so we must manually download the flink-yarn plugin.
