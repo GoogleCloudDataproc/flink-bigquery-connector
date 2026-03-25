@@ -17,7 +17,9 @@
 package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
@@ -26,6 +28,7 @@ import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.function.SerializableSupplier;
 
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfigurationProvider;
 
@@ -83,6 +86,8 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS);
         additionalOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
         additionalOptions.add(BigQueryConnectorOptions.REGION);
+        additionalOptions.add(BigQueryConnectorOptions.WRITE_MODE);
+        additionalOptions.add(BigQueryConnectorOptions.GCS_TEMP_PATH);
 
         return additionalOptions;
     }
@@ -113,6 +118,8 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
         forwardOptions.add(BigQueryConnectorOptions.REGION);
         forwardOptions.add(BigQueryConnectorOptions.FATALIZE_SERIALIZER);
+        forwardOptions.add(BigQueryConnectorOptions.WRITE_MODE);
+        forwardOptions.add(BigQueryConnectorOptions.GCS_TEMP_PATH);
 
         return forwardOptions;
     }
@@ -156,6 +163,15 @@ public class BigQueryDynamicTableFactory
             configProvider = configProvider.withTestingServices(testingServices);
         }
 
+        if (configProvider.getWriteMode() == WriteMode.INDIRECT) {
+            RuntimeExecutionMode mode =
+                    context.getConfiguration().get(ExecutionOptions.RUNTIME_MODE);
+            if (mode != RuntimeExecutionMode.BATCH) {
+                throw new IllegalStateException(
+                        "INDIRECT write mode is only supported in BATCH execution mode");
+            }
+        }
+
         return new BigQueryDynamicTableSink(
                 configProvider.translateBigQueryConnectOptions(),
                 configProvider.getDeliveryGuarantee(),
@@ -167,6 +183,8 @@ public class BigQueryDynamicTableFactory
                 configProvider.getPartitionExpirationMillis().orElse(null),
                 configProvider.getClusteredFields().orElse(null),
                 configProvider.getRegion().orElse(null),
-                configProvider.fatalizeSerializer());
+                configProvider.fatalizeSerializer(),
+                configProvider.getWriteMode(),
+                configProvider.getGcsTempPath().orElse(null));
     }
 }

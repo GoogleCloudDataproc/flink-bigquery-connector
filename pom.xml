@@ -408,6 +408,7 @@ under the License.
                                     <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.apache</shadedPattern>
                                     <excludes>
                                         <exclude>org.apache.flink.**</exclude>
+                                        <exclude>org.apache.avro.**</exclude>
                                     </excludes>
                                 </relocation>
                                 <relocation>

@@ -16,9 +16,14 @@
 
 package com.google.cloud.flink.bigquery.table;
 
+import org.apache.flink.api.common.RuntimeExecutionMode;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.Column;
+import org.apache.flink.table.catalog.ResolvedCatalogTable;
 import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.catalog.UniqueConstraint;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -318,6 +323,38 @@ public class BigQueryDynamicTableFactoryTest {
 
         DataType dataType = SCHEMA.toPhysicalRowDataType();
         return new BigQueryDynamicTableSource(readOptions, dataType, null);
+    }
+
+    @Test
+    public void testIndirectWriteModeRejectsStreamingMode() {
+        Map<String, String> options = getRequiredOptions();
+        options.put(BigQueryConnectorOptions.WRITE_MODE.key(), "INDIRECT");
+        options.put(BigQueryConnectorOptions.GCS_TEMP_PATH.key(), "gs://bucket/tmp");
+
+        Configuration config = new Configuration();
+        config.set(ExecutionOptions.RUNTIME_MODE, RuntimeExecutionMode.STREAMING);
+
+        Assertions.assertThatThrownBy(
+                        () ->
+                                FactoryUtil.createDynamicTableSink(
+                                        null,
+                                        FactoryMocks.IDENTIFIER,
+                                        new ResolvedCatalogTable(
+                                                CatalogTable.newBuilder()
+                                                        .schema(
+                                                                org.apache.flink.table.api.Schema
+                                                                        .newBuilder()
+                                                                        .fromResolvedSchema(SCHEMA)
+                                                                        .build())
+                                                        .comment("mock sink")
+                                                        .options(options)
+                                                        .build(),
+                                                SCHEMA),
+                                        Collections.emptyMap(),
+                                        config,
+                                        getClass().getClassLoader(),
+                                        false))
+                .hasStackTraceContaining("INDIRECT write mode is only supported in BATCH");
     }
 
     @Test

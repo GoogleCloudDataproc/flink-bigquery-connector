@@ -22,14 +22,12 @@ import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
-import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.test.junit5.MiniClusterExtension;
 
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
-import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
-import org.apache.avro.Schema;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
@@ -37,7 +35,6 @@ import org.mockito.Mockito;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -66,7 +63,9 @@ public class BigQueryDynamicTableSinkTest {
                     10000000000000L,
                     CLUSTERED_FIELDS,
                     REGION,
-                    true);
+                    true,
+                    WriteMode.DIRECT,
+                    null);
 
     @RegisterExtension
     static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
@@ -77,24 +76,12 @@ public class BigQueryDynamicTableSinkTest {
 
     @Test
     public void testConstructor() {
-        Schema convertedAvroSchema =
-                new Schema.Parser()
-                        .parse(
-                                "{\"type\":\"record\",\"name\":\"record\","
-                                        + "\"namespace\":\"org.apache.flink.avro.generated\",\"fields\":"
-                                        + "[{\"name\":\"number\",\"type\":\"long\"}]}");
-        BigQuerySinkConfig<RowData> obtainedSinkConfig = TABLE_SINK.getSinkConfig();
-        assertEquals(DeliveryGuarantee.AT_LEAST_ONCE, obtainedSinkConfig.getDeliveryGuarantee());
-        assertEquals(convertedAvroSchema, obtainedSinkConfig.getSchemaProvider().getAvroSchema());
-        assertTrue(obtainedSinkConfig.enableTableCreation());
-        assertEquals(PARTITIONING_FIELD, obtainedSinkConfig.getPartitionField());
-        assertEquals(TimePartitioning.Type.DAY, obtainedSinkConfig.getPartitionType());
-        assertTrue(obtainedSinkConfig.getPartitionExpirationMillis() == 10000000000000L);
-        assertEquals(CLUSTERED_FIELDS, obtainedSinkConfig.getClusteredFields());
-        assertEquals(REGION, obtainedSinkConfig.getRegion());
+        assertEquals(DeliveryGuarantee.AT_LEAST_ONCE, TABLE_SINK.getDeliveryGuarantee());
         assertEquals(SCHEMA, TABLE_SINK.getLogicalType());
         assertEquals(PARALLELISM, TABLE_SINK.getSinkParallelism());
-        assertTrue(obtainedSinkConfig.fatalizeSerializer());
+        assertEquals(
+                StorageClientFaker.createConnectOptionsForWrite(null),
+                TABLE_SINK.getConnectOptions());
     }
 
     @Test
