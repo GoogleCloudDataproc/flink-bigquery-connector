@@ -20,6 +20,8 @@ import org.apache.flink.annotation.Internal;
 
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.Dataset;
+import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobConfiguration;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
@@ -244,5 +246,34 @@ public interface BigQueryServices extends Serializable {
          */
         void createTable(
                 String project, String dataset, String table, TableDefinition tableDefinition);
+
+        /**
+         * Submit a BigQuery job (load, copy, etc.).
+         *
+         * @param project The GCP project.
+         * @param jobId The unique job ID.
+         * @param jobConfiguration The job configuration (e.g., LoadJobConfiguration,
+         *     CopyJobConfiguration).
+         * @return The created Job.
+         */
+        Job submitJob(String project, String jobId, JobConfiguration jobConfiguration);
+
+        /**
+         * Get a BigQuery job by ID.
+         *
+         * @param project The GCP project.
+         * @param jobId The job ID.
+         * @return The Job, or null if not found.
+         */
+        Job getJob(String project, String jobId);
+
+        /**
+         * Wait for a BigQuery job to complete.
+         *
+         * @param job The job to wait for.
+         * @return The completed Job.
+         * @throws InterruptedException if the wait is interrupted.
+         */
+        Job waitForJob(Job job) throws InterruptedException;
     }
 }

@@ -233,4 +233,28 @@ public class BigQueryConnectorOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Fail if serializer cannot convert record to proto");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Write mode for the BigQuery sink. DIRECT uses the BigQuery
+     * Storage Write API. INDIRECT writes Avro files to GCS and uses BigQuery load jobs. <br>
+     * Default: DIRECT
+     */
+    public static final ConfigOption<String> WRITE_MODE =
+            ConfigOptions.key("write.mode")
+                    .stringType()
+                    .defaultValue("DIRECT")
+                    .withDescription(
+                            "Write mode: DIRECT (Storage Write API) or INDIRECT (GCS + load jobs)");
+
+    /**
+     * [REQUIRED for INDIRECT mode] GCS path for temporary Avro files when using indirect writes.
+     * <br>
+     * Example: gs://my-bucket/flink-temp
+     */
+    public static final ConfigOption<String> GCS_TEMP_PATH =
+            ConfigOptions.key("write.gcs-temp-path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCS path for temporary files (required for INDIRECT write mode)");
 }
