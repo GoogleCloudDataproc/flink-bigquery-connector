@@ -85,8 +85,10 @@ public class BigQuerySink {
         }
         if (sinkConfig.getCdcSequenceField() == null
                 || sinkConfig.getCdcSequenceField().isEmpty()) {
-            throw new IllegalArgumentException(
-                    "CDC mode requires write.cdc-sequence-field to be set for ordering changes.");
+            LOG.warn(
+                    "CDC mode enabled without write.cdc-sequence-field. "
+                            + "Records will be written without _change_sequence_number, so ordering "
+                            + "between multiple changes to the same primary key may be nondeterministic.");
         }
         LOG.info(
                 "CDC mode enabled. Ensure the destination BigQuery table has a PRIMARY KEY "

@@ -246,13 +246,14 @@ public class BigQueryConnectorOptions {
                             "Enable CDC for upsert/delete. Requires AT_LEAST_ONCE. Table must have PRIMARY KEY.");
 
     /**
-     * [OPTIONAL, Sink Configuration] Field name to use for CDC sequence number ordering. Required
-     * when CDC is enabled. Supports LONG, INT, TIMESTAMP types.
+     * [OPTIONAL, Sink Configuration] Field name to use for CDC sequence number ordering. Supports
+     * LONG, INT, TIMESTAMP types.
      */
     public static final ConfigOption<String> CDC_SEQUENCE_FIELD =
             ConfigOptions.key("write.cdc-sequence-field")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Field for CDC sequence number (required when CDC enabled). Supports LONG, INT, TIMESTAMP.");
+                            "Optional field for CDC sequence number ordering. Supports LONG, INT, TIMESTAMP. "
+                                    + "If omitted, the connector will not populate _change_sequence_number.");
 }
