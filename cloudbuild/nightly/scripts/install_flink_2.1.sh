@@ -28,7 +28,7 @@ cp -a /usr/lib/flink-dataproc/conf/* /usr/lib/flink/conf/
 # The Dataproc agent constructs the classpath for Flink jobs by globbing /usr/lib/flink/lib/*.
 # It natively ignores the HADOOP_CLASSPATH environment variable inside flink-env.sh.
 # Since Flink 2.0 no longer bundles YARN/Hadoop support, we must symlink the Hadoop and YARN client jars directly into Flink s lib directory so Dataproc natively loads them.
-for jar in $(find /usr/lib/hadoop/ /usr/lib/hadoop-hdfs/ /usr/lib/hadoop-mapreduce/ /usr/lib/hadoop-yarn/ -type f -name "*.jar" ! -name "*test*" 2>/dev/null); do
+for jar in $(find /usr/lib/hadoop/ /usr/lib/hadoop-hdfs/ /usr/lib/hadoop-mapreduce/ /usr/lib/hadoop-yarn/ -type f -name "*.jar" ! -name "*test*" ! -name "commons-cli-*" ! -name "slf4j-*" ! -name "log4j-*" ! -name "reload4j-*" 2>/dev/null); do
   ln -sf "$jar" /usr/lib/flink/lib/$(basename "$jar") || true
 done
 # Flink 2.0+ deprecated and moved YARN support out of the main distribution.
