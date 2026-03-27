@@ -36,6 +36,11 @@ wget -q -O /usr/lib/flink/lib/flink-yarn-${FLINK_VERSION}.jar "https://repo1.mav
 ln -sf /usr/lib/flink/bin/flink /usr/bin/flink
 
 # Restart Flink HistoryServer and YARN session
+# Force the YARN session and Flink clients to use a shared, predictable properties file 
+# rather than a user-specific one (e.g. /tmp/.yarn-properties-root vs /tmp/.yarn-properties-flink)
+echo "yarn.properties-file.location: /tmp/.yarn-properties-dataproc" >> /usr/lib/flink/conf/flink-conf.yaml
+echo "yarn.properties-file.location: /tmp/.yarn-properties-dataproc" >> /usr/lib/flink/conf/config.yaml || true
+
 systemctl restart flink-history-server || true
 systemctl restart flink-yarn-session || true
 
