@@ -191,6 +191,68 @@ public class BigQueryIntegrationTest {
                 RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_RESET_BACKOFF_THRESHOLD,
                 Duration.ofHours(2));
         config.set(RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_JITTER_FACTOR, 0.0);
+
+        // Dynamically inject the YARN application ID from the master's properties file
+        // because gcloud dataproc Agent bypasses standard yarn session CLI attachment
+        String[] possiblePropertiesFiles = {
+            "/tmp/.yarn-properties-dataproc",
+            "/tmp/.yarn-properties-flink",
+            "/tmp/.yarn-properties-yarn",
+            "/tmp/.yarn-properties-root"
+        };
+
+        for (String filePath : possiblePropertiesFiles) {
+            java.io.File yarnPropsFile = new java.io.File(filePath);
+            if (yarnPropsFile.exists()) {
+                try (java.io.InputStream in = new java.io.FileInputStream(yarnPropsFile)) {
+                    java.util.Properties props = new java.util.Properties();
+                    props.load(in);
+                    // Try both known keys for application ID natively
+                    String appId = props.getProperty("applicationID");
+                    if (appId == null) {
+                        appId = props.getProperty("yarn.application.id");
+                    }
+                    if (appId != null && !appId.trim().isEmpty()) {
+                        config.setString("yarn.application.id", appId.trim());
+                        LOG.info("Injected YARN Application ID {} from {}", appId, filePath);
+                        break;
+                    }
+                } catch (Exception e) {
+                    LOG.warn("Failed to load properties from {}", filePath, e);
+                }
+            }
+        }
+
+        // Fallback: Native Dataproc service accounts often isolate /tmp via PrivateTmp
+        // Use standard YARN CLI to strictly query the running session cluster directly!
+        if (!config.containsKey("yarn.application.id")) {
+            try {
+                Process p =
+                        Runtime.getRuntime().exec(new String[] {"yarn", "application", "-list"});
+                try (java.io.BufferedReader reader =
+                        new java.io.BufferedReader(
+                                new java.io.InputStreamReader(p.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.contains("Flink session") && line.contains("RUNNING")) {
+                            for (String part : line.split("\\s+")) {
+                                if (part.startsWith("application_")) {
+                                    config.setString("yarn.application.id", part.trim());
+                                    LOG.info(
+                                            "Dynamically resolved YARN Application ID {} via YARN CLI",
+                                            part.trim());
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                p.waitFor();
+            } catch (Exception e) {
+                LOG.warn("Failed to query YARN CLI for running Flink sessions", e);
+            }
+        }
+
         return config;
     }
 
