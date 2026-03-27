@@ -27,7 +27,7 @@ import org.apache.flink.api.common.restartstrategy.RestartStrategies.RestartStra
 import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
-import com.google.cloud.flink.bigquery.common.utils.SimpleParameterTool;
+import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.file.src.FileSource;
