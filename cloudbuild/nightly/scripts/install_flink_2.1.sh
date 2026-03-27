@@ -35,13 +35,13 @@ wget -q -O /usr/lib/flink/lib/flink-yarn-${FLINK_VERSION}.jar "https://repo1.mav
 
 ln -sf /usr/lib/flink/bin/flink /usr/bin/flink
 
-# Restart Flink HistoryServer and YARN session
-# Force the YARN session and Flink clients to use a shared, predictable properties file 
-# rather than a user-specific one (e.g. /tmp/.yarn-properties-root vs /tmp/.yarn-properties-flink)
-echo "yarn.properties-file.location: /tmp/.yarn-properties-dataproc" >> /usr/lib/flink/conf/flink-conf.yaml
-echo "yarn.properties-file.location: /tmp/.yarn-properties-dataproc" >> /usr/lib/flink/conf/config.yaml || true
-
 systemctl restart flink-history-server || true
-systemctl restart flink-yarn-session || true
+
+# Dataproc natively relies on 'yarn-per-job' mode which Apache Flink 2.0+ completely removed.
+# Because Dataproc doesn't natively boot a background YARN session service, 
+# 'yarn-session' executions will crash because they cannot find an active session!
+# We must start a background session aggressively here so jobs can natively latch on.
+echo "Booting detached Flink 2.1 YARN Session cluster..."
+sudo -H -u flink bash -c 'export HADOOP_CONF_DIR=/etc/hadoop/conf && /usr/lib/flink/bin/yarn-session.sh -d -jm 2g -tm 2g -s 2' || true
 
 echo "Flink ${FLINK_VERSION} installation complete."
