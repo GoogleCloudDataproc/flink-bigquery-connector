@@ -107,4 +107,112 @@ public class BigQuerySinkTest {
             assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryExactlyOnceSink);
         }
     }
+
+    @Test
+    public void testGet_withCdcEnabled_atLeastOnce() throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .cdcSequenceField("timestamp")
+                            .build();
+            assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryDefaultSink);
+        }
+    }
+
+    @Test
+    public void testGet_withCdcEnabled_atLeastOnce_withoutSequenceField() throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .build();
+            assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryDefaultSink);
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGet_withCdcTableAutoCreation_withoutPrimaryKeys_shouldFail() throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .enableTableCreation(true)
+                            .cdcMaxStaleness("INTERVAL 10 MINUTE")
+                            .build();
+            BigQuerySink.get(sinkConfig);
+        }
+    }
+
+    @Test
+    public void testGet_withCdcTableAutoCreation_withoutMaxStaleness_shouldSucceed()
+            throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .enableTableCreation(true)
+                            .cdcPrimaryKeyColumns(java.util.Arrays.asList("shop_id"))
+                            .build();
+            assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryDefaultSink);
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGet_withCdcEnabled_exactlyOnce_shouldFail() throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .build();
+            BigQuerySink.get(sinkConfig);
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGet_withCdcEnabled_noneDeliveryGuarantee_shouldFail() throws Exception {
+        try (StreamExecutionEnvironment env =
+                new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            BigQuerySinkConfig<Object> sinkConfig =
+                    BigQuerySinkConfig.<Object>newBuilder()
+                            .connectOptions(StorageClientFaker.createConnectOptionsForWrite(null))
+                            .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                            .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                            .deliveryGuarantee(DeliveryGuarantee.NONE)
+                            .streamExecutionEnvironment(env)
+                            .enableCdc(true)
+                            .build();
+            BigQuerySink.get(sinkConfig);
+        }
+    }
 }

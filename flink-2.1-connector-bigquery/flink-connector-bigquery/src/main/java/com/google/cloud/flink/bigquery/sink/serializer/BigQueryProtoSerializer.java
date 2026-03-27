@@ -56,4 +56,62 @@ public abstract class BigQueryProtoSerializer<IN> implements Serializable {
      * @return Schema.
      */
     public abstract Schema getAvroSchema(IN record);
+
+    /**
+     * Initializes the serializer for CDC mode with an augmented schema that includes CDC
+     * pseudocolumns. This will be called once for every serializer instance before its first
+     * serialize call when CDC is enabled.
+     *
+     * <p>The default implementation calls {@link #init(BigQuerySchemaProvider)}. Subclasses should
+     * override this method to store the CDC-aware descriptor separately.
+     *
+     * @param schemaProvider BigQuery table's schema information augmented with CDC columns.
+     */
+    public void initForCdc(BigQuerySchemaProvider schemaProvider) {
+        init(schemaProvider);
+    }
+
+    /**
+     * Convert Flink record to proto ByteString with CDC metadata included.
+     *
+     * <p>The default implementation throws {@link UnsupportedOperationException}. Subclasses that
+     * support CDC must override this method to include the CDC pseudocolumns in the serialized
+     * output.
+     *
+     * @param record Record to serialize.
+     * @param changeType The CDC change type ("UPSERT" or "DELETE").
+     * @param changeSequenceNumber The sequence number for ordering (hexadecimal string).
+     * @return ByteString with CDC metadata included.
+     * @throws BigQuerySerializationException If serialization failed.
+     */
+    public ByteString serializeWithCdc(IN record, String changeType, String changeSequenceNumber)
+            throws BigQuerySerializationException {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Serializer %s does not support CDC serialization. "
+                                + "Override serializeWithCdc() to handle change type '%s'.",
+                        getClass().getName(), changeType));
+    }
+
+    /**
+     * Extracts a sequence number from the record for CDC ordering.
+     *
+     * <p>The sequence number is used by BigQuery to determine the order of changes for records with
+     * the same primary key. Higher sequence numbers take precedence.
+     *
+     * <p>The default implementation throws {@link UnsupportedOperationException}. Subclasses that
+     * support CDC must override this method to extract a meaningful sequence number from the
+     * record.
+     *
+     * @param record Record to extract sequence number from.
+     * @param sequenceField The name of the field containing the sequence value.
+     * @return Hexadecimal string representation of the sequence number.
+     */
+    public String extractSequenceNumber(IN record, String sequenceField) {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Serializer %s does not support CDC sequence extraction. "
+                                + "Override extractSequenceNumber() to use sequence field '%s'.",
+                        getClass().getName(), sequenceField));
+    }
 }
