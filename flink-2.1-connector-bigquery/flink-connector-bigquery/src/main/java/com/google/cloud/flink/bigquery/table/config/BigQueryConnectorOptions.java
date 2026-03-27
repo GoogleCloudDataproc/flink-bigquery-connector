@@ -270,15 +270,28 @@ public class BigQueryConnectorOptions {
                                     + "auto-creates a CDC destination table.");
 
     /**
-     * [OPTIONAL, Sink Configuration] BigQuery INTERVAL literal used as max_staleness when
-     * auto-creating a CDC destination table.
+     * [OPTIONAL, Sink Configuration] BigQuery INTERVAL literal intended to be used as max_staleness
+     * when auto-creating a CDC destination table.
+     *
+     * <p>Known limitation: BigQuery's REST table-creation path currently does not persist this
+     * option for CDC tables, even though table creation itself succeeds. As a result, max_staleness
+     * will remain unset after auto-creation.
+     *
+     * <p>Workaround: After the connector creates the table, run an ALTER TABLE statement such as:
+     *
+     * <p>{@code ALTER TABLE `project.dataset.table` SET OPTIONS ( max_staleness = INTERVAL 10
+     * MINUTE )}
      */
     public static final ConfigOption<String> CDC_MAX_STALENESS =
             ConfigOptions.key("write.cdc-max-staleness")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "BigQuery INTERVAL literal for max_staleness when the connector "
-                                    + "auto-creates a CDC destination table, for example "
-                                    + "INTERVAL 10 MINUTE.");
+                            "BigQuery INTERVAL literal intended for max_staleness when the "
+                                    + "connector auto-creates a CDC destination table, for "
+                                    + "example INTERVAL 10 MINUTE. Known limitation: due to a "
+                                    + "BigQuery REST API limitation, this option is currently not "
+                                    + "persisted during table creation, so max_staleness remains "
+                                    + "unset after create. Run ALTER TABLE ... SET OPTIONS "
+                                    + "(max_staleness = INTERVAL ...) after creation.");
 }

@@ -63,7 +63,6 @@ public class BigQuerySink {
      *
      * <p>CDC mode has the following requirements: - Must use AT_LEAST_ONCE delivery guarantee (CDC
      * uses the default stream) - The destination BigQuery table must have a PRIMARY KEY constraint
-     * - The destination BigQuery table must have max_staleness option configured
      *
      * <p>Note: Table-level requirements (PRIMARY KEY, max_staleness) are not validated here as they
      * require BigQuery API calls. They will be validated at runtime.
@@ -98,14 +97,19 @@ public class BigQuerySink {
                         "CDC table auto-creation requires write.cdc-primary-key-columns to be set.");
             }
             if (StringUtils.isNullOrWhitespaceOnly(sinkConfig.getCdcMaxStaleness())) {
-                throw new IllegalArgumentException(
-                        "CDC table auto-creation requires write.cdc-max-staleness to be set.");
+                LOG.warn(
+                        "CDC table auto-creation enabled without write.cdc-max-staleness. "
+                                + "The table will still be created, but max_staleness will remain unset. "
+                                + "If needed, run ALTER TABLE ... SET OPTIONS (max_staleness = INTERVAL ...)"
+                                + " after creation.");
             }
         }
         LOG.info(
                 "CDC mode enabled. Ensure the destination BigQuery table has a PRIMARY KEY "
-                        + "constraint and max_staleness option configured for CDC to work properly. "
-                        + "If table auto-creation is enabled, configure them with "
-                        + "write.cdc-primary-key-columns and write.cdc-max-staleness.");
+                        + "constraint configured for CDC to work properly. "
+                        + "If table auto-creation is enabled, configure primary keys with "
+                        + "write.cdc-primary-key-columns. max_staleness is optional, but if omitted "
+                        + "or not persisted by BigQuery during create, it may need to be set later "
+                        + "with ALTER TABLE ... SET OPTIONS.");
     }
 }

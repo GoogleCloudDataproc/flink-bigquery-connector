@@ -162,8 +162,9 @@ public class BigQuerySinkTest {
         }
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testGet_withCdcTableAutoCreation_withoutMaxStaleness_shouldFail() throws Exception {
+    @Test
+    public void testGet_withCdcTableAutoCreation_withoutMaxStaleness_shouldSucceed()
+            throws Exception {
         try (StreamExecutionEnvironment env =
                 new StreamExecutionEnvironment(noRestartStrategyConfig())) {
             BigQuerySinkConfig<Object> sinkConfig =
@@ -177,7 +178,7 @@ public class BigQuerySinkTest {
                             .enableTableCreation(true)
                             .cdcPrimaryKeyColumns(java.util.Arrays.asList("shop_id"))
                             .build();
-            BigQuerySink.get(sinkConfig);
+            assertTrue(BigQuerySink.get(sinkConfig) instanceof BigQueryDefaultSink);
         }
     }
 
