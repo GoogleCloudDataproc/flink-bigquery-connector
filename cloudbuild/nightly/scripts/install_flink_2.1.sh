@@ -25,6 +25,11 @@ mv "/usr/lib/flink-${FLINK_VERSION}" /usr/lib/flink
 # Copy Dataproc configuration so YARN and History Server integration works
 cp -a /usr/lib/flink-dataproc/conf/* /usr/lib/flink/conf/
 
+# Flink 2.1 natively supports gs:// filesystems via an optional plugin located in /opt.
+# We must move it into the active /plugins directory so job checkpoints sent to gs:// do not crash!
+mkdir -p /usr/lib/flink/plugins/gs-fs-hadoop
+cp /usr/lib/flink/opt/flink-gs-fs-hadoop-*.jar /usr/lib/flink/plugins/gs-fs-hadoop/ || true
+
 # The Dataproc agent constructs the classpath for Flink jobs by globbing /usr/lib/flink/lib/*.
 # It natively ignores the HADOOP_CLASSPATH environment variable inside flink-env.sh.
 # Since Flink 2.0 no longer bundles YARN/Hadoop support, we must symlink the Hadoop and YARN client jars directly into Flink s lib directory so Dataproc natively loads them.
