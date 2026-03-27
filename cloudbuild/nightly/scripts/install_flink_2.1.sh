@@ -46,7 +46,10 @@ systemctl restart flink-history-server || true
 # Because Dataproc doesn't natively boot a background YARN session service, 
 # 'yarn-session' executions will crash because they cannot find an active session!
 # We must start a background session aggressively here so jobs can natively latch on.
-echo "Booting detached Flink 2.1 YARN Session cluster..."
-sudo -H -u flink bash -c 'export HADOOP_CONF_DIR=/etc/hadoop/conf && /usr/lib/flink/bin/yarn-session.sh -d -jm 2g -tm 2g -s 2' || true
+ROLE="$(/usr/share/google/get_metadata_value attributes/dataproc-role)"
+if [[ "${ROLE}" == 'Master' ]]; then
+  echo "Booting detached Flink 2.1 YARN Session cluster..."
+  sudo -H -u flink bash -c 'export HADOOP_CONF_DIR=/etc/hadoop/conf && /usr/lib/flink/bin/yarn-session.sh -d -jm 2g -tm 2g -s 2' || true
+fi
 
 echo "Flink ${FLINK_VERSION} installation complete."
