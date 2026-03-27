@@ -17,6 +17,7 @@
 set -euxo pipefail
 readonly MVN="./mvnw -B -e -s /workspace/cloudbuild/nightly/gcp-settings.xml -Dmaven.repo.local=/workspace/.repository"
 readonly STEP=$1
+readonly FLINK_VERSION=${FLINK_VERSION:-1.17}
 
 cd /workspace
 
@@ -33,6 +34,12 @@ create_cluster(){
   # 1. Create the first cluster for bounded read.
   # - Modify the cluster name for all tests.
   CLUSTER_NAME="$CLUSTER_NAME"-"$timestamp"
+  
+  # Override INITIALISATION_ACTION_SCRIPT_URI if we uploaded a custom script
+  if [[ -f "initialization_script_uri.txt" ]]; then
+    export INITIALISATION_ACTION_SCRIPT_URI=$(cat "initialization_script_uri.txt")
+  fi
+  
   # - call script that creates cluster with retries.
   source cloudbuild/nightly/scripts/create_dataproc_cluster.sh "$CLUSTER_NAME" "$REGION_ARRAY_STRING" "$NUM_WORKERS" "$REGION_FILE" "$WORKER_MACHINE_TYPE"
   # - save the cluster for future uses
@@ -79,17 +86,25 @@ case $STEP in
   # Download maven and all the dependencies
   init)
     timestamp=$(date +"%Y%m%d%H%M%S")
-    export GCS_JAR_LOCATION="$GCS_JAR_LOCATION"/"$timestamp"/"$GCS_JAR_NAME"
+    GCS_BASE_PATH="$GCS_JAR_LOCATION"/"$timestamp"
+    export GCS_JAR_LOCATION="$GCS_BASE_PATH"/"$GCS_JAR_NAME"
 
     # Extract revision from pom.xml
     RELEASE_VERSION=$($MVN help:evaluate -Dexpression=project.version -q -DforceStdout)
     # Construct the path to the JAR in the local maven repository
-    ARTIFACT_ID="flink-1.17-connector-bigquery-integration-test"
+    ARTIFACT_ID="flink-${FLINK_VERSION}-connector-bigquery-integration-test"
     MVN_JAR_PATH="/workspace/.repository/com/google/cloud/flink/${ARTIFACT_ID}/${RELEASE_VERSION}/${ARTIFACT_ID}-${RELEASE_VERSION}.jar"
 
-    $MVN clean install -DskipTests -Pflink_1.17
+    $MVN clean install -DskipTests -P"flink_${FLINK_VERSION}"
     gcloud storage cp "${MVN_JAR_PATH}" "$GCS_JAR_LOCATION"
     echo "$GCS_JAR_LOCATION" > "$GCS_JAR_LOCATION_FILE"
+    
+    # Upload Flink initialization script if Flink 2.1 is requested
+    if [[ "$FLINK_VERSION" == "2.1" || "$FLINK_VERSION" == "2.1."* ]]; then
+        export GCS_INIT_SCRIPT_LOCATION="$GCS_BASE_PATH/install_flink_2.1.sh"
+        gcloud storage cp "cloudbuild/nightly/scripts/install_flink_2.1.sh" "$GCS_INIT_SCRIPT_LOCATION"
+        echo "$GCS_INIT_SCRIPT_LOCATION" > "initialization_script_uri.txt"
+    fi
     exit
     ;;
 

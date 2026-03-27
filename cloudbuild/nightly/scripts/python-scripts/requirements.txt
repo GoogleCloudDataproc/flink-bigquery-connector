@@ -23,8 +23,8 @@ idna==3.7
 packaging==24.2.0
 proto-plus==1.27.1
 protobuf==5.29.6
-pyasn1==0.5.1
-pyasn1-modules==0.3.0
+pyasn1==0.6.3
+pyasn1-modules==0.4.2
 pyparsing==3.1.1
 python-dateutil==2.8.2
 requests==2.32.4
