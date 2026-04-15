@@ -164,7 +164,8 @@ public class BigQueryDefaultWriterTest {
                                 ByteString.copyFromUtf8("foobar"),
                                 StorageClientFaker.SIMPLE_AVRO_SCHEMA),
                         AppendRowsResponse.newBuilder().build(),
-                        new CreateTableOptions(true, null, null, null, null, null),
+                        new CreateTableOptions(
+                                true, null, null, null, null, null, false, null, null),
                         false);
         // First element will be added to append request.
         defaultWriter.write(new Object(), null);
@@ -186,7 +187,8 @@ public class BigQueryDefaultWriterTest {
                                 ByteString.copyFromUtf8("foobar"),
                                 StorageClientFaker.SIMPLE_AVRO_SCHEMA),
                         AppendRowsResponse.newBuilder().build(),
-                        new CreateTableOptions(false, null, null, null, null, null),
+                        new CreateTableOptions(
+                                false, null, null, null, null, null, false, null, null),
                         false);
         // First element will be added to append request.
         defaultWriter.write(new Object(), null);
@@ -413,6 +415,9 @@ public class BigQueryDefaultWriterTest {
                 false,
                 128,
                 "traceId",
+                false,
+                null,
+                null,
                 mockInitContext);
     }
 
@@ -427,6 +432,9 @@ public class BigQueryDefaultWriterTest {
                 fatalizeSerializer,
                 128,
                 "traceId",
+                false,
+                null,
+                null,
                 mockInitContext);
     }
 

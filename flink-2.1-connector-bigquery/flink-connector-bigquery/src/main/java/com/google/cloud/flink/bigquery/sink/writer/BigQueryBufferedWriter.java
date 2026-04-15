@@ -153,7 +153,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                 createTableOptions,
                 fatalizeSerializer,
                 maxParallelism,
-                traceId);
+                traceId,
+                false, // cdcEnabled: buffered streams do not support CDC
+                null, // cdcSequenceField: unused because CDC is disabled
+                null); // cdcChangeTypeProvider: unused because CDC is disabled
         this.streamNameInState = StringUtils.isNullOrWhitespaceOnly(streamName) ? "" : streamName;
         this.streamName = this.streamNameInState;
         this.streamOffsetInState = streamOffset;

@@ -233,4 +233,65 @@ public class BigQueryConnectorOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Fail if serializer cannot convert record to proto");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Enable CDC (Change Data Capture) for upsert/delete support.
+     * Requires AT_LEAST_ONCE delivery guarantee. The destination table must have a PRIMARY KEY.
+     */
+    public static final ConfigOption<Boolean> CDC_ENABLED =
+            ConfigOptions.key("write.cdc-enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable CDC for upsert/delete. Requires AT_LEAST_ONCE. Table must have PRIMARY KEY.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Field name to use for CDC sequence number ordering. Supports
+     * LONG, INT, TIMESTAMP types.
+     */
+    public static final ConfigOption<String> CDC_SEQUENCE_FIELD =
+            ConfigOptions.key("write.cdc-sequence-field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional field for CDC sequence number ordering. Supports LONG, INT, TIMESTAMP. "
+                                    + "If omitted, the connector will not populate _change_sequence_number.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Comma-separated list of BigQuery primary key columns to apply
+     * when auto-creating a CDC destination table.
+     */
+    public static final ConfigOption<String> CDC_PRIMARY_KEY_COLUMNS =
+            ConfigOptions.key("write.cdc-primary-key-columns")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Comma-separated list of primary key columns to apply when the connector "
+                                    + "auto-creates a CDC destination table.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] BigQuery INTERVAL literal intended to be used as max_staleness
+     * when auto-creating a CDC destination table.
+     *
+     * <p>Known limitation: BigQuery's REST table-creation path currently does not persist this
+     * option for CDC tables, even though table creation itself succeeds. As a result, max_staleness
+     * will remain unset after auto-creation.
+     *
+     * <p>Workaround: After the connector creates the table, run an ALTER TABLE statement such as:
+     *
+     * <p>{@code ALTER TABLE `project.dataset.table` SET OPTIONS ( max_staleness = INTERVAL 10
+     * MINUTE )}
+     */
+    public static final ConfigOption<String> CDC_MAX_STALENESS =
+            ConfigOptions.key("write.cdc-max-staleness")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "BigQuery INTERVAL literal intended for max_staleness when the "
+                                    + "connector auto-creates a CDC destination table, for "
+                                    + "example INTERVAL 10 MINUTE. Known limitation: due to a "
+                                    + "BigQuery REST API limitation, this option is currently not "
+                                    + "persisted during table creation, so max_staleness remains "
+                                    + "unset after create. Run ALTER TABLE ... SET OPTIONS "
+                                    + "(max_staleness = INTERVAL ...) after creation.");
 }

@@ -522,7 +522,8 @@ public class BigQueryBufferedWriterTest {
                         new FakeBigQuerySerializer(
                                 ByteString.copyFromUtf8("foobar"),
                                 StorageClientFaker.SIMPLE_AVRO_SCHEMA),
-                        new CreateTableOptions(true, null, null, null, null, null),
+                        new CreateTableOptions(
+                                true, null, null, null, null, null, false, null, null),
                         false);
         // First element will be added to append request.
         bufferedWriter.write(new Object(), null);

@@ -25,6 +25,7 @@ import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LocalZonedTimestampType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.TimeType;
 import org.apache.flink.table.types.logical.TimestampType;
 
@@ -56,6 +57,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
 
     private final LogicalType type;
     private Descriptor descriptor;
+    private Descriptor cdcDescriptor;
 
     public RowDataToProtoSerializer(LogicalType type) {
         this.type = type;
@@ -72,11 +74,23 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     public void init(BigQuerySchemaProvider bigQuerySchemaProvider) {
         Preconditions.checkNotNull(
                 bigQuerySchemaProvider,
-                "BigQuerySchemaProvider not found while initializing AvroToProtoSerializer");
+                "BigQuerySchemaProvider not found while initializing RowDataToProtoSerializer");
         Descriptor derivedDescriptor = bigQuerySchemaProvider.getDescriptor();
         Preconditions.checkNotNull(
                 derivedDescriptor, "Destination BigQuery table's Proto Schema could not be found.");
         this.descriptor = derivedDescriptor;
+    }
+
+    @Override
+    public void initForCdc(BigQuerySchemaProvider bigQuerySchemaProvider) {
+        Preconditions.checkNotNull(
+                bigQuerySchemaProvider,
+                "BigQuerySchemaProvider not found while initializing RowDataToProtoSerializer for CDC");
+        Descriptor derivedDescriptor = bigQuerySchemaProvider.getDescriptor();
+        Preconditions.checkNotNull(
+                derivedDescriptor,
+                "Destination BigQuery table's CDC Proto Schema could not be found.");
+        this.cdcDescriptor = derivedDescriptor;
     }
 
     @Override
@@ -96,6 +110,113 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                             record, e.getMessage()),
                     e);
         }
+    }
+
+    @Override
+    public ByteString serializeWithCdc(
+            RowData record, String changeType, String changeSequenceNumber)
+            throws BigQuerySerializationException {
+        try {
+            return getDynamicMessageFromRowDataWithCdc(
+                            record, this.cdcDescriptor, this.type, changeType, changeSequenceNumber)
+                    .toByteString();
+        } catch (Exception e) {
+            throw new BigQuerySerializationException(
+                    String.format(
+                            "Error while serialising Row Data record with CDC: %s\nError: %s",
+                            record, e.getMessage()),
+                    e);
+        }
+    }
+
+    @Override
+    public String extractSequenceNumber(RowData record, String sequenceField) {
+        if (sequenceField == null || sequenceField.isEmpty()) {
+            return null;
+        }
+        if (!(type instanceof RowType)) {
+            throw new IllegalArgumentException(
+                    "CDC sequence field extraction requires RowType, got: " + type.getClass());
+        }
+        RowType rowType = (RowType) type;
+        int fieldIndex = rowType.getFieldNames().indexOf(sequenceField);
+        if (fieldIndex < 0) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Sequence field '%s' does not exist. Available: %s",
+                            sequenceField, rowType.getFieldNames()));
+        }
+        if (record.isNullAt(fieldIndex)) {
+            return null;
+        }
+        LogicalType fieldType = rowType.getTypeAt(fieldIndex);
+        Long longValue = extractLongFromRowData(record, fieldIndex, fieldType);
+        if (longValue == null) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Cannot convert sequence field '%s' to Long. Supported: BIGINT, INT, TIMESTAMP.",
+                            sequenceField));
+        }
+        return String.format("%016X", longValue);
+    }
+
+    private Long extractLongFromRowData(RowData record, int fieldIndex, LogicalType fieldType) {
+        switch (fieldType.getTypeRoot()) {
+            case BIGINT:
+                return record.getLong(fieldIndex);
+            case INTEGER:
+            case TINYINT:
+            case SMALLINT:
+                return (long) record.getInt(fieldIndex);
+            case TIMESTAMP_WITHOUT_TIME_ZONE:
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                int precision;
+                if (fieldType instanceof TimestampType) {
+                    precision = ((TimestampType) fieldType).getPrecision();
+                } else {
+                    precision = ((LocalZonedTimestampType) fieldType).getPrecision();
+                }
+                TimestampData ts = record.getTimestamp(fieldIndex, precision);
+                return ts.getMillisecond();
+            default:
+                return null;
+        }
+    }
+
+    private DynamicMessage getDynamicMessageFromRowDataWithCdc(
+            RowData element,
+            Descriptor descriptor,
+            LogicalType type,
+            String changeType,
+            String changeSequenceNumber) {
+        DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+        int fieldNumber = 0;
+        for (LogicalType fieldType : type.getChildren()) {
+            FieldDescriptor fieldDescriptor =
+                    Preconditions.checkNotNull(descriptor.findFieldByNumber(fieldNumber + 1));
+            if (element.isNullAt(fieldNumber)) {
+                if (fieldDescriptor.isRequired()) {
+                    throw new IllegalArgumentException(
+                            "Received null value for non-nullable field "
+                                    + fieldDescriptor.getName());
+                }
+            } else {
+                Object value = toProtoValue(fieldType, fieldNumber, element, fieldDescriptor);
+                builder.setField(fieldDescriptor, value);
+            }
+            fieldNumber += 1;
+        }
+        FieldDescriptor changeTypeField =
+                descriptor.findFieldByName(BigQueryCdcSchemaProvider.CDC_CHANGE_TYPE_FIELD);
+        FieldDescriptor sequenceField =
+                descriptor.findFieldByName(BigQueryCdcSchemaProvider.CDC_SEQUENCE_NUMBER_FIELD);
+        if (changeTypeField != null) {
+            builder.setField(changeTypeField, changeType);
+        }
+        if (sequenceField != null && changeSequenceNumber != null) {
+            builder.setField(sequenceField, changeSequenceNumber);
+        }
+        return builder.build();
     }
 
     public Object toProtoValue(

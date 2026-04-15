@@ -29,6 +29,9 @@ public class CreateTableOptions {
     private final long partitionExpirationMillis;
     private final List<String> clusteredFields;
     private final String region;
+    private final boolean cdcEnabled;
+    private final List<String> cdcPrimaryKeyColumns;
+    private final String cdcMaxStaleness;
 
     public CreateTableOptions(
             boolean enableTableCreation,
@@ -36,7 +39,10 @@ public class CreateTableOptions {
             TimePartitioning.Type partitionType,
             Long partitionExpirationMillis,
             List<String> clusteredFields,
-            String region) {
+            String region,
+            boolean cdcEnabled,
+            List<String> cdcPrimaryKeyColumns,
+            String cdcMaxStaleness) {
         this.enableTableCreation = enableTableCreation;
         this.partitionField = partitionField;
         this.partitionType = partitionType;
@@ -47,6 +53,9 @@ public class CreateTableOptions {
         }
         this.clusteredFields = clusteredFields;
         this.region = region;
+        this.cdcEnabled = cdcEnabled;
+        this.cdcPrimaryKeyColumns = cdcPrimaryKeyColumns;
+        this.cdcMaxStaleness = cdcMaxStaleness;
     }
 
     public boolean enableTableCreation() {
@@ -71,5 +80,17 @@ public class CreateTableOptions {
 
     public String getRegion() {
         return region;
+    }
+
+    public boolean isCdcEnabled() {
+        return cdcEnabled;
+    }
+
+    public List<String> getCdcPrimaryKeyColumns() {
+        return cdcPrimaryKeyColumns;
+    }
+
+    public String getCdcMaxStaleness() {
+        return cdcMaxStaleness;
     }
 }

@@ -86,7 +86,7 @@ under the License.
         <clover.version>4.5.1</clover.version>
 
         <slf4j.version>2.0.17</slf4j.version>
-        <log4j.version>2.25.3</log4j.version>
+        <log4j.version>2.25.4</log4j.version>
 
         <flink.parent.artifactId>flink-connector-bigquery-parent</flink.parent.artifactId>
         <surefire.report.dir>${maven.multiModuleProjectDirectory}/target/test-report</surefire.report.dir>

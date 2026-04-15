@@ -120,4 +120,37 @@ public class BigQueryDynamicTableSinkTest {
                 SinkV2Provider.class,
                 TABLE_SINK.getSinkRuntimeProvider(Mockito.mock(DynamicTableSink.Context.class)));
     }
+
+    @Test
+    public void testCdcConstructor() {
+        BigQueryDynamicTableSink cdcTableSink =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        true,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        true,
+                        "event_ts",
+                        Arrays.asList("shop_id", "event_date"),
+                        "INTERVAL 10 MINUTE",
+                        null);
+
+        BigQuerySinkConfig<RowData> obtainedSinkConfig = cdcTableSink.getSinkConfig();
+        assertTrue(obtainedSinkConfig.isCdcEnabled());
+        assertEquals("event_ts", obtainedSinkConfig.getCdcSequenceField());
+        assertEquals(
+                Arrays.asList("shop_id", "event_date"),
+                obtainedSinkConfig.getCdcPrimaryKeyColumns());
+        assertEquals("INTERVAL 10 MINUTE", obtainedSinkConfig.getCdcMaxStaleness());
+        assertEquals(
+                ChangelogMode.all(),
+                cdcTableSink.getChangelogMode(Mockito.mock(ChangelogMode.class)));
+    }
 }
