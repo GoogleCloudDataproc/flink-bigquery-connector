@@ -229,6 +229,7 @@ under the License.
         <module>flink-connector-bigquery</module>
         <module>flink-connector-bigquery-examples</module>
         <module>flink-connector-bigquery-table-api-examples</module>
+        <module>flink-connector-bigquery-integration-test</module>
     </modules>
 
     <build>
@@ -243,6 +244,9 @@ under the License.
                 <configuration>
                     <reuseForks>false</reuseForks>
                     <forkCount>1</forkCount>
+                    <systemPropertyVariables>
+                        <net.bytebuddy.experimental>true</net.bytebuddy.experimental>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>
