@@ -11,6 +11,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'init']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION=${_GCS_JAR_LOCATION}'
       - 'GCS_JAR_NAME=${_GCS_JAR_NAME}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'

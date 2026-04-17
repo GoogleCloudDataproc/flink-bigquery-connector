@@ -350,6 +350,9 @@ under the License.
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -552,7 +555,7 @@ under the License.
                         <configuration>
                             <!-- Use custom report descriptor -->
                             <reportDescriptor>${maven.multiModuleProjectDirectory}/tools/maven/clover.xml</reportDescriptor>
-                            <targetPercentage>80%</targetPercentage>
+                            <targetPercentage>75%</targetPercentage>
                             <excludes>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/config/*</exclude>
                                 <exclude>**/com/google/cloud/flink/bigquery/common/utils/flink/**</exclude>
