@@ -43,7 +43,6 @@ import org.apache.flink.table.annotation.FunctionHint;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableDescriptor;
-import org.apache.flink.table.api.TablePipeline;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.functions.TableFunction;
@@ -746,8 +745,7 @@ public class BigQueryIntegrationTest {
                 BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
 
         // Insert the table sourceTable to the registered sinkTable
-        TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
-        TableResult res = pipeline.execute();
+        TableResult res = sourceTable.executeInsert("bigQuerySinkTable");
         try {
             res.await(timeoutTimePeriod, TimeUnit.MINUTES);
         } catch (InterruptedException | TimeoutException e) {
