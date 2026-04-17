@@ -197,6 +197,19 @@ case $STEP in
     exit
     ;;
 
+  # Run the indirect bounded e2e test.
+  e2e_indirect_bounded_test)
+    IS_EXACTLY_ONCE_ENABLED=False
+    timestamp=$(date +"%Y%m%d%H%M%S")
+    GCS_TEMP_BUCKET_PATH="${_GCS_TEMPORARY_LOCATION}/${timestamp}"
+    
+    export TEMP_GCS_BUCKET="$GCS_TEMP_BUCKET_PATH"
+    export PERSISTENT_GCS_BUCKET="true"
+    
+    run_read_write_test "$PROJECT_ID" "$REGION_SMALL_TEST_FILE" "$CLUSTER_SMALL_TEST_FILE" "$PROJECT_NAME" "$DATASET_NAME" "$TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE" "$TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE" "$IS_EXACTLY_ONCE_ENABLED" "bounded" "$PROPERTIES_SMALL_BOUNDED_JOB" "$SINK_PARALLELISM_SMALL_BOUNDED_JOB"
+    exit
+    ;;
+
   # Relinquish the underlying infra running these tests.
   delete_cluster)
     delete_cluster "$PROJECT_ID" "$REGION_FILE" "$CLUSTER_FILE"
