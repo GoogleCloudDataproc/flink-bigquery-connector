@@ -192,6 +192,25 @@ steps:
       - 'CLUSTER_TABLE_API_LARGE_TABLE_TEST_FILE=${_CLUSTER_TABLE_API_LARGE_TABLE_TEST_FILE}'
       - 'SINK_PARALLELISM_LARGE_BOUNDED_JOB=${_SINK_PARALLELISM_LARGE_BOUNDED_JOB}'
 
+# 9.5. Indirect write bounded e2e test.
+  - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
+    id: 'e2e-indirect-bounded-test'
+    waitFor: ['create-clusters-bounded-small-table']
+    entrypoint: 'bash'
+    args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_indirect_bounded_test']
+    env:
+      - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
+      - 'PROJECT_ID=${_PROJECT_ID}'
+      - 'PROJECT_NAME=${_PROJECT_NAME}'
+      - 'DATASET_NAME=${_WRITE_DATASET_NAME}'
+      - 'TABLE_NAME_SOURCE_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
+      - 'TABLE_NAME_DESTINATION_COMPLEX_SCHEMA_TABLE=${_TABLE_NAME_COMPLEX_SCHEMA_TABLE}'
+      - 'PROPERTIES_SMALL_BOUNDED_JOB=${_PROPERTIES_SMALL_BOUNDED_JOB}'
+      - 'REGION_SMALL_TEST_FILE=${_REGION_SMALL_TEST_FILE}'
+      - 'CLUSTER_SMALL_TEST_FILE=${_CLUSTER_SMALL_TEST_FILE}'
+      - 'SINK_PARALLELISM_SMALL_BOUNDED_JOB=${_SINK_PARALLELISM_SMALL_BOUNDED_JOB}'
+      - 'GCS_TEMPORARY_LOCATION=${_GCS_TEMPORARY_LOCATION}'
+
 # 10. Unbounded e2e test.
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'e2e-unbounded-test'

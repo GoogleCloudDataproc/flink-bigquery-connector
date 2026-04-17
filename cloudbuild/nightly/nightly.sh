@@ -201,7 +201,7 @@ case $STEP in
   e2e_indirect_bounded_test)
     IS_EXACTLY_ONCE_ENABLED=False
     timestamp=$(date +"%Y%m%d%H%M%S")
-    GCS_TEMP_BUCKET_PATH="${_GCS_TEMPORARY_LOCATION}/${timestamp}"
+    GCS_TEMP_BUCKET_PATH="${GCS_TEMPORARY_LOCATION}/${timestamp}"
     
     export TEMP_GCS_BUCKET="$GCS_TEMP_BUCKET_PATH"
     export PERSISTENT_GCS_BUCKET="true"
