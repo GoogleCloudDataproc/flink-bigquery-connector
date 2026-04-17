@@ -100,6 +100,11 @@ under the License.
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-avro</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-files</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
 
         <!-- Table ecosystem -->
         <!-- Projects depending on this project won't depend on flink-table-*. -->
@@ -172,8 +177,22 @@ under the License.
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.google.auto.value</groupId>
+                            <artifactId>auto-value</artifactId>
+                            <version>1.11.0</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-				<version>3.6.0</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <id>shade-flink</id>

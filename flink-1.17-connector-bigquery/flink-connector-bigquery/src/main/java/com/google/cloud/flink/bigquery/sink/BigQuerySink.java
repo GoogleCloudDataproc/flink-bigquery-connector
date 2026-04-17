@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,17 +47,16 @@ public class BigQuerySink {
             validateCdcConfiguration(sinkConfig);
         }
 
-        if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
-            return new BigQueryDefaultSink<>(sinkConfig);
+        if (!StringUtils.isNullOrWhitespaceOnly(sinkConfig.getTemporaryGcsBucket())) {
+            return new BigQueryIndirectSink<>(sinkConfig);
         }
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.EXACTLY_ONCE) {
             return new BigQueryExactlyOnceSink<>(sinkConfig);
+        } else if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.NONE) {
+            throw new UnsupportedOperationException("Delivery Guarantee NONE is not supported.");
+        } else {
+            return new BigQueryDefaultSink<>(sinkConfig);
         }
-        LOG.error(
-                "BigQuery sink does not support {} delivery guarantee. Use AT_LEAST_ONCE or EXACTLY_ONCE.",
-                sinkConfig.getDeliveryGuarantee());
-        throw new UnsupportedOperationException(
-                String.format("%s is not supported", sinkConfig.getDeliveryGuarantee()));
     }
 
     /**

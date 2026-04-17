@@ -34,6 +34,9 @@ import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.FormatOptions;
+import com.google.cloud.bigquery.JobInfo;
+import com.google.cloud.bigquery.LoadJobConfiguration;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableDefinition;
@@ -474,6 +477,23 @@ public class BigQueryServicesImpl implements BigQueryServices {
             TableId tableId = TableId.of(project, dataset, table);
             TableInfo tableInfo = TableInfo.of(tableId, tableDefinition);
             bigQuery.create(tableInfo);
+        }
+
+        @Override
+        public void submitLoadJob(
+                String project,
+                String dataset,
+                String table,
+                List<String> sourceUris,
+                FormatOptions formatOptions) {
+            TableId tableId = TableId.of(project, dataset, table);
+            LoadJobConfiguration loadJobConfig =
+                    LoadJobConfiguration.newBuilder(tableId, sourceUris)
+                            .setFormatOptions(formatOptions)
+                            .build();
+
+            LOG.info("BigQueryClient: Submitted job LoadJobConfiguration");
+            bigQuery.create(JobInfo.of(loadJobConfig));
         }
     }
 
