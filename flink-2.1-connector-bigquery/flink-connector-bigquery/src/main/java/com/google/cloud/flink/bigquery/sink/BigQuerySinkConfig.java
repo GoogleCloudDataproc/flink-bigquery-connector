@@ -35,6 +35,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -47,7 +48,7 @@ import java.util.Optional;
  *
  * @param <IN> Type of input to sink.
  */
-public class BigQuerySinkConfig<IN> {
+public class BigQuerySinkConfig<IN> implements Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
     private static final long MILLISECONDS_PER_SECOND = 1000L;
