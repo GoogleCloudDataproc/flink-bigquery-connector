@@ -20,6 +20,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.groups.SourceReaderMetricGroup;
 import org.apache.flink.util.UserCodeClassLoader;
 
@@ -32,10 +33,24 @@ public class BigQuerySourceReaderContext implements SourceReaderContext {
     private final SourceReaderContext readerContext;
     private final AtomicLong readCount = new AtomicLong(0);
     private final int limit;
+    private Counter bytesRead;
 
     public BigQuerySourceReaderContext(SourceReaderContext readerContext, int limit) {
         this.readerContext = readerContext;
         this.limit = limit;
+        initializeMetrics();
+    }
+
+    private void initializeMetrics() {
+        bytesRead = readerContext.metricGroup().counter("bytesRead");
+    }
+
+    public void incrementBytesRead(long bytes) {
+        bytesRead.inc(bytes);
+    }
+
+    public Counter getBytesReadCounter() {
+        return bytesRead;
     }
 
     @Override

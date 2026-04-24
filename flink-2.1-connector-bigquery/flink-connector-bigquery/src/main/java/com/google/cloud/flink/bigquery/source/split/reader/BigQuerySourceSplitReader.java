@@ -174,6 +174,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             Long itStartTime = System.currentTimeMillis();
             while (readStreamIterator.hasNext()) {
                 ReadRowsResponse response = readStreamIterator.next();
+                if (response.hasAvroRows()) {
+                    readerContext.incrementBytesRead(
+                            response.getAvroRows().getSerializedBinaryRows().size());
+                }
                 if (!response.hasAvroRows()) {
                     LOG.info(
                             "[subtask #{}][hostname {}] The response contained"

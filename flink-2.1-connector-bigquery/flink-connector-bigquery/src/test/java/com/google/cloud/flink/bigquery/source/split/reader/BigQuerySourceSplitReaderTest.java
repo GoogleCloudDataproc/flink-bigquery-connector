@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.source.split.reader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
+import org.apache.flink.metrics.SimpleCounter;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -42,7 +43,8 @@ public class BigQuerySourceSplitReaderTest {
         BigQueryReadOptions readOptions =
                 StorageClientFaker.createReadOptions(
                         10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
-        SourceReaderContext readerContext = Mockito.mock(SourceReaderContext.class);
+        SourceReaderContext readerContext =
+                Mockito.mock(SourceReaderContext.class, Mockito.RETURNS_DEEP_STUBS);
         BigQuerySourceReaderContext context = new BigQuerySourceReaderContext(readerContext, 10);
         BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(readOptions, context);
         // wake the thing up
@@ -91,7 +93,8 @@ public class BigQuerySourceSplitReaderTest {
         BigQueryReadOptions readOptions =
                 StorageClientFaker.createReadOptions(
                         totalRecordCount, 1, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
-        SourceReaderContext readerContext = Mockito.mock(SourceReaderContext.class);
+        SourceReaderContext readerContext =
+                Mockito.mock(SourceReaderContext.class, Mockito.RETURNS_DEEP_STUBS);
         // no limits in the read
         BigQuerySourceReaderContext context = new BigQuerySourceReaderContext(readerContext, -1);
         BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(readOptions, context);
@@ -141,7 +144,8 @@ public class BigQuerySourceSplitReaderTest {
         BigQueryReadOptions readOptions =
                 StorageClientFaker.createReadOptions(
                         10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
-        SourceReaderContext readerContext = Mockito.mock(SourceReaderContext.class);
+        SourceReaderContext readerContext =
+                Mockito.mock(SourceReaderContext.class, Mockito.RETURNS_DEEP_STUBS);
         BigQuerySourceReaderContext context = new BigQuerySourceReaderContext(readerContext, 10);
         BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(readOptions, context);
         // wake the thing up
@@ -176,5 +180,28 @@ public class BigQuerySourceSplitReaderTest {
         // Assert that the client was created exactly ONCE
         assertThat(StorageClientFaker.FakeBigQueryServices.STORAGE_READ_CLIENT_INVOCATIONS.get())
                 .isEqualTo(1);
+    }
+
+    @Test
+    public void testBytesReadMetric() throws IOException {
+        BigQueryReadOptions readOptions =
+                StorageClientFaker.createReadOptions(
+                        10, 1, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
+        SourceReaderContext readerContext =
+                Mockito.mock(SourceReaderContext.class, Mockito.RETURNS_DEEP_STUBS);
+        SimpleCounter bytesReadCounter = new SimpleCounter();
+        Mockito.when(readerContext.metricGroup().counter("bytesRead")).thenReturn(bytesReadCounter);
+        BigQuerySourceReaderContext context = new BigQuerySourceReaderContext(readerContext, -1);
+        BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(readOptions, context);
+
+        BigQuerySourceSplit split = new BigQuerySourceSplit("stream1", 0L);
+        SplitsAddition<BigQuerySourceSplit> change = new SplitsAddition<>(Arrays.asList(split));
+        reader.handleSplitsChanges(change);
+
+        // fetch all records
+        reader.fetch();
+
+        // bytesRead counter should have been incremented
+        assertThat(context.getBytesReadCounter().getCount()).isGreaterThan(0);
     }
 }
