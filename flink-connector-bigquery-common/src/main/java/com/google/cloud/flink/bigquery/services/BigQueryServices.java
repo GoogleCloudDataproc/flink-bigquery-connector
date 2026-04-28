@@ -244,5 +244,34 @@ public interface BigQueryServices extends Serializable {
          */
         void createTable(
                 String project, String dataset, String table, TableDefinition tableDefinition);
+
+        /**
+         * Function to identify if a BigQuery table is a view.
+         *
+         * @param project The project ID of the BigQuery dataset
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table.
+         * @return Boolean {@code TRUE} if the table is a view or {@code FALSE} if it is not.
+         */
+        Boolean isView(String project, String dataset, String table);
+
+        /**
+         * Function to materialize a view to a temporary table.
+         *
+         * @param project The project ID of the BigQuery dataset
+         * @param dataset The BigQuery dataset.
+         * @param table The BigQuery table (view).
+         * @param selectedFields The fields to project.
+         * @param rowRestriction The row restriction filter.
+         * @param expirationHours The expiration time for the materialized table in hours.
+         * @return The name of the materialized table.
+         */
+        String materializeView(
+                String project,
+                String dataset,
+                String table,
+                List<String> selectedFields,
+                String rowRestriction,
+                Integer expirationHours);
     }
 }

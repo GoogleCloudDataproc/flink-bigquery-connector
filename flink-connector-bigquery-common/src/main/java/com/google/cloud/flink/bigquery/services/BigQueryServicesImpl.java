@@ -73,6 +73,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -474,6 +476,75 @@ public class BigQueryServicesImpl implements BigQueryServices {
             TableId tableId = TableId.of(project, dataset, table);
             TableInfo tableInfo = TableInfo.of(tableId, tableDefinition);
             bigQuery.create(tableInfo);
+        }
+
+        @Override
+        public Boolean isView(String project, String dataset, String table) {
+            com.google.cloud.bigquery.Table tableInfo =
+                    bigQuery.getTable(TableId.of(project, dataset, table));
+            if (tableInfo == null) {
+                return false;
+            }
+            TableDefinition.Type type = tableInfo.getDefinition().getType();
+            return type == TableDefinition.Type.VIEW
+                    || type == TableDefinition.Type.MATERIALIZED_VIEW;
+        }
+
+        @Override
+        public String materializeView(
+                String project,
+                String dataset,
+                String table,
+                List<String> selectedFields,
+                String rowRestriction,
+                Integer expirationHours) {
+            String destinationTableName = "_bqc_" + UUID.randomUUID().toString().replace("-", "");
+            TableId destinationTableId = TableId.of(project, dataset, destinationTableName);
+
+            String columns =
+                    selectedFields.isEmpty()
+                            ? "*"
+                            : selectedFields.stream()
+                                    .map(c -> String.format("`%s`", c))
+                                    .collect(Collectors.joining(","));
+
+            String whereClause =
+                    (rowRestriction == null || rowRestriction.isEmpty())
+                            ? ""
+                            : "WHERE " + rowRestriction;
+
+            String query =
+                    String.format(
+                            "SELECT %s FROM `%s.%s.%s` %s",
+                            columns, project, dataset, table, whereClause);
+
+            QueryJobConfiguration queryConfig =
+                    QueryJobConfiguration.newBuilder(query)
+                            .setDestinationTable(destinationTableId)
+                            .setWriteDisposition(
+                                    com.google.cloud.bigquery.JobInfo.WriteDisposition
+                                            .WRITE_TRUNCATE)
+                            .build();
+
+            try {
+                com.google.cloud.bigquery.Job job =
+                        bigQuery.create(com.google.cloud.bigquery.JobInfo.of(queryConfig));
+                job.waitFor();
+
+                // Set expiration time for the temp table
+                com.google.cloud.bigquery.Table createdTable =
+                        bigQuery.getTable(destinationTableId);
+                long expirationTime =
+                        createdTable.getCreationTime() + TimeUnit.HOURS.toMillis(expirationHours);
+                bigQuery.update(createdTable.toBuilder().setExpirationTime(expirationTime).build());
+
+                return destinationTableName;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Job interrupted", e);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to materialize view", e);
+            }
         }
     }
 

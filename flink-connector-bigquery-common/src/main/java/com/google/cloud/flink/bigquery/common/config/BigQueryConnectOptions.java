@@ -46,6 +46,10 @@ public abstract class BigQueryConnectOptions implements Serializable {
     @Nullable
     public abstract SerializableSupplier<BigQueryServices> getTestingBigQueryServices();
 
+    public abstract Boolean getViewsEnabled();
+
+    public abstract Integer getMaterializedTableExpirationHours();
+
     @Override
     public final String toString() {
         return String.format(
@@ -88,7 +92,9 @@ public abstract class BigQueryConnectOptions implements Serializable {
      */
     public static Builder builder() {
         return new AutoValue_BigQueryConnectOptions.Builder()
-                .setCredentialsOptions(CredentialsOptions.builder().build());
+                .setCredentialsOptions(CredentialsOptions.builder().build())
+                .setViewsEnabled(false)
+                .setMaterializedTableExpirationHours(24);
     }
 
     public static Builder builderForQuerySource() {
@@ -96,7 +102,9 @@ public abstract class BigQueryConnectOptions implements Serializable {
                 .setCredentialsOptions(CredentialsOptions.builder().build())
                 .setProjectId("")
                 .setDataset("")
-                .setTable("");
+                .setTable("")
+                .setViewsEnabled(false)
+                .setMaterializedTableExpirationHours(24);
     }
 
     /**
@@ -150,6 +158,10 @@ public abstract class BigQueryConnectOptions implements Serializable {
          */
         public abstract Builder setTestingBigQueryServices(
                 SerializableSupplier<BigQueryServices> bqServices);
+
+        public abstract Builder setViewsEnabled(Boolean viewsEnabled);
+
+        public abstract Builder setMaterializedTableExpirationHours(Integer hours);
 
         /**
          * Creates the BigQueryConnectOptions object.

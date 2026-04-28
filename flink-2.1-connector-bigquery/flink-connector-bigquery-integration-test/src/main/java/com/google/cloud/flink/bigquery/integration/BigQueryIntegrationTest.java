@@ -177,7 +177,7 @@ public class BigQueryIntegrationTest {
 
     private static Configuration restartConfig() {
         final Configuration config = new Configuration();
-        config.set(DeploymentOptions.TARGET, "yarn-session");
+
         config.set(RestartStrategyOptions.RESTART_STRATEGY, "exponential-delay");
         config.set(
                 RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_INITIAL_BACKOFF,
@@ -251,6 +251,10 @@ public class BigQueryIntegrationTest {
             } catch (Exception e) {
                 LOG.warn("Failed to query YARN CLI for running Flink sessions", e);
             }
+        }
+        if (config.containsKey("yarn.application.id")) {
+            config.set(DeploymentOptions.TARGET, "yarn-session");
+            LOG.info("Set deployment target to yarn-session");
         }
 
         return config;
@@ -421,6 +425,7 @@ public class BigQueryIntegrationTest {
                         .setProjectId(sourceGcpProjectName)
                         .setDataset(sourceDatasetName)
                         .setTable(sourceTableName)
+                        .setViewsEnabled(true)
                         .build();
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.readAvros(
@@ -670,6 +675,7 @@ public class BigQueryIntegrationTest {
                         .setProjectId(sourceGcpProjectName)
                         .setDataset(sourceDatasetName)
                         .setTable(sourceTableName)
+                        .setViewsEnabled(true)
                         .build();
         // Declare Read Options.
         BigQueryTableConfig readTableConfig =

@@ -246,6 +246,22 @@ public class StorageClientFaker {
                 }
             }
 
+            @Override
+            public Boolean isView(String project, String dataset, String table) {
+                return false;
+            }
+
+            @Override
+            public String materializeView(
+                    String project,
+                    String dataset,
+                    String table,
+                    List<String> selectedFields,
+                    String rowRestriction,
+                    Integer expirationHours) {
+                return "materialized_" + table;
+            }
+
             public int getTableExistsInvocatioks() {
                 return tableExistsInvocations;
             }
