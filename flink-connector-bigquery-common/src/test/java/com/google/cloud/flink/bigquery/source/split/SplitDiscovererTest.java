@@ -104,11 +104,88 @@ public class SplitDiscovererTest {
                 null);
     }
 
+    @Test
+    public void testDiscoverSplitsViewEmptyColumns() {
+        fakeServices.isView = true;
+        fakeServices.materializedTableName = "temp_table";
+        fakeServices.readSession =
+                ReadSession.newBuilder()
+                        .addStreams(ReadStream.newBuilder().setName("stream_temp").build())
+                        .build();
+
+        BigQueryConnectOptions optionsWithViews = options.toBuilder().setViewsEnabled(true).build();
+
+        List<String> splits =
+                SplitDiscoverer.discoverSplits(
+                        optionsWithViews,
+                        DataFormat.AVRO,
+                        Collections.emptyList(),
+                        null,
+                        Optional.empty(),
+                        null,
+                        null);
+
+        assertThat(splits).containsExactly("stream_temp");
+        assertThat(fakeServices.materializeViewCalled).isTrue();
+        assertThat(fakeServices.lastSelectedFields).isEmpty();
+    }
+
+    @Test
+    public void testDiscoverSplitsViewNullRowRestriction() {
+        fakeServices.isView = true;
+        fakeServices.materializedTableName = "temp_table";
+        fakeServices.readSession =
+                ReadSession.newBuilder()
+                        .addStreams(ReadStream.newBuilder().setName("stream_temp").build())
+                        .build();
+
+        BigQueryConnectOptions optionsWithViews = options.toBuilder().setViewsEnabled(true).build();
+
+        List<String> splits =
+                SplitDiscoverer.discoverSplits(
+                        optionsWithViews,
+                        DataFormat.AVRO,
+                        Collections.singletonList("col1"),
+                        null,
+                        Optional.empty(),
+                        null,
+                        null);
+
+        assertThat(splits).containsExactly("stream_temp");
+        assertThat(fakeServices.materializeViewCalled).isTrue();
+        assertThat(fakeServices.lastRowRestriction).isNull();
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testDiscoverSplitsViewMaterializationFailure() {
+        fakeServices.isView = true;
+        fakeServices.readSession =
+                ReadSession.newBuilder()
+                        .addStreams(ReadStream.newBuilder().setName("stream_temp").build())
+                        .build();
+
+        BigQueryConnectOptions optionsWithViews = options.toBuilder().setViewsEnabled(true).build();
+
+        fakeServices.materializeViewError = new RuntimeException("Materialization failed");
+
+        SplitDiscoverer.discoverSplits(
+                optionsWithViews,
+                DataFormat.AVRO,
+                Collections.emptyList(),
+                null,
+                Optional.empty(),
+                null,
+                null);
+    }
+
     static class FakeBigQueryServices implements BigQueryServices {
         boolean isView = false;
         boolean materializeViewCalled = false;
         String lastMaterializedView = null;
         String materializedTableName = "default_temp";
+        List<String> lastSelectedFields = null;
+        String lastRowRestriction = null;
+        RuntimeException materializeViewError = null;
         ReadSession readSession;
 
         @Override
@@ -169,6 +246,11 @@ public class SplitDiscovererTest {
                         Integer expirationHours) {
                     materializeViewCalled = true;
                     lastMaterializedView = table;
+                    lastSelectedFields = selectedFields;
+                    lastRowRestriction = rowRestriction;
+                    if (materializeViewError != null) {
+                        throw materializeViewError;
+                    }
                     return materializedTableName;
                 }
             };
