@@ -106,6 +106,37 @@ public class BigQueryDynamicTableFactoryTest {
     }
 
     @Test
+    public void testDefaultColumnNamesAreAllDdlColumns() throws IOException {
+        DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, getRequiredOptions());
+
+        // ensure that column names are used when not specified is all 'physical' columns
+        assertThat(((BigQueryDynamicTableSource) actual).getReadOptions().getColumnNames())
+                .containsExactly("aaa", "bbb", "ccc", "ddd", "eee")
+                .inOrder();
+    }
+
+    @Test
+    public void testApplyProjectionNarrowsSeededColumnNames() throws IOException {
+        DynamicTableSource source = FactoryMocks.createTableSource(SCHEMA, getRequiredOptions());
+        BigQueryDynamicTableSource bqSource = (BigQueryDynamicTableSource) source;
+
+        assertThat(bqSource.getReadOptions().getColumnNames())
+                .containsExactly("aaa", "bbb", "ccc", "ddd", "eee")
+                .inOrder();
+
+        // Narrower projection
+        bqSource.applyProjection(
+                new int[][] {{0}, {2}},
+                DataTypes.ROW(
+                        DataTypes.FIELD("aaa", DataTypes.INT().notNull()),
+                        DataTypes.FIELD("ccc", DataTypes.DOUBLE())));
+
+        assertThat(bqSource.getReadOptions().getColumnNames())
+                .containsExactly("aaa", "ccc")
+                .inOrder();
+    }
+
+    @Test
     public void testBigQuerySourceValidation() {
         // max num of streams should be positive
         assertSourceValidationRejects(

@@ -70,6 +70,13 @@ public class BigQueryDynamicTableSource
     private DataType producedDataType;
 
     public BigQueryDynamicTableSource(BigQueryReadOptions readOptions, DataType producedDataType) {
+        if (readOptions.getColumnNames().isEmpty()) {
+            readOptions =
+                    readOptions
+                            .toBuilder()
+                            .setColumnNames(DataType.getFieldNames(producedDataType))
+                            .build();
+        }
         this.readOptions = readOptions;
         this.producedDataType = producedDataType;
     }
