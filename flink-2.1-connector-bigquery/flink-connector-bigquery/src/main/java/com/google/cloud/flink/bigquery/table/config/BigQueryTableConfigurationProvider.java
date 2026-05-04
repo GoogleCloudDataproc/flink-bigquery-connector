@@ -25,6 +25,7 @@ import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 
 import java.util.ArrayList;
@@ -123,6 +124,15 @@ public class BigQueryTableConfigurationProvider {
 
     public Optional<String> getCdcMaxStaleness() {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.CDC_MAX_STALENESS));
+    }
+
+    public WriteMode getWriteMode() {
+        String writeModeStr = config.get(BigQueryConnectorOptions.WRITE_MODE);
+        return WriteMode.valueOf(writeModeStr.toUpperCase());
+    }
+
+    public Optional<String> getGcsTempPath() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.GCS_TEMP_PATH));
     }
 
     public BigQueryReadOptions toBigQueryReadOptions() {
