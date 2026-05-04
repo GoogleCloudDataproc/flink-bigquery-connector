@@ -57,7 +57,7 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
             # 'lifecycle_config': {'auto_delete_ttl': '5400s'},
             'gce_cluster_config': {'internal_ip_only': False},
             'endpoint_config': {
-                'enable_component_gateway': True
+                'enable_http_port_access': True
             },
         }
     }
