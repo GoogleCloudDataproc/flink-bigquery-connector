@@ -22,6 +22,7 @@ import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 
+import com.google.cloud.bigquery.ParquetOptions;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Objects;
@@ -44,6 +45,12 @@ import java.util.Objects;
 public final class RowDataParquetWriterFactory extends ParquetWriterFactory<RowData> {
 
     private static final long serialVersionUID = 1L;
+
+    // Load-side options paired with the writer config above: enableListInference=true tells
+    // BigQuery to map Parquet repeated groups (how this writer encodes ARRAY columns) to
+    // BigQuery REPEATED columns rather than nested STRUCTs.
+    public static final ParquetOptions PARQUET_FORMAT_OPTIONS =
+            ParquetOptions.newBuilder().setEnableListInference(true).build();
 
     private final RowType rowType;
 

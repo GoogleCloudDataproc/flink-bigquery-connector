@@ -294,4 +294,27 @@ public class BigQueryConnectorOptions {
                                     + "persisted during table creation, so max_staleness remains "
                                     + "unset after create. Run ALTER TABLE ... SET OPTIONS "
                                     + "(max_staleness = INTERVAL ...) after creation.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Write mode for the BigQuery sink. DIRECT uses the BigQuery
+     * Storage Write API. INDIRECT writes files to GCS and uses BigQuery load jobs. <br>
+     * Default: DIRECT
+     */
+    public static final ConfigOption<String> WRITE_MODE =
+            ConfigOptions.key("write.mode")
+                    .stringType()
+                    .defaultValue("STORAGE_WRITE_API")
+                    .withDescription(
+                            "Write mode: DIRECT (Storage Write API) or INDIRECT (GCS files + BigQuery load jobs)");
+
+    /**
+     * [REQUIRED for INDIRECT mode] GCS path for temporary files when using indirect writes. <br>
+     * Example: gs://my-bucket/flink-temp
+     */
+    public static final ConfigOption<String> TEMP_GCS_PATH =
+            ConfigOptions.key("write.indirect.temp-gcs-path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCS path for temporary files (required for INDIRECT write mode)");
 }
