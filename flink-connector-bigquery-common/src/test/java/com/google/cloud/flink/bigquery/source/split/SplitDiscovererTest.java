@@ -324,6 +324,24 @@ public class SplitDiscovererTest {
                     }
                     return materializedTableName;
                 }
+
+                @Override
+                public com.google.cloud.bigquery.Job submitJob(
+                        String project,
+                        String jobId,
+                        com.google.cloud.bigquery.JobConfiguration jobConfiguration) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public com.google.cloud.bigquery.Job getJob(String project, String jobId) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public com.google.cloud.bigquery.Job waitForJob(com.google.cloud.bigquery.Job job) {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
 
