@@ -34,6 +34,10 @@ import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobConfiguration;
+import com.google.cloud.bigquery.JobId;
+import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableDefinition;
@@ -474,6 +478,24 @@ public class BigQueryServicesImpl implements BigQueryServices {
             TableId tableId = TableId.of(project, dataset, table);
             TableInfo tableInfo = TableInfo.of(tableId, tableDefinition);
             bigQuery.create(tableInfo);
+        }
+
+        @Override
+        public Job submitJob(String project, String jobId, JobConfiguration jobConfiguration) {
+            JobId fullJobId = JobId.of(project, jobId);
+            JobInfo jobInfo = JobInfo.newBuilder(jobConfiguration).setJobId(fullJobId).build();
+            return bigQuery.create(jobInfo);
+        }
+
+        @Override
+        public Job getJob(String project, String jobId) {
+            JobId fullJobId = JobId.of(project, jobId);
+            return bigQuery.getJob(fullJobId);
+        }
+
+        @Override
+        public Job waitForJob(Job job) throws InterruptedException {
+            return job.waitFor();
         }
     }
 
