@@ -111,7 +111,9 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         cdcMaxStaleness,
                         cdcEnabled && cdcChangeTypeProvider == null
                                 ? RowDataCdcChangeTypeProvider.getInstance()
-                                : cdcChangeTypeProvider);
+                                : cdcChangeTypeProvider,
+                        null,
+                        null);
     }
 
     @Override
