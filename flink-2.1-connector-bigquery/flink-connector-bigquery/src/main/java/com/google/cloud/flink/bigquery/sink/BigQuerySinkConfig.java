@@ -17,15 +17,19 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.serialization.BulkWriter;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.RowType;
 
+import com.google.cloud.bigquery.FormatOptions;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.indirect.RowDataParquetWriterFactory;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
@@ -75,6 +79,10 @@ public class BigQuerySinkConfig<IN> {
     private final List<String> cdcPrimaryKeyColumns;
     private final String cdcMaxStaleness;
     private final CdcChangeTypeProvider<?> cdcChangeTypeProvider;
+    private final WriteMode writeMode;
+    private final String tempGcsPath;
+    private final BulkWriter.Factory<IN> bulkWriterFactory;
+    private final FormatOptions formatOptions;
 
     public static <IN> Builder<IN> newBuilder() {
         return new Builder<>();
@@ -98,7 +106,15 @@ public class BigQuerySinkConfig<IN> {
                 cdcSequenceField,
                 cdcPrimaryKeyColumns,
                 cdcMaxStaleness,
-                cdcChangeTypeProvider);
+                cdcChangeTypeProvider,
+                writeMode,
+                tempGcsPath,
+                bulkWriterFactory,
+                formatOptions);
+    }
+
+    private static Class<?> serializerClass(BigQuerySinkConfig<?> config) {
+        return config.getSerializer() == null ? null : config.getSerializer().getClass();
     }
 
     @Override
@@ -114,7 +130,7 @@ public class BigQuerySinkConfig<IN> {
         }
         BigQuerySinkConfig<IN> object = (BigQuerySinkConfig<IN>) obj;
         return (this.getConnectOptions() == object.getConnectOptions()
-                && (this.getSerializer().getClass() == object.getSerializer().getClass())
+                && Objects.equals(serializerClass(this), serializerClass(object))
                 && (this.getDeliveryGuarantee() == object.getDeliveryGuarantee())
                 && (this.enableTableCreation() == object.enableTableCreation())
                 && (Objects.equals(this.getPartitionField(), object.getPartitionField()))
@@ -131,7 +147,11 @@ public class BigQuerySinkConfig<IN> {
                         this.getCdcPrimaryKeyColumns(), object.getCdcPrimaryKeyColumns()))
                 && (Objects.equals(this.getCdcMaxStaleness(), object.getCdcMaxStaleness()))
                 && (Objects.equals(
-                        this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider())));
+                        this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider()))
+                && (this.writeMode == object.writeMode)
+                && (Objects.equals(this.tempGcsPath, object.tempGcsPath))
+                && (Objects.equals(this.bulkWriterFactory, object.bulkWriterFactory))
+                && (Objects.equals(this.formatOptions, object.formatOptions)));
     }
 
     private BigQuerySinkConfig(
@@ -150,7 +170,11 @@ public class BigQuerySinkConfig<IN> {
             String cdcSequenceField,
             List<String> cdcPrimaryKeyColumns,
             String cdcMaxStaleness,
-            CdcChangeTypeProvider<?> cdcChangeTypeProvider) {
+            CdcChangeTypeProvider<?> cdcChangeTypeProvider,
+            WriteMode writeMode,
+            String tempGcsPath,
+            BulkWriter.Factory<IN> bulkWriterFactory,
+            FormatOptions formatOptions) {
         this.connectOptions = connectOptions;
         this.deliveryGuarantee = deliveryGuarantee;
         this.schemaProvider = schemaProvider;
@@ -167,6 +191,10 @@ public class BigQuerySinkConfig<IN> {
         this.cdcPrimaryKeyColumns = cdcPrimaryKeyColumns;
         this.cdcMaxStaleness = cdcMaxStaleness;
         this.cdcChangeTypeProvider = cdcChangeTypeProvider;
+        this.writeMode = writeMode;
+        this.tempGcsPath = tempGcsPath;
+        this.bulkWriterFactory = bulkWriterFactory;
+        this.formatOptions = formatOptions;
     }
 
     public BigQueryConnectOptions getConnectOptions() {
@@ -233,6 +261,22 @@ public class BigQuerySinkConfig<IN> {
         return cdcChangeTypeProvider;
     }
 
+    public WriteMode getWriteMode() {
+        return writeMode;
+    }
+
+    public String getTempGcsPath() {
+        return tempGcsPath;
+    }
+
+    public BulkWriter.Factory<IN> getBulkWriterFactory() {
+        return bulkWriterFactory;
+    }
+
+    public FormatOptions getFormatOptions() {
+        return formatOptions;
+    }
+
     /**
      * Builder for BigQuerySinkConfig.
      *
@@ -258,6 +302,10 @@ public class BigQuerySinkConfig<IN> {
         private List<String> cdcPrimaryKeyColumns;
         private String cdcMaxStaleness;
         private CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
+        private WriteMode writeMode = WriteMode.STORAGE_WRITE_API;
+        private String tempGcsPath;
+        private BulkWriter.Factory<IN> bulkWriterFactory;
+        private FormatOptions formatOptions;
 
         public Builder<IN> connectOptions(BigQueryConnectOptions connectOptions) {
             this.connectOptions = connectOptions;
@@ -345,8 +393,35 @@ public class BigQuerySinkConfig<IN> {
             return this;
         }
 
+        public Builder<IN> writeMode(WriteMode writeMode) {
+            this.writeMode = writeMode;
+            return this;
+        }
+
+        public Builder<IN> tempGcsPath(String tempGcsPath) {
+            this.tempGcsPath = tempGcsPath;
+            return this;
+        }
+
+        public Builder<IN> bulkWriterFactory(BulkWriter.Factory<IN> bulkWriterFactory) {
+            this.bulkWriterFactory = bulkWriterFactory;
+            return this;
+        }
+
+        public Builder<IN> formatOptions(FormatOptions formatOptions) {
+            this.formatOptions = formatOptions;
+            return this;
+        }
+
         public BigQuerySinkConfig<IN> build() {
-            if (deliveryGuarantee == DeliveryGuarantee.EXACTLY_ONCE) {
+            if (writeMode == WriteMode.INDIRECT) {
+                validateIndirect(
+                        tempGcsPath,
+                        bulkWriterFactory,
+                        formatOptions,
+                        cdcEnabled,
+                        enableTableCreation);
+            } else if (deliveryGuarantee == DeliveryGuarantee.EXACTLY_ONCE) {
                 validateStreamExecutionEnvironment(env);
             }
             return new BigQuerySinkConfig<>(
@@ -365,7 +440,11 @@ public class BigQuerySinkConfig<IN> {
                     cdcSequenceField,
                     cdcPrimaryKeyColumns,
                     cdcMaxStaleness,
-                    cdcChangeTypeProvider);
+                    cdcChangeTypeProvider,
+                    writeMode,
+                    tempGcsPath,
+                    bulkWriterFactory,
+                    formatOptions);
         }
     }
 
@@ -383,49 +462,31 @@ public class BigQuerySinkConfig<IN> {
             Long partitionExpirationMillis,
             List<String> clusteredFields,
             String region,
-            boolean fatalizeSerializer) {
-        return forTable(
-                connectOptions,
-                deliveryGuarantee,
-                logicalType,
-                enableTableCreation,
-                partitionField,
-                partitionType,
-                partitionExpirationMillis,
-                clusteredFields,
-                region,
-                fatalizeSerializer,
-                false,
-                null,
-                null,
-                null,
-                null);
-    }
-
-    /** Table API overload with CDC support. */
-    @Internal
-    public static BigQuerySinkConfig<RowData> forTable(
-            BigQueryConnectOptions connectOptions,
-            DeliveryGuarantee deliveryGuarantee,
-            LogicalType logicalType,
-            boolean enableTableCreation,
-            String partitionField,
-            TimePartitioning.Type partitionType,
-            Long partitionExpirationMillis,
-            List<String> clusteredFields,
-            String region,
             boolean fatalizeSerializer,
             boolean cdcEnabled,
             String cdcSequenceField,
             List<String> cdcPrimaryKeyColumns,
             String cdcMaxStaleness,
-            CdcChangeTypeProvider<RowData> cdcChangeTypeProvider) {
+            CdcChangeTypeProvider<RowData> cdcChangeTypeProvider,
+            WriteMode writeMode,
+            String tempGcsPath) {
+        boolean indirect = writeMode == WriteMode.INDIRECT;
+        BulkWriter.Factory<RowData> bulkWriterFactory =
+                indirect ? RowDataParquetWriterFactory.create((RowType) logicalType) : null;
+        FormatOptions formatOptions = indirect ? FormatOptions.parquet() : null;
+        BigQuerySchemaProvider schemaProvider =
+                indirect
+                        ? null
+                        : new BigQuerySchemaProviderImpl(
+                                BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(
+                                        logicalType));
+        BigQueryProtoSerializer<RowData> serializer =
+                indirect ? null : new RowDataToProtoSerializer(logicalType);
         return new BigQuerySinkConfig<>(
                 connectOptions,
                 deliveryGuarantee,
-                new BigQuerySchemaProviderImpl(
-                        BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(logicalType)),
-                new RowDataToProtoSerializer(logicalType),
+                schemaProvider,
+                serializer,
                 enableTableCreation,
                 partitionField,
                 partitionType,
@@ -437,7 +498,41 @@ public class BigQuerySinkConfig<IN> {
                 cdcSequenceField,
                 cdcPrimaryKeyColumns,
                 cdcMaxStaleness,
-                cdcChangeTypeProvider);
+                cdcChangeTypeProvider,
+                writeMode,
+                tempGcsPath,
+                bulkWriterFactory,
+                formatOptions);
+    }
+
+    /**
+     * Validates INDIRECT-mode configuration. INDIRECT writes go through GCS-staged Parquet files +
+     * BigQuery load jobs. CDC and table-auto-creation are unsupported on that path; reject them
+     * eagerly so misconfigurations fail at job-graph build, not silently at runtime.
+     */
+    static void validateIndirect(
+            String tempGcsPath,
+            BulkWriter.Factory<?> bulkWriterFactory,
+            FormatOptions formatOptions,
+            boolean cdcEnabled,
+            boolean enableTableCreation) {
+        if (tempGcsPath == null || tempGcsPath.isEmpty()) {
+            throw new IllegalArgumentException("tempGcsPath is required for INDIRECT write mode");
+        }
+        if (bulkWriterFactory == null) {
+            throw new IllegalArgumentException(
+                    "bulkWriterFactory is required for INDIRECT write mode");
+        }
+        if (formatOptions == null) {
+            throw new IllegalArgumentException("formatOptions is required for INDIRECT write mode");
+        }
+        if (cdcEnabled) {
+            throw new IllegalArgumentException("CDC is not supported in INDIRECT write mode");
+        }
+        if (enableTableCreation) {
+            throw new IllegalArgumentException(
+                    "Table auto-creation is not supported in INDIRECT write mode");
+        }
     }
 
     public static void validateStreamExecutionEnvironment(StreamExecutionEnvironment env) {

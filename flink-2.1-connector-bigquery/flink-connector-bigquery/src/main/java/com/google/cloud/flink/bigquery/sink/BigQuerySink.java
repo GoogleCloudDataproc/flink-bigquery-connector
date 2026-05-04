@@ -42,6 +42,15 @@ public class BigQuerySink {
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
 
     public static <IN> Sink<IN> get(BigQuerySinkConfig<IN> sinkConfig) {
+        if (sinkConfig.getWriteMode() == WriteMode.INDIRECT) {
+            BigQuerySinkConfig.validateIndirect(
+                    sinkConfig.getTempGcsPath(),
+                    sinkConfig.getBulkWriterFactory(),
+                    sinkConfig.getFormatOptions(),
+                    sinkConfig.isCdcEnabled(),
+                    sinkConfig.enableTableCreation());
+            return new BigQueryIndirectSink<>(sinkConfig);
+        }
         if (sinkConfig.isCdcEnabled()) {
             validateCdcConfiguration(sinkConfig);
         }
