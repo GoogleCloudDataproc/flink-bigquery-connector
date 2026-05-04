@@ -442,9 +442,13 @@ public class BigQueryIntegrationTest {
                         .setTable(destTableName)
                         .build();
 
+        BigQuerySchemaProvider destSchemaProvider =
+                new BigQuerySchemaProviderImpl(sinkConnectOptions);
+
         BigQuerySinkConfig.Builder<GenericRecord> sinkConfigBuilder =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
+                        .schemaProvider(destSchemaProvider)
                         .serializer(new AvroToProtoSerializer())
                         .deliveryGuarantee(
                                 exactlyOnce
