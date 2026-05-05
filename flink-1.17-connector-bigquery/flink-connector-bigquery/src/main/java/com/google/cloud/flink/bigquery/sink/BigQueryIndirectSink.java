@@ -70,7 +70,7 @@ class BigQueryIndirectSink<IN>
     @Override
     public Committer<FileSinkCommittable> createCommitter() throws IOException {
         Committer<FileSinkCommittable> fileSinkCommitter = gcsAvroSink.createCommitter();
-        return new IndirectSinkCommitter(fileSinkCommitter);
+        return new IndirectSinkCommitter(fileSinkCommitter, sinkConfig);
     }
 
     @Override

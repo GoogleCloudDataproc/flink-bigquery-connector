@@ -16,11 +16,16 @@
 
 package com.google.cloud.flink.bigquery.sink;
 
+import org.apache.flink.api.connector.sink2.Committer;
+import org.apache.flink.api.connector.sink2.CommitterInitContext;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.api.connector.sink2.SupportsCommitter;
 import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.file.sink.FileSink;
+import org.apache.flink.connector.file.sink.FileSinkCommittable;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.formats.avro.AvroWriters;
 
 import org.apache.avro.Schema;
@@ -33,17 +38,14 @@ import java.io.IOException;
  *
  * @param <IN> Type of input to sink.
  */
-class BigQueryIndirectSink<IN> implements Sink<IN> {
+class BigQueryIndirectSink<IN> implements Sink<IN>, SupportsCommitter<FileSinkCommittable> {
 
     private final BigQuerySinkConfig<IN> sinkConfig;
+    private final FileSink<GenericRecord> gcsAvroSink;
 
     BigQueryIndirectSink(BigQuerySinkConfig<IN> sinkConfig) {
         this.sinkConfig = sinkConfig;
-    }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public SinkWriter<IN> createWriter(WriterInitContext context) throws IOException {
         String tempGcsBucket = sinkConfig.getTemporaryGcsBucket();
         if (tempGcsBucket == null || tempGcsBucket.isEmpty()) {
             throw new IllegalArgumentException(
@@ -53,9 +55,25 @@ class BigQueryIndirectSink<IN> implements Sink<IN> {
         Path outputPath = new Path(tempGcsBucket);
         Schema schema = sinkConfig.getSchemaProvider().getAvroSchema();
 
-        FileSink<GenericRecord> gcsAvroSink =
+        this.gcsAvroSink =
                 FileSink.forBulkFormat(outputPath, AvroWriters.forGenericRecord(schema)).build();
+    }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public SinkWriter<IN> createWriter(WriterInitContext context) throws IOException {
         return (SinkWriter<IN>) gcsAvroSink.createWriter(context);
+    }
+
+    @Override
+    public Committer<FileSinkCommittable> createCommitter(CommitterInitContext context)
+            throws IOException {
+        Committer<FileSinkCommittable> fileSinkCommitter = gcsAvroSink.createCommitter(context);
+        return new IndirectSinkCommitter(fileSinkCommitter, sinkConfig);
+    }
+
+    @Override
+    public SimpleVersionedSerializer<FileSinkCommittable> getCommittableSerializer() {
+        return gcsAvroSink.getCommittableSerializer();
     }
 }
