@@ -25,6 +25,7 @@ import org.apache.flink.connector.file.sink.FileSinkCommittable;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.formats.avro.AvroWriters;
+import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -55,8 +56,12 @@ class BigQueryIndirectSink<IN>
         Path outputPath = new Path(tempGcsBucket);
         Schema schema = sinkConfig.getSchemaProvider().getAvroSchema();
 
+        OutputFileConfig config = OutputFileConfig.builder().withPartSuffix(".avro").build();
+
         this.gcsAvroSink =
-                FileSink.forBulkFormat(outputPath, AvroWriters.forGenericRecord(schema)).build();
+                FileSink.forBulkFormat(outputPath, AvroWriters.forGenericRecord(schema))
+                        .withOutputFileConfig(config)
+                        .build();
     }
 
     @Override
