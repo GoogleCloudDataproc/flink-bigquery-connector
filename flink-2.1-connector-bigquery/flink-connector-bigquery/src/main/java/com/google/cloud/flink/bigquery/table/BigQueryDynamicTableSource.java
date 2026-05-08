@@ -72,6 +72,13 @@ public class BigQueryDynamicTableSource
 
     public BigQueryDynamicTableSource(
             BigQueryReadOptions readOptions, DataType producedDataType, Integer parallelism) {
+        if (readOptions.getColumnNames().isEmpty()) {
+            readOptions =
+                    readOptions
+                            .toBuilder()
+                            .setColumnNames(DataType.getFieldNames(producedDataType))
+                            .build();
+        }
         this.readOptions = readOptions;
         this.producedDataType = producedDataType;
         this.parallelism = parallelism;
