@@ -258,7 +258,10 @@ public class StorageClientFaker {
                     String table,
                     List<String> selectedFields,
                     String rowRestriction,
-                    Integer expirationHours) {
+                    Integer expirationHours,
+                    String materializationProject,
+                    String materializationDataset,
+                    String billingProject) {
                 return "materialized_" + table;
             }
 

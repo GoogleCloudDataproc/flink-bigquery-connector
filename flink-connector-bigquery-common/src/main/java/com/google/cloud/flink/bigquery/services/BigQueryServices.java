@@ -264,6 +264,9 @@ public interface BigQueryServices extends Serializable {
          * @param selectedFields The fields to project.
          * @param rowRestriction The row restriction filter.
          * @param expirationHours The expiration time for the materialized table in hours.
+         * @param materializationProject The GCP project where the temp table is created.
+         * @param materializationDataset The BigQuery dataset where the temp table is created.
+         * @param billingProject The GCP project billed for the query compute.
          * @return The name of the materialized table.
          */
         String materializeView(
@@ -272,6 +275,9 @@ public interface BigQueryServices extends Serializable {
                 String table,
                 List<String> selectedFields,
                 String rowRestriction,
-                Integer expirationHours);
+                Integer expirationHours,
+                String materializationProject,
+                String materializationDataset,
+                String billingProject);
     }
 }

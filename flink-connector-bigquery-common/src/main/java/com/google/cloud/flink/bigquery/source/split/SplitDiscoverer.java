@@ -89,6 +89,11 @@ public class SplitDiscoverer {
                                     project, dataset, table));
                 }
                 LOG.info("Table {}.{}.{} is a view. Materializing it.", project, dataset, table);
+
+                String matProject = connectionOptions.getMaterializationProject();
+                String matDataset = connectionOptions.getMaterializationDataset();
+                String billProject = connectionOptions.getBillingProject();
+
                 String materializedTable =
                         queryClient.materializeView(
                                 project,
@@ -96,11 +101,17 @@ public class SplitDiscoverer {
                                 table,
                                 columnNames,
                                 rowRestriction,
-                                connectionOptions.getMaterializedTableExpirationHours());
+                                connectionOptions.getMaterializedTableExpirationHours(),
+                                matProject,
+                                matDataset,
+                                billProject);
+
+                String destProject = matProject != null ? matProject : project;
+                String destDataset = matDataset != null ? matDataset : dataset;
                 srcTable =
                         String.format(
                                 "projects/%s/datasets/%s/tables/%s",
-                                project, dataset, materializedTable);
+                                destProject, destDataset, materializedTable);
                 finalRowRestriction = "";
             } else {
                 srcTable =

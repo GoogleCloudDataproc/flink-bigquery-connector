@@ -178,6 +178,68 @@ public class SplitDiscovererTest {
                 null);
     }
 
+    @Test
+    public void testDiscoverSplitsViewCustomMaterializationDestination() {
+        fakeServices.isView = true;
+        fakeServices.materializedTableName = "custom_temp_table";
+        fakeServices.readSession =
+                ReadSession.newBuilder()
+                        .addStreams(ReadStream.newBuilder().setName("stream_temp").build())
+                        .build();
+
+        BigQueryConnectOptions optionsWithCustomMat =
+                options.toBuilder()
+                        .setViewsEnabled(true)
+                        .setMaterializationProject("custom-project")
+                        .setMaterializationDataset("custom_dataset")
+                        .build();
+
+        List<String> splits =
+                SplitDiscoverer.discoverSplits(
+                        optionsWithCustomMat,
+                        DataFormat.AVRO,
+                        Collections.emptyList(),
+                        null,
+                        Optional.empty(),
+                        null,
+                        null);
+
+        assertThat(splits).containsExactly("stream_temp");
+        assertThat(fakeServices.materializeViewCalled).isTrue();
+        assertThat(fakeServices.lastMatProject).isEqualTo("custom-project");
+        assertThat(fakeServices.lastMatDataset).isEqualTo("custom_dataset");
+    }
+
+    @Test
+    public void testDiscoverSplitsViewCustomBilling() {
+        fakeServices.isView = true;
+        fakeServices.materializedTableName = "temp_table";
+        fakeServices.readSession =
+                ReadSession.newBuilder()
+                        .addStreams(ReadStream.newBuilder().setName("stream_temp").build())
+                        .build();
+
+        BigQueryConnectOptions optionsWithCustomBilling =
+                options.toBuilder()
+                        .setViewsEnabled(true)
+                        .setBillingProject("billing-project")
+                        .build();
+
+        List<String> splits =
+                SplitDiscoverer.discoverSplits(
+                        optionsWithCustomBilling,
+                        DataFormat.AVRO,
+                        Collections.emptyList(),
+                        null,
+                        Optional.empty(),
+                        null,
+                        null);
+
+        assertThat(splits).containsExactly("stream_temp");
+        assertThat(fakeServices.materializeViewCalled).isTrue();
+        assertThat(fakeServices.lastBillingProject).isEqualTo("billing-project");
+    }
+
     static class FakeBigQueryServices implements BigQueryServices {
         boolean isView = false;
         boolean materializeViewCalled = false;
@@ -185,6 +247,9 @@ public class SplitDiscovererTest {
         String materializedTableName = "default_temp";
         List<String> lastSelectedFields = null;
         String lastRowRestriction = null;
+        String lastMatProject = null;
+        String lastMatDataset = null;
+        String lastBillingProject = null;
         RuntimeException materializeViewError = null;
         ReadSession readSession;
 
@@ -243,11 +308,17 @@ public class SplitDiscovererTest {
                         String table,
                         List<String> selectedFields,
                         String rowRestriction,
-                        Integer expirationHours) {
+                        Integer expirationHours,
+                        String materializationProject,
+                        String materializationDataset,
+                        String billingProject) {
                     materializeViewCalled = true;
                     lastMaterializedView = table;
                     lastSelectedFields = selectedFields;
                     lastRowRestriction = rowRestriction;
+                    lastMatProject = materializationProject;
+                    lastMatDataset = materializationDataset;
+                    lastBillingProject = billingProject;
                     if (materializeViewError != null) {
                         throw materializeViewError;
                     }
