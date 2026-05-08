@@ -553,12 +553,13 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                 com.google.cloud.bigquery.JobInfo.of(queryConfig));
                 job.waitFor();
 
-                // Set expiration time for the temp table
+                // Set expiration time for the temp table using the correct billing context
                 com.google.cloud.bigquery.Table createdTable =
-                        bigQuery.getTable(destinationTableId);
+                        materializedBigQuery.getTable(destinationTableId);
                 long expirationTime =
                         createdTable.getCreationTime() + TimeUnit.HOURS.toMillis(expirationHours);
-                bigQuery.update(createdTable.toBuilder().setExpirationTime(expirationTime).build());
+                materializedBigQuery.update(
+                        createdTable.toBuilder().setExpirationTime(expirationTime).build());
 
                 return destinationTableName;
             } catch (InterruptedException e) {
