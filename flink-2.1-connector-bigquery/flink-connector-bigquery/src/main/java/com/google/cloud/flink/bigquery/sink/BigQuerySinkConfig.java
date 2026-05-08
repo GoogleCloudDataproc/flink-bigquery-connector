@@ -129,7 +129,7 @@ public class BigQuerySinkConfig<IN> {
             return false;
         }
         BigQuerySinkConfig<IN> object = (BigQuerySinkConfig<IN>) obj;
-        return (this.getConnectOptions() == object.getConnectOptions()
+        return (Objects.equals(this.getConnectOptions(), object.getConnectOptions())
                 && Objects.equals(serializerClass(this), serializerClass(object))
                 && (this.getDeliveryGuarantee() == object.getDeliveryGuarantee())
                 && (this.enableTableCreation() == object.enableTableCreation())

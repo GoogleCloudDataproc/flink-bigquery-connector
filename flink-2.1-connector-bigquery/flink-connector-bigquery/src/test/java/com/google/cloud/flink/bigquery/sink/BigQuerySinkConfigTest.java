@@ -414,12 +414,10 @@ public class BigQuerySinkConfigTest {
     @Test
     public void equalsMethodHandlesBulkWriterFactoryCorrectly() {
         RowType rowType = RowType.of(new BigIntType());
-        // BigQuerySinkConfig.equals compares connectOptions by reference, so share the instance.
-        BigQueryConnectOptions opts = indirectConnectOptions();
         BigQuerySinkConfig<RowData> a =
                 BigQuerySinkConfig.<RowData>newBuilder()
                         .writeMode(WriteMode.INDIRECT)
-                        .connectOptions(opts)
+                        .connectOptions(indirectConnectOptions())
                         .tempGcsPath(GCS_PATH)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(rowType))
                         .formatOptions(FormatOptions.parquet())
@@ -427,7 +425,7 @@ public class BigQuerySinkConfigTest {
         BigQuerySinkConfig<RowData> b =
                 BigQuerySinkConfig.<RowData>newBuilder()
                         .writeMode(WriteMode.INDIRECT)
-                        .connectOptions(opts)
+                        .connectOptions(indirectConnectOptions())
                         .tempGcsPath(GCS_PATH)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(rowType))
                         .formatOptions(FormatOptions.parquet())
