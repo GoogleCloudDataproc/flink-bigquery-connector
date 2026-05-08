@@ -531,13 +531,17 @@ public class BigQueryIntegrationTest {
                             try {
                                 env.execute(jobName);
                             } catch (Exception e) {
-                                LOG.error(e.getMessage());
+                                LOG.error("Flink job execution failed", e);
+                                throw new RuntimeException("Flink job execution failed", e);
                             }
                         });
         try {
             handle.get(timeoutTimePeriod, TimeUnit.MINUTES);
         } catch (TimeoutException e) {
             LOG.info("Job Cancelled!");
+        } catch (java.util.concurrent.ExecutionException e) {
+            LOG.error("Job execution failed!", e);
+            throw new RuntimeException("Job execution failed!", e);
         }
     }
 
