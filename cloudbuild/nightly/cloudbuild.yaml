@@ -252,7 +252,7 @@ steps:
 # 12.1 Delete the dataproc cluster - for small bounded tests
   - name: 'gcr.io/$PROJECT_ID/dataproc-flink-bigquery-connector-nightly'
     id: 'delete-clusters-bounded-small-table'
-    waitFor: ['e2e-bounded-table-api-all-datatypes-test']
+    waitFor: ['e2e-bounded-nested-schema-test', 'e2e-bounded-table-api-nested-schema-test', 'e2e-bounded-table-api-all-datatypes-test', 'e2e-indirect-bounded-test']
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'delete_cluster']
     env:
