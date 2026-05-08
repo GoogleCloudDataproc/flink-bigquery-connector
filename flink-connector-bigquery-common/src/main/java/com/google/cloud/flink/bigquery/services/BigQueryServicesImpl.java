@@ -531,26 +531,26 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                     com.google.cloud.bigquery.JobInfo.WriteDisposition
                                             .WRITE_TRUNCATE);
 
+            BigQuery materializedBigQuery = bigQuery;
             if (billingProject != null) {
-                // Note: BigQuery Java SDK's QueryJobConfiguration doesn't directly expose billing
-                // project override
-                // in a simple setBillingProject() query config API, as it usually derives from
-                // BigQueryOptions.
-                // If we want to override the billing project (Quota Project) dynamically for this
-                // job execution:
-                // BigQueryOptions has a setQuotaProjectId method. We can build a custom client if
-                // necessary,
-                // or rely on connection-level setup. For standard job orchestration, destination
-                // and query details suffice,
-                // but if the SDK supports specific configuration overrides, they are set on the
-                // JobInfo.
+                materializedBigQuery =
+                        bigQuery.getOptions()
+                                .toBuilder()
+                                .setQuotaProjectId(billingProject)
+                                .build()
+                                .getService();
+                LOG.info(
+                        "Materializing view {} via custom billing project: {}",
+                        table,
+                        billingProject);
             }
 
             QueryJobConfiguration queryConfig = queryConfigBuilder.build();
 
             try {
                 com.google.cloud.bigquery.Job job =
-                        bigQuery.create(com.google.cloud.bigquery.JobInfo.of(queryConfig));
+                        materializedBigQuery.create(
+                                com.google.cloud.bigquery.JobInfo.of(queryConfig));
                 job.waitFor();
 
                 // Set expiration time for the temp table
