@@ -29,4 +29,25 @@ then
   bq update --expiration 3600 "$DATASET_NAME"."$DESTINATION_TABLE_NAME"
 fi
 # Run the sink JAR JOB
-gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" -- --gcp-source-project "$PROJECT_NAME" --bq-source-dataset "$DATASET_NAME" --bq-source-table "$SOURCE" --gcp-dest-project "$PROJECT_NAME" --bq-dest-dataset "$DATASET_NAME" --bq-dest-table "$DESTINATION_TABLE_NAME" --sink-parallelism "$BOUNDED_JOB_SINK_PARALLELISM" --is-sql "$IS_SQL" --exactly-once "$IS_EXACTLY_ONCE_ENABLED" --enable-table-creation "$ENABLE_TABLE_CREATION"
+FLINK_ARGS=(
+  "--gcp-source-project" "$PROJECT_NAME"
+  "--bq-source-dataset" "$DATASET_NAME"
+  "--bq-source-table" "$SOURCE"
+  "--gcp-dest-project" "$PROJECT_NAME"
+  "--bq-dest-dataset" "$DATASET_NAME"
+  "--bq-dest-table" "$DESTINATION_TABLE_NAME"
+  "--sink-parallelism" "$BOUNDED_JOB_SINK_PARALLELISM"
+  "--is-sql" "$IS_SQL"
+  "--exactly-once" "$IS_EXACTLY_ONCE_ENABLED"
+  "--enable-table-creation" "$ENABLE_TABLE_CREATION"
+)
+
+if [ -n "${TEMP_GCS_BUCKET:-}" ]; then
+  FLINK_ARGS+=("--temporary-gcs-bucket" "$TEMP_GCS_BUCKET")
+fi
+
+if [ -n "${PERSISTENT_GCS_BUCKET:-}" ]; then
+  FLINK_ARGS+=("--persistent-gcs-bucket" "$PERSISTENT_GCS_BUCKET")
+fi
+
+gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" -- "${FLINK_ARGS[@]}"

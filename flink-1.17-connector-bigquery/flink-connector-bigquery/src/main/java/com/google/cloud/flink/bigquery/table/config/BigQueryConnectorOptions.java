@@ -229,4 +229,18 @@ public class BigQueryConnectorOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Fail if serializer cannot convert record to proto");
+
+    /** [OPTIONAL, Sink Configuration] The GCS bucket to stage data before loading into BigQuery. */
+    public static final ConfigOption<String> TEMPORARY_GCS_BUCKET =
+            ConfigOptions.key("temporaryGcsBucket")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The GCS bucket to stage data before loading into BigQuery.");
+
+    /** [OPTIONAL, Sink Configuration] Keep the temporary GCS bucket folder after full load. */
+    public static final ConfigOption<Boolean> PERSISTENT_GCS_BUCKET =
+            ConfigOptions.key("persistentGcsBucket")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Keep the temporary GCS bucket folder after full load.");
 }

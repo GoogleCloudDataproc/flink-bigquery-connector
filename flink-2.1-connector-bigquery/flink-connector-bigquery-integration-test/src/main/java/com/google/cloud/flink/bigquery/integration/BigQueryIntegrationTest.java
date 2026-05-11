@@ -349,6 +349,9 @@ public class BigQueryIntegrationTest {
                     case "bounded":
                         sourceDatasetName = parameterTool.getRequired("bq-source-dataset");
                         sourceTableName = parameterTool.getRequired("bq-source-table");
+                        String tempGcsBucket = parameterTool.get("temporary-gcs-bucket");
+                        boolean persistentGcsBucket =
+                                parameterTool.getBoolean("persistent-gcs-bucket", false);
                         runBoundedFlinkJobWithSink(
                                 sourceGcpProjectName,
                                 sourceDatasetName,
@@ -358,7 +361,9 @@ public class BigQueryIntegrationTest {
                                 destTableName,
                                 isExactlyOnceEnabled,
                                 sinkParallelism,
-                                enableTableCreation);
+                                enableTableCreation,
+                                tempGcsBucket,
+                                persistentGcsBucket);
                         break;
                     case "unbounded":
                         gcsSourceUri = parameterTool.getRequired("gcs-source-uri");
@@ -409,7 +414,9 @@ public class BigQueryIntegrationTest {
             String destTableName,
             boolean exactlyOnce,
             Integer sinkParallelism,
-            boolean enableTableCreation)
+            boolean enableTableCreation,
+            String tempGcsBucket,
+            boolean persistentGcsBucket)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -435,15 +442,25 @@ public class BigQueryIntegrationTest {
                         .setTable(destTableName)
                         .build();
 
+        BigQuerySchemaProvider destSchemaProvider =
+                new BigQuerySchemaProviderImpl(sinkConnectOptions);
+
         BigQuerySinkConfig.Builder<GenericRecord> sinkConfigBuilder =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
+                        .schemaProvider(destSchemaProvider)
                         .serializer(new AvroToProtoSerializer())
                         .deliveryGuarantee(
                                 exactlyOnce
                                         ? DeliveryGuarantee.EXACTLY_ONCE
                                         : DeliveryGuarantee.AT_LEAST_ONCE)
                         .streamExecutionEnvironment(env);
+
+        if (tempGcsBucket != null && !tempGcsBucket.isEmpty()) {
+            sinkConfigBuilder.temporaryGcsBucket(tempGcsBucket);
+        }
+
+        sinkConfigBuilder.persistentGcsBucket(persistentGcsBucket);
 
         if (enableTableCreation) {
             sinkConfigBuilder

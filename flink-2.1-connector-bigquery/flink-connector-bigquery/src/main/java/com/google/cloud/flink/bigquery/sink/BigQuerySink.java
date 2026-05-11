@@ -45,6 +45,9 @@ public class BigQuerySink {
         if (sinkConfig.isCdcEnabled()) {
             validateCdcConfiguration(sinkConfig);
         }
+        if (!StringUtils.isNullOrWhitespaceOnly(sinkConfig.getTemporaryGcsBucket())) {
+            return new BigQueryIndirectSink<>(sinkConfig);
+        }
         if (sinkConfig.getDeliveryGuarantee() == DeliveryGuarantee.AT_LEAST_ONCE) {
             return new BigQueryDefaultSink<>(sinkConfig);
         }

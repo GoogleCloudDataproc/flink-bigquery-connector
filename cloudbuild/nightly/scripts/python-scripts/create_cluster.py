@@ -52,10 +52,13 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
                               'disk_config': {'boot_disk_size_gb': 500}},
             'software_config': {
                 'image_version': dataproc_image_version,
-                'optional_components': ['FLINK']},
-            'initialization_actions': [{'executable_file': initialisation_action_script_uri}],
+                'optional_components': ['FLINK', 'JUPYTER']},
+            'initialization_actions': [{'executable_file': initialisation_action_script_uri, 'execution_timeout': '1200s'}],
             'lifecycle_config': {'auto_delete_ttl': '5400s'},
             'gce_cluster_config': {'internal_ip_only': False},
+            'endpoint_config': {
+                'enable_http_port_access': True
+            },
         }
     }
     try:
@@ -66,8 +69,8 @@ def create_cluster(project_id, region, cluster_name, num_workers, dataproc_image
         result = operation.result()
         logging.info(result)
         return True
-    except Exception as _:
-        logging.info(f'Could not create cluster {cluster} in {region}')
+    except Exception as e:
+        logging.exception(f'Could not create cluster {cluster} in {region}')
         return False
 
 

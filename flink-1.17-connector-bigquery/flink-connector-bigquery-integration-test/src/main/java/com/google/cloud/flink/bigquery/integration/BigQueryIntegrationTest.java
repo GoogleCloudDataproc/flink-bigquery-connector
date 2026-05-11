@@ -43,7 +43,6 @@ import org.apache.flink.table.annotation.FunctionHint;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableDescriptor;
-import org.apache.flink.table.api.TablePipeline;
 import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.functions.TableFunction;
@@ -271,6 +270,9 @@ public class BigQueryIntegrationTest {
                     case "bounded":
                         sourceDatasetName = parameterTool.getRequired("bq-source-dataset");
                         sourceTableName = parameterTool.getRequired("bq-source-table");
+                        String tempGcsBucket = parameterTool.get("temporary-gcs-bucket");
+                        boolean persistentGcsBucket =
+                                parameterTool.getBoolean("persistent-gcs-bucket", false);
                         runBoundedFlinkJobWithSink(
                                 sourceGcpProjectName,
                                 sourceDatasetName,
@@ -280,7 +282,9 @@ public class BigQueryIntegrationTest {
                                 destTableName,
                                 isExactlyOnceEnabled,
                                 sinkParallelism,
-                                enableTableCreation);
+                                enableTableCreation,
+                                tempGcsBucket,
+                                persistentGcsBucket);
                         break;
                     case "unbounded":
                         gcsSourceUri = parameterTool.getRequired("gcs-source-uri");
@@ -331,7 +335,9 @@ public class BigQueryIntegrationTest {
             String destTableName,
             boolean exactlyOnce,
             Integer sinkParallelism,
-            boolean enableTableCreation)
+            boolean enableTableCreation,
+            String tempGcsBucket,
+            boolean persistentGcsBucket)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -357,15 +363,25 @@ public class BigQueryIntegrationTest {
                         .setTable(destTableName)
                         .build();
 
+        BigQuerySchemaProvider destSchemaProvider =
+                new BigQuerySchemaProviderImpl(sinkConnectOptions);
+
         BigQuerySinkConfig.Builder<GenericRecord> sinkConfigBuilder =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
+                        .schemaProvider(destSchemaProvider)
                         .serializer(new AvroToProtoSerializer())
                         .deliveryGuarantee(
                                 exactlyOnce
                                         ? DeliveryGuarantee.EXACTLY_ONCE
                                         : DeliveryGuarantee.AT_LEAST_ONCE)
                         .streamExecutionEnvironment(env);
+
+        if (tempGcsBucket != null && !tempGcsBucket.isEmpty()) {
+            sinkConfigBuilder.temporaryGcsBucket(tempGcsBucket);
+        }
+
+        sinkConfigBuilder.persistentGcsBucket(persistentGcsBucket);
 
         if (enableTableCreation) {
             sinkConfigBuilder
@@ -515,13 +531,17 @@ public class BigQueryIntegrationTest {
                             try {
                                 env.execute(jobName);
                             } catch (Exception e) {
-                                LOG.error(e.getMessage());
+                                LOG.error("Flink job execution failed", e);
+                                throw new RuntimeException("Flink job execution failed", e);
                             }
                         });
         try {
             handle.get(timeoutTimePeriod, TimeUnit.MINUTES);
         } catch (TimeoutException e) {
             LOG.info("Job Cancelled!");
+        } catch (java.util.concurrent.ExecutionException e) {
+            LOG.error("Job execution failed!", e);
+            throw new RuntimeException("Job execution failed!", e);
         }
     }
 
@@ -733,8 +753,7 @@ public class BigQueryIntegrationTest {
                 BigQueryTableSchemaProvider.getTableDescriptor(sinkTableConfig));
 
         // Insert the table sourceTable to the registered sinkTable
-        TablePipeline pipeline = sourceTable.insertInto("bigQuerySinkTable");
-        TableResult res = pipeline.execute();
+        TableResult res = sourceTable.executeInsert("bigQuerySinkTable");
         try {
             res.await(timeoutTimePeriod, TimeUnit.MINUTES);
         } catch (InterruptedException | TimeoutException e) {

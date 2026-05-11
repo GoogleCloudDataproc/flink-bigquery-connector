@@ -38,6 +38,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 
@@ -48,7 +49,7 @@ import java.util.Objects;
  *
  * @param <IN> Type of input to sink.
  */
-public class BigQuerySinkConfig<IN> {
+public class BigQuerySinkConfig<IN> implements Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
     private static final long MILLISECONDS_PER_SECOND = 1000L;
@@ -70,6 +71,8 @@ public class BigQuerySinkConfig<IN> {
     private final boolean cdcEnabled;
     private final String cdcSequenceField;
     private final CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
+    private final String temporaryGcsBucket;
+    private final boolean persistentGcsBucket;
 
     public static <IN> Builder<IN> newBuilder() {
         return new Builder<>();
@@ -91,7 +94,9 @@ public class BigQuerySinkConfig<IN> {
                 fatalizeSerializer,
                 cdcEnabled,
                 cdcSequenceField,
-                cdcChangeTypeProvider);
+                cdcChangeTypeProvider,
+                temporaryGcsBucket,
+                persistentGcsBucket);
     }
 
     @Override
@@ -121,7 +126,9 @@ public class BigQuerySinkConfig<IN> {
                 && (this.isCdcEnabled() == object.isCdcEnabled())
                 && (Objects.equals(this.getCdcSequenceField(), object.getCdcSequenceField()))
                 && (Objects.equals(
-                        this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider())));
+                        this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider()))
+                && (Objects.equals(this.temporaryGcsBucket, object.temporaryGcsBucket))
+                && (this.persistentGcsBucket == object.persistentGcsBucket));
     }
 
     private BigQuerySinkConfig(
@@ -138,7 +145,9 @@ public class BigQuerySinkConfig<IN> {
             boolean fatalizeSerializer,
             boolean cdcEnabled,
             String cdcSequenceField,
-            CdcChangeTypeProvider<IN> cdcChangeTypeProvider) {
+            CdcChangeTypeProvider<IN> cdcChangeTypeProvider,
+            String temporaryGcsBucket,
+            boolean persistentGcsBucket) {
         this.connectOptions = connectOptions;
         this.deliveryGuarantee = deliveryGuarantee;
         this.schemaProvider = schemaProvider;
@@ -153,6 +162,8 @@ public class BigQuerySinkConfig<IN> {
         this.cdcEnabled = cdcEnabled;
         this.cdcSequenceField = cdcSequenceField;
         this.cdcChangeTypeProvider = cdcChangeTypeProvider;
+        this.temporaryGcsBucket = temporaryGcsBucket;
+        this.persistentGcsBucket = persistentGcsBucket;
     }
 
     public BigQueryConnectOptions getConnectOptions() {
@@ -211,6 +222,14 @@ public class BigQuerySinkConfig<IN> {
         return cdcChangeTypeProvider;
     }
 
+    public String getTemporaryGcsBucket() {
+        return temporaryGcsBucket;
+    }
+
+    public boolean isPersistentGcsBucket() {
+        return persistentGcsBucket;
+    }
+
     /**
      * Builder for BigQuerySinkConfig.
      *
@@ -234,6 +253,8 @@ public class BigQuerySinkConfig<IN> {
         private boolean cdcEnabled;
         private String cdcSequenceField;
         private CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
+        private String temporaryGcsBucket;
+        private boolean persistentGcsBucket;
 
         public Builder<IN> connectOptions(BigQueryConnectOptions connectOptions) {
             this.connectOptions = connectOptions;
@@ -311,6 +332,16 @@ public class BigQuerySinkConfig<IN> {
             return this;
         }
 
+        public Builder<IN> temporaryGcsBucket(String temporaryGcsBucket) {
+            this.temporaryGcsBucket = temporaryGcsBucket;
+            return this;
+        }
+
+        public Builder<IN> persistentGcsBucket(boolean persistentGcsBucket) {
+            this.persistentGcsBucket = persistentGcsBucket;
+            return this;
+        }
+
         public BigQuerySinkConfig<IN> build() {
             if (deliveryGuarantee == DeliveryGuarantee.EXACTLY_ONCE) {
                 validateStreamExecutionEnvironment(env);
@@ -329,7 +360,9 @@ public class BigQuerySinkConfig<IN> {
                     fatalizeSerializer,
                     cdcEnabled,
                     cdcSequenceField,
-                    cdcChangeTypeProvider);
+                    cdcChangeTypeProvider,
+                    temporaryGcsBucket,
+                    persistentGcsBucket);
         }
     }
 
@@ -363,7 +396,9 @@ public class BigQuerySinkConfig<IN> {
                 fatalizeSerializer,
                 false, // CDC not supported for Table API yet
                 null,
-                null);
+                null,
+                null,
+                false);
     }
 
     public static void validateStreamExecutionEnvironment(StreamExecutionEnvironment env) {

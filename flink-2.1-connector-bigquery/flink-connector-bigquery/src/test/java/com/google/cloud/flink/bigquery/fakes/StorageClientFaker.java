@@ -185,6 +185,16 @@ public class StorageClientFaker {
             }
 
             @Override
+            public void submitLoadJob(
+                    String project,
+                    String dataset,
+                    String table,
+                    List<String> sourceUris,
+                    com.google.cloud.bigquery.FormatOptions formatOptions) {
+                // Mock implementation doing nothing for tests.
+            }
+
+            @Override
             public List<String> retrieveTablePartitions(
                     String project, String dataset, String table) {
                 DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHH");

@@ -83,6 +83,7 @@ public class BigQuerySinkConfigTest {
                         .clusteredFields(Arrays.asList("foo", "bar", "qux"))
                         .region("LaLaLand")
                         .fatalizeSerializer(true)
+                        .temporaryGcsBucket("gs://temp-bucket")
                         .build();
         assertEquals(connectOptions, sinkConfig.getConnectOptions());
         assertEquals(schemaProvider, sinkConfig.getSchemaProvider());
@@ -95,6 +96,7 @@ public class BigQuerySinkConfigTest {
         assertEquals(Arrays.asList("foo", "bar", "qux"), sinkConfig.getClusteredFields());
         assertEquals("LaLaLand", sinkConfig.getRegion());
         assertTrue(sinkConfig.fatalizeSerializer());
+        assertEquals("gs://temp-bucket", sinkConfig.getTemporaryGcsBucket());
     }
 
     @Test
@@ -113,6 +115,7 @@ public class BigQuerySinkConfigTest {
         assertNull(sinkConfig.getClusteredFields());
         assertNull(sinkConfig.getRegion());
         assertFalse(sinkConfig.fatalizeSerializer());
+        assertNull(sinkConfig.getTemporaryGcsBucket());
     }
 
     @Test

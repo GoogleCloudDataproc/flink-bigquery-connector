@@ -294,4 +294,11 @@ public class BigQueryConnectorOptions {
                                     + "persisted during table creation, so max_staleness remains "
                                     + "unset after create. Run ALTER TABLE ... SET OPTIONS "
                                     + "(max_staleness = INTERVAL ...) after creation.");
+
+    /** [OPTIONAL, Sink Configuration] The GCS bucket to stage data before loading into BigQuery. */
+    public static final ConfigOption<String> TEMPORARY_GCS_BUCKET =
+            ConfigOptions.key("temporaryGcsBucket")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The GCS bucket to stage data before loading into BigQuery.");
 }
