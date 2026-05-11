@@ -109,6 +109,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_nested_schema_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
@@ -127,6 +128,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_nested_schema_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
@@ -145,6 +147,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_all_datatypes_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
@@ -163,6 +166,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_large_table_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
@@ -181,6 +185,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_bounded_table_api_large_table_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
@@ -199,6 +204,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_indirect_bounded_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
@@ -218,6 +224,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_unbounded_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
@@ -237,6 +244,7 @@ steps:
     entrypoint: 'bash'
     args: ['/workspace/cloudbuild/nightly/nightly.sh', 'e2e_table_api_unbounded_test']
     env:
+      - 'FLINK_VERSION=${_FLINK_VERSION}'
       - 'GCS_JAR_LOCATION_FILE=${_GCS_JAR_LOCATION_FILE}'
       - 'PROJECT_ID=${_PROJECT_ID}'
       - 'PROJECT_NAME=${_PROJECT_NAME}'
