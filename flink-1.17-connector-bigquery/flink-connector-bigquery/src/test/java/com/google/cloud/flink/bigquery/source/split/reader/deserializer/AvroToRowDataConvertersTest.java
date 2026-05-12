@@ -52,7 +52,8 @@ public class AvroToRowDataConvertersTest {
         RowType rowType =
                 new RowType(Collections.singletonList(new RowField("null_field", new NullType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"null_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n" + "   {\"name\": \"null_field\", \"type\": \"null\"}]";
@@ -72,7 +73,8 @@ public class AvroToRowDataConvertersTest {
                         Collections.singletonList(
                                 new RowField("tinyint_field", new TinyIntType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"tinyint_field"}});
 
         // Create the AvroRecord
         String fieldString =
@@ -95,7 +97,9 @@ public class AvroToRowDataConvertersTest {
         UnsupportedOperationException exception =
                 assertThrows(
                         UnsupportedOperationException.class,
-                        () -> AvroToRowDataConverters.createRowConverter(rowType));
+                        () ->
+                                AvroToRowDataConverters.createRowConverter(
+                                        rowType, new String[][] {{"time_field"}}));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
                         "The TIME type within the Avro schema uses a precision of '9', which is higher than the maximum supported TIME precision 6.");
@@ -113,7 +117,9 @@ public class AvroToRowDataConvertersTest {
         UnsupportedOperationException exception =
                 assertThrows(
                         UnsupportedOperationException.class,
-                        () -> AvroToRowDataConverters.createRowConverter(rowType));
+                        () ->
+                                AvroToRowDataConverters.createRowConverter(
+                                        rowType, new String[][] {{"datetime_field"}}));
         Assertions.assertThat(exception)
                 .hasMessageContaining(
                         "The TIMESTAMP/DATETIME type within the Avro schema uses a precision of '9', which is higher than the maximum supported TIMESTAMP/DATETIME precision 6.");
@@ -127,7 +133,8 @@ public class AvroToRowDataConvertersTest {
                         Collections.singletonList(
                                 new RowField("decimal_field", new DecimalType(34))));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"decimal_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
@@ -164,7 +171,7 @@ public class AvroToRowDataConvertersTest {
                                         "map_field",
                                         new MapType(new VarCharType(), new VarCharType()))));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(rowType, new String[][] {{"map_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
@@ -194,7 +201,8 @@ public class AvroToRowDataConvertersTest {
                         Collections.singletonList(
                                 new RowField("datetime_field", new TimestampType(3))));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"datetime_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
@@ -222,7 +230,8 @@ public class AvroToRowDataConvertersTest {
                         Collections.singletonList(
                                 new RowField("timestamp_field", new TimestampType(3))));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"timestamp_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
@@ -280,7 +289,8 @@ public class AvroToRowDataConvertersTest {
         RowType rowType =
                 new RowType(Collections.singletonList(new RowField("date_field", new DateType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"date_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
@@ -322,7 +332,8 @@ public class AvroToRowDataConvertersTest {
         RowType rowType =
                 new RowType(Collections.singletonList(new RowField("time_field", new TimeType(3))));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"time_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
@@ -361,7 +372,8 @@ public class AvroToRowDataConvertersTest {
         RowType rowType =
                 new RowType(Collections.singletonList(new RowField("time_field", new TimeType(6))));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"time_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n"
@@ -395,7 +407,8 @@ public class AvroToRowDataConvertersTest {
                 new RowType(
                         Collections.singletonList(new RowField("byte_field", new VarBinaryType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"byte_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n" + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}]";
@@ -414,7 +427,8 @@ public class AvroToRowDataConvertersTest {
                 new RowType(
                         Collections.singletonList(new RowField("byte_field", new VarBinaryType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"byte_field"}});
         // Create the AvroRecord
         String fieldString =
                 " \"fields\": [\n" + "   {\"name\": \"byte_field\", \"type\": \"bytes\"}]";
@@ -439,7 +453,9 @@ public class AvroToRowDataConvertersTest {
                                 new RowField("third_field", new DoubleType()),
                                 new RowField("first_field", new IntType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType,
+                        new String[][] {{"second_field"}, {"third_field"}, {"first_field"}});
         // Create the AvroRecord — fields in original table order
         String fieldString =
                 " \"fields\": [\n"
@@ -467,7 +483,8 @@ public class AvroToRowDataConvertersTest {
                                 new RowField("third_field", new BigIntType()),
                                 new RowField("second_field", new VarCharType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"third_field"}, {"second_field"}});
         // Create the AvroRecord — all 4 columns in table order
         String fieldString =
                 " \"fields\": [\n"
@@ -497,7 +514,8 @@ public class AvroToRowDataConvertersTest {
                                 new RowField("second_field", new BigIntType()),
                                 new RowField("first_field", new VarCharType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(rowType);
+                AvroToRowDataConverters.createRowConverter(
+                        rowType, new String[][] {{"second_field"}, {"first_field"}});
         // Create the AvroRecord — Avro has first before second (opposite of RowType)
         String fieldString =
                 " \"fields\": [\n"
@@ -530,7 +548,8 @@ public class AvroToRowDataConvertersTest {
                                 new RowField("second_field", innerRowType),
                                 new RowField("first_field", new VarCharType())));
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter(outerRowType);
+                AvroToRowDataConverters.createRowConverter(
+                        outerRowType, new String[][] {{"second_field"}, {"first_field"}});
         // Create the AvroRecord — first_field before second_field; first_inner before second_inner
         Schema innerAvroSchema =
                 org.apache.avro.SchemaBuilder.record("second_field")
@@ -570,5 +589,176 @@ public class AvroToRowDataConvertersTest {
         assertEquals(StringData.fromString("inner_b"), innerRow.getField(0));
         assertEquals(StringData.fromString("inner_a"), innerRow.getField(1));
         assertEquals(StringData.fromString("outer_a"), row.getField(1));
+    }
+
+    @Test
+    public void testNestedProjectionWalksAvroRecord() {
+        // Flat output type — what Flink's planner produces after nested projection.
+        RowType outputRowType =
+                new RowType(
+                        Arrays.asList(
+                                new RowField("event_name", new VarCharType()),
+                                new RowField("buyer_id", new VarCharType())));
+        String[][] paths = {{"payload", "event_name"}, {"payload", "buyer", "id"}};
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(outputRowType, paths);
+
+        // Nested Avro record matching what BQ returns when given dotted-path selected_fields.
+        Schema buyerSchema =
+                org.apache.avro.SchemaBuilder.record("buyer")
+                        .fields()
+                        .requiredString("id")
+                        .endRecord();
+        Schema payloadSchema =
+                org.apache.avro.SchemaBuilder.record("payload")
+                        .fields()
+                        .requiredString("event_name")
+                        .name("buyer")
+                        .type(buyerSchema)
+                        .noDefault()
+                        .endRecord();
+        Schema outerSchema =
+                org.apache.avro.SchemaBuilder.record("outer")
+                        .fields()
+                        .name("payload")
+                        .type(payloadSchema)
+                        .noDefault()
+                        .endRecord();
+        GenericRecord buyer = new GenericRecordBuilder(buyerSchema).set("id", "b-1").build();
+        GenericRecord payload =
+                new GenericRecordBuilder(payloadSchema)
+                        .set("event_name", "checkout")
+                        .set("buyer", buyer)
+                        .build();
+        GenericRecord outer = new GenericRecordBuilder(outerSchema).set("payload", payload).build();
+
+        Object result = converter.convert(outer);
+        assertEquals(
+                GenericRowData.of(StringData.fromString("checkout"), StringData.fromString("b-1")),
+                result);
+    }
+
+    @Test
+    public void testNestedProjectionTraversesNullableUnion() {
+        // Flat output for a path through a NULLABLE intermediate record.
+        RowType outputRowType =
+                new RowType(Collections.singletonList(new RowField("city", new VarCharType())));
+        String[][] paths = {{"address", "city"}};
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(outputRowType, paths);
+
+        // Inner address is nullable: ["null", record].
+        Schema addressSchema =
+                org.apache.avro.SchemaBuilder.record("address")
+                        .fields()
+                        .requiredString("city")
+                        .endRecord();
+        Schema outerSchema =
+                org.apache.avro.SchemaBuilder.record("outer")
+                        .fields()
+                        .name("address")
+                        .type(
+                                org.apache.avro.SchemaBuilder.unionOf()
+                                        .nullType()
+                                        .and()
+                                        .type(addressSchema)
+                                        .endUnion())
+                        .withDefault(null)
+                        .endRecord();
+        GenericRecord address =
+                new GenericRecordBuilder(addressSchema).set("city", "Toronto").build();
+        GenericRecord outer = new GenericRecordBuilder(outerSchema).set("address", address).build();
+
+        Object result = converter.convert(outer);
+        assertEquals(GenericRowData.of(StringData.fromString("Toronto")), result);
+    }
+
+    @Test
+    public void testNestedProjectionReturnsNullWhenIntermediateIsNull() {
+        RowType outputRowType =
+                new RowType(Collections.singletonList(new RowField("city", new VarCharType())));
+        String[][] paths = {{"address", "city"}};
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(outputRowType, paths);
+
+        Schema addressSchema =
+                org.apache.avro.SchemaBuilder.record("address")
+                        .fields()
+                        .requiredString("city")
+                        .endRecord();
+        Schema outerSchema =
+                org.apache.avro.SchemaBuilder.record("outer")
+                        .fields()
+                        .name("address")
+                        .type(
+                                org.apache.avro.SchemaBuilder.unionOf()
+                                        .nullType()
+                                        .and()
+                                        .type(addressSchema)
+                                        .endUnion())
+                        .withDefault(null)
+                        .endRecord();
+        GenericRecord outer = new GenericRecordBuilder(outerSchema).set("address", null).build();
+
+        Object result = converter.convert(outer);
+        assertEquals(GenericRowData.of((Object) null), result);
+    }
+
+    @Test
+    public void testNestedProjectionThrowsOnIntermediateFieldNotFound() {
+        RowType outputRowType =
+                new RowType(Collections.singletonList(new RowField("leaf", new VarCharType())));
+        String[][] paths = {{"missing_intermediate", "leaf"}};
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(outputRowType, paths);
+
+        Schema outerSchema =
+                org.apache.avro.SchemaBuilder.record("outer")
+                        .fields()
+                        .requiredString("present")
+                        .endRecord();
+        GenericRecord outer = new GenericRecordBuilder(outerSchema).set("present", "x").build();
+
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> converter.convert(outer));
+        Assertions.assertThat(ex.getMessage())
+                .contains("missing_intermediate.leaf")
+                .contains("present");
+    }
+
+    @Test
+    public void testNestedProjectionThrowsOnLeafFieldNotFound() {
+        RowType outputRowType =
+                new RowType(Collections.singletonList(new RowField("city", new VarCharType())));
+        String[][] paths = {{"address", "missing_leaf"}};
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(outputRowType, paths);
+
+        Schema addressSchema =
+                org.apache.avro.SchemaBuilder.record("address")
+                        .fields()
+                        .requiredString("city")
+                        .requiredString("zip")
+                        .endRecord();
+        Schema outerSchema =
+                org.apache.avro.SchemaBuilder.record("outer")
+                        .fields()
+                        .name("address")
+                        .type(addressSchema)
+                        .noDefault()
+                        .endRecord();
+        GenericRecord address =
+                new GenericRecordBuilder(addressSchema)
+                        .set("city", "Toronto")
+                        .set("zip", "M5V")
+                        .build();
+        GenericRecord outer = new GenericRecordBuilder(outerSchema).set("address", address).build();
+
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> converter.convert(outer));
+        Assertions.assertThat(ex.getMessage())
+                .contains("address.missing_leaf")
+                .contains("city")
+                .contains("zip");
     }
 }

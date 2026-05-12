@@ -412,8 +412,13 @@ public class RowDataToProtoSerializerTest {
                         .set("Json", "{\"FirstName\": \"John\", \"LastName\": \"Doe\"}")
                         .build();
 
+        RowType bqRowType = (RowType) logicalType;
         AvroToRowDataConverters.AvroToRowDataConverter converter =
-                AvroToRowDataConverters.createRowConverter((RowType) logicalType);
+                AvroToRowDataConverters.createRowConverter(
+                        bqRowType,
+                        bqRowType.getFieldNames().stream()
+                                .map(f -> new String[] {f})
+                                .toArray(String[][]::new));
         RowData row = (RowData) converter.convert(record);
 
         // Check the expected value.
