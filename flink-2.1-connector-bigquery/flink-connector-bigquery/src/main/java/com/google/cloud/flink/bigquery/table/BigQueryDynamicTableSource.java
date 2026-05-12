@@ -33,6 +33,7 @@ import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushD
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
@@ -48,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,18 +72,45 @@ public class BigQueryDynamicTableSource
     private DataType producedDataType;
     private final Integer parallelism;
 
+    private final RowType physicalDataType;
+    private String[][] fullyQualifiedPaths;
+
     public BigQueryDynamicTableSource(
-            BigQueryReadOptions readOptions, DataType producedDataType, Integer parallelism) {
-        if (readOptions.getColumnNames().isEmpty()) {
-            readOptions =
-                    readOptions
-                            .toBuilder()
-                            .setColumnNames(DataType.getFieldNames(producedDataType))
-                            .build();
-        }
+            BigQueryReadOptions readOptions, DataType physicalDataType, Integer parallelism) {
+        this(
+                ensureDefaultColumnNames(readOptions, physicalDataType),
+                (RowType) physicalDataType.getLogicalType(),
+                physicalDataType,
+                defaultFlatPaths((RowType) physicalDataType.getLogicalType()),
+                parallelism);
+    }
+
+    private BigQueryDynamicTableSource(
+            BigQueryReadOptions readOptions,
+            RowType physicalDataType,
+            DataType producedDataType,
+            String[][] fullyQualifiedPaths,
+            Integer parallelism) {
         this.readOptions = readOptions;
+        this.physicalDataType = physicalDataType;
         this.producedDataType = producedDataType;
+        this.fullyQualifiedPaths = fullyQualifiedPaths;
         this.parallelism = parallelism;
+    }
+
+    private static BigQueryReadOptions ensureDefaultColumnNames(
+            BigQueryReadOptions readOptions, DataType physicalDataType) {
+        if (readOptions.getColumnNames().isEmpty()) {
+            return readOptions
+                    .toBuilder()
+                    .setColumnNames(DataType.getFieldNames(physicalDataType))
+                    .build();
+        }
+        return readOptions;
+    }
+
+    private static String[][] defaultFlatPaths(RowType rowType) {
+        return rowType.getFieldNames().stream().map(f -> new String[] {f}).toArray(String[][]::new);
     }
 
     @Override
@@ -95,12 +124,14 @@ public class BigQueryDynamicTableSource
         final TypeInformation<RowData> typeInfo =
                 runtimeProviderContext.createTypeInformation(producedDataType);
 
+        AvroToRowDataDeserializationSchema deserializationSchema =
+                new AvroToRowDataDeserializationSchema(rowType, typeInfo, fullyQualifiedPaths);
+
         BigQuerySource<RowData> bqSource =
                 BigQuerySource.<RowData>builder()
                         .setReadOptions(readOptions)
                         .setSourceBoundedness(Boundedness.BOUNDED)
-                        .setDeserializationSchema(
-                                new AvroToRowDataDeserializationSchema(rowType, typeInfo))
+                        .setDeserializationSchema(deserializationSchema)
                         .build();
 
         return SourceProvider.of(bqSource, parallelism);
@@ -108,7 +139,8 @@ public class BigQueryDynamicTableSource
 
     @Override
     public DynamicTableSource copy() {
-        return new BigQueryDynamicTableSource(readOptions, producedDataType, parallelism);
+        return new BigQueryDynamicTableSource(
+                readOptions, physicalDataType, producedDataType, fullyQualifiedPaths, parallelism);
     }
 
     @Override
@@ -119,17 +151,46 @@ public class BigQueryDynamicTableSource
 
     @Override
     public boolean supportsNestedProjection() {
-        return false;
+        return true;
     }
 
     @Override
     public void applyProjection(int[][] projectedFields, DataType producedDataType) {
         this.producedDataType = producedDataType;
+        // Single walk of the original DDL row tree. Produces the per-column Avro paths and
+        // leaf types the deserializer will use directly — no path-walking in the deserializer.
+        this.fullyQualifiedPaths = resolvePaths(projectedFields);
         this.readOptions =
                 this.readOptions
                         .toBuilder()
-                        .setColumnNames(DataType.getFieldNames(producedDataType))
+                        .setColumnNames(toDottedPaths(this.fullyQualifiedPaths))
                         .build();
+    }
+
+    // Walk through projected fields getting fully qualified names for each column
+    private String[][] resolvePaths(int[][] paths) {
+        return Arrays.stream(paths)
+                .map(indexPath -> toNamePath(indexPath, this.physicalDataType))
+                .toArray(String[][]::new);
+    }
+
+    private static String[] toNamePath(final int[] indexPath, final RowType rowType) {
+        final String[] namePath = new String[indexPath.length];
+        LogicalType currentType = rowType;
+        for (int i = 0; i < indexPath.length; i++) {
+            final RowType row = (RowType) currentType;
+            final RowType.RowField rowField = row.getFields().get(indexPath[i]);
+            namePath[i] = rowField.getName();
+            currentType = rowField.getType();
+        }
+        return namePath;
+    }
+
+    // Joins Avro field-name paths with "." to query BigQuery
+    private static List<String> toDottedPaths(String[][] namePaths) {
+        return Arrays.stream(namePaths)
+                .map(path -> String.join(".", path))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -183,7 +244,12 @@ public class BigQueryDynamicTableSource
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.readOptions, this.producedDataType, this.parallelism);
+        return Objects.hash(
+                this.readOptions,
+                this.producedDataType,
+                this.parallelism,
+                this.physicalDataType,
+                Arrays.deepHashCode(this.fullyQualifiedPaths));
     }
 
     @Override
@@ -200,7 +266,9 @@ public class BigQueryDynamicTableSource
         final BigQueryDynamicTableSource other = (BigQueryDynamicTableSource) obj;
         return Objects.equals(this.readOptions, other.readOptions)
                 && Objects.equals(this.producedDataType, other.producedDataType)
-                && Objects.equals(this.parallelism, other.parallelism);
+                && Objects.equals(this.parallelism, other.parallelism)
+                && Objects.equals(this.physicalDataType, other.physicalDataType)
+                && Arrays.deepEquals(this.fullyQualifiedPaths, other.fullyQualifiedPaths);
     }
 
     Optional<TablePartitionInfo> retrievePartitionInfo() {

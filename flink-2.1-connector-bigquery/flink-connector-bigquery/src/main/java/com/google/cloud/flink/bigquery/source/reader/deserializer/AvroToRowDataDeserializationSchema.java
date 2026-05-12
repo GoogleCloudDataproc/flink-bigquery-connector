@@ -32,13 +32,16 @@ import org.slf4j.LoggerFactory;
 public class AvroToRowDataDeserializationSchema
         implements BigQueryDeserializationSchema<GenericRecord, RowData> {
     private final AvroToRowDataConverters.AvroToRowDataConverter converter;
-    private final TypeInformation<RowData> typeInfo;
+
     private static final Logger LOG =
             LoggerFactory.getLogger(AvroToRowDataDeserializationSchema.class);
 
-    public AvroToRowDataDeserializationSchema(RowType rowType, TypeInformation<RowData> typeInfo) {
-        this.converter = AvroToRowDataConverters.createRowConverter(rowType);
+    private final TypeInformation<RowData> typeInfo;
+
+    public AvroToRowDataDeserializationSchema(
+            RowType rowType, TypeInformation<RowData> typeInfo, String[][] fullyQualifiedPaths) {
         this.typeInfo = typeInfo;
+        this.converter = AvroToRowDataConverters.createRowConverter(rowType, fullyQualifiedPaths);
     }
 
     @Override

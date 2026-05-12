@@ -88,7 +88,12 @@ public class BigQuerySourceIntegrationTestCase {
         return BigQuerySource.<RowData>builder()
                 .setReadOptions(rOptions)
                 .setDeserializationSchema(
-                        new AvroToRowDataDeserializationSchema(rowType, typeInfo));
+                        new AvroToRowDataDeserializationSchema(
+                                rowType,
+                                typeInfo,
+                                rowType.getFieldNames().stream()
+                                        .map(f -> new String[] {f})
+                                        .toArray(String[][]::new)));
     }
 
     private static RowType defaultSourceRowType() {
@@ -178,7 +183,12 @@ public class BigQuerySourceIntegrationTestCase {
                                         // we want this to fail 10% of the time (1 in 10 times)
                                         10D))
                         .setDeserializationSchema(
-                                new AvroToRowDataDeserializationSchema(rowType, typeInfo))
+                                new AvroToRowDataDeserializationSchema(
+                                        rowType,
+                                        typeInfo,
+                                        rowType.getFieldNames().stream()
+                                                .map(f -> new String[] {f})
+                                                .toArray(String[][]::new)))
                         .build();
 
         List<RowData> results =
