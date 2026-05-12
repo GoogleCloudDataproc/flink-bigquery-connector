@@ -127,15 +127,16 @@ public class AvroToRowDataConverters {
         return value;
     }
 
-    private static int[][] computeIndexMapping(GenericRecord record, String[][] fieldNames) {
-        int[][] mapping = new int[fieldNames.length][];
-        for (int i = 0; i < fieldNames.length; i++) {
-            mapping[i] = new int[fieldNames[i].length];
-            org.apache.avro.Schema currentSchema = unwrapNullableUnion(record.getSchema());
-            for (int j = 0; j < fieldNames[i].length; j++) {
-                org.apache.avro.Schema.Field field = currentSchema.getField(fieldNames[i][j]);
+    private static int[][] computeIndexMapping(GenericRecord record, String[][] nestedPaths) {
+        int[][] mapping = new int[nestedPaths.length][];
+        org.apache.avro.Schema rootSchema = unwrapNullableUnion(record.getSchema());
+        for (int i = 0; i < nestedPaths.length; i++) {
+            mapping[i] = new int[nestedPaths[i].length];
+            org.apache.avro.Schema currentSchema = rootSchema;
+            for (int j = 0; j < nestedPaths[i].length; j++) {
+                org.apache.avro.Schema.Field field = currentSchema.getField(nestedPaths[i][j]);
                 if (field == null) {
-                    throw fieldNotFound(fieldNames[i], currentSchema);
+                    throw fieldNotFound(nestedPaths[i], currentSchema);
                 }
                 mapping[i][j] = field.pos();
                 currentSchema = unwrapNullableUnion(field.schema());
@@ -152,7 +153,11 @@ public class AvroToRowDataConverters {
         return schema.getTypes().stream()
                 .filter(s -> s.getType() != org.apache.avro.Schema.Type.NULL)
                 .findFirst()
-                .orElseThrow();
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "Nullable union schema contains only NULL type: "
+                                                + schema));
     }
 
     private static IllegalArgumentException fieldNotFound(
