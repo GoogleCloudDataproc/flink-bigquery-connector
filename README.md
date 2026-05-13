@@ -211,7 +211,7 @@ Follow [this document](https://cloud.google.com/dataproc/docs/concepts/component
   ```
 
 
-## Sink
+## Storage Write API Sink
 
 Flink [Sink](https://nightlies.apache.org/flink/flink-docs-release-1.17/api/java/org/apache/flink/api/connector/sink2/Sink.html)
 is the base interface for developing a sink. With checkpointing enabled, it can offer at-least-once or exactly-once 
@@ -376,6 +376,118 @@ understand the BigQuery Storage Write API pricing.
 * BigQuery connection configuration is defined at `com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions`.
 * Sample Flink application using connector is defined at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API,
   and at `com.google.cloud.flink.bigquery.examples.BigQueryTableExample` for the Table API and SQL.
+
+
+## Indirect Sink (BigQuery load jobs via GCS)
+
+The connector ships a second write mode - **indirect writes** - that stages records as files on Google Cloud Storage (in any [BigQuery-load-job-compatible format](https://cloud.google.com/bigquery/docs/batch-loading-data#supported_data_formats) - Parquet, Avro, ORC, CSV, or JSON) and then loads them into BigQuery via [load jobs](https://cloud.google.com/bigquery/docs/batch-loading-data) instead of going row-by-row through the Storage Write API.
+
+For the full design (architecture, exactly-once mechanism, failure scenarios, etc.), see [`docs/BigQuery Indirect Writes Sink.md`](docs/BigQuery%20Indirect%20Writes%20Sink.md).
+
+### Prerequisites
+
+1. **A GCS staging bucket** in the same region as the destination BigQuery dataset.
+   * **Strongly recommended:** configure a [bucket lifecycle rule](https://cloud.google.com/storage/docs/lifecycle) to delete objects older than e.g. 3-7 days. The connector deletes staged files immediately after a successful load (best-effort), but failed jobs or unclean shutdowns can leave orphans. The lifecycle rule is your safety net.
+
+2. **A temporary BigQuery dataset** in the same location as the destination dataset. The dataset can live in any GCP project - specified by `write.indirect.temp-bigquery-project` - and does not have to be the destination project.
+   * Used only when a checkpoint produces more than 10,000 files or more than 15 TB - the connector then partitions the load across temp tables in this dataset and runs an atomic `COPY` job into the destination.
+   * **Strongly recommended:** set a [default `tableExpirationMs`](https://cloud.google.com/bigquery/docs/managing-tables#updating-table-expiration) on this dataset (e.g. 24 h). A successful load deletes its own temp tables; this default catches anything left behind by failed jobs.
+
+3. **GCS Hadoop connector plugin** (`flink-gs-fs-hadoop`) installed in the Flink cluster's `plugins/` directory. Without it the sink cannot write to `gs://` paths.
+
+### Required IAM Permissions
+
+| Resource                                                                                                       | Recommended role |
+|----------------------------------------------------------------------------------------------------------------|------------------|
+| GCS staging bucket (from `write.indirect.temp-gcs-path`)                                                       | [`roles/storage.objectUser`](https://docs.cloud.google.com/storage/docs/access-control/iam-roles#storage.objectUser) on the bucket |
+| Destination BigQuery table (the table you're writing to)                                                       | [`roles/bigquery.dataEditor`](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataEditor) on the dataset |
+| Temp BigQuery dataset (from `write.indirect.temp-bigquery-dataset` in `write.indirect.temp-bigquery-project`)  | [`roles/bigquery.dataEditor`](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataEditor) on the dataset |
+| BigQuery project where load jobs run (from `write.indirect.bigquery-job-project`)                              | [`roles/bigquery.jobUser`](https://cloud.google.com/bigquery/docs/access-control#bigquery.jobUser) on the project |
+
+### Indirect Sink In Datastream API
+
+```java
+StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+env.setRuntimeMode(RuntimeExecutionMode.BATCH); // REQUIRED - streaming mode is rejected
+
+BigQueryConnectOptions connectOptions = BigQueryConnectOptions.builder()
+        .setProjectId(...) // REQUIRED
+        .setDataset(...)   // REQUIRED
+        .setTable(...)     // REQUIRED
+        .build();
+
+BigQuerySinkConfig<RowData> sinkConfig = BigQuerySinkConfig.<RowData>newBuilder()
+        .connectOptions(connectOptions)                                  // REQUIRED
+        .writeMode(WriteMode.INDIRECT)                                   // REQUIRED
+        .tempGcsPath("gs://<staging-bucket>/<prefix>")                   // REQUIRED
+        .tempProject("<temp-bq-project>")                                // REQUIRED
+        .tempDataset("<temp-bq-dataset>")                                // REQUIRED
+        .bulkWriterFactory(RowDataParquetWriterFactory.create(rowType))  // REQUIRED
+        .formatOptions(ParquetOptions.newBuilder()                       // REQUIRED - must match the format produced by bulkWriterFactory
+                .setEnableListInference(true).build())
+        .jobProject("<bq-job-project>")                                  // REQUIRED
+        .build();
+
+Sink<RowData> sink = BigQuerySink.get(sinkConfig);
+```
+
+The indirect sink writes Flink's `RowData`. For most users the Table API path below is the recommended entry point - it wires up the Parquet writer for you from the table schema.
+
+### Indirect Sink In Table API
+
+The destination BigQuery table must already exist with a matching schema.
+
+```sql
+CREATE TABLE bigquery_sink (
+    -- ... your schema, matching the existing destination table ...
+) WITH (
+    'connector' = 'bigquery',
+    'project' = '<gcp-project>',
+    'dataset' = '<bq-dataset>',
+    'table' = '<bq-table>',
+    -- 5 new options to switch on indirect writes:
+    'write.mode' = 'INDIRECT',
+    'write.indirect.temp-gcs-path' = 'gs://<staging-bucket>/<prefix>',
+    'write.indirect.temp-bigquery-project' = '<temp-bq-project>',
+    'write.indirect.temp-bigquery-dataset' = '<temp-bq-dataset>',
+    'write.indirect.bigquery-job-project' = '<bq-job-project>'
+);
+```
+
+The Flink job must run in **batch** execution mode (`SET 'execution.runtime-mode' = 'BATCH';`).
+
+A complete end-to-end example exercising every supported datatype is at `com.google.cloud.flink.bigquery.examples.IndirectWriteExample`.
+
+### Indirect Sink Configurations
+
+The indirect sink reuses the standard sink connection options (`projectId`, `dataset`, `table`, `quotaProjectId`, `credentialsOptions`) and adds the following:
+
+| Property            | Data Type          | Description                                                                                                                                                                                                                                                                                                                    |
+|---------------------|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `writeMode`         | WriteMode          | Must be set to `INDIRECT` to enable indirect writes. Defaults to `STORAGE_WRITE_API`. SQL key: `write.mode`.                                                                                                                                                                                                                   |
+| `tempGcsPath`       | String             | GCS prefix where the connector stages Parquet files (e.g. `gs://my-staging-bucket/flink-bq`). The bucket must be in the **same region** as the destination BigQuery dataset. SQL key: `write.indirect.temp-gcs-path`. Required when `writeMode = INDIRECT`.                                                                    |
+| `tempProject`       | String             | GCP project that owns `tempDataset`. Can be the destination project or a different one. SQL key: `write.indirect.temp-bigquery-project`. Required when `writeMode = INDIRECT`.                                                                                                                                                 |
+| `tempDataset`       | String             | BigQuery dataset the connector uses to create temporary tables when a single load job would exceed BigQuery's 10,000-file / 15 TB limit. Must already exist in `tempProject` and reside in the same location as the destination. SQL key: `write.indirect.temp-bigquery-dataset`. Required when `writeMode = INDIRECT`.        |
+| `bulkWriterFactory` | BulkWriter.Factory | Bulk writer factory for staging files on GCS in any BigQuery-load-job-compatible format (Parquet, Avro, ORC, CSV, or JSON). Must agree with `formatOptions`. The Table API path wires up a Parquet writer automatically from the table schema. Required for the DataStream API only.                                           |
+| `formatOptions`     | FormatOptions      | BigQuery load-job `FormatOptions` applied to every load job submitted by this sink. Must agree with the file format produced by `bulkWriterFactory`; mismatches surface as runtime load-job failures. DataStream API only - the Table API wires this up automatically. Required when `writeMode = INDIRECT`.                   |
+| `jobProject`        | String             | GCP project under which BigQuery load and copy jobs are submitted (i.e. where they are listed and billed). The destination table and temp tables are unaffected. SQL key: `write.indirect.bigquery-job-project`. Required when `writeMode = INDIRECT`.                                                                         |
+
+### Indirect Sink Details [MUST READ]
+
+* **Batch only.** The indirect sink rejects streaming execution at job-graph build time. Set `env.setRuntimeMode(RuntimeExecutionMode.BATCH)` before constructing the sink.
+* **Always exactly-once.** The indirect sink ignores the `deliveryGuarantee` configuration; it is always exactly-once. The mechanism (deterministic BigQuery job IDs + idempotent write dispositions + atomic `COPY` for large loads) is documented in the design doc.
+* **Append-only.** No CDC / upsert support, no `WRITE_TRUNCATE`. CDC mode is explicitly rejected.
+* **No table auto-creation.** The destination table must exist with a matching schema before the job runs; `enableTableCreation` is explicitly rejected.
+* **GCS cleanup is best-effort.** The connector deletes staged files after a successful load, but failed jobs or unclean shutdowns can leave orphans. The bucket lifecycle rule from the prerequisites is your safety net.
+* **Temp-table cleanup is best-effort.** When the large-workload path kicks in, the connector deletes its temp tables after the atomic `COPY` succeeds, but failed jobs or unclean shutdowns can leave orphans in the temp dataset. The default `tableExpirationMs` from the prerequisites is your safety net.
+
+### Relevant Files
+
+* Sink can be created using `get` method at `com.google.cloud.flink.bigquery.sink.BigQuerySink`.
+* Write mode enum is defined at `com.google.cloud.flink.bigquery.sink.WriteMode`.
+* Sink configuration for Datastream API is defined at `com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig`.
+* Sink configuration for Table/SQL API is defined at `com.google.cloud.flink.bigquery.table.config.BigQuerySinkTableConfig`.
+* Sample Flink SQL application for indirect writes is at `com.google.cloud.flink.bigquery.examples.IndirectWriteExample`.
 
 
 ## Source
