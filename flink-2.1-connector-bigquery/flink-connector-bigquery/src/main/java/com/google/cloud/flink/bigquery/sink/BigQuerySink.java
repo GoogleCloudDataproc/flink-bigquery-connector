@@ -47,6 +47,7 @@ public class BigQuerySink {
                     sinkConfig.getTempGcsPath(),
                     sinkConfig.getTempProject(),
                     sinkConfig.getTempDataset(),
+                    sinkConfig.getJobProject(),
                     sinkConfig.getBulkWriterFactory(),
                     sinkConfig.getFormatOptions(),
                     sinkConfig.isCdcEnabled(),

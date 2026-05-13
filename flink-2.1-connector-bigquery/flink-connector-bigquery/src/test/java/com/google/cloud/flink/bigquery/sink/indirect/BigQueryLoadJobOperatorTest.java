@@ -84,6 +84,7 @@ public class BigQueryLoadJobOperatorTest {
     private static final String TABLE = "t";
     private static final String TEMP_PROJECT = "temp_p";
     private static final String TEMP_DATASET = "temp_d";
+    private static final String JOB_PROJECT = "job_p";
 
     private static class TestPendingFile implements InProgressFileWriter.PendingFileRecoverable {
         private final Path path;
@@ -342,6 +343,7 @@ public class BigQueryLoadJobOperatorTest {
                         FIXED_UUID,
                         TEMP_PROJECT,
                         TEMP_DATASET,
+                        JOB_PROJECT,
                         () -> Executors.newCachedThreadPool(),
                         () -> fs,
                         EXPECTED_PARQUET_OPTIONS,
@@ -475,6 +477,7 @@ public class BigQueryLoadJobOperatorTest {
                         FIXED_UUID,
                         TEMP_PROJECT,
                         TEMP_DATASET,
+                        JOB_PROJECT,
                         () -> {
                             supplierCalls.incrementAndGet();
                             return executorService;
@@ -505,6 +508,7 @@ public class BigQueryLoadJobOperatorTest {
                         FIXED_UUID,
                         TEMP_PROJECT,
                         TEMP_DATASET,
+                        JOB_PROJECT,
                         () -> executorService,
                         RecordingFileSystem::new,
                         EXPECTED_PARQUET_OPTIONS,
@@ -527,6 +531,7 @@ public class BigQueryLoadJobOperatorTest {
                         FIXED_UUID,
                         TEMP_PROJECT,
                         TEMP_DATASET,
+                        JOB_PROJECT,
                         () -> executorService,
                         RecordingFileSystem::new,
                         EXPECTED_PARQUET_OPTIONS,
@@ -549,6 +554,7 @@ public class BigQueryLoadJobOperatorTest {
                         FIXED_UUID,
                         TEMP_PROJECT,
                         TEMP_DATASET,
+                        JOB_PROJECT,
                         () -> executorService,
                         RecordingFileSystem::new,
                         EXPECTED_PARQUET_OPTIONS,
@@ -616,7 +622,7 @@ public class BigQueryLoadJobOperatorTest {
 
         // Now both summaries + all files received - should have submitted
         assertEquals(1, client.submittedJobs.size());
-        assertEquals(PROJECT, client.submittedJobs.get(0).project);
+        assertEquals(JOB_PROJECT, client.submittedJobs.get(0).project);
         assertEquals(EXPECTED_LOAD_JOB_ID_C1, client.submittedJobs.get(0).jobId);
         // Order from the underlying HashSet isn't stable; compare as a set.
         assertEquals(
@@ -651,7 +657,7 @@ public class BigQueryLoadJobOperatorTest {
 
         // Now both summaries + all files received - should have submitted
         assertEquals(1, client.submittedJobs.size());
-        assertEquals(PROJECT, client.submittedJobs.get(0).project);
+        assertEquals(JOB_PROJECT, client.submittedJobs.get(0).project);
         assertEquals(EXPECTED_LOAD_JOB_ID_C1, client.submittedJobs.get(0).jobId);
         assertEquals(
                 Set.of("file:///tmp/f0.parquet", "file:///tmp/f1.parquet"),
@@ -827,13 +833,58 @@ public class BigQueryLoadJobOperatorTest {
         processCompleteCheckpoint(operator, 1L, "file:///tmp/test.parquet");
 
         assertEquals(1, client.submittedJobs.size());
-        assertEquals(PROJECT, client.submittedJobs.get(0).project);
+        assertEquals(JOB_PROJECT, client.submittedJobs.get(0).project);
         assertEquals(
                 JobInfo.CreateDisposition.CREATE_NEVER,
                 ((LoadJobConfiguration) client.submittedJobs.get(0).config).getCreateDisposition());
         assertSubmittedFormatOptions((LoadJobConfiguration) client.submittedJobs.get(0).config);
         // submitJob returns submitJobResult; that's what waitForJob receives.
         assertEquals(List.of(client.submitJobResult), client.waitForJobCalls);
+
+        operator.close();
+    }
+
+    @Test
+    public void singlePartitionLoadUsesJobProjectButDestinationProjectForTable() throws Exception {
+        // Cross-project semantics: the load job is created in JOB_PROJECT (where it's listed and
+        // billed), but the destination table is in the connect-options PROJECT. These can differ.
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        BigQueryLoadJobOperator operator = createOpenOperator(client);
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/test.parquet");
+
+        assertEquals(1, client.submittedJobs.size());
+        assertEquals(JOB_PROJECT, client.submittedJobs.get(0).project);
+        LoadJobConfiguration loadConfig = (LoadJobConfiguration) client.submittedJobs.get(0).config;
+        assertEquals(TableId.of(PROJECT, DATASET, TABLE), loadConfig.getDestinationTable());
+        // Recovery lookup also issued against JOB_PROJECT so jobId idempotence holds.
+        assertEquals(1, client.getJobLookups.size());
+
+        operator.close();
+    }
+
+    @Test
+    public void multiPartitionLoadUsesJobProjectForAllJobsAndCorrectDestinationProjects()
+            throws Exception {
+        // Cross-project semantics on the multi-partition path: every submitted job (2 temp loads
+        // + 1 copy) runs in JOB_PROJECT, but temp tables land in TEMP_PROJECT and the final
+        // table in PROJECT.
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/a.parquet", "file:///tmp/b.parquet");
+
+        assertEquals(3, client.submittedJobs.size());
+        for (RecordingQueryDataClient.SubmittedJob job : client.submittedJobs) {
+            assertEquals(JOB_PROJECT, job.project);
+            if (job.config instanceof LoadJobConfiguration) {
+                assertEquals(
+                        TEMP_PROJECT,
+                        ((LoadJobConfiguration) job.config).getDestinationTable().getProject());
+            } else {
+                assertEquals(
+                        PROJECT,
+                        ((CopyJobConfiguration) job.config).getDestinationTable().getProject());
+            }
+        }
 
         operator.close();
     }

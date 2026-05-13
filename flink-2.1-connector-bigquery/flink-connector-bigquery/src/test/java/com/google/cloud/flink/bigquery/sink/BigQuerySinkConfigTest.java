@@ -379,6 +379,7 @@ public class BigQuerySinkConfigTest {
     private static final String GCS_PATH = "gs://bucket/tmp";
     private static final String TEMP_PROJECT = "temp_p";
     private static final String TEMP_DATASET = "temp_d";
+    private static final String JOB_PROJECT = "job_p";
 
     private static BigQueryConnectOptions indirectConnectOptions() {
         return BigQueryConnectOptions.builder()
@@ -404,6 +405,7 @@ public class BigQuerySinkConfigTest {
                         .tempGcsPath(GCS_PATH)
                         .tempProject(TEMP_PROJECT)
                         .tempDataset(TEMP_DATASET)
+                        .jobProject(JOB_PROJECT)
                         .bulkWriterFactory(factory)
                         .formatOptions(FormatOptions.parquet())
                         .build();
@@ -412,6 +414,7 @@ public class BigQuerySinkConfigTest {
         assertEquals(GCS_PATH, config.getTempGcsPath());
         assertEquals(TEMP_PROJECT, config.getTempProject());
         assertEquals(TEMP_DATASET, config.getTempDataset());
+        assertEquals(JOB_PROJECT, config.getJobProject());
         assertSame(factory, config.getBulkWriterFactory());
         assertEquals(FormatOptions.parquet(), config.getFormatOptions());
         assertEquals(WriteMode.INDIRECT, config.getWriteMode());
@@ -427,6 +430,7 @@ public class BigQuerySinkConfigTest {
                         .tempGcsPath(GCS_PATH)
                         .tempProject(TEMP_PROJECT)
                         .tempDataset(TEMP_DATASET)
+                        .jobProject(JOB_PROJECT)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(rowType))
                         .formatOptions(FormatOptions.parquet())
                         .build();
@@ -437,6 +441,7 @@ public class BigQuerySinkConfigTest {
                         .tempGcsPath(GCS_PATH)
                         .tempProject(TEMP_PROJECT)
                         .tempDataset(TEMP_DATASET)
+                        .jobProject(JOB_PROJECT)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(rowType))
                         .formatOptions(FormatOptions.parquet())
                         .build();
@@ -542,6 +547,41 @@ public class BigQuerySinkConfigTest {
     }
 
     @Test
+    public void buildIndirectNullJobProjectThrowsException() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                BigQuerySinkConfig.<String>newBuilder()
+                                        .writeMode(WriteMode.INDIRECT)
+                                        .connectOptions(indirectConnectOptions())
+                                        .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .tempDataset(TEMP_DATASET)
+                                        .bulkWriterFactory(dummyBulkWriterFactory())
+                                        .build());
+        assertTrue(ex.getMessage().contains("jobProject is required"));
+    }
+
+    @Test
+    public void buildIndirectEmptyJobProjectThrowsException() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                BigQuerySinkConfig.<String>newBuilder()
+                                        .writeMode(WriteMode.INDIRECT)
+                                        .connectOptions(indirectConnectOptions())
+                                        .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .tempDataset(TEMP_DATASET)
+                                        .jobProject("")
+                                        .bulkWriterFactory(dummyBulkWriterFactory())
+                                        .build());
+        assertTrue(ex.getMessage().contains("jobProject is required"));
+    }
+
+    @Test
     public void buildIndirectNullBulkWriterFactoryThrowsException() {
         IllegalArgumentException ex =
                 assertThrows(
@@ -553,6 +593,7 @@ public class BigQuerySinkConfigTest {
                                         .tempGcsPath(GCS_PATH)
                                         .tempProject(TEMP_PROJECT)
                                         .tempDataset(TEMP_DATASET)
+                                        .jobProject(JOB_PROJECT)
                                         .build());
         assertTrue(ex.getMessage().contains("bulkWriterFactory is required"));
     }
@@ -569,6 +610,7 @@ public class BigQuerySinkConfigTest {
                                         .tempGcsPath(GCS_PATH)
                                         .tempProject(TEMP_PROJECT)
                                         .tempDataset(TEMP_DATASET)
+                                        .jobProject(JOB_PROJECT)
                                         .bulkWriterFactory(dummyBulkWriterFactory())
                                         .build());
         assertTrue(ex.getMessage().contains("formatOptions is required"));
@@ -586,6 +628,7 @@ public class BigQuerySinkConfigTest {
                                         .tempGcsPath(GCS_PATH)
                                         .tempProject(TEMP_PROJECT)
                                         .tempDataset(TEMP_DATASET)
+                                        .jobProject(JOB_PROJECT)
                                         .bulkWriterFactory(dummyBulkWriterFactory())
                                         .formatOptions(FormatOptions.parquet())
                                         .enableCdc(true)
@@ -605,6 +648,7 @@ public class BigQuerySinkConfigTest {
                                         .tempGcsPath(GCS_PATH)
                                         .tempProject(TEMP_PROJECT)
                                         .tempDataset(TEMP_DATASET)
+                                        .jobProject(JOB_PROJECT)
                                         .bulkWriterFactory(dummyBulkWriterFactory())
                                         .formatOptions(FormatOptions.parquet())
                                         .enableTableCreation(true)

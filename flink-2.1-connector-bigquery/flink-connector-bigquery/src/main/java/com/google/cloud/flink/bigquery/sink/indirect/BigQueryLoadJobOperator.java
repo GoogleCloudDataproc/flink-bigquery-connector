@@ -99,6 +99,7 @@ public class BigQueryLoadJobOperator
     private final UUID uuid;
     private final String tempProject;
     private final String tempDataset;
+    private final String jobProject;
     private final SerializableSupplier<ExecutorService> executorServiceSupplier;
     private final SerializableSupplier<FileSystem> fileSystemSupplier;
     private final FormatOptions formatOptions;
@@ -118,6 +119,7 @@ public class BigQueryLoadJobOperator
             final UUID uuid,
             final String tempProject,
             final String tempDataset,
+            final String jobProject,
             final Path gcsBasePath,
             final FormatOptions formatOptions) {
         this(
@@ -125,6 +127,7 @@ public class BigQueryLoadJobOperator
                 uuid,
                 tempProject,
                 tempDataset,
+                jobProject,
                 () -> Executors.newFixedThreadPool(EXECUTOR_PARALLELISM, EXECUTOR_THREAD_FACTORY),
                 () -> {
                     try {
@@ -145,6 +148,7 @@ public class BigQueryLoadJobOperator
             final UUID uuid,
             final String tempProject,
             final String tempDataset,
+            final String jobProject,
             final SerializableSupplier<ExecutorService> executorServiceSupplier,
             final SerializableSupplier<FileSystem> fileSystemSupplier,
             final FormatOptions formatOptions,
@@ -154,6 +158,7 @@ public class BigQueryLoadJobOperator
         this.uuid = uuid;
         this.tempProject = tempProject;
         this.tempDataset = tempDataset;
+        this.jobProject = jobProject;
         this.executorServiceSupplier = executorServiceSupplier;
         this.fileSystemSupplier = fileSystemSupplier;
         this.formatOptions = formatOptions;
@@ -169,12 +174,13 @@ public class BigQueryLoadJobOperator
         this.executorService = executorServiceSupplier.get();
         this.fileSystem = fileSystemSupplier.get();
         LOG.info(
-                "BigQueryLoadJobOperator opened: jobId={}, uuid={}, table={}.{}.{}",
+                "BigQueryLoadJobOperator opened: jobId={}, uuid={}, table={}.{}.{}, jobProject={}",
                 jobIdHex,
                 uuid,
                 connectOptions.getProjectId(),
                 connectOptions.getDataset(),
-                connectOptions.getTable());
+                connectOptions.getTable(),
+                jobProject);
     }
 
     @Override
@@ -417,10 +423,10 @@ public class BigQueryLoadJobOperator
      */
     private void submitAndAwaitJob(final String jobId, final JobConfiguration config) {
         final Job job;
-        final Job maybeExistingJob = queryClient.getJob(connectOptions.getProjectId(), jobId);
+        final Job maybeExistingJob = queryClient.getJob(jobProject, jobId);
         if (maybeExistingJob == null) {
             LOG.info("Submitting job {}", jobId);
-            job = queryClient.submitJob(connectOptions.getProjectId(), jobId, config);
+            job = queryClient.submitJob(jobProject, jobId, config);
         } else {
             job = maybeExistingJob;
         }
