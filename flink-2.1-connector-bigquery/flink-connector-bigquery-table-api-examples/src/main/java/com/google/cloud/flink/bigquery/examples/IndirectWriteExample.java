@@ -47,7 +47,12 @@ import org.slf4j.LoggerFactory;
  *       --project {required; GCP project ID} <br>
  *       --dataset {required; BigQuery dataset name} <br>
  *       --table {required; BigQuery table name} <br>
- *       --temp-gcs-path {required; GCS path for staging files}
+ *       --temp-gcs-path {required; GCS path for staging files} <br>
+ *       --temp-project {required; GCP project that owns --temp-dataset} <br>
+ *       --temp-dataset {required; BigQuery dataset for temporary tables created during
+ *       multi-partition loads. Must exist in --temp-project. Recommended: configure a default
+ *       tableExpirationMs on this dataset so any temp tables left behind by failed jobs are
+ *       auto-deleted by BigQuery.}
  * </ul>
  *
  * <p>Requires the GCS Hadoop connector plugin ({@code flink-gs-fs-hadoop}) to be installed in the
@@ -60,14 +65,16 @@ public class IndirectWriteExample {
     public static void main(String[] args) {
         final ParameterTool params = ParameterTool.fromArgs(args);
 
-        if (params.getNumberOfParameters() < 4) {
+        if (params.getNumberOfParameters() < 6) {
             LOG.error(
                     "Missing parameters!\n"
                             + "Usage: IndirectWriteExample"
                             + " --project <GCP project>"
                             + " --dataset <BigQuery dataset>"
                             + " --table <BigQuery table>"
-                            + " --temp-gcs-path <GCS path for staging files>");
+                            + " --temp-gcs-path <GCS path for staging files>"
+                            + " --temp-project <GCP project for temp tables>"
+                            + " --temp-dataset <BigQuery dataset for temp tables>");
             return;
         }
 
@@ -75,6 +82,8 @@ public class IndirectWriteExample {
         String dataset = params.getRequired("dataset");
         String table = params.getRequired("table");
         String tempGcsPath = params.getRequired("temp-gcs-path");
+        String tempProject = params.getRequired("temp-project");
+        String tempDataset = params.getRequired("temp-dataset");
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setRuntimeMode(RuntimeExecutionMode.BATCH);
@@ -102,9 +111,11 @@ public class IndirectWriteExample {
                                 + "    'dataset' = '%s',"
                                 + "    'table' = '%s',"
                                 + "    'write.mode' = 'INDIRECT',"
-                                + "    'write.indirect.temp-gcs-path' = '%s'"
+                                + "    'write.indirect.temp-gcs-path' = '%s',"
+                                + "    'write.indirect.temp-bigquery-project' = '%s',"
+                                + "    'write.indirect.temp-bigquery-dataset' = '%s'"
                                 + ")",
-                        project, dataset, table, tempGcsPath));
+                        project, dataset, table, tempGcsPath, tempProject, tempDataset));
 
         String insertSql =
                 "INSERT INTO bigquery_sink VALUES"

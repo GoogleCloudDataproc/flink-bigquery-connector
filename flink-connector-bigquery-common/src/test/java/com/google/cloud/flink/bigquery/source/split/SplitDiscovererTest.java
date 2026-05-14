@@ -342,6 +342,11 @@ public class SplitDiscovererTest {
                 public com.google.cloud.bigquery.Job waitForJob(com.google.cloud.bigquery.Job job) {
                     throw new UnsupportedOperationException();
                 }
+
+                @Override
+                public boolean deleteTable(com.google.cloud.bigquery.TableId tableId) {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
 

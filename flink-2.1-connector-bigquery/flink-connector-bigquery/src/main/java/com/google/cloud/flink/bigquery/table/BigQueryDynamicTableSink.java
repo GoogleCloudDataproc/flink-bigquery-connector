@@ -75,6 +75,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 
@@ -96,7 +98,9 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
             String cdcMaxStaleness,
             CdcChangeTypeProvider<RowData> cdcChangeTypeProvider,
             WriteMode writeMode,
-            String tempGcsPath) {
+            String tempGcsPath,
+            String tempProject,
+            String tempDataset) {
         this.logicalType = logicalType;
         this.parallelism = parallelism;
         this.sinkConfig =
@@ -119,7 +123,9 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                                 ? RowDataCdcChangeTypeProvider.getInstance()
                                 : cdcChangeTypeProvider,
                         writeMode,
-                        tempGcsPath);
+                        tempGcsPath,
+                        tempProject,
+                        tempDataset);
     }
 
     @Override
@@ -184,7 +190,9 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 this.sinkConfig.getCdcMaxStaleness(),
                 (CdcChangeTypeProvider<RowData>) sinkConfig.getCdcChangeTypeProvider(),
                 this.sinkConfig.getWriteMode(),
-                this.sinkConfig.getTempGcsPath());
+                this.sinkConfig.getTempGcsPath(),
+                this.sinkConfig.getTempProject(),
+                this.sinkConfig.getTempDataset());
     }
 
     @Override

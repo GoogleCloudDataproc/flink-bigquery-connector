@@ -377,6 +377,8 @@ public class BigQuerySinkConfigTest {
     // ---------- INDIRECT Write Mode Tests ----------
 
     private static final String GCS_PATH = "gs://bucket/tmp";
+    private static final String TEMP_PROJECT = "temp_p";
+    private static final String TEMP_DATASET = "temp_d";
 
     private static BigQueryConnectOptions indirectConnectOptions() {
         return BigQueryConnectOptions.builder()
@@ -400,12 +402,16 @@ public class BigQuerySinkConfigTest {
                         .writeMode(WriteMode.INDIRECT)
                         .connectOptions(opts)
                         .tempGcsPath(GCS_PATH)
+                        .tempProject(TEMP_PROJECT)
+                        .tempDataset(TEMP_DATASET)
                         .bulkWriterFactory(factory)
                         .formatOptions(FormatOptions.parquet())
                         .build();
 
         assertSame(opts, config.getConnectOptions());
         assertEquals(GCS_PATH, config.getTempGcsPath());
+        assertEquals(TEMP_PROJECT, config.getTempProject());
+        assertEquals(TEMP_DATASET, config.getTempDataset());
         assertSame(factory, config.getBulkWriterFactory());
         assertEquals(FormatOptions.parquet(), config.getFormatOptions());
         assertEquals(WriteMode.INDIRECT, config.getWriteMode());
@@ -419,6 +425,8 @@ public class BigQuerySinkConfigTest {
                         .writeMode(WriteMode.INDIRECT)
                         .connectOptions(indirectConnectOptions())
                         .tempGcsPath(GCS_PATH)
+                        .tempProject(TEMP_PROJECT)
+                        .tempDataset(TEMP_DATASET)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(rowType))
                         .formatOptions(FormatOptions.parquet())
                         .build();
@@ -427,6 +435,8 @@ public class BigQuerySinkConfigTest {
                         .writeMode(WriteMode.INDIRECT)
                         .connectOptions(indirectConnectOptions())
                         .tempGcsPath(GCS_PATH)
+                        .tempProject(TEMP_PROJECT)
+                        .tempDataset(TEMP_DATASET)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(rowType))
                         .formatOptions(FormatOptions.parquet())
                         .build();
@@ -437,7 +447,73 @@ public class BigQuerySinkConfigTest {
     }
 
     @Test
-    public void buildIndirectNullTempGcsPathThrowsException() {
+    public void buildIndirectNullTempDatasetThrowsException() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                BigQuerySinkConfig.<String>newBuilder()
+                                        .writeMode(WriteMode.INDIRECT)
+                                        .connectOptions(indirectConnectOptions())
+                                        .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .bulkWriterFactory(dummyBulkWriterFactory())
+                                        .build());
+        assertTrue(ex.getMessage().contains("tempDataset is required"));
+    }
+
+    @Test
+    public void buildIndirectEmptyTempDatasetThrowsException() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                BigQuerySinkConfig.<String>newBuilder()
+                                        .writeMode(WriteMode.INDIRECT)
+                                        .connectOptions(indirectConnectOptions())
+                                        .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .tempDataset("")
+                                        .bulkWriterFactory(dummyBulkWriterFactory())
+                                        .build());
+        assertTrue(ex.getMessage().contains("tempDataset is required"));
+    }
+
+    @Test
+    public void buildIndirectNullTempProjectThrowsException() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                BigQuerySinkConfig.<String>newBuilder()
+                                        .writeMode(WriteMode.INDIRECT)
+                                        .connectOptions(indirectConnectOptions())
+                                        .tempGcsPath(GCS_PATH)
+                                        .tempDataset(TEMP_DATASET)
+                                        .bulkWriterFactory(dummyBulkWriterFactory())
+                                        .build());
+        assertTrue(ex.getMessage().contains("tempProject is required"));
+    }
+
+    @Test
+    public void buildIndirectEmptyTempProjectThrowsException() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                BigQuerySinkConfig.<String>newBuilder()
+                                        .writeMode(WriteMode.INDIRECT)
+                                        .connectOptions(indirectConnectOptions())
+                                        .tempGcsPath(GCS_PATH)
+                                        .tempProject("")
+                                        .tempDataset(TEMP_DATASET)
+                                        .bulkWriterFactory(dummyBulkWriterFactory())
+                                        .build());
+        assertTrue(ex.getMessage().contains("tempProject is required"));
+    }
+
+    @Test
+    public void buildIndirectNullGcsTempPathThrowsException() {
         IllegalArgumentException ex =
                 assertThrows(
                         IllegalArgumentException.class,
@@ -451,7 +527,7 @@ public class BigQuerySinkConfigTest {
     }
 
     @Test
-    public void buildIndirectEmptyTempGcsPathThrowsException() {
+    public void buildIndirectEmptyGcsTempPathThrowsException() {
         IllegalArgumentException ex =
                 assertThrows(
                         IllegalArgumentException.class,
@@ -475,6 +551,8 @@ public class BigQuerySinkConfigTest {
                                         .writeMode(WriteMode.INDIRECT)
                                         .connectOptions(indirectConnectOptions())
                                         .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .tempDataset(TEMP_DATASET)
                                         .build());
         assertTrue(ex.getMessage().contains("bulkWriterFactory is required"));
     }
@@ -489,6 +567,8 @@ public class BigQuerySinkConfigTest {
                                         .writeMode(WriteMode.INDIRECT)
                                         .connectOptions(indirectConnectOptions())
                                         .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .tempDataset(TEMP_DATASET)
                                         .bulkWriterFactory(dummyBulkWriterFactory())
                                         .build());
         assertTrue(ex.getMessage().contains("formatOptions is required"));
@@ -504,6 +584,8 @@ public class BigQuerySinkConfigTest {
                                         .writeMode(WriteMode.INDIRECT)
                                         .connectOptions(indirectConnectOptions())
                                         .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .tempDataset(TEMP_DATASET)
                                         .bulkWriterFactory(dummyBulkWriterFactory())
                                         .formatOptions(FormatOptions.parquet())
                                         .enableCdc(true)
@@ -521,6 +603,8 @@ public class BigQuerySinkConfigTest {
                                         .writeMode(WriteMode.INDIRECT)
                                         .connectOptions(indirectConnectOptions())
                                         .tempGcsPath(GCS_PATH)
+                                        .tempProject(TEMP_PROJECT)
+                                        .tempDataset(TEMP_DATASET)
                                         .bulkWriterFactory(dummyBulkWriterFactory())
                                         .formatOptions(FormatOptions.parquet())
                                         .enableTableCreation(true)

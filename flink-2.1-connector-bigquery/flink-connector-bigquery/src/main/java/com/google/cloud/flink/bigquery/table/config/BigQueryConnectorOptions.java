@@ -317,4 +317,35 @@ public class BigQueryConnectorOptions {
                     .noDefaultValue()
                     .withDescription(
                             "GCS path for temporary files (required for INDIRECT write mode)");
+
+    /**
+     * [REQUIRED for INDIRECT mode] GCP project for temporary tables created during multi-partition
+     * loads. The dataset given by {@link #WRITE_TEMP_DATASET} must exist in this project.
+     */
+    public static final ConfigOption<String> WRITE_TEMP_PROJECT =
+            ConfigOptions.key("write.indirect.temp-bigquery-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCP project for temp tables created during multi-partition loads "
+                                    + "(required for INDIRECT write mode). The temp dataset must "
+                                    + "exist in this project.");
+
+    /**
+     * [REQUIRED for INDIRECT mode] Dataset for temporary tables created during multi-partition
+     * loads. Must already exist in the project given by {@link #WRITE_TEMP_PROJECT}. <br>
+     * Recommended: configure a default {@code tableExpirationMs} on this dataset (e.g. 24 h) so any
+     * temp tables left behind by failed jobs are auto-deleted by BigQuery.
+     */
+    public static final ConfigOption<String> WRITE_TEMP_DATASET =
+            ConfigOptions.key("write.indirect.temp-bigquery-dataset")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Dataset for temporary tables created during multi-partition loads "
+                                    + "(required for INDIRECT write mode). Must exist in the "
+                                    + "project given by write.indirect.temp-bigquery-project. "
+                                    + "Recommended: set a default tableExpirationMs on this "
+                                    + "dataset so BigQuery auto-deletes any temp tables left "
+                                    + "behind by failed jobs.");
 }

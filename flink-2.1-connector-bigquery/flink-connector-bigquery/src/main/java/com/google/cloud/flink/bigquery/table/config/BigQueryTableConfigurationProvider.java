@@ -135,6 +135,14 @@ public class BigQueryTableConfigurationProvider {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.TEMP_GCS_PATH));
     }
 
+    public Optional<String> getTempProject() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.WRITE_TEMP_PROJECT));
+    }
+
+    public Optional<String> getTempDataset() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.WRITE_TEMP_DATASET));
+    }
+
     public BigQueryReadOptions toBigQueryReadOptions() {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(

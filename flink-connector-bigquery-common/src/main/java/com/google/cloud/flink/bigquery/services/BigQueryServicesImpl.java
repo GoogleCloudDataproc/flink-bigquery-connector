@@ -591,6 +591,11 @@ public class BigQueryServicesImpl implements BigQueryServices {
         public Job waitForJob(Job job) throws InterruptedException {
             return job.waitFor();
         }
+
+        @Override
+        public boolean deleteTable(TableId tableId) {
+            return bigQuery.delete(tableId);
+        }
     }
 
     public static final String generateTraceId(String suffix) {

@@ -45,6 +45,8 @@ public class BigQuerySink {
         if (sinkConfig.getWriteMode() == WriteMode.INDIRECT) {
             BigQuerySinkConfig.validateIndirect(
                     sinkConfig.getTempGcsPath(),
+                    sinkConfig.getTempProject(),
+                    sinkConfig.getTempDataset(),
                     sinkConfig.getBulkWriterFactory(),
                     sinkConfig.getFormatOptions(),
                     sinkConfig.isCdcEnabled(),
