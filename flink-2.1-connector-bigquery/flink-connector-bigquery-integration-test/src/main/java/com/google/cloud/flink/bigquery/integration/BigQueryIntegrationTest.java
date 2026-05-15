@@ -177,7 +177,7 @@ public class BigQueryIntegrationTest {
 
     private static Configuration restartConfig() {
         final Configuration config = new Configuration();
-        config.set(DeploymentOptions.TARGET, "yarn-session");
+
         config.set(RestartStrategyOptions.RESTART_STRATEGY, "exponential-delay");
         config.set(
                 RestartStrategyOptions.RESTART_STRATEGY_EXPONENTIAL_DELAY_INITIAL_BACKOFF,
@@ -252,6 +252,10 @@ public class BigQueryIntegrationTest {
                 LOG.warn("Failed to query YARN CLI for running Flink sessions", e);
             }
         }
+        if (config.containsKey("yarn.application.id")) {
+            config.set(DeploymentOptions.TARGET, "yarn-session");
+            LOG.info("Set deployment target to yarn-session");
+        }
 
         return config;
     }
@@ -295,6 +299,11 @@ public class BigQueryIntegrationTest {
         Integer timeoutTimePeriod = parameterTool.getInt("timeout", 18);
         Integer fileDiscoveryInterval = parameterTool.getInt("file-discovery-interval", 10);
 
+        // Custom view materialization parameters
+        String matProject = parameterTool.get("mat-project");
+        String matDataset = parameterTool.get("mat-dataset");
+        String billProject = parameterTool.get("bill-project");
+
         String recordPropertyToAggregate;
         String sourceDatasetName;
         String sourceTableName;
@@ -319,7 +328,10 @@ public class BigQueryIntegrationTest {
                                 destTableName,
                                 isExactlyOnceEnabled,
                                 sinkParallelism,
-                                enableTableCreation);
+                                enableTableCreation,
+                                matProject,
+                                matDataset,
+                                billProject);
                         break;
                     case "unbounded":
                         gcsSourceUri = parameterTool.getRequired("gcs-source-uri");
@@ -358,7 +370,10 @@ public class BigQueryIntegrationTest {
                                 destTableName,
                                 isExactlyOnceEnabled,
                                 sinkParallelism,
-                                enableTableCreation);
+                                enableTableCreation,
+                                matProject,
+                                matDataset,
+                                billProject);
                         break;
                     case "unbounded":
                         gcsSourceUri = parameterTool.getRequired("gcs-source-uri");
@@ -387,7 +402,10 @@ public class BigQueryIntegrationTest {
                                 sourceGcpProjectName,
                                 sourceDatasetName,
                                 sourceTableName,
-                                recordPropertyToAggregate);
+                                recordPropertyToAggregate,
+                                matProject,
+                                matDataset,
+                                billProject);
                         break;
                     case "unbounded":
                         throw new IllegalArgumentException(
@@ -409,7 +427,10 @@ public class BigQueryIntegrationTest {
             String destTableName,
             boolean exactlyOnce,
             Integer sinkParallelism,
-            boolean enableTableCreation)
+            boolean enableTableCreation,
+            String matProject,
+            String matDataset,
+            String billProject)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -421,6 +442,10 @@ public class BigQueryIntegrationTest {
                         .setProjectId(sourceGcpProjectName)
                         .setDataset(sourceDatasetName)
                         .setTable(sourceTableName)
+                        .setViewsEnabled(true)
+                        .setMaterializationProject(matProject)
+                        .setMaterializationDataset(matDataset)
+                        .setBillingProject(billProject)
                         .build();
         BigQuerySource<GenericRecord> source =
                 BigQuerySource.readAvros(
@@ -605,7 +630,10 @@ public class BigQueryIntegrationTest {
             String projectName,
             String datasetName,
             String tableName,
-            String recordPropertyToAggregate)
+            String recordPropertyToAggregate,
+            String matProject,
+            String matDataset,
+            String billProject)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -619,6 +647,10 @@ public class BigQueryIntegrationTest {
                                                 .setProjectId(projectName)
                                                 .setDataset(datasetName)
                                                 .setTable(tableName)
+                                                .setViewsEnabled(true)
+                                                .setMaterializationProject(matProject)
+                                                .setMaterializationDataset(matDataset)
+                                                .setBillingProject(billProject)
                                                 .build())
                                 .build());
 
@@ -657,7 +689,10 @@ public class BigQueryIntegrationTest {
             String destTableName,
             boolean isExactlyOnce,
             Integer sinkParallelism,
-            boolean enableTableCreation)
+            boolean enableTableCreation,
+            String matProject,
+            String matDataset,
+            String billProject)
             throws Exception {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -670,6 +705,10 @@ public class BigQueryIntegrationTest {
                         .setProjectId(sourceGcpProjectName)
                         .setDataset(sourceDatasetName)
                         .setTable(sourceTableName)
+                        .setViewsEnabled(true)
+                        .setMaterializationProject(matProject)
+                        .setMaterializationDataset(matDataset)
+                        .setBillingProject(billProject)
                         .build();
         // Declare Read Options.
         BigQueryTableConfig readTableConfig =

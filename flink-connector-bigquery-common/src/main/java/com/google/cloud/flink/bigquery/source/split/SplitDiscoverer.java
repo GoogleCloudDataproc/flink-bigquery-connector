@@ -70,12 +70,53 @@ public class SplitDiscoverer {
                 BigQueryServicesFactory.instance(connectionOptions).storageRead()) {
             String parent = String.format("projects/%s", connectionOptions.getProjectId());
 
-            String srcTable =
-                    String.format(
-                            "projects/%s/datasets/%s/tables/%s",
-                            connectionOptions.getProjectId(),
-                            connectionOptions.getDataset(),
-                            connectionOptions.getTable());
+            BigQueryServices.QueryDataClient queryClient =
+                    BigQueryServicesFactory.instance(connectionOptions).queryClient();
+
+            String project = connectionOptions.getProjectId();
+            String dataset = connectionOptions.getDataset();
+            String table = connectionOptions.getTable();
+
+            String finalRowRestriction = rowRestriction;
+            String srcTable;
+            boolean isView = queryClient.isView(project, dataset, table);
+            if (isView) {
+                if (!connectionOptions.getViewsEnabled()) {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Table %s.%s.%s is a view, but view support is not enabled. "
+                                            + "Set viewsEnabled to true in options to enable it.",
+                                    project, dataset, table));
+                }
+                LOG.info("Table {}.{}.{} is a view. Materializing it.", project, dataset, table);
+
+                String matProject = connectionOptions.getMaterializationProject();
+                String matDataset = connectionOptions.getMaterializationDataset();
+                String billProject = connectionOptions.getBillingProject();
+
+                String materializedTable =
+                        queryClient.materializeView(
+                                project,
+                                dataset,
+                                table,
+                                columnNames,
+                                rowRestriction,
+                                connectionOptions.getMaterializedTableExpirationHours(),
+                                matProject,
+                                matDataset,
+                                billProject);
+
+                String destProject = matProject != null ? matProject : project;
+                String destDataset = matDataset != null ? matDataset : dataset;
+                srcTable =
+                        String.format(
+                                "projects/%s/datasets/%s/tables/%s",
+                                destProject, destDataset, materializedTable);
+                finalRowRestriction = "";
+            } else {
+                srcTable =
+                        String.format("projects/%s/datasets/%s/tables/%s", project, dataset, table);
+            }
 
             // We specify the columns to be projected by adding them to the selected fields,
             // and set a simple filter to restrict which rows are transmitted.
@@ -83,7 +124,9 @@ public class SplitDiscoverer {
                     ReadSession.TableReadOptions.newBuilder();
 
             columnNames.forEach(name -> optionsBuilder.addSelectedFields(name));
-            optionsBuilder.setRowRestriction(rowRestriction);
+            if (finalRowRestriction != null) {
+                optionsBuilder.setRowRestriction(finalRowRestriction);
+            }
 
             ReadSession.TableReadOptions options = optionsBuilder.build();
 
@@ -111,9 +154,14 @@ public class SplitDiscoverer {
             CreateReadSessionRequest.Builder builder =
                     CreateReadSessionRequest.newBuilder()
                             .setParent(parent)
-                            .setReadSession(sessionBuilder)
-                            .setMaxStreamCount(maxStreamCount)
-                            .setPreferredMinStreamCount(preferredMinStreamCount);
+                            .setReadSession(sessionBuilder);
+
+            if (maxStreamCount != null) {
+                builder.setMaxStreamCount(maxStreamCount);
+            }
+            if (preferredMinStreamCount != null) {
+                builder.setPreferredMinStreamCount(preferredMinStreamCount);
+            }
 
             // request the session
             ReadSession session = client.createReadSession(builder.build());

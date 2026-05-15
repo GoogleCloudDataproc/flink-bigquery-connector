@@ -46,6 +46,19 @@ public abstract class BigQueryConnectOptions implements Serializable {
     @Nullable
     public abstract SerializableSupplier<BigQueryServices> getTestingBigQueryServices();
 
+    public abstract Boolean getViewsEnabled();
+
+    public abstract Integer getMaterializedTableExpirationHours();
+
+    @Nullable
+    public abstract String getMaterializationProject();
+
+    @Nullable
+    public abstract String getMaterializationDataset();
+
+    @Nullable
+    public abstract String getBillingProject();
+
     @Override
     public final String toString() {
         return String.format(
@@ -88,7 +101,12 @@ public abstract class BigQueryConnectOptions implements Serializable {
      */
     public static Builder builder() {
         return new AutoValue_BigQueryConnectOptions.Builder()
-                .setCredentialsOptions(CredentialsOptions.builder().build());
+                .setCredentialsOptions(CredentialsOptions.builder().build())
+                .setViewsEnabled(false)
+                .setMaterializedTableExpirationHours(24)
+                .setMaterializationProject(null)
+                .setMaterializationDataset(null)
+                .setBillingProject(null);
     }
 
     public static Builder builderForQuerySource() {
@@ -96,7 +114,12 @@ public abstract class BigQueryConnectOptions implements Serializable {
                 .setCredentialsOptions(CredentialsOptions.builder().build())
                 .setProjectId("")
                 .setDataset("")
-                .setTable("");
+                .setTable("")
+                .setViewsEnabled(false)
+                .setMaterializedTableExpirationHours(24)
+                .setMaterializationProject(null)
+                .setMaterializationDataset(null)
+                .setBillingProject(null);
     }
 
     /**
@@ -150,6 +173,16 @@ public abstract class BigQueryConnectOptions implements Serializable {
          */
         public abstract Builder setTestingBigQueryServices(
                 SerializableSupplier<BigQueryServices> bqServices);
+
+        public abstract Builder setViewsEnabled(Boolean viewsEnabled);
+
+        public abstract Builder setMaterializedTableExpirationHours(Integer hours);
+
+        public abstract Builder setMaterializationProject(@Nullable String materializationProject);
+
+        public abstract Builder setMaterializationDataset(@Nullable String materializationDataset);
+
+        public abstract Builder setBillingProject(@Nullable String billingProject);
 
         /**
          * Creates the BigQueryConnectOptions object.
