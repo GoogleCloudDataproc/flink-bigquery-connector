@@ -26,6 +26,8 @@ import com.google.api.gax.rpc.StatusCode;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.Dataset;
+import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -275,6 +277,24 @@ public class StorageClientFaker {
 
             public int getCreateTableInvocatioks() {
                 return createTableInvocations;
+            }
+
+            @Override
+            public Job submitJob(String project, String jobId, JobConfiguration jobConfiguration) {
+                throw new UnsupportedOperationException(
+                        "submitJob not implemented in FakeQueryDataClient");
+            }
+
+            @Override
+            public Job getJob(String project, String jobId) {
+                throw new UnsupportedOperationException(
+                        "getJob not implemented in FakeQueryDataClient");
+            }
+
+            @Override
+            public Job waitForJob(Job job) throws InterruptedException {
+                throw new UnsupportedOperationException(
+                        "waitForJob not implemented in FakeQueryDataClient");
             }
         }
 
