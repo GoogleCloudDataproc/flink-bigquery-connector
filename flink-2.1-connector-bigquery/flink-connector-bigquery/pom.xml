@@ -103,6 +103,26 @@ under the License.
 
         <dependency>
             <groupId>org.apache.flink</groupId>
+            <artifactId>flink-parquet</artifactId>
+        </dependency>
+
+        <!-- flink-parquet exposes org.apache.hadoop.conf.Configuration on its public API. -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>2.10.2</version>
+        </dependency>
+
+        <!-- parquet-mr's ParquetOutputFormat extends Hadoop's FileOutputFormat from
+             hadoop-mapreduce-client-core. -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-mapreduce-client-core</artifactId>
+            <version>2.10.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-files</artifactId>
         </dependency>
 
@@ -114,6 +134,16 @@ under the License.
         </dependency>
 
         <!-- Tests -->
+        <!-- Hadoop 2.10 transitively brings commons-io 2.4, which lacks NullPrintStream
+             that Flink's MiniCluster needs at test time. Version matches what flink-*
+             ships transitively. -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.15.1</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-test-utils</artifactId>
