@@ -22,12 +22,14 @@ import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.LogicalType;
 
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataCdcChangeTypeProvider;
 
@@ -71,6 +73,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 
@@ -90,7 +94,9 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
             String cdcSequenceField,
             List<String> cdcPrimaryKeyColumns,
             String cdcMaxStaleness,
-            CdcChangeTypeProvider<org.apache.flink.table.data.RowData> cdcChangeTypeProvider) {
+            CdcChangeTypeProvider<RowData> cdcChangeTypeProvider,
+            WriteMode writeMode,
+            String tempGcsPath) {
         this.logicalType = logicalType;
         this.parallelism = parallelism;
         this.sinkConfig =
@@ -112,8 +118,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         cdcEnabled && cdcChangeTypeProvider == null
                                 ? RowDataCdcChangeTypeProvider.getInstance()
                                 : cdcChangeTypeProvider,
-                        null,
-                        null);
+                        writeMode,
+                        tempGcsPath);
     }
 
     @Override
@@ -176,8 +182,9 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 this.sinkConfig.getCdcSequenceField(),
                 this.sinkConfig.getCdcPrimaryKeyColumns(),
                 this.sinkConfig.getCdcMaxStaleness(),
-                (CdcChangeTypeProvider<org.apache.flink.table.data.RowData>)
-                        this.sinkConfig.getCdcChangeTypeProvider());
+                (CdcChangeTypeProvider<RowData>) sinkConfig.getCdcChangeTypeProvider(),
+                this.sinkConfig.getWriteMode(),
+                this.sinkConfig.getTempGcsPath());
     }
 
     @Override

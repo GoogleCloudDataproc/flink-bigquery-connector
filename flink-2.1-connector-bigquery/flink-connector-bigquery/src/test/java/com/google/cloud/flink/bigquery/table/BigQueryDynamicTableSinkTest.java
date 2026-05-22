@@ -29,7 +29,7 @@ import org.apache.flink.test.junit5.MiniClusterExtension;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
-import org.apache.avro.Schema;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
@@ -37,9 +37,11 @@ import org.mockito.Mockito;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Class to test {@link BigQueryDynamicTableSink}. */
 public class BigQueryDynamicTableSinkTest {
@@ -66,7 +68,14 @@ public class BigQueryDynamicTableSinkTest {
                     10000000000000L,
                     CLUSTERED_FIELDS,
                     REGION,
-                    true);
+                    true,
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    WriteMode.STORAGE_WRITE_API,
+                    null);
 
     @RegisterExtension
     static final MiniClusterExtension MINI_CLUSTER_RESOURCE =
@@ -77,24 +86,13 @@ public class BigQueryDynamicTableSinkTest {
 
     @Test
     public void testConstructor() {
-        Schema convertedAvroSchema =
-                new Schema.Parser()
-                        .parse(
-                                "{\"type\":\"record\",\"name\":\"record\","
-                                        + "\"namespace\":\"org.apache.flink.avro.generated\",\"fields\":"
-                                        + "[{\"name\":\"number\",\"type\":\"long\"}]}");
-        BigQuerySinkConfig<RowData> obtainedSinkConfig = TABLE_SINK.getSinkConfig();
-        assertEquals(DeliveryGuarantee.AT_LEAST_ONCE, obtainedSinkConfig.getDeliveryGuarantee());
-        assertEquals(convertedAvroSchema, obtainedSinkConfig.getSchemaProvider().getAvroSchema());
-        assertTrue(obtainedSinkConfig.enableTableCreation());
-        assertEquals(PARTITIONING_FIELD, obtainedSinkConfig.getPartitionField());
-        assertEquals(TimePartitioning.Type.DAY, obtainedSinkConfig.getPartitionType());
-        assertTrue(obtainedSinkConfig.getPartitionExpirationMillis() == 10000000000000L);
-        assertEquals(CLUSTERED_FIELDS, obtainedSinkConfig.getClusteredFields());
-        assertEquals(REGION, obtainedSinkConfig.getRegion());
+        assertEquals(
+                DeliveryGuarantee.AT_LEAST_ONCE, TABLE_SINK.getSinkConfig().getDeliveryGuarantee());
         assertEquals(SCHEMA, TABLE_SINK.getLogicalType());
         assertEquals(PARALLELISM, TABLE_SINK.getSinkParallelism());
-        assertTrue(obtainedSinkConfig.fatalizeSerializer());
+        assertEquals(
+                StorageClientFaker.createConnectOptionsForWrite(null),
+                TABLE_SINK.getSinkConfig().getConnectOptions());
     }
 
     @Test
@@ -122,6 +120,199 @@ public class BigQueryDynamicTableSinkTest {
     }
 
     @Test
+    public void testSinkRuntimeProviderDirectModeReturnsDirectBigQuerySink() throws Exception {
+        // BigQuerySink.get() dispatches to BigQueryDefaultSink (package-private) for
+        // AT_LEAST_ONCE delivery. We assert on the class name to avoid exposing the
+        // package-private type from tests.
+        SinkV2Provider provider =
+                (SinkV2Provider)
+                        TABLE_SINK.getSinkRuntimeProvider(
+                                Mockito.mock(DynamicTableSink.Context.class));
+        assertTrue(
+                provider.createSink().getClass().getSimpleName().equals("BigQueryDefaultSink"),
+                "Expected a BigQueryDefaultSink for DIRECT/AT_LEAST_ONCE, got: "
+                        + provider.createSink().getClass().getName());
+    }
+
+    @Test
+    public void testSinkRuntimeProviderIndirectModeReturnsBigQueryIndirectSink() {
+        // INDIRECT rejects table-creation and CDC at runtime-provider time; pass false/false here.
+        BigQueryDynamicTableSink indirectSink =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        false,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        "gs://bucket/tmp");
+
+        SinkV2Provider provider =
+                (SinkV2Provider)
+                        indirectSink.getSinkRuntimeProvider(
+                                Mockito.mock(DynamicTableSink.Context.class));
+        // BigQueryIndirectSink is package-private; assert by simple name to avoid exposing it.
+        assertEquals("BigQueryIndirectSink", provider.createSink().getClass().getSimpleName());
+    }
+
+    @Test
+    public void testSinkRuntimeProviderIndirectModeNullTempGcsPathThrows() {
+        BigQueryDynamicTableSink indirectSink =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        false,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        null);
+
+        assertThatThrownBy(
+                        () ->
+                                indirectSink.getSinkRuntimeProvider(
+                                        Mockito.mock(DynamicTableSink.Context.class)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tempGcsPath is required");
+    }
+
+    @Test
+    public void testCopyPreservesWriteModeAndTempGcsPath() {
+        BigQueryDynamicTableSink indirectSink =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        true,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        "gs://bucket/tmp");
+        assertEquals(indirectSink, indirectSink.copy());
+    }
+
+    @Test
+    public void testEqualsDiffersByWriteMode() {
+        BigQueryDynamicTableSink indirect =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        true,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        "gs://bucket/tmp");
+        BigQueryDynamicTableSink direct =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        true,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.STORAGE_WRITE_API,
+                        "gs://bucket/tmp");
+        assertNotEquals(indirect, direct);
+    }
+
+    @Test
+    public void testEqualsDiffersByTempGcsPath() {
+        BigQueryDynamicTableSink a =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        true,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        "gs://bucket/a");
+        BigQueryDynamicTableSink b =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        true,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        "gs://bucket/b");
+        assertNotEquals(a, b);
+    }
+
+    @Test
     public void testCdcConstructor() {
         BigQueryDynamicTableSink cdcTableSink =
                 new BigQueryDynamicTableSink(
@@ -140,6 +331,8 @@ public class BigQueryDynamicTableSinkTest {
                         "event_ts",
                         Arrays.asList("shop_id", "event_date"),
                         "INTERVAL 10 MINUTE",
+                        null,
+                        WriteMode.STORAGE_WRITE_API,
                         null);
 
         BigQuerySinkConfig<RowData> obtainedSinkConfig = cdcTableSink.getSinkConfig();

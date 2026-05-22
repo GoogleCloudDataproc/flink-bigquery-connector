@@ -16,9 +16,14 @@
 
 package com.google.cloud.flink.bigquery.table;
 
+import org.apache.flink.api.common.RuntimeExecutionMode;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.Column;
+import org.apache.flink.table.catalog.ResolvedCatalogTable;
 import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.catalog.UniqueConstraint;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -31,6 +36,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -349,6 +355,67 @@ public class BigQueryDynamicTableFactoryTest {
 
         DataType dataType = SCHEMA.toPhysicalRowDataType();
         return new BigQueryDynamicTableSource(readOptions, dataType, null);
+    }
+
+    @Test
+    public void testIndirectWriteModeBatchModeCreatesSinkWithIndirectMode() {
+        Map<String, String> options = getRequiredOptions();
+        options.put(BigQueryConnectorOptions.WRITE_MODE.key(), "INDIRECT");
+        options.put(BigQueryConnectorOptions.TEMP_GCS_PATH.key(), "gs://bucket/tmp");
+
+        Configuration config = new Configuration();
+        config.set(ExecutionOptions.RUNTIME_MODE, RuntimeExecutionMode.BATCH);
+
+        DynamicTableSink sink =
+                FactoryUtil.createDynamicTableSink(
+                        null,
+                        FactoryMocks.IDENTIFIER,
+                        new ResolvedCatalogTable(
+                                CatalogTable.newBuilder()
+                                        .schema(
+                                                org.apache.flink.table.api.Schema.newBuilder()
+                                                        .fromResolvedSchema(SCHEMA)
+                                                        .build())
+                                        .comment("mock sink")
+                                        .options(options)
+                                        .build(),
+                                SCHEMA),
+                        Collections.emptyMap(),
+                        config,
+                        getClass().getClassLoader(),
+                        false);
+
+        assertThat(sink).isInstanceOf(BigQueryDynamicTableSink.class);
+        BigQueryDynamicTableSink dynamicSink = (BigQueryDynamicTableSink) sink;
+        assertEquals(WriteMode.INDIRECT, dynamicSink.getSinkConfig().getWriteMode());
+        assertEquals("gs://bucket/tmp", dynamicSink.getSinkConfig().getTempGcsPath());
+    }
+
+    @Test
+    public void testDefaultWriteModeIsDirect() {
+        DynamicTableSink sink =
+                FactoryUtil.createDynamicTableSink(
+                        null,
+                        FactoryMocks.IDENTIFIER,
+                        new ResolvedCatalogTable(
+                                CatalogTable.newBuilder()
+                                        .schema(
+                                                org.apache.flink.table.api.Schema.newBuilder()
+                                                        .fromResolvedSchema(SCHEMA)
+                                                        .build())
+                                        .comment("mock sink")
+                                        .options(getRequiredOptions())
+                                        .build(),
+                                SCHEMA),
+                        Collections.emptyMap(),
+                        new Configuration(),
+                        getClass().getClassLoader(),
+                        false);
+
+        assertThat(sink).isInstanceOf(BigQueryDynamicTableSink.class);
+        BigQueryDynamicTableSink dynamicSink = (BigQueryDynamicTableSink) sink;
+        assertEquals(WriteMode.STORAGE_WRITE_API, dynamicSink.getSinkConfig().getWriteMode());
+        assertNull(dynamicSink.getSinkConfig().getTempGcsPath());
     }
 
     @Test

@@ -473,7 +473,8 @@ public class BigQuerySinkConfig<IN> {
         boolean indirect = writeMode == WriteMode.INDIRECT;
         BulkWriter.Factory<RowData> bulkWriterFactory =
                 indirect ? RowDataParquetWriterFactory.create((RowType) logicalType) : null;
-        FormatOptions formatOptions = indirect ? FormatOptions.parquet() : null;
+        FormatOptions formatOptions =
+                indirect ? RowDataParquetWriterFactory.PARQUET_FORMAT_OPTIONS : null;
         BigQuerySchemaProvider schemaProvider =
                 indirect
                         ? null

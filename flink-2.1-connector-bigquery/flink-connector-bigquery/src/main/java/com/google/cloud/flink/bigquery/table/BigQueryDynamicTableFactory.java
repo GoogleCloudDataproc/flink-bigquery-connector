@@ -87,6 +87,8 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.CDC_SEQUENCE_FIELD);
         additionalOptions.add(BigQueryConnectorOptions.CDC_PRIMARY_KEY_COLUMNS);
         additionalOptions.add(BigQueryConnectorOptions.CDC_MAX_STALENESS);
+        additionalOptions.add(BigQueryConnectorOptions.WRITE_MODE);
+        additionalOptions.add(BigQueryConnectorOptions.TEMP_GCS_PATH);
 
         return additionalOptions;
     }
@@ -121,6 +123,8 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CDC_SEQUENCE_FIELD);
         forwardOptions.add(BigQueryConnectorOptions.CDC_PRIMARY_KEY_COLUMNS);
         forwardOptions.add(BigQueryConnectorOptions.CDC_MAX_STALENESS);
+        forwardOptions.add(BigQueryConnectorOptions.WRITE_MODE);
+        forwardOptions.add(BigQueryConnectorOptions.TEMP_GCS_PATH);
 
         return forwardOptions;
     }
@@ -180,6 +184,8 @@ public class BigQueryDynamicTableFactory
                 configProvider.getCdcSequenceField().orElse(null),
                 configProvider.getCdcPrimaryKeyColumns().orElse(null),
                 configProvider.getCdcMaxStaleness().orElse(null),
-                null);
+                null,
+                configProvider.getWriteMode(),
+                configProvider.getTempGcsPath().orElse(null));
     }
 }
