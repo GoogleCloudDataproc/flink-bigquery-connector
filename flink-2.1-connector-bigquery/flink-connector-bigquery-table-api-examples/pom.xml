@@ -33,6 +33,10 @@ under the License.
     <name>Flink : Connectors : Google BigQuery Table API Example (Flink v2.1)</name>
     <packaging>jar</packaging>
 
+    <properties>
+        <shade.skip>false</shade.skip>
+    </properties>
+
     <licenses>
         <license>
             <name>Apache License, Version 2.0</name>
@@ -77,20 +81,54 @@ under the License.
                         <configuration>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <!-- Disable minimizeJar: parquet-mr loads bitpackers/codecs via
+                                 reflection, and Hadoop's JobConf static init reflectively
+                                 loads commons-logging's LogFactoryImpl. Static analysis can't
+                                 see these, so minimizeJar would strip them. -->
+                            <minimizeJar>false</minimizeJar>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.google.cloud.flink.bigquery.examples.BigQueryTableExample</mainClass>
                                 </transformer>
+                                <!-- Concatenate META-INF/services entries from parquet-mr,
+                                     hadoop, and friends instead of letting one overwrite the
+                                     others. -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
-                            <artifactSet>
+                            <!-- combine.self="override" prevents the parent pom's blanket
+                                 <exclude>org.apache.flink:*</exclude> from suppressing the
+                                 flink-parquet/flink-avro/flink-connector-files includes below. -->
+                            <artifactSet combine.self="override">
                                 <includes>
                                     <include>com.google.cloud.flink:flink-2.1-connector-bigquery</include>
+                                    <!-- Flink format/connector-files modules not in flink-dist -->
                                     <include>org.apache.flink:flink-avro</include>
-                                    <include>com.google.*:*</include>
-                                    <include>commons-codec:commons-codec</include>    
-                                    <include>dev.failsafe:*</include>                                
+                                    <include>org.apache.flink:flink-parquet</include>
+                                    <include>org.apache.flink:flink-connector-files</include>
+                                    <include>org.apache.flink:flink-file-sink-common</include>
+                                    <!-- Parquet runtime -->
+                                    <include>org.apache.parquet:*</include>
+                                    <include>com.github.luben:zstd-jni</include>
+                                    <include>io.airlift:aircompressor</include>
+                                    <include>commons-pool:commons-pool</include>
+                                    <!-- Hadoop runtime + transitive tree -->
+                                    <include>org.apache.hadoop:*</include>
+                                    <include>org.xerial.snappy:*</include>
+                                    <include>com.fasterxml.woodstox:*</include>
+                                    <include>org.codehaus.woodstox:*</include>
+                                    <include>commons-collections:*</include>
+                                    <include>commons-logging:*</include>
+                                    <include>commons-configuration:*</include>
+                                    <include>log4j:log4j</include>
+                                    <include>ch.qos.reload4j:*</include>
+                                    <!-- Other org.apache deps -->
+                                    <include>org.apache.commons:*</include>
                                     <include>org.apache.avro:*</include>
                                     <include>org.apache.httpcomponents:*</include>
+                                    <!-- Google + misc connector runtime -->
+                                    <include>com.google.*:*</include>
+                                    <include>commons-codec:commons-codec</include>
+                                    <include>dev.failsafe:*</include>
                                     <include>org.codehaus.mojo:animal-sniffer-annotations</include>
                                     <include>org.conscrypt:*</include>
                                     <include>com.fasterxml.jackson.*:*</include>
