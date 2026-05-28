@@ -83,6 +83,7 @@ public class BigQueryIndirectSinkTest {
     private static final String TABLE = "test-table";
     private static final String TEMP_PROJECT = "test-temp-project";
     private static final String TEMP_DATASET = "test-temp-dataset";
+    private static final String JOB_PROJECT = "test-job-project";
 
     private static final RowType ROW_TYPE =
             RowType.of(new BigIntType(), new VarCharType(VarCharType.MAX_LENGTH));
@@ -115,6 +116,7 @@ public class BigQueryIndirectSinkTest {
                 .tempGcsPath(localPath())
                 .tempProject(TEMP_PROJECT)
                 .tempDataset(TEMP_DATASET)
+                .jobProject(JOB_PROJECT)
                 .bulkWriterFactory(new DummyFactory())
                 .formatOptions(FormatOptions.parquet())
                 .build();
@@ -317,6 +319,7 @@ public class BigQueryIndirectSinkTest {
                         .tempGcsPath(gcsRoot.toURI().toString())
                         .tempProject(TEMP_PROJECT)
                         .tempDataset(TEMP_DATASET)
+                        .jobProject(JOB_PROJECT)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(ROW_TYPE))
                         .formatOptions(FormatOptions.parquet())
                         .build();

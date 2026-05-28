@@ -143,6 +143,10 @@ public class BigQueryTableConfigurationProvider {
         return Optional.ofNullable(config.get(BigQueryConnectorOptions.WRITE_TEMP_DATASET));
     }
 
+    public Optional<String> getJobProject() {
+        return Optional.ofNullable(config.get(BigQueryConnectorOptions.WRITE_JOB_PROJECT));
+    }
+
     public BigQueryReadOptions toBigQueryReadOptions() {
         return BigQueryReadOptions.builder()
                 .setSnapshotTimestampInMillis(

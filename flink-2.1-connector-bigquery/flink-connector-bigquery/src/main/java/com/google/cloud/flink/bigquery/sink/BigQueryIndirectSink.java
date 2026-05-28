@@ -86,6 +86,7 @@ final class BigQueryIndirectSink<IN>
     private final UUID uuid;
     private final String tempProject;
     private final String tempDataset;
+    private final String jobProject;
     private final Path gcsBasePath;
     private final FormatOptions formatOptions;
     private final FileSink<IN> fileSink;
@@ -100,14 +101,16 @@ final class BigQueryIndirectSink<IN>
         this.uuid = uuid;
         this.tempProject = config.getTempProject();
         this.tempDataset = config.getTempDataset();
+        this.jobProject = config.getJobProject();
         this.gcsBasePath = new Path(config.getTempGcsPath(), uuid.toString());
         this.formatOptions = config.getFormatOptions();
 
         LOG.info(
-                "Creating BigQueryIndirectSink: uuid={}, tempProject={}, tempDataset={}, gcsBasePath={}, table={}.{}.{}",
+                "Creating BigQueryIndirectSink: uuid={}, tempProject={}, tempDataset={}, jobProject={}, gcsBasePath={}, table={}.{}.{}",
                 uuid,
                 tempProject,
                 tempDataset,
+                jobProject,
                 gcsBasePath,
                 connectOptions.getProjectId(),
                 connectOptions.getDataset(),
@@ -168,6 +171,7 @@ final class BigQueryIndirectSink<IN>
                                 uuid,
                                 tempProject,
                                 tempDataset,
+                                jobProject,
                                 gcsBasePath,
                                 formatOptions))
                 .name("BigQueryLoadJobOperator")

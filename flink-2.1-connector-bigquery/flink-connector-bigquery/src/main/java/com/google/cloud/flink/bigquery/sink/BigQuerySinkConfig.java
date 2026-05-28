@@ -83,6 +83,7 @@ public class BigQuerySinkConfig<IN> {
     private final String tempGcsPath;
     private final String tempProject;
     private final String tempDataset;
+    private final String jobProject;
     private final BulkWriter.Factory<IN> bulkWriterFactory;
     private final FormatOptions formatOptions;
 
@@ -113,6 +114,7 @@ public class BigQuerySinkConfig<IN> {
                 tempGcsPath,
                 tempProject,
                 tempDataset,
+                jobProject,
                 bulkWriterFactory,
                 formatOptions);
     }
@@ -156,6 +158,7 @@ public class BigQuerySinkConfig<IN> {
                 && (Objects.equals(this.tempGcsPath, object.tempGcsPath))
                 && (Objects.equals(this.tempProject, object.tempProject))
                 && (Objects.equals(this.tempDataset, object.tempDataset))
+                && (Objects.equals(this.jobProject, object.jobProject))
                 && (Objects.equals(this.bulkWriterFactory, object.bulkWriterFactory))
                 && (Objects.equals(this.formatOptions, object.formatOptions)));
     }
@@ -181,6 +184,7 @@ public class BigQuerySinkConfig<IN> {
             String tempGcsPath,
             String tempProject,
             String tempDataset,
+            String jobProject,
             BulkWriter.Factory<IN> bulkWriterFactory,
             FormatOptions formatOptions) {
         this.connectOptions = connectOptions;
@@ -203,6 +207,7 @@ public class BigQuerySinkConfig<IN> {
         this.tempGcsPath = tempGcsPath;
         this.tempProject = tempProject;
         this.tempDataset = tempDataset;
+        this.jobProject = jobProject;
         this.bulkWriterFactory = bulkWriterFactory;
         this.formatOptions = formatOptions;
     }
@@ -287,6 +292,10 @@ public class BigQuerySinkConfig<IN> {
         return tempDataset;
     }
 
+    public String getJobProject() {
+        return jobProject;
+    }
+
     public BulkWriter.Factory<IN> getBulkWriterFactory() {
         return bulkWriterFactory;
     }
@@ -324,6 +333,7 @@ public class BigQuerySinkConfig<IN> {
         private String tempGcsPath;
         private String tempProject;
         private String tempDataset;
+        private String jobProject;
         private BulkWriter.Factory<IN> bulkWriterFactory;
         private FormatOptions formatOptions;
 
@@ -433,6 +443,11 @@ public class BigQuerySinkConfig<IN> {
             return this;
         }
 
+        public Builder<IN> jobProject(String jobProject) {
+            this.jobProject = jobProject;
+            return this;
+        }
+
         public Builder<IN> bulkWriterFactory(BulkWriter.Factory<IN> bulkWriterFactory) {
             this.bulkWriterFactory = bulkWriterFactory;
             return this;
@@ -449,6 +464,7 @@ public class BigQuerySinkConfig<IN> {
                         tempGcsPath,
                         tempProject,
                         tempDataset,
+                        jobProject,
                         bulkWriterFactory,
                         formatOptions,
                         cdcEnabled,
@@ -477,6 +493,7 @@ public class BigQuerySinkConfig<IN> {
                     tempGcsPath,
                     tempProject,
                     tempDataset,
+                    jobProject,
                     bulkWriterFactory,
                     formatOptions);
         }
@@ -505,7 +522,8 @@ public class BigQuerySinkConfig<IN> {
             WriteMode writeMode,
             String tempGcsPath,
             String tempProject,
-            String tempDataset) {
+            String tempDataset,
+            String jobProject) {
         boolean indirect = writeMode == WriteMode.INDIRECT;
         BulkWriter.Factory<RowData> bulkWriterFactory =
                 indirect ? RowDataParquetWriterFactory.create((RowType) logicalType) : null;
@@ -540,6 +558,7 @@ public class BigQuerySinkConfig<IN> {
                 tempGcsPath,
                 tempProject,
                 tempDataset,
+                jobProject,
                 bulkWriterFactory,
                 formatOptions);
     }
@@ -553,6 +572,7 @@ public class BigQuerySinkConfig<IN> {
             String tempGcsPath,
             String tempProject,
             String tempDataset,
+            String jobProject,
             BulkWriter.Factory<?> bulkWriterFactory,
             FormatOptions formatOptions,
             boolean cdcEnabled,
@@ -565,6 +585,9 @@ public class BigQuerySinkConfig<IN> {
         }
         if (tempDataset == null || tempDataset.isEmpty()) {
             throw new IllegalArgumentException("tempDataset is required for INDIRECT write mode");
+        }
+        if (jobProject == null || jobProject.isEmpty()) {
+            throw new IllegalArgumentException("jobProject is required for INDIRECT write mode");
         }
         if (bulkWriterFactory == null) {
             throw new IllegalArgumentException(

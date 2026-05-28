@@ -348,4 +348,16 @@ public class BigQueryConnectorOptions {
                                     + "Recommended: set a default tableExpirationMs on this "
                                     + "dataset so BigQuery auto-deletes any temp tables left "
                                     + "behind by failed jobs.");
+
+    /**
+     * [REQUIRED for INDIRECT mode] GCP project under which BigQuery load and copy jobs are
+     * submitted (i.e. where the jobs are listed and billed).
+     */
+    public static final ConfigOption<String> WRITE_JOB_PROJECT =
+            ConfigOptions.key("write.indirect.bigquery-job-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCP project under which BigQuery load and copy jobs are submitted "
+                                    + "(required for INDIRECT write mode).");
 }

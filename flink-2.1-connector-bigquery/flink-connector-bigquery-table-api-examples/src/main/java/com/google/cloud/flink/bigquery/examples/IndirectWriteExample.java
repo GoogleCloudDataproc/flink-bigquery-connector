@@ -52,7 +52,9 @@ import org.slf4j.LoggerFactory;
  *       --temp-dataset {required; BigQuery dataset for temporary tables created during
  *       multi-partition loads. Must exist in --temp-project. Recommended: configure a default
  *       tableExpirationMs on this dataset so any temp tables left behind by failed jobs are
- *       auto-deleted by BigQuery.}
+ *       auto-deleted by BigQuery.} <br>
+ *       --job-project {required; GCP project under which BigQuery load and copy jobs are submitted
+ *       (i.e. where the jobs are listed and billed)}
  * </ul>
  *
  * <p>Requires the GCS Hadoop connector plugin ({@code flink-gs-fs-hadoop}) to be installed in the
@@ -65,7 +67,7 @@ public class IndirectWriteExample {
     public static void main(String[] args) {
         final ParameterTool params = ParameterTool.fromArgs(args);
 
-        if (params.getNumberOfParameters() < 6) {
+        if (params.getNumberOfParameters() < 7) {
             LOG.error(
                     "Missing parameters!\n"
                             + "Usage: IndirectWriteExample"
@@ -74,7 +76,8 @@ public class IndirectWriteExample {
                             + " --table <BigQuery table>"
                             + " --temp-gcs-path <GCS path for staging files>"
                             + " --temp-project <GCP project for temp tables>"
-                            + " --temp-dataset <BigQuery dataset for temp tables>");
+                            + " --temp-dataset <BigQuery dataset for temp tables>"
+                            + " --job-project <GCP project for BigQuery load/copy jobs>");
             return;
         }
 
@@ -84,6 +87,7 @@ public class IndirectWriteExample {
         String tempGcsPath = params.getRequired("temp-gcs-path");
         String tempProject = params.getRequired("temp-project");
         String tempDataset = params.getRequired("temp-dataset");
+        String jobProject = params.getRequired("job-project");
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setRuntimeMode(RuntimeExecutionMode.BATCH);
@@ -113,9 +117,16 @@ public class IndirectWriteExample {
                                 + "    'write.mode' = 'INDIRECT',"
                                 + "    'write.indirect.temp-gcs-path' = '%s',"
                                 + "    'write.indirect.temp-bigquery-project' = '%s',"
-                                + "    'write.indirect.temp-bigquery-dataset' = '%s'"
+                                + "    'write.indirect.temp-bigquery-dataset' = '%s',"
+                                + "    'write.indirect.bigquery-job-project' = '%s'"
                                 + ")",
-                        project, dataset, table, tempGcsPath, tempProject, tempDataset));
+                        project,
+                        dataset,
+                        table,
+                        tempGcsPath,
+                        tempProject,
+                        tempDataset,
+                        jobProject));
 
         String insertSql =
                 "INSERT INTO bigquery_sink VALUES"

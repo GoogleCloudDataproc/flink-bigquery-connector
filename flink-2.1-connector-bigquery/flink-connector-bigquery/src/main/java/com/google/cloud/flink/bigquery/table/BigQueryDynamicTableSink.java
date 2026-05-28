@@ -77,6 +77,7 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -100,7 +101,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
             WriteMode writeMode,
             String tempGcsPath,
             String tempProject,
-            String tempDataset) {
+            String tempDataset,
+            String jobProject) {
         this.logicalType = logicalType;
         this.parallelism = parallelism;
         this.sinkConfig =
@@ -125,7 +127,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                         writeMode,
                         tempGcsPath,
                         tempProject,
-                        tempDataset);
+                        tempDataset,
+                        jobProject);
     }
 
     @Override
@@ -192,7 +195,8 @@ public class BigQueryDynamicTableSink implements DynamicTableSink {
                 this.sinkConfig.getWriteMode(),
                 this.sinkConfig.getTempGcsPath(),
                 this.sinkConfig.getTempProject(),
-                this.sinkConfig.getTempDataset());
+                this.sinkConfig.getTempDataset(),
+                this.sinkConfig.getJobProject());
     }
 
     @Override
