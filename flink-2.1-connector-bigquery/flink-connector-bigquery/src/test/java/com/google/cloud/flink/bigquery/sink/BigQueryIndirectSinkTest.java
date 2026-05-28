@@ -81,6 +81,8 @@ public class BigQueryIndirectSinkTest {
     private static final String PROJECT = "test-project";
     private static final String DATASET = "test-dataset";
     private static final String TABLE = "test-table";
+    private static final String TEMP_PROJECT = "test-temp-project";
+    private static final String TEMP_DATASET = "test-temp-dataset";
 
     private static final RowType ROW_TYPE =
             RowType.of(new BigIntType(), new VarCharType(VarCharType.MAX_LENGTH));
@@ -111,6 +113,8 @@ public class BigQueryIndirectSinkTest {
                 .writeMode(WriteMode.INDIRECT)
                 .connectOptions(opts)
                 .tempGcsPath(localPath())
+                .tempProject(TEMP_PROJECT)
+                .tempDataset(TEMP_DATASET)
                 .bulkWriterFactory(new DummyFactory())
                 .formatOptions(FormatOptions.parquet())
                 .build();
@@ -311,6 +315,8 @@ public class BigQueryIndirectSinkTest {
                         .writeMode(WriteMode.INDIRECT)
                         .connectOptions(opts)
                         .tempGcsPath(gcsRoot.toURI().toString())
+                        .tempProject(TEMP_PROJECT)
+                        .tempDataset(TEMP_DATASET)
                         .bulkWriterFactory(RowDataParquetWriterFactory.create(ROW_TYPE))
                         .formatOptions(FormatOptions.parquet())
                         .build();
@@ -469,6 +475,11 @@ public class BigQueryIndirectSinkTest {
                 final String materializationProject,
                 final String materializationDataset,
                 final String billingProject) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean deleteTable(final TableId tableId) {
             throw new UnsupportedOperationException();
         }
     }

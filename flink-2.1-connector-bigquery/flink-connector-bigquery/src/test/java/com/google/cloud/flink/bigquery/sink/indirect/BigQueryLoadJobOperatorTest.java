@@ -29,6 +29,7 @@ import org.apache.flink.util.Collector;
 
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.bigquery.BigQueryError;
+import com.google.cloud.bigquery.CopyJobConfiguration;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobConfiguration;
@@ -37,6 +38,7 @@ import com.google.cloud.bigquery.JobStatus;
 import com.google.cloud.bigquery.LoadJobConfiguration;
 import com.google.cloud.bigquery.ParquetOptions;
 import com.google.cloud.bigquery.TableDefinition;
+import com.google.cloud.bigquery.TableId;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
@@ -51,12 +53,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -77,6 +82,8 @@ public class BigQueryLoadJobOperatorTest {
     private static final String PROJECT = "p";
     private static final String DATASET = "d";
     private static final String TABLE = "t";
+    private static final String TEMP_PROJECT = "temp_p";
+    private static final String TEMP_DATASET = "temp_d";
 
     private static class TestPendingFile implements InProgressFileWriter.PendingFileRecoverable {
         private final Path path;
@@ -131,8 +138,18 @@ public class BigQueryLoadJobOperatorTest {
 
     private static final UUID FIXED_UUID = UUID.fromString("00000000-0000-0000-0000-0000abc12345");
     private static final String FIXED_JOB_ID_HEX = "fd72014d4c864993a2e5a9287b4a9c5d";
-    private static final String EXPECTED_LOAD_JOB_ID_C1 =
-            "flink-bq-load_" + FIXED_JOB_ID_HEX + "_" + FIXED_UUID + "_c1";
+    private static final String CHECKPOINT_SUFFIX_C1 =
+            "_" + FIXED_JOB_ID_HEX + "_" + FIXED_UUID + "_c1";
+    private static final String EXPECTED_LOAD_JOB_ID_C1 = "flink-bq-load" + CHECKPOINT_SUFFIX_C1;
+    private static final String EXPECTED_TEMP_LOAD_JOB_ID_C1_P0 =
+            "flink-bq-tmp-load" + CHECKPOINT_SUFFIX_C1 + "_p0";
+    private static final String EXPECTED_TEMP_LOAD_JOB_ID_C1_P1 =
+            "flink-bq-tmp-load" + CHECKPOINT_SUFFIX_C1 + "_p1";
+    private static final String EXPECTED_COPY_JOB_ID_C1 = "flink-bq-copy" + CHECKPOINT_SUFFIX_C1;
+    private static final TableId EXPECTED_TEMP_TABLE_ID_C1_P0 =
+            TableId.of(TEMP_PROJECT, TEMP_DATASET, "flink-bq-tmp" + CHECKPOINT_SUFFIX_C1 + "_p0");
+    private static final TableId EXPECTED_TEMP_TABLE_ID_C1_P1 =
+            TableId.of(TEMP_PROJECT, TEMP_DATASET, "flink-bq-tmp" + CHECKPOINT_SUFFIX_C1 + "_p1");
 
     private static final ParquetOptions EXPECTED_PARQUET_OPTIONS =
             ParquetOptions.newBuilder().setEnableListInference(true).build();
@@ -151,19 +168,23 @@ public class BigQueryLoadJobOperatorTest {
 
     /**
      * Recording fake {@link BigQueryServices.QueryDataClient}. Each test mutates the configurable
-     * fields (existingJob / submitJobResult / waitForJobBehavior) to script responses, and asserts
-     * against the recorded lists rather than verifying mock interactions.
+     * fields (existingJobLookup / submitJobResult / waitForJobBehavior) to script responses, and
+     * asserts against the recorded lists rather than verifying mock interactions.
      */
     private static class RecordingQueryDataClient implements BigQueryServices.QueryDataClient {
         // Recording.
         final List<SubmittedJob> submittedJobs = new ArrayList<>();
         final List<String> getJobLookups = new ArrayList<>();
         final List<Job> waitForJobCalls = new ArrayList<>();
+        final List<TableId> deleteTableCalls = new ArrayList<>();
 
         // Configurable behavior - defaults form a happy-path success.
-        Job existingJob = null;
+        // existingJobLookup is keyed by jobId so multi-partition tests can script different
+        // states for different temp-load / copy jobs in the same checkpoint.
+        Function<String, Job> existingJobLookup = id -> null;
         Job submitJobResult = mockSuccessJob();
         Function<Job, Job> waitForJobBehavior = j -> j;
+        Function<TableId, Boolean> deleteTableBehavior = id -> true;
 
         static final class SubmittedJob {
             final String project;
@@ -178,19 +199,19 @@ public class BigQueryLoadJobOperatorTest {
         }
 
         @Override
-        public Job submitJob(String project, String jobId, JobConfiguration config) {
+        public synchronized Job submitJob(String project, String jobId, JobConfiguration config) {
             submittedJobs.add(new SubmittedJob(project, jobId, config));
             return submitJobResult;
         }
 
         @Override
-        public Job getJob(String project, String jobId) {
+        public synchronized Job getJob(String project, String jobId) {
             getJobLookups.add(jobId);
-            return existingJob;
+            return existingJobLookup.apply(jobId);
         }
 
         @Override
-        public Job waitForJob(Job job) {
+        public synchronized Job waitForJob(Job job) {
             waitForJobCalls.add(job);
             return waitForJobBehavior.apply(job);
         }
@@ -250,6 +271,12 @@ public class BigQueryLoadJobOperatorTest {
                 String billingProject) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public synchronized boolean deleteTable(TableId tableId) {
+            deleteTableCalls.add(tableId);
+            return deleteTableBehavior.apply(tableId);
+        }
     }
 
     /** Minimal {@link BigQueryServices} that delegates to a given {@link QueryDataClient}. */
@@ -296,13 +323,30 @@ public class BigQueryLoadJobOperatorTest {
     /** Creates an opened operator with the given client and an explicit file system. */
     private static BigQueryLoadJobOperator createOpenOperator(
             final BigQueryServices.QueryDataClient client, final FileSystem fs) throws Exception {
+        return createOpenOperator(
+                client,
+                fs,
+                BigQueryLoadJobOperator.DEFAULT_MAX_FILES_PER_LOAD_JOB,
+                BigQueryLoadJobOperator.DEFAULT_MAX_BYTES_PER_LOAD_JOB);
+    }
+
+    /** Creates an opened operator with explicit load-job size limits. */
+    private static BigQueryLoadJobOperator createOpenOperator(
+            final BigQueryServices.QueryDataClient client,
+            final FileSystem fs,
+            final int maxFilesPerLoadJob,
+            final long maxBytesPerLoadJob) {
         final BigQueryLoadJobOperator operator =
                 new BigQueryLoadJobOperator(
                         testConnectOptions(client),
                         FIXED_UUID,
+                        TEMP_PROJECT,
+                        TEMP_DATASET,
                         () -> Executors.newCachedThreadPool(),
                         () -> fs,
-                        EXPECTED_PARQUET_OPTIONS);
+                        EXPECTED_PARQUET_OPTIONS,
+                        maxFilesPerLoadJob,
+                        maxBytesPerLoadJob);
         operator.setRuntimeContext(mockRuntimeContext());
         operator.open(null);
         return operator;
@@ -400,7 +444,7 @@ public class BigQueryLoadJobOperatorTest {
      * Recording {@link FileSystem} that captures the URIs passed to {@code delete} and lets tests
      * configure the return value or an exception. Inherits everything else from {@link
      * LocalFileSystem}. Wrapping the URI list in a synchronized list because cleanup runs in
-     * parallel via the cleanup executor.
+     * parallel via the executorService.
      */
     private static class RecordingFileSystem extends LocalFileSystem {
         final List<String> deleteCalls = Collections.synchronizedList(new ArrayList<>());
@@ -429,15 +473,19 @@ public class BigQueryLoadJobOperatorTest {
                 new BigQueryLoadJobOperator(
                         testConnectOptions(new RecordingQueryDataClient()),
                         FIXED_UUID,
+                        TEMP_PROJECT,
+                        TEMP_DATASET,
                         () -> {
                             supplierCalls.incrementAndGet();
                             return executorService;
                         },
                         RecordingFileSystem::new,
-                        EXPECTED_PARQUET_OPTIONS);
+                        EXPECTED_PARQUET_OPTIONS,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_FILES_PER_LOAD_JOB,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_BYTES_PER_LOAD_JOB);
         operator.setRuntimeContext(mockRuntimeContext());
 
-        // Construction alone must not create the executor.
+        // Construction alone must not create the executorService.
         assertEquals(0, supplierCalls.get());
 
         operator.open(null);
@@ -455,9 +503,13 @@ public class BigQueryLoadJobOperatorTest {
                 new BigQueryLoadJobOperator(
                         testConnectOptions(new RecordingQueryDataClient()),
                         FIXED_UUID,
+                        TEMP_PROJECT,
+                        TEMP_DATASET,
                         () -> executorService,
                         RecordingFileSystem::new,
-                        EXPECTED_PARQUET_OPTIONS);
+                        EXPECTED_PARQUET_OPTIONS,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_FILES_PER_LOAD_JOB,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_BYTES_PER_LOAD_JOB);
         operator.setRuntimeContext(mockRuntimeContext());
         operator.open(null);
         operator.close();
@@ -473,9 +525,13 @@ public class BigQueryLoadJobOperatorTest {
                 new BigQueryLoadJobOperator(
                         testConnectOptions(new RecordingQueryDataClient()),
                         FIXED_UUID,
+                        TEMP_PROJECT,
+                        TEMP_DATASET,
                         () -> executorService,
                         RecordingFileSystem::new,
-                        EXPECTED_PARQUET_OPTIONS);
+                        EXPECTED_PARQUET_OPTIONS,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_FILES_PER_LOAD_JOB,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_BYTES_PER_LOAD_JOB);
         operator.setRuntimeContext(mockRuntimeContext());
         operator.open(null);
         operator.close();
@@ -491,9 +547,13 @@ public class BigQueryLoadJobOperatorTest {
                 new BigQueryLoadJobOperator(
                         testConnectOptions(new RecordingQueryDataClient()),
                         FIXED_UUID,
+                        TEMP_PROJECT,
+                        TEMP_DATASET,
                         () -> executorService,
                         RecordingFileSystem::new,
-                        EXPECTED_PARQUET_OPTIONS);
+                        EXPECTED_PARQUET_OPTIONS,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_FILES_PER_LOAD_JOB,
+                        BigQueryLoadJobOperator.DEFAULT_MAX_BYTES_PER_LOAD_JOB);
         operator.close();
         assertEquals(0, executorService.shutdownCount);
         assertEquals(0, executorService.shutdownNowCount);
@@ -797,27 +857,29 @@ public class BigQueryLoadJobOperatorTest {
     }
 
     // =========================================================================
-    // submitAndAwaitJob - existing job succeed/fail/running
+    // submitAndAwaitJob - existing load job succeed/fail/running
     // =========================================================================
 
     @Test
     public void testFlatMapExistingSuccessJobSkipsSubmission() throws Exception {
+        Job existingJob = mockSuccessJob();
         RecordingQueryDataClient client = new RecordingQueryDataClient();
-        client.existingJob = mockSuccessJob();
+        client.existingJobLookup = id -> existingJob;
 
         BigQueryLoadJobOperator operator = createOpenOperator(client);
         processCompleteCheckpoint(operator, 1L, "file:///tmp/test.parquet");
 
         assertEquals(0, client.submittedJobs.size());
-        assertEquals(List.of(client.existingJob), client.waitForJobCalls);
+        assertEquals(List.of(existingJob), client.waitForJobCalls);
 
         operator.close();
     }
 
     @Test
     public void testFlatMapExistingFailedJobThrows() throws Exception {
+        Job existingJob = mockFailedJob();
         RecordingQueryDataClient client = new RecordingQueryDataClient();
-        client.existingJob = mockFailedJob();
+        client.existingJobLookup = id -> existingJob;
 
         BigQueryLoadJobOperator operator = createOpenOperator(client);
 
@@ -828,7 +890,7 @@ public class BigQueryLoadJobOperatorTest {
         assertTrue(ex.getMessage().contains("failed:"));
 
         assertEquals(0, client.submittedJobs.size());
-        assertEquals(List.of(client.existingJob), client.waitForJobCalls);
+        assertEquals(List.of(existingJob), client.waitForJobCalls);
 
         operator.close();
     }
@@ -836,15 +898,16 @@ public class BigQueryLoadJobOperatorTest {
     @Test
     public void testFlatMapRunningJobSucceedsWaitsAndReturns() throws Exception {
         Job successJob = mockSuccessJob();
+        Job runningJob = mockRunningJob();
         RecordingQueryDataClient client = new RecordingQueryDataClient();
-        client.existingJob = mockRunningJob();
+        client.existingJobLookup = id -> runningJob;
         client.waitForJobBehavior = j -> successJob;
 
         BigQueryLoadJobOperator operator = createOpenOperator(client);
         processCompleteCheckpoint(operator, 1L, "file:///tmp/test.parquet");
 
         assertEquals(0, client.submittedJobs.size());
-        assertEquals(List.of(client.existingJob), client.waitForJobCalls);
+        assertEquals(List.of(runningJob), client.waitForJobCalls);
 
         operator.close();
     }
@@ -852,8 +915,9 @@ public class BigQueryLoadJobOperatorTest {
     @Test
     public void testFlatMapRunningJobFailsThrows() throws Exception {
         Job failedAfterWait = mockFailedJob();
+        Job runningJob = mockRunningJob();
         RecordingQueryDataClient client = new RecordingQueryDataClient();
-        client.existingJob = mockRunningJob();
+        client.existingJobLookup = id -> runningJob;
         client.waitForJobBehavior = j -> failedAfterWait;
 
         BigQueryLoadJobOperator operator = createOpenOperator(client);
@@ -865,7 +929,7 @@ public class BigQueryLoadJobOperatorTest {
         assertTrue(ex.getMessage().contains("failed:"));
 
         assertEquals(0, client.submittedJobs.size());
-        assertEquals(List.of(client.existingJob), client.waitForJobCalls);
+        assertEquals(List.of(runningJob), client.waitForJobCalls);
 
         operator.close();
     }
@@ -938,14 +1002,15 @@ public class BigQueryLoadJobOperatorTest {
     @Test
     public void flatMapIgnoresAlreadyDeletedFiles() throws Exception {
         // Models a re-run after a previous attempt already submitted the load job and cleaned
-        // up its files: existingJob short-circuits submission, and cleanup runs against a file
-        // that no longer exists (delete returns false). No exception.
+        // up its files: existingJobLookup short-circuits submission, and cleanup runs against a
+        // file that no longer exists (delete returns false). No exception.
 
         RecordingFileSystem fs = new RecordingFileSystem();
         fs.deleteResult = false;
 
+        Job existingJob = mockSuccessJob();
         RecordingQueryDataClient client = new RecordingQueryDataClient();
-        client.existingJob = mockSuccessJob();
+        client.existingJobLookup = id -> existingJob;
         BigQueryLoadJobOperator operator = createOpenOperator(client, fs);
 
         processCompleteCheckpoint(operator, 1L, "file:///tmp/part.parquet");
@@ -970,6 +1035,317 @@ public class BigQueryLoadJobOperatorTest {
         assertEquals(1, client.submittedJobs.size());
         assertSubmittedFormatOptions((LoadJobConfiguration) client.submittedJobs.get(0).config);
         assertEquals(List.of("file:///tmp/part.parquet"), new ArrayList<>(fs.deleteCalls));
+
+        operator.close();
+    }
+
+    // =========================================================================
+    // flatMap - multi-partition path
+    // =========================================================================
+
+    /**
+     * Creates an opened operator with {@code maxFilesPerLoadJob = 1}, so any checkpoint with 2+
+     * files forces a multi-partition split regardless of file size.
+     */
+    private static BigQueryLoadJobOperator createOpenOperatorForcingMultiPartition(
+            final BigQueryServices.QueryDataClient client) {
+        return createOpenOperator(
+                client,
+                new RecordingFileSystem(),
+                1,
+                BigQueryLoadJobOperator.DEFAULT_MAX_BYTES_PER_LOAD_JOB);
+    }
+
+    @Test
+    public void flatMapExceedingMaxFilesPerLoadJobSubmitsTempLoadsAndCopy() throws Exception {
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        RecordingFileSystem fs = new RecordingFileSystem();
+        // maxFilesPerLoadJob = 1 with 2 incoming files forces a multi-partition split.
+        BigQueryLoadJobOperator operator =
+                createOpenOperator(
+                        client, fs, 1, BigQueryLoadJobOperator.DEFAULT_MAX_BYTES_PER_LOAD_JOB);
+
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/a.parquet", "file:///tmp/b.parquet");
+
+        assertTwoPartitionTempLoadsAndCopy(client, fs);
+
+        operator.close();
+    }
+
+    @Test
+    public void flatMapExceedingMaxBytesPerLoadJobSubmitsTempLoadsAndCopy() throws Exception {
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        RecordingFileSystem fs = new RecordingFileSystem();
+        // Each file is 100 bytes (see processCompleteCheckpoint) for a total of 200 bytes
+        // So the split is byte-driven, not number-of-files
+        BigQueryLoadJobOperator operator =
+                createOpenOperator(
+                        client, fs, BigQueryLoadJobOperator.DEFAULT_MAX_FILES_PER_LOAD_JOB, 150L);
+
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/a.parquet", "file:///tmp/b.parquet");
+
+        assertTwoPartitionTempLoadsAndCopy(client, fs);
+
+        operator.close();
+    }
+
+    /**
+     * Verifies the multi-partition output for a 2-file checkpoint regardless of which limit (file
+     * count or byte size) triggered the split: 2 temp-load jobs + 1 copy job with correct IDs,
+     * destinations, and dispositions, plus cleanup of both temp tables and source files.
+     */
+    private static void assertTwoPartitionTempLoadsAndCopy(
+            RecordingQueryDataClient client, RecordingFileSystem fs) {
+        // 2 temp-load jobs + 1 copy job
+        assertEquals(3, client.submittedJobs.size());
+
+        // Copy is always last (must wait for all temp-loads); temp-loads run in parallel
+        // so their relative submission order between p0 and p1 is non-deterministic.
+        assertEquals(EXPECTED_COPY_JOB_ID_C1, client.submittedJobs.get(2).jobId);
+
+        Map<String, RecordingQueryDataClient.SubmittedJob> tempLoadsByJobId = new HashMap<>();
+        tempLoadsByJobId.put(client.submittedJobs.get(0).jobId, client.submittedJobs.get(0));
+        tempLoadsByJobId.put(client.submittedJobs.get(1).jobId, client.submittedJobs.get(1));
+        assertEquals(
+                Set.of(EXPECTED_TEMP_LOAD_JOB_ID_C1_P0, EXPECTED_TEMP_LOAD_JOB_ID_C1_P1),
+                tempLoadsByJobId.keySet());
+
+        LoadJobConfiguration tempLoad0 =
+                (LoadJobConfiguration) tempLoadsByJobId.get(EXPECTED_TEMP_LOAD_JOB_ID_C1_P0).config;
+        assertEquals(EXPECTED_TEMP_TABLE_ID_C1_P0, tempLoad0.getDestinationTable());
+        // Temp tables must land in the configured tempProject/tempDataset, not the destination.
+        assertEquals(TEMP_PROJECT, tempLoad0.getDestinationTable().getProject());
+        assertEquals(TEMP_DATASET, tempLoad0.getDestinationTable().getDataset());
+        assertEquals(JobInfo.WriteDisposition.WRITE_TRUNCATE, tempLoad0.getWriteDisposition());
+        assertEquals(JobInfo.CreateDisposition.CREATE_IF_NEEDED, tempLoad0.getCreateDisposition());
+        assertEquals(1, tempLoad0.getSourceUris().size());
+
+        LoadJobConfiguration tempLoad1 =
+                (LoadJobConfiguration) tempLoadsByJobId.get(EXPECTED_TEMP_LOAD_JOB_ID_C1_P1).config;
+        assertEquals(EXPECTED_TEMP_TABLE_ID_C1_P1, tempLoad1.getDestinationTable());
+        assertEquals(JobInfo.WriteDisposition.WRITE_TRUNCATE, tempLoad1.getWriteDisposition());
+        assertEquals(JobInfo.CreateDisposition.CREATE_IF_NEEDED, tempLoad1.getCreateDisposition());
+        assertEquals(1, tempLoad1.getSourceUris().size());
+
+        Set<String> allTempLoadUris = new HashSet<>(tempLoad0.getSourceUris());
+        allTempLoadUris.addAll(tempLoad1.getSourceUris());
+        assertEquals(Set.of("file:///tmp/a.parquet", "file:///tmp/b.parquet"), allTempLoadUris);
+
+        CopyJobConfiguration copy = (CopyJobConfiguration) client.submittedJobs.get(2).config;
+        assertEquals(JobInfo.WriteDisposition.WRITE_APPEND, copy.getWriteDisposition());
+        assertEquals(JobInfo.CreateDisposition.CREATE_NEVER, copy.getCreateDisposition());
+        assertEquals(TableId.of(PROJECT, DATASET, TABLE), copy.getDestinationTable());
+        assertEquals(
+                List.of(EXPECTED_TEMP_TABLE_ID_C1_P0, EXPECTED_TEMP_TABLE_ID_C1_P1),
+                copy.getSourceTables());
+
+        // Both temp tables deleted after the copy succeeded (order non-deterministic — parallel).
+        assertEquals(
+                Set.of(EXPECTED_TEMP_TABLE_ID_C1_P0, EXPECTED_TEMP_TABLE_ID_C1_P1),
+                new HashSet<>(client.deleteTableCalls));
+
+        // Both source files deleted after the copy succeeded (order non-deterministic — parallel).
+        assertEquals(
+                Set.of("file:///tmp/a.parquet", "file:///tmp/b.parquet"),
+                new HashSet<>(fs.deleteCalls));
+    }
+
+    @Test
+    public void flatMapMultiPartitionTempLoadFailureThrowsAndSkipsCopy() throws Exception {
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        client.submitJobResult = mockFailedJob();
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+
+        ExecutionException ex =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                processCompleteCheckpoint(
+                                        operator,
+                                        1L,
+                                        "file:///tmp/a.parquet",
+                                        "file:///tmp/b.parquet"));
+        assertTrue(ex.getCause() instanceof BigQueryConnectorException);
+        assertTrue(ex.getCause().getMessage().contains("tmp-load"));
+
+        // Both temp-loads attempted in parallel; copy never submitted; no deletes.
+        assertEquals(2, client.submittedJobs.size());
+        assertFalse(
+                client.submittedJobs.stream()
+                        .anyMatch(j -> j.jobId.equals(EXPECTED_COPY_JOB_ID_C1)));
+        assertTrue(client.deleteTableCalls.isEmpty());
+
+        operator.close();
+    }
+
+    @Test
+    public void flatMapMultiPartitionCopyFailureThrowsAndSkipsDelete() throws Exception {
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        Job successJob = mockSuccessJob();
+        Job failedJob = mockFailedJob();
+        // Temp loads (first 2 calls) succeed, copy job (3rd) fails.
+        AtomicInteger callIdx = new AtomicInteger(0);
+        client.waitForJobBehavior = j -> callIdx.getAndIncrement() < 2 ? successJob : failedJob;
+        client.submitJobResult = successJob;
+
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+
+        BigQueryConnectorException ex =
+                assertThrows(
+                        BigQueryConnectorException.class,
+                        () ->
+                                processCompleteCheckpoint(
+                                        operator,
+                                        1L,
+                                        "file:///tmp/a.parquet",
+                                        "file:///tmp/b.parquet"));
+        assertTrue(ex.getMessage().contains("copy"));
+
+        // Two temp loads + one copy submitted; copy threw, so no deletes attempted.
+        assertEquals(3, client.submittedJobs.size());
+        assertTrue(client.deleteTableCalls.isEmpty());
+
+        operator.close();
+    }
+
+    @Test
+    public void flatMapMultiPartitionToleratesDeleteTableReturningFalse() throws Exception {
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        client.deleteTableBehavior = id -> false; // delete reports the table didn't exist
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+
+        // Should not throw despite delete returning false.
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/a.parquet", "file:///tmp/b.parquet");
+
+        assertEquals(3, client.submittedJobs.size());
+        assertEquals(2, client.deleteTableCalls.size());
+
+        operator.close();
+    }
+
+    // =========================================================================
+    // flatMap - multi-partition replay: existing temp-load / copy jobs across partitions.
+    // Single-partition tests already cover submitAndAwaitJob's existing/running/failed branches;
+    // these tests target coordination scenarios unique to the multi-partition path, where
+    // different jobs (per-partition temp-loads + copy) can be in different states on replay.
+    // =========================================================================
+
+    @Test
+    public void flatMapMultiPartitionResumesExistingTempLoadAndSubmitsMissingOne()
+            throws Exception {
+        // p0 temp-load was submitted on a prior attempt (now existing-success); p1 wasn't.
+        // Operator skips p0 submission, submits p1, then runs copy.
+        Job p0Existing = mockSuccessJob();
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        client.existingJobLookup =
+                id -> id.equals(EXPECTED_TEMP_LOAD_JOB_ID_C1_P0) ? p0Existing : null;
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/a.parquet", "file:///tmp/b.parquet");
+
+        // Only p1 temp-load + copy submitted; p0 was reused.
+        assertEquals(2, client.submittedJobs.size());
+        Set<String> submittedIds = new HashSet<>();
+        for (RecordingQueryDataClient.SubmittedJob j : client.submittedJobs) {
+            submittedIds.add(j.jobId);
+        }
+        assertEquals(
+                Set.of(EXPECTED_TEMP_LOAD_JOB_ID_C1_P1, EXPECTED_COPY_JOB_ID_C1), submittedIds);
+
+        // Both temp tables still cleaned up.
+        assertEquals(
+                Set.of(EXPECTED_TEMP_TABLE_ID_C1_P0, EXPECTED_TEMP_TABLE_ID_C1_P1),
+                new HashSet<>(client.deleteTableCalls));
+
+        operator.close();
+    }
+
+    @Test
+    public void flatMapMultiPartitionAllTempLoadsExistingSubmitsOnlyCopy() throws Exception {
+        // Both temp-loads succeeded on a prior attempt; copy did not run.
+        Job tempSuccess = mockSuccessJob();
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        client.existingJobLookup =
+                id ->
+                        (id.equals(EXPECTED_TEMP_LOAD_JOB_ID_C1_P0)
+                                        || id.equals(EXPECTED_TEMP_LOAD_JOB_ID_C1_P1))
+                                ? tempSuccess
+                                : null;
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/a.parquet", "file:///tmp/b.parquet");
+
+        // Only the copy was submitted.
+        assertEquals(1, client.submittedJobs.size());
+        assertEquals(EXPECTED_COPY_JOB_ID_C1, client.submittedJobs.get(0).jobId);
+
+        // Cleanup still runs for both temp tables.
+        assertEquals(
+                Set.of(EXPECTED_TEMP_TABLE_ID_C1_P0, EXPECTED_TEMP_TABLE_ID_C1_P1),
+                new HashSet<>(client.deleteTableCalls));
+
+        operator.close();
+    }
+
+    @Test
+    public void flatMapMultiPartitionEverythingExistingSubmitsNothingAndCleansUp()
+            throws Exception {
+        // Full replay after operator died with everything already submitted: both temp-loads
+        // and the copy are existing-success. Operator just waits on each and cleans up.
+        Job successJob = mockSuccessJob();
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        client.existingJobLookup = id -> successJob;
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+
+        processCompleteCheckpoint(operator, 1L, "file:///tmp/a.parquet", "file:///tmp/b.parquet");
+
+        // No submissions at all.
+        assertEquals(0, client.submittedJobs.size());
+        // All three jobs (2 temp-loads + copy) were waited on.
+        assertEquals(3, client.waitForJobCalls.size());
+        // Both temp tables cleaned up.
+        assertEquals(
+                Set.of(EXPECTED_TEMP_TABLE_ID_C1_P0, EXPECTED_TEMP_TABLE_ID_C1_P1),
+                new HashSet<>(client.deleteTableCalls));
+
+        operator.close();
+    }
+
+    @Test
+    public void flatMapMultiPartitionExistingFailedTempLoadThrowsAndSkipsCopy() throws Exception {
+        // p0's prior temp-load attempt is recorded as failed in BQ; p1 succeeded.
+        // submitAndAwaitJob short-circuits to wait + throw on p0; copy never runs;
+        // no cleanup because we never reached it.
+        Job successJob = mockSuccessJob();
+        Job failedJob = mockFailedJob();
+        RecordingQueryDataClient client = new RecordingQueryDataClient();
+        client.existingJobLookup =
+                id -> {
+                    if (id.equals(EXPECTED_TEMP_LOAD_JOB_ID_C1_P0)) {
+                        return failedJob;
+                    }
+                    if (id.equals(EXPECTED_TEMP_LOAD_JOB_ID_C1_P1)) {
+                        return successJob;
+                    }
+                    return null;
+                };
+        BigQueryLoadJobOperator operator = createOpenOperatorForcingMultiPartition(client);
+
+        ExecutionException ex =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                processCompleteCheckpoint(
+                                        operator,
+                                        1L,
+                                        "file:///tmp/a.parquet",
+                                        "file:///tmp/b.parquet"));
+        assertTrue(ex.getCause() instanceof BigQueryConnectorException);
+        assertTrue(ex.getCause().getMessage().contains("failed:"));
+
+        // Nothing submitted (both temp-loads short-circuited via getJob); no copy; no deletes.
+        assertEquals(0, client.submittedJobs.size());
+        assertTrue(client.deleteTableCalls.isEmpty());
 
         operator.close();
     }

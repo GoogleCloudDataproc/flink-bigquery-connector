@@ -75,6 +75,8 @@ public class BigQueryDynamicTableSinkTest {
                     null,
                     null,
                     WriteMode.STORAGE_WRITE_API,
+                    null,
+                    null,
                     null);
 
     @RegisterExtension
@@ -156,7 +158,9 @@ public class BigQueryDynamicTableSinkTest {
                         null,
                         null,
                         WriteMode.INDIRECT,
-                        "gs://bucket/tmp");
+                        "gs://bucket/tmp",
+                        "temp_p",
+                        "temp_d");
 
         SinkV2Provider provider =
                 (SinkV2Provider)
@@ -167,7 +171,7 @@ public class BigQueryDynamicTableSinkTest {
     }
 
     @Test
-    public void testSinkRuntimeProviderIndirectModeNullTempGcsPathThrows() {
+    public void testSinkRuntimeProviderIndirectModeNullGcsTempPathThrows() {
         BigQueryDynamicTableSink indirectSink =
                 new BigQueryDynamicTableSink(
                         StorageClientFaker.createConnectOptionsForWrite(null),
@@ -187,7 +191,9 @@ public class BigQueryDynamicTableSinkTest {
                         null,
                         null,
                         WriteMode.INDIRECT,
-                        null);
+                        null,
+                        "temp_p",
+                        "temp_d");
 
         assertThatThrownBy(
                         () ->
@@ -195,6 +201,72 @@ public class BigQueryDynamicTableSinkTest {
                                         Mockito.mock(DynamicTableSink.Context.class)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tempGcsPath is required");
+    }
+
+    @Test
+    public void testSinkRuntimeProviderIndirectModeNullTempDatasetThrows() {
+        BigQueryDynamicTableSink indirectSink =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        false,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        "gs://bucket/tmp",
+                        "temp_p",
+                        null);
+
+        assertThatThrownBy(
+                        () ->
+                                indirectSink.getSinkRuntimeProvider(
+                                        Mockito.mock(DynamicTableSink.Context.class)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tempDataset is required");
+    }
+
+    @Test
+    public void testSinkRuntimeProviderIndirectModeNullTempProjectThrows() {
+        BigQueryDynamicTableSink indirectSink =
+                new BigQueryDynamicTableSink(
+                        StorageClientFaker.createConnectOptionsForWrite(null),
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        SCHEMA,
+                        PARALLELISM,
+                        false,
+                        PARTITIONING_FIELD,
+                        TimePartitioning.Type.DAY,
+                        10000000000000L,
+                        CLUSTERED_FIELDS,
+                        REGION,
+                        true,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        WriteMode.INDIRECT,
+                        "gs://bucket/tmp",
+                        null,
+                        "temp_d");
+
+        assertThatThrownBy(
+                        () ->
+                                indirectSink.getSinkRuntimeProvider(
+                                        Mockito.mock(DynamicTableSink.Context.class)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tempProject is required");
     }
 
     @Test
@@ -218,7 +290,9 @@ public class BigQueryDynamicTableSinkTest {
                         null,
                         null,
                         WriteMode.INDIRECT,
-                        "gs://bucket/tmp");
+                        "gs://bucket/tmp",
+                        "temp_p",
+                        "temp_d");
         assertEquals(indirectSink, indirectSink.copy());
     }
 
@@ -243,7 +317,9 @@ public class BigQueryDynamicTableSinkTest {
                         null,
                         null,
                         WriteMode.INDIRECT,
-                        "gs://bucket/tmp");
+                        "gs://bucket/tmp",
+                        "temp_p",
+                        "temp_d");
         BigQueryDynamicTableSink direct =
                 new BigQueryDynamicTableSink(
                         StorageClientFaker.createConnectOptionsForWrite(null),
@@ -263,12 +339,14 @@ public class BigQueryDynamicTableSinkTest {
                         null,
                         null,
                         WriteMode.STORAGE_WRITE_API,
-                        "gs://bucket/tmp");
+                        "gs://bucket/tmp",
+                        "temp_p",
+                        "temp_d");
         assertNotEquals(indirect, direct);
     }
 
     @Test
-    public void testEqualsDiffersByTempGcsPath() {
+    public void testEqualsDiffersByGcsTempPath() {
         BigQueryDynamicTableSink a =
                 new BigQueryDynamicTableSink(
                         StorageClientFaker.createConnectOptionsForWrite(null),
@@ -288,7 +366,9 @@ public class BigQueryDynamicTableSinkTest {
                         null,
                         null,
                         WriteMode.INDIRECT,
-                        "gs://bucket/a");
+                        "gs://bucket/a",
+                        "temp_p",
+                        "temp_d");
         BigQueryDynamicTableSink b =
                 new BigQueryDynamicTableSink(
                         StorageClientFaker.createConnectOptionsForWrite(null),
@@ -308,7 +388,9 @@ public class BigQueryDynamicTableSinkTest {
                         null,
                         null,
                         WriteMode.INDIRECT,
-                        "gs://bucket/b");
+                        "gs://bucket/b",
+                        "temp_p",
+                        "temp_d");
         assertNotEquals(a, b);
     }
 
@@ -333,6 +415,8 @@ public class BigQueryDynamicTableSinkTest {
                         "INTERVAL 10 MINUTE",
                         null,
                         WriteMode.STORAGE_WRITE_API,
+                        null,
+                        null,
                         null);
 
         BigQuerySinkConfig<RowData> obtainedSinkConfig = cdcTableSink.getSinkConfig();

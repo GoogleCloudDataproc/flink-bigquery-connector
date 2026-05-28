@@ -30,6 +30,7 @@ import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobConfiguration;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.TableDefinition;
+import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.AvroSchema;
@@ -295,6 +296,12 @@ public class StorageClientFaker {
             public Job waitForJob(Job job) throws InterruptedException {
                 throw new UnsupportedOperationException(
                         "waitForJob not supported in flink-1.17 tests");
+            }
+
+            @Override
+            public boolean deleteTable(TableId tableId) {
+                throw new UnsupportedOperationException(
+                        "deleteTable not supported in flink-1.17 tests");
             }
         }
 

@@ -23,6 +23,7 @@ import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobConfiguration;
 import com.google.cloud.bigquery.TableDefinition;
+import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
@@ -310,5 +311,13 @@ public interface BigQueryServices extends Serializable {
          * @throws InterruptedException if the wait is interrupted.
          */
         Job waitForJob(Job job) throws InterruptedException;
+
+        /**
+         * Delete a BigQuery table.
+         *
+         * @param tableId The table to delete.
+         * @return {@code true} if the table was deleted, {@code false} if it did not exist.
+         */
+        boolean deleteTable(TableId tableId);
     }
 }

@@ -81,6 +81,8 @@ public class BigQuerySinkConfig<IN> {
     private final CdcChangeTypeProvider<?> cdcChangeTypeProvider;
     private final WriteMode writeMode;
     private final String tempGcsPath;
+    private final String tempProject;
+    private final String tempDataset;
     private final BulkWriter.Factory<IN> bulkWriterFactory;
     private final FormatOptions formatOptions;
 
@@ -109,6 +111,8 @@ public class BigQuerySinkConfig<IN> {
                 cdcChangeTypeProvider,
                 writeMode,
                 tempGcsPath,
+                tempProject,
+                tempDataset,
                 bulkWriterFactory,
                 formatOptions);
     }
@@ -150,6 +154,8 @@ public class BigQuerySinkConfig<IN> {
                         this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider()))
                 && (this.writeMode == object.writeMode)
                 && (Objects.equals(this.tempGcsPath, object.tempGcsPath))
+                && (Objects.equals(this.tempProject, object.tempProject))
+                && (Objects.equals(this.tempDataset, object.tempDataset))
                 && (Objects.equals(this.bulkWriterFactory, object.bulkWriterFactory))
                 && (Objects.equals(this.formatOptions, object.formatOptions)));
     }
@@ -173,6 +179,8 @@ public class BigQuerySinkConfig<IN> {
             CdcChangeTypeProvider<?> cdcChangeTypeProvider,
             WriteMode writeMode,
             String tempGcsPath,
+            String tempProject,
+            String tempDataset,
             BulkWriter.Factory<IN> bulkWriterFactory,
             FormatOptions formatOptions) {
         this.connectOptions = connectOptions;
@@ -193,6 +201,8 @@ public class BigQuerySinkConfig<IN> {
         this.cdcChangeTypeProvider = cdcChangeTypeProvider;
         this.writeMode = writeMode;
         this.tempGcsPath = tempGcsPath;
+        this.tempProject = tempProject;
+        this.tempDataset = tempDataset;
         this.bulkWriterFactory = bulkWriterFactory;
         this.formatOptions = formatOptions;
     }
@@ -269,6 +279,14 @@ public class BigQuerySinkConfig<IN> {
         return tempGcsPath;
     }
 
+    public String getTempProject() {
+        return tempProject;
+    }
+
+    public String getTempDataset() {
+        return tempDataset;
+    }
+
     public BulkWriter.Factory<IN> getBulkWriterFactory() {
         return bulkWriterFactory;
     }
@@ -304,6 +322,8 @@ public class BigQuerySinkConfig<IN> {
         private CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
         private WriteMode writeMode = WriteMode.STORAGE_WRITE_API;
         private String tempGcsPath;
+        private String tempProject;
+        private String tempDataset;
         private BulkWriter.Factory<IN> bulkWriterFactory;
         private FormatOptions formatOptions;
 
@@ -403,6 +423,16 @@ public class BigQuerySinkConfig<IN> {
             return this;
         }
 
+        public Builder<IN> tempProject(String tempProject) {
+            this.tempProject = tempProject;
+            return this;
+        }
+
+        public Builder<IN> tempDataset(String tempDataset) {
+            this.tempDataset = tempDataset;
+            return this;
+        }
+
         public Builder<IN> bulkWriterFactory(BulkWriter.Factory<IN> bulkWriterFactory) {
             this.bulkWriterFactory = bulkWriterFactory;
             return this;
@@ -417,6 +447,8 @@ public class BigQuerySinkConfig<IN> {
             if (writeMode == WriteMode.INDIRECT) {
                 validateIndirect(
                         tempGcsPath,
+                        tempProject,
+                        tempDataset,
                         bulkWriterFactory,
                         formatOptions,
                         cdcEnabled,
@@ -443,6 +475,8 @@ public class BigQuerySinkConfig<IN> {
                     cdcChangeTypeProvider,
                     writeMode,
                     tempGcsPath,
+                    tempProject,
+                    tempDataset,
                     bulkWriterFactory,
                     formatOptions);
         }
@@ -469,7 +503,9 @@ public class BigQuerySinkConfig<IN> {
             String cdcMaxStaleness,
             CdcChangeTypeProvider<RowData> cdcChangeTypeProvider,
             WriteMode writeMode,
-            String tempGcsPath) {
+            String tempGcsPath,
+            String tempProject,
+            String tempDataset) {
         boolean indirect = writeMode == WriteMode.INDIRECT;
         BulkWriter.Factory<RowData> bulkWriterFactory =
                 indirect ? RowDataParquetWriterFactory.create((RowType) logicalType) : null;
@@ -502,6 +538,8 @@ public class BigQuerySinkConfig<IN> {
                 cdcChangeTypeProvider,
                 writeMode,
                 tempGcsPath,
+                tempProject,
+                tempDataset,
                 bulkWriterFactory,
                 formatOptions);
     }
@@ -513,12 +551,20 @@ public class BigQuerySinkConfig<IN> {
      */
     static void validateIndirect(
             String tempGcsPath,
+            String tempProject,
+            String tempDataset,
             BulkWriter.Factory<?> bulkWriterFactory,
             FormatOptions formatOptions,
             boolean cdcEnabled,
             boolean enableTableCreation) {
         if (tempGcsPath == null || tempGcsPath.isEmpty()) {
             throw new IllegalArgumentException("tempGcsPath is required for INDIRECT write mode");
+        }
+        if (tempProject == null || tempProject.isEmpty()) {
+            throw new IllegalArgumentException("tempProject is required for INDIRECT write mode");
+        }
+        if (tempDataset == null || tempDataset.isEmpty()) {
+            throw new IllegalArgumentException("tempDataset is required for INDIRECT write mode");
         }
         if (bulkWriterFactory == null) {
             throw new IllegalArgumentException(
