@@ -123,6 +123,8 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     Counter numberOfRecordsWrittenToBigQuery;
     Counter numberOfRecordsSeenByWriter;
     Counter numberOfRecordsSeenByWriterSinceCheckpoint;
+    Counter numRecordsSend;
+    Counter numBytesSend;
 
     BaseWriter(
             int subtaskId,
@@ -226,7 +228,10 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Add serialized record to append request. */
     void addToAppendRequest(ByteString protoRow) {
         protoRowsBuilder.addSerializedRows(protoRow);
-        appendRequestSizeBytes += getProtoRowBytes(protoRow);
+        int rowBytes = getProtoRowBytes(protoRow);
+        appendRequestSizeBytes += rowBytes;
+        numRecordsSend.inc();
+        numBytesSend.inc(rowBytes);
     }
 
     /** Send append request to BigQuery storage and prepare for next append request. */
@@ -394,6 +399,8 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                 sinkWriterMetricGroup.counter("numberOfRecordsWrittenToBigQuery");
         numberOfRecordsSeenByWriterSinceCheckpoint =
                 sinkWriterMetricGroup.counter("numberOfRecordsSeenByWriterSinceCheckpoint");
+        numRecordsSend = sinkWriterMetricGroup.getNumRecordsSendCounter();
+        numBytesSend = sinkWriterMetricGroup.getNumBytesSendCounter();
     }
 
     TableDefinition getTableDefinition() {

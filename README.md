@@ -609,16 +609,44 @@ Apache Flink allows collecting metrics internally to better understand the statu
 clusters during the development process.
 Each operator in Flink maintains its own set of metrics,
 which are collected by the Task Manager where the operator is running.
-Currently, the Flink-BigQuery Connector 
-supports collection and reporting of the following metrics in BigQuery sink:
 
-| Metric Name                                        | Metric Description                                                                                                                                                                                                                                                                                                                                                               | Supported By (At-least Once Sink /Exactly Once Sink) |
-|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
-| `numberOfRecordsSeenByWriter`                      | Counter to keep track of the total number of records seen by the writer.                                                                                                                                                                                                                                                                                                         | At-least Once Sink, Exactly Once Sink                |
-| `numberOfRecordsSeenByWriterSinceCheckpoint `      | Counter to keep track of the number of records seen by the writer since the last checkpoint.                                                                                                                                                                                                                                                                                     | At-least Once Sink, Exactly Once Sink                |
-| `numberOfRecordsWrittenToBigQuery`                 | Counter to keep track of the number of records successfully written to BigQuery until now.                                                                                                                                                                                                                                                                                       | At-least Once Sink, Exactly Once Sink                |
-| `numberOfRecordsWrittenToBigQuerySinceCheckpoint`  | Counter to keep track of the number of records successfully written to BigQuery since the last checkpoint.                                                                                                                                                                                                                                                                       | At-least Once Sink                                   |
-| `numberOfRecordsBufferedByBigQuerySinceCheckpoint` | Counter to keep track of the number of records currently buffered by the Storage Write API stream before committing them to the BigQuery Table. These records will be added to the Table following [Two Phase Commit Protocol's](https://nightlies.apache.org/flink/flink-docs-release-1.20/api/java/org/apache/flink/api/connector/sink2/Committer.html) `commit()` invocation. | Exactly Once Sink                                    |
+### Standard Flink Sink Metrics
+
+The connector reports the following standard Flink sink metrics via `SinkWriterMetricGroup`.
+These are the metrics that the Flink Web UI and monitoring integrations (Datadog, Prometheus, etc.) display automatically for any sink connector.
+
+| Metric Name      | Metric Description                                                                                                                                                                          | Supported By (At-least Once Sink / Exactly Once Sink) |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
+| `numRecordsSend` | Total number of records serialized and buffered for sending to BigQuery. Excludes records that failed serialization or exceeded the maximum request size. Does not wait for BigQuery confirmation. | At-least Once Sink, Exactly Once Sink                 |
+| `numBytesSend`   | Total serialized protobuf bytes (including per-row overhead) buffered for sending to BigQuery.                                                                                               | At-least Once Sink, Exactly Once Sink                 |
+
+### Connector-Specific Metrics
+
+The connector also reports the following custom metrics for more detailed observability of the write pipeline:
+
+| Metric Name                                        | Metric Description                                                                                                                                                                                                                                                                                                                                                               | Supported By (At-least Once Sink / Exactly Once Sink) |
+|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
+| `numberOfRecordsSeenByWriter`                      | Counter to keep track of the total number of records seen by the writer. Includes all records, even those that fail serialization or exceed the maximum request size.                                                                                                                                                                                                             | At-least Once Sink, Exactly Once Sink                 |
+| `numberOfRecordsSeenByWriterSinceCheckpoint `      | Counter to keep track of the number of records seen by the writer since the last checkpoint.                                                                                                                                                                                                                                                                                     | At-least Once Sink, Exactly Once Sink                 |
+| `numberOfRecordsWrittenToBigQuery`                 | Counter to keep track of the number of records confirmed as successfully written by BigQuery.                                                                                                                                                                                                                                                                                    | At-least Once Sink, Exactly Once Sink                 |
+| `numberOfRecordsWrittenToBigQuerySinceCheckpoint`  | Counter to keep track of the number of records successfully written to BigQuery since the last checkpoint.                                                                                                                                                                                                                                                                       | At-least Once Sink                                    |
+| `numberOfRecordsBufferedByBigQuerySinceCheckpoint` | Counter to keep track of the number of records currently buffered by the Storage Write API stream before committing them to the BigQuery Table. These records will be added to the Table following [Two Phase Commit Protocol's](https://nightlies.apache.org/flink/flink-docs-release-1.20/api/java/org/apache/flink/api/connector/sink2/Committer.html) `commit()` invocation. | Exactly Once Sink                                     |
+
+### How Record Counters Relate
+
+The three record counters track records at different stages of the write pipeline:
+
+```
+write() called
+  → numberOfRecordsSeenByWriter (all records, including failures)
+  → serialize record
+  → numRecordsSend (records successfully serialized and buffered)
+  → ... BigQuery confirms ...
+  → numberOfRecordsWrittenToBigQuery (records confirmed by BigQuery)
+```
+
+If `numberOfRecordsSeenByWriter` is higher than `numRecordsSend`, records are failing serialization.
+If `numRecordsSend` is higher than `numberOfRecordsWrittenToBigQuery`, records are buffered but not yet confirmed by BigQuery.
 
 ### Viewing Flink Metrics
 * Flink offers a variety of metric reporters which the users could use to view these metrics.
