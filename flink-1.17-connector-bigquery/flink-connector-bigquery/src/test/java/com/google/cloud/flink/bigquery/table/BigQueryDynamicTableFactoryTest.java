@@ -23,8 +23,16 @@ import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.catalog.UniqueConstraint;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
+import org.apache.flink.table.expressions.CallExpression;
+import org.apache.flink.table.expressions.FieldReferenceExpression;
+import org.apache.flink.table.expressions.ResolvedExpression;
+import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.utils.FactoryMocks;
+import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
+import org.apache.flink.table.functions.FunctionDefinition;
+import org.apache.flink.table.functions.FunctionIdentifier;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 
@@ -151,6 +159,36 @@ public class BigQueryDynamicTableFactoryTest {
     }
 
     @Test
+    public void testApplyFiltersReturnsOnlyUntranslatedFiltersForCalcNode() throws IOException {
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        getConnectorOptions(), SCHEMA.toPhysicalRowDataType());
+        ResolvedExpression translatableFilter =
+                createCallExpression(
+                        "greaterThan",
+                        BuiltInFunctionDefinitions.GREATER_THAN,
+                        createField("aaa", DataTypes.INT().notNull()),
+                        createLiteral(10, DataTypes.INT().notNull()));
+        ResolvedExpression untranslatableFilter =
+                createCallExpression(
+                        "equals",
+                        BuiltInFunctionDefinitions.EQUALS,
+                        createUnaryCallExpression(
+                                "upper",
+                                BuiltInFunctionDefinitions.UPPER,
+                                createField("bbb", DataTypes.STRING().notNull()),
+                                DataTypes.STRING().notNull()),
+                        createLiteral("ABC", DataTypes.STRING().notNull()));
+
+        SupportsFilterPushDown.Result result =
+                source.applyFilters(Arrays.asList(translatableFilter, untranslatableFilter));
+
+        assertThat(result.getAcceptedFilters()).containsExactly(translatableFilter);
+        assertThat(result.getRemainingFilters()).containsExactly(untranslatableFilter);
+        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("(aaa > 10)");
+    }
+
+    @Test
     public void testBigQuerySinkProperties() throws IOException {
         Map<String, String> properties = getRequiredOptions();
         Integer sinkParallelism = 5;
@@ -239,6 +277,40 @@ public class BigQueryDynamicTableFactoryTest {
                                 .setCredentialsOptions(CredentialsOptions.builder().build())
                                 .build())
                 .build();
+    }
+
+    private FieldReferenceExpression createField(String name, DataType type) {
+        return new FieldReferenceExpression(name, type, 0, 0);
+    }
+
+    private <T> ValueLiteralExpression createLiteral(T value, DataType type) {
+        return new ValueLiteralExpression(value, type);
+    }
+
+    private CallExpression createUnaryCallExpression(
+            String functionName,
+            FunctionDefinition functionDefinition,
+            ResolvedExpression child,
+            DataType outputDataType) {
+        return new CallExpression(
+                false,
+                FunctionIdentifier.of(functionName),
+                functionDefinition,
+                Collections.singletonList(child),
+                outputDataType);
+    }
+
+    private CallExpression createCallExpression(
+            String functionName,
+            FunctionDefinition functionDefinition,
+            ResolvedExpression left,
+            ResolvedExpression right) {
+        return new CallExpression(
+                false,
+                FunctionIdentifier.of(functionName),
+                functionDefinition,
+                Arrays.asList(left, right),
+                DataTypes.BOOLEAN());
     }
 
     @Test
