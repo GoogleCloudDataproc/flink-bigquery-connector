@@ -189,18 +189,15 @@ public class BigQueryRestriction {
         Optional<String> leftPath = toColumnPath(left);
         if (leftPath.isPresent() && right instanceof ValueLiteralExpression) {
             String name = leftPath.get();
-            return convertLiteral((ValueLiteralExpression) right)
+            return ((ValueLiteralExpression) right)
+                    .getValueAs(String.class)
                     .flatMap(
-                            lit -> {
-                                if (lit instanceof String) {
-                                    String pattern = (String) lit;
-                                    Matcher matcher = STARTS_WITH_PATTERN.matcher(pattern);
-                                    // exclude special char of LIKE
-                                    // '_' is the wildcard of the SQL LIKE
-                                    if (!pattern.contains("_") && matcher.matches()) {
-                                        return Optional.of(
-                                                name + " LIKE '" + matcher.group(1) + "'");
-                                    }
+                            pattern -> {
+                                Matcher matcher = STARTS_WITH_PATTERN.matcher(pattern);
+                                // exclude special char of LIKE
+                                // '_' is the wildcard of the SQL LIKE
+                                if (!pattern.contains("_") && matcher.matches()) {
+                                    return Optional.of(name + " LIKE '" + matcher.group(1) + "%'");
                                 }
 
                                 return Optional.empty();
