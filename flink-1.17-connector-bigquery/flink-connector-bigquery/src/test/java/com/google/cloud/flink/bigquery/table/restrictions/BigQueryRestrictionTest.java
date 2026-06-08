@@ -110,6 +110,86 @@ public class BigQueryRestrictionTest {
                 "(date_field = '2025-01-01')");
     }
 
+    @Test
+    public void testLikePrefixPatternIsPushedDown() {
+        // A pure "starts with" pattern must be pushed down, keeping the trailing '%' so the
+        // BigQuery restriction stays equivalent to the original prefix match.
+        assertLikeConversion("name", "foo%", Optional.of("name LIKE 'foo%'"));
+    }
+
+    @Test
+    public void testLikePrefixPatternWithSpacesIsPushedDown() {
+        assertLikeConversion("name", "foo bar%", Optional.of("name LIKE 'foo bar%'"));
+    }
+
+    @Test
+    public void testLikeWithoutWildcardIsNotPushedDown() {
+        // No trailing '%' means it is not a prefix match, so nothing is pushed down and Flink
+        // applies the filter itself.
+        assertLikeConversion("name", "foo", Optional.empty());
+    }
+
+    @Test
+    public void testLikeWithInfixWildcardIsNotPushedDown() {
+        // "foo%bar%" is "starts with foo AND contains bar", not a pure prefix match.
+        assertLikeConversion("name", "foo%bar%", Optional.empty());
+    }
+
+    @Test
+    public void testLikeWithSuffixWildcardIsNotPushedDown() {
+        // "%foo" is an "ends with" pattern, not a prefix match.
+        assertLikeConversion("name", "%foo", Optional.empty());
+    }
+
+    @Test
+    public void testLikeWithLeadingAndTrailingWildcardIsNotPushedDown() {
+        // "%foo%" is a "contains" pattern, not a prefix match.
+        assertLikeConversion("name", "%foo%", Optional.empty());
+    }
+
+    @Test
+    public void testLikeMatchAllIsNotPushedDown() {
+        // "%" matches everything and has no usable prefix.
+        assertLikeConversion("name", "%", Optional.empty());
+    }
+
+    @Test
+    public void testLikeWithUnderscoreWildcardIsNotPushedDown() {
+        // '_' is the single-character wildcard of SQL LIKE, which BigQuery's prefix restriction
+        // cannot represent, so we must not push it down.
+        assertLikeConversion("name", "fo_o%", Optional.empty());
+    }
+
+    @Test
+    public void testLikeWithTrailingUnderscoreIsNotPushedDown() {
+        assertLikeConversion("name", "foo_", Optional.empty());
+    }
+
+    private CallExpression createLikeCallExpression(
+            ResolvedExpression left, ResolvedExpression right) {
+        return new CallExpression(
+                false,
+                FunctionIdentifier.of(BuiltInFunctionDefinitions.LIKE.getName()),
+                BuiltInFunctionDefinitions.LIKE,
+                Arrays.asList(left, right),
+                DataTypes.BOOLEAN());
+    }
+
+    private void assertLikeConversion(String fieldName, String pattern, Optional<String> expected) {
+        DataType stringType = DataTypes.STRING().notNull();
+        FieldReferenceExpression field = createField(fieldName, stringType);
+        ValueLiteralExpression literal = createLiteral(pattern, stringType);
+        CallExpression callExpression = createLikeCallExpression(field, literal);
+
+        Optional<String> result = BigQueryRestriction.convert(callExpression);
+
+        if (expected.isPresent()) {
+            assertThat(result).hasValue(expected.get());
+        } else {
+            assertThat(result).isEmpty();
+        }
+    }
+
     private FieldReferenceExpression createField(String name, DataType type) {
         return new FieldReferenceExpression(name, type, 0, 0);
     }
