@@ -1029,7 +1029,7 @@ public class StorageClientFaker {
             this.queryDataClient = queryDataClient;
         }
 
-        static FakeBigQueryTableServices getInstance(
+        public static FakeBigQueryTableServices getInstance(
                 FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
                 FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient,
                 FakeBigQueryServices.FakeQueryDataClient queryDataClient) {
@@ -1040,7 +1040,7 @@ public class StorageClientFaker {
             return instance;
         }
 
-        static FakeBigQueryTableServices getInstance(
+        public static FakeBigQueryTableServices getInstance(
                 FakeBigQueryServices.FakeBigQueryStorageReadClient storageReadClient,
                 FakeBigQueryServices.FakeBigQueryStorageWriteClient storageWriteClient) {
             return getInstance(

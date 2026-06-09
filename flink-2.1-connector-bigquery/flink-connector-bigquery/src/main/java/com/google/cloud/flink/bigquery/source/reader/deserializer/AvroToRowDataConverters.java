@@ -88,51 +88,88 @@ public class AvroToRowDataConverters {
     // Runtime Converters
     // -------------------------------------------------------------------------------------
 
-    public static AvroToRowDataConverter createRowConverter(RowType rowType) {
+    public static AvroToRowDataConverter createRowConverter(
+            RowType rowType, String[][] nestedPaths) {
         final AvroToRowDataConverter[] fieldConverters =
                 rowType.getFields().stream()
                         .map(RowType.RowField::getType)
                         .map(AvroToRowDataConverters::createNullableConverter)
                         .toArray(AvroToRowDataConverter[]::new);
         final int arity = rowType.getFieldCount();
-        final String[] fieldNames =
-                rowType.getFields().stream().map(RowType.RowField::getName).toArray(String[]::new);
 
         return new AvroToRowDataConverter() {
-            private int[] indexMapping;
+            private int[][] indexMapping;
 
             @Override
             public Object convert(Object avroObject) {
                 GenericRecord record = (GenericRecord) avroObject;
                 if (indexMapping == null) {
-                    indexMapping = computeIndexMapping(record, fieldNames);
+                    indexMapping = computeIndexMapping(record, nestedPaths);
                 }
                 GenericRowData row = new GenericRowData(arity);
                 for (int i = 0; i < arity; ++i) {
-                    row.setField(i, fieldConverters[i].convert(record.get(indexMapping[i])));
+                    Object avroFieldValue = getNestedField(record, indexMapping[i]);
+                    row.setField(i, fieldConverters[i].convert(avroFieldValue));
                 }
                 return row;
             }
         };
     }
 
-    private static int[] computeIndexMapping(GenericRecord record, String[] fieldNames) {
-        int[] mapping = new int[fieldNames.length];
-        for (int i = 0; i < fieldNames.length; i++) {
-            org.apache.avro.Schema.Field field = record.getSchema().getField(fieldNames[i]);
-            if (field == null) {
-                List<String> avroFieldNames = new java.util.ArrayList<>();
-                for (org.apache.avro.Schema.Field f : record.getSchema().getFields()) {
-                    avroFieldNames.add(f.name());
-                }
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Field '%s' not found in Avro schema. Available fields: %s",
-                                fieldNames[i], avroFieldNames));
+    private static Object getNestedField(GenericRecord record, int[] positions) {
+        Object value = record;
+        for (int pos : positions) {
+            if (value == null) {
+                return null;
             }
-            mapping[i] = field.pos();
+            value = ((GenericRecord) value).get(pos);
+        }
+        return value;
+    }
+
+    private static int[][] computeIndexMapping(GenericRecord record, String[][] nestedPaths) {
+        int[][] mapping = new int[nestedPaths.length][];
+        org.apache.avro.Schema rootSchema = unwrapNullableUnion(record.getSchema());
+        for (int i = 0; i < nestedPaths.length; i++) {
+            mapping[i] = new int[nestedPaths[i].length];
+            org.apache.avro.Schema currentSchema = rootSchema;
+            for (int j = 0; j < nestedPaths[i].length; j++) {
+                org.apache.avro.Schema.Field field = currentSchema.getField(nestedPaths[i][j]);
+                if (field == null) {
+                    throw fieldNotFound(nestedPaths[i], currentSchema);
+                }
+                mapping[i][j] = field.pos();
+                currentSchema = unwrapNullableUnion(field.schema());
+            }
         }
         return mapping;
+    }
+
+    // Check if nullable and take non-null path for schema unwrap
+    private static org.apache.avro.Schema unwrapNullableUnion(org.apache.avro.Schema schema) {
+        if (!schema.isUnion()) {
+            return schema;
+        }
+        return schema.getTypes().stream()
+                .filter(s -> s.getType() != org.apache.avro.Schema.Type.NULL)
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "Nullable union schema contains only NULL type: "
+                                                + schema));
+    }
+
+    private static IllegalArgumentException fieldNotFound(
+            String[] path, org.apache.avro.Schema schemaAtFailure) {
+        List<String> avroFieldNames = new java.util.ArrayList<>();
+        for (org.apache.avro.Schema.Field f : schemaAtFailure.getFields()) {
+            avroFieldNames.add(f.name());
+        }
+        return new IllegalArgumentException(
+                String.format(
+                        "Field '%s' not found in Avro schema. Available fields: %s",
+                        String.join(".", path), avroFieldNames));
     }
 
     /** Creates a runtime converter which is null safe. */
@@ -196,7 +233,12 @@ public class AvroToRowDataConverters {
             case ARRAY:
                 return createArrayConverter((ArrayType) type);
             case ROW:
-                return createRowConverter((RowType) type);
+                return createRowConverter(
+                        (RowType) type,
+                        ((RowType) type)
+                                .getFields().stream()
+                                        .map(f -> new String[] {f.getName()})
+                                        .toArray(String[][]::new));
             case MAP:
             case MULTISET:
                 return createMapConverter(type);

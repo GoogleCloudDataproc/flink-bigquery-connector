@@ -152,6 +152,94 @@ public class BigQueryDynamicTableFactoryTest {
     }
 
     @Test
+    public void testSupportsNestedProjection() throws IOException {
+        DynamicTableSource source = FactoryMocks.createTableSource(SCHEMA, getRequiredOptions());
+        assertThat(((BigQueryDynamicTableSource) source).supportsNestedProjection()).isTrue();
+    }
+
+    @Test
+    public void testApplyProjectionNestedFieldsProducesDottedPaths() throws IOException {
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        getConnectorOptions(),
+                        DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "payload",
+                                        DataTypes.ROW(
+                                                DataTypes.FIELD("event_name", DataTypes.STRING()),
+                                                DataTypes.FIELD(
+                                                        "buyer",
+                                                        DataTypes.ROW(
+                                                                DataTypes.FIELD(
+                                                                        "id", DataTypes.STRING()),
+                                                                DataTypes.FIELD(
+                                                                        "email",
+                                                                        DataTypes.STRING())))))),
+                        null);
+
+        source.applyProjection(
+                new int[][] {{0, 0}, {0, 1, 0}},
+                DataTypes.ROW(
+                        DataTypes.FIELD("event_name", DataTypes.STRING()),
+                        DataTypes.FIELD("id", DataTypes.STRING())));
+
+        assertThat(source.getReadOptions().getColumnNames())
+                .containsExactly("payload.event_name", "payload.buyer.id")
+                .inOrder();
+    }
+
+    @Test
+    public void testApplyProjectionMixedFlatAndNestedPreservesOrder() throws IOException {
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        getConnectorOptions(),
+                        DataTypes.ROW(
+                                DataTypes.FIELD("id", DataTypes.BIGINT()),
+                                DataTypes.FIELD(
+                                        "address",
+                                        DataTypes.ROW(
+                                                DataTypes.FIELD("city", DataTypes.STRING()),
+                                                DataTypes.FIELD("zip", DataTypes.STRING())))),
+                        null);
+
+        source.applyProjection(
+                new int[][] {{1, 0}, {0}},
+                DataTypes.ROW(
+                        DataTypes.FIELD("city", DataTypes.STRING()),
+                        DataTypes.FIELD("id", DataTypes.BIGINT())));
+
+        assertThat(source.getReadOptions().getColumnNames())
+                .containsExactly("address.city", "id")
+                .inOrder();
+    }
+
+    @Test
+    public void testCopyAfterApplyProjectionPreservesPaths() throws IOException {
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        getConnectorOptions(),
+                        DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "payload",
+                                        DataTypes.ROW(
+                                                DataTypes.FIELD("event_name", DataTypes.STRING()),
+                                                DataTypes.FIELD("buyer_id", DataTypes.STRING())))),
+                        null);
+
+        source.applyProjection(
+                new int[][] {{0, 0}, {0, 1}},
+                DataTypes.ROW(
+                        DataTypes.FIELD("event_name", DataTypes.STRING()),
+                        DataTypes.FIELD("buyer_id", DataTypes.STRING())));
+
+        BigQueryDynamicTableSource copy = (BigQueryDynamicTableSource) source.copy();
+
+        assertThat(copy.getReadOptions().getColumnNames())
+                .containsExactly("payload.event_name", "payload.buyer_id")
+                .inOrder();
+    }
+
+    @Test
     public void testBigQuerySourceValidation() {
         // max num of streams should be positive
         assertSourceValidationRejects(

@@ -62,6 +62,8 @@ public class BigQueryDynamicTableSourceIntegrationTestCase {
     private static final int PARALLELISM = 1;
     private static final Integer TOTAL_ROW_COUNT_PER_STREAM = 10000;
     private static final Integer STREAM_COUNT = 2;
+    private static StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageReadClient
+            storageReadClient;
     private static final Schema AVRO_SCHEMA =
             SchemaBuilder.record("testRecord")
                     .fields()
@@ -159,14 +161,15 @@ public class BigQueryDynamicTableSourceIntegrationTestCase {
                                     .collect(Collectors.toList());
                         };
 
+        storageReadClient =
+                new StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageReadClient(
+                        StorageClientFaker.fakeReadSession(
+                                TOTAL_ROW_COUNT_PER_STREAM, STREAM_COUNT, AVRO_SCHEMA.toString()),
+                        dataGenerator);
         SerializableSupplier<BigQueryServices> testingServices =
-                StorageClientFaker.createTableReadOptions(
-                                TOTAL_ROW_COUNT_PER_STREAM,
-                                STREAM_COUNT,
-                                AVRO_SCHEMA.toString(),
-                                dataGenerator)
-                        .getBigQueryConnectOptions()
-                        .getTestingBigQueryServices();
+                () ->
+                        StorageClientFaker.FakeBigQueryTableServices.getInstance(
+                                storageReadClient, null);
 
         // init the testing services and inject them into the table factory
         BigQueryDynamicTableFactory.setTestingServices(testingServices);
@@ -228,6 +231,32 @@ public class BigQueryDynamicTableSourceIntegrationTestCase {
         List<String> expected = Stream.of("+I[0, 0.0, s0]").sorted().collect(Collectors.toList());
 
         Assertions.assertThat(result).isEqualTo(expected);
+    }
+
+    @Test
+    public void testNestedProject() throws IOException {
+        tEnv.createTable("bigquery_source", createTestDDl(null));
+
+        Iterator<Row> collected =
+                tEnv.executeSql("SELECT reqSubRecord.reqBoolean FROM bigquery_source LIMIT 1")
+                        .collect();
+        List<String> result =
+                CollectionUtil.iteratorToList(collected).stream()
+                        .map(Row::toString)
+                        .sorted()
+                        .collect(Collectors.toList());
+
+        List<String> expected = Stream.of("+I[false]").sorted().collect(Collectors.toList());
+
+        Assertions.assertThat(result).isEqualTo(expected);
+        Assertions.assertThat(storageReadClient.getLastCreateReadSessionRequest()).isNotNull();
+        Assertions.assertThat(
+                        storageReadClient
+                                .getLastCreateReadSessionRequest()
+                                .getReadSession()
+                                .getReadOptions()
+                                .getSelectedFieldsList())
+                .containsExactly("reqSubRecord.reqBoolean");
     }
 
     @Test
