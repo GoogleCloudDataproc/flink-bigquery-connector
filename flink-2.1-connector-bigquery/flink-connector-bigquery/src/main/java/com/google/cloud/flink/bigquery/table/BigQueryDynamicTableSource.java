@@ -173,7 +173,10 @@ public class BigQueryDynamicTableSource
                 translatedFilters.getOrDefault(true, new ArrayList<>()).stream()
                         .map(t -> t.f2)
                         .collect(Collectors.toList()),
-                filters);
+                // we now only add Calc filter node for filters not accepted by BQ
+                translatedFilters.getOrDefault(false, new ArrayList<>()).stream()
+                        .map(t -> t.f2)
+                        .collect(Collectors.toList()));
     }
 
     @VisibleForTesting
