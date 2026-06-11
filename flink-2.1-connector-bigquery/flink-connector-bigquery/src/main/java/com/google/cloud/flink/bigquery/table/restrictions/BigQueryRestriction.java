@@ -20,6 +20,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.expressions.CallExpression;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.expressions.FieldReferenceExpression;
+import org.apache.flink.table.expressions.NestedFieldReferenceExpression;
 import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
@@ -116,14 +117,10 @@ public class BigQueryRestriction {
         Operation op = FILTERS.get(call.getFunctionDefinition());
         switch (op) {
             case IS_NULL:
-                return onlyChildAs(call, FieldReferenceExpression.class)
-                        .map(FieldReferenceExpression::getName)
-                        .map(field -> field + " IS NULL");
+                return onlyChildColumnPath(call).map(field -> field + " IS NULL");
 
             case NOT_NULL:
-                return onlyChildAs(call, FieldReferenceExpression.class)
-                        .map(FieldReferenceExpression::getName)
-                        .map(field -> "NOT " + field + " IS NULL");
+                return onlyChildColumnPath(call).map(field -> "NOT " + field + " IS NULL");
 
             case LT:
                 return convertOperationPartsWithItsSymbol("<", call);
@@ -189,8 +186,9 @@ public class BigQueryRestriction {
         Expression left = args.get(0);
         Expression right = args.get(1);
 
-        if (left instanceof FieldReferenceExpression && right instanceof ValueLiteralExpression) {
-            String name = ((FieldReferenceExpression) left).getName();
+        Optional<String> leftPath = toColumnPath(left);
+        if (leftPath.isPresent() && right instanceof ValueLiteralExpression) {
+            String name = leftPath.get();
             return convertLiteral((ValueLiteralExpression) right)
                     .flatMap(
                             lit -> {
@@ -210,6 +208,34 @@ public class BigQueryRestriction {
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Resolves a top-level or nested field reference to a BigQuery column path.
+     *
+     * <p>Nested field references are returned as dotted paths, e.g. {@code address.city}
+     */
+    private static Optional<String> toColumnPath(Expression expr) {
+        if (expr instanceof FieldReferenceExpression) {
+            return Optional.of(((FieldReferenceExpression) expr).getName());
+        }
+        if (expr instanceof NestedFieldReferenceExpression) {
+            return Optional.of(
+                    String.join(".", ((NestedFieldReferenceExpression) expr).getFieldNames()));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Ensures that expression only contains singular 'child', then attempt to get appropriate field
+     * reference path (nested or top-level).
+     */
+    private static Optional<String> onlyChildColumnPath(CallExpression call) {
+        List<ResolvedExpression> children = call.getResolvedChildren();
+        if (children.size() != 1) {
+            return Optional.empty();
+        }
+        return toColumnPath(children.get(0));
     }
 
     private static Optional<String> convertLogicExpressionWithOperandsSymbol(
@@ -268,13 +294,14 @@ public class BigQueryRestriction {
 
         Optional<Object> leftOption = Optional.empty();
         Optional<Object> rightOption = Optional.empty();
-        if (left instanceof FieldReferenceExpression && right instanceof ValueLiteralExpression) {
-            leftOption = Optional.of(((FieldReferenceExpression) left).getName());
+        Optional<String> leftPath = toColumnPath(left);
+        Optional<String> rightPath = toColumnPath(right);
+        if (leftPath.isPresent() && right instanceof ValueLiteralExpression) {
+            leftOption = Optional.of(leftPath.get());
             rightOption = convertLiteral((ValueLiteralExpression) right);
-        } else if (left instanceof ValueLiteralExpression
-                && right instanceof FieldReferenceExpression) {
+        } else if (left instanceof ValueLiteralExpression && rightPath.isPresent()) {
             leftOption = convertLiteral((ValueLiteralExpression) left);
-            rightOption = Optional.of(((FieldReferenceExpression) right).getName());
+            rightOption = Optional.of(rightPath.get());
         }
 
         if (leftOption.isPresent() && rightOption.isPresent()) {
