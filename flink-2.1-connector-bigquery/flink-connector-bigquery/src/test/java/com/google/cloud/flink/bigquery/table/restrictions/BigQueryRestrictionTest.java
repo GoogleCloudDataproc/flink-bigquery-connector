@@ -289,6 +289,71 @@ public class BigQueryRestrictionTest {
         assertThat(result).hasValue("city IS NULL");
     }
 
+    @Test
+    public void testUnsupportedTopLevelFunctionReturnsEmpty() {
+        FieldReferenceExpression field = createField("flag", DataTypes.BOOLEAN());
+        ValueLiteralExpression fallback = createLiteral(false, DataTypes.BOOLEAN().notNull());
+
+        Optional<String> result =
+                BigQueryRestriction.convert(
+                        createCallExpression(
+                                "coalesce",
+                                BuiltInFunctionDefinitions.COALESCE,
+                                DataTypes.BOOLEAN(),
+                                field,
+                                fallback));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void testNotOfUnsupportedFunctionReturnsEmpty() {
+        FieldReferenceExpression field = createField("flag", DataTypes.BOOLEAN());
+        ValueLiteralExpression fallback = createLiteral(false, DataTypes.BOOLEAN().notNull());
+        CallExpression coalesceCall =
+                createCallExpression(
+                        "coalesce",
+                        BuiltInFunctionDefinitions.COALESCE,
+                        DataTypes.BOOLEAN(),
+                        field,
+                        fallback);
+
+        Optional<String> result =
+                BigQueryRestriction.convert(
+                        createCallExpression(
+                                "not",
+                                BuiltInFunctionDefinitions.NOT,
+                                DataTypes.BOOLEAN(),
+                                coalesceCall));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void testAndOfSupportedAndUnsupportedReturnsEmpty() {
+        FieldReferenceExpression city = createField("city", DataTypes.STRING());
+        ValueLiteralExpression toronto = createLiteral("Toronto", DataTypes.STRING().notNull());
+        FieldReferenceExpression flag = createField("flag", DataTypes.BOOLEAN());
+        ValueLiteralExpression fallback = createLiteral(false, DataTypes.BOOLEAN().notNull());
+
+        CallExpression supportedSide = createEqualsCallExpression(city, toronto);
+        CallExpression unsupportedSide =
+                createCallExpression(
+                        "coalesce",
+                        BuiltInFunctionDefinitions.COALESCE,
+                        DataTypes.BOOLEAN(),
+                        flag,
+                        fallback);
+
+        Optional<String> result =
+                BigQueryRestriction.convert(
+                        createAndCallExpression(supportedSide, unsupportedSide));
+
+        // The whole AND collapses to empty (mixed pushability is not partially expressible as a
+        // single row restriction); applyFilters then leaves the AND as a remaining Flink filter.
+        assertThat(result).isEmpty();
+    }
+
     private FieldReferenceExpression createField(String name, DataType type) {
         return new FieldReferenceExpression(name, type, 0, 0);
     }

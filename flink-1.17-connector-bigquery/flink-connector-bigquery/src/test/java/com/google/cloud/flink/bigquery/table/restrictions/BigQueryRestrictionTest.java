@@ -22,6 +22,7 @@ import org.apache.flink.table.expressions.FieldReferenceExpression;
 import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
+import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.functions.FunctionIdentifier;
 import org.apache.flink.table.types.DataType;
 
@@ -110,6 +111,71 @@ public class BigQueryRestrictionTest {
                 "(date_field = '2025-01-01')");
     }
 
+    @Test
+    public void testUnsupportedTopLevelFunctionReturnsEmpty() {
+        FieldReferenceExpression field = createField("flag", DataTypes.BOOLEAN());
+        ValueLiteralExpression fallback = createLiteral(false, DataTypes.BOOLEAN().notNull());
+
+        Optional<String> result =
+                BigQueryRestriction.convert(
+                        createCallExpression(
+                                "coalesce",
+                                BuiltInFunctionDefinitions.COALESCE,
+                                DataTypes.BOOLEAN(),
+                                field,
+                                fallback));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void testNotOfUnsupportedFunctionReturnsEmpty() {
+        FieldReferenceExpression field = createField("flag", DataTypes.BOOLEAN());
+        ValueLiteralExpression fallback = createLiteral(false, DataTypes.BOOLEAN().notNull());
+        CallExpression coalesceCall =
+                createCallExpression(
+                        "coalesce",
+                        BuiltInFunctionDefinitions.COALESCE,
+                        DataTypes.BOOLEAN(),
+                        field,
+                        fallback);
+
+        Optional<String> result =
+                BigQueryRestriction.convert(
+                        createCallExpression(
+                                "not",
+                                BuiltInFunctionDefinitions.NOT,
+                                DataTypes.BOOLEAN(),
+                                coalesceCall));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void testAndOfSupportedAndUnsupportedReturnsEmpty() {
+        FieldReferenceExpression city = createField("city", DataTypes.STRING());
+        ValueLiteralExpression toronto = createLiteral("Toronto", DataTypes.STRING().notNull());
+        FieldReferenceExpression flag = createField("flag", DataTypes.BOOLEAN());
+        ValueLiteralExpression fallback = createLiteral(false, DataTypes.BOOLEAN().notNull());
+
+        CallExpression supportedSide = createEqualsCallExpression(city, toronto);
+        CallExpression unsupportedSide =
+                createCallExpression(
+                        "coalesce",
+                        BuiltInFunctionDefinitions.COALESCE,
+                        DataTypes.BOOLEAN(),
+                        flag,
+                        fallback);
+
+        Optional<String> result =
+                BigQueryRestriction.convert(
+                        createAndCallExpression(supportedSide, unsupportedSide));
+
+        // The whole AND collapses to empty (mixed pushability is not partially expressible as a
+        // single row restriction); applyFilters then leaves the AND as a remaining Flink filter.
+        assertThat(result).isEmpty();
+    }
+
     private FieldReferenceExpression createField(String name, DataType type) {
         return new FieldReferenceExpression(name, type, 0, 0);
     }
@@ -120,12 +186,27 @@ public class BigQueryRestrictionTest {
 
     private CallExpression createEqualsCallExpression(
             ResolvedExpression left, ResolvedExpression right) {
+        return createCallExpression(
+                "equals", BuiltInFunctionDefinitions.EQUALS, DataTypes.BOOLEAN(), left, right);
+    }
+
+    private CallExpression createAndCallExpression(
+            ResolvedExpression left, ResolvedExpression right) {
+        return createCallExpression(
+                "and", BuiltInFunctionDefinitions.AND, DataTypes.BOOLEAN(), left, right);
+    }
+
+    private CallExpression createCallExpression(
+            String name,
+            FunctionDefinition functionDefinition,
+            DataType outputDataType,
+            ResolvedExpression... children) {
         return new CallExpression(
                 false,
-                FunctionIdentifier.of("equals"),
-                BuiltInFunctionDefinitions.EQUALS,
-                Arrays.asList(left, right),
-                DataTypes.BOOLEAN());
+                FunctionIdentifier.of(name),
+                functionDefinition,
+                Arrays.asList(children),
+                outputDataType);
     }
 
     private void assertTemporalConversion(

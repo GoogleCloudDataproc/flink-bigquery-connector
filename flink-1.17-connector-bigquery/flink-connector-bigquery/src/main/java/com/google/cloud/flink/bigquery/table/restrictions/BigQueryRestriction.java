@@ -25,8 +25,6 @@ import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.FunctionDefinition;
 
-import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -104,6 +102,14 @@ public class BigQueryRestriction {
      * BETWEEN will be converted to (GT_EQ AND LT_EQ), the NOT_BETWEEN will be converted to (LT_EQ
      * OR GT_EQ), the IN will be converted to OR, so we do not add the conversion here
      *
+     * <p>Expressions whose top-level {@link FunctionDefinition} is not in the supported {@link
+     * #FILTERS} map (e.g. {@code COALESCE}, {@code CASE}, {@code IF}, {@code CAST}) return {@link
+     * Optional#empty()}. The caller ({@code BigQueryDynamicTableSource.applyFilters}) treats an
+     * empty result as "rejected by BigQuery" and leaves the predicate as a remaining Flink Calc
+     * filter, which is also why a sub-expression of {@code NOT} that is unsupported must short-
+     * circuit to empty rather than throw: the {@code NOT} case recurses through {@code convert} and
+     * any unmapped child function would otherwise crash job planning.
+     *
      * @param flinkExpression the Flink expression
      * @return An {@link Optional} potentially containing the resolved row restriction for BigQuery.
      */
@@ -114,6 +120,11 @@ public class BigQueryRestriction {
 
         CallExpression call = (CallExpression) flinkExpression;
         Operation op = FILTERS.get(call.getFunctionDefinition());
+        if (op == null) {
+            // Need to check first of op is null, otherwise will get npe trying to call ordinal on
+            // null. If unknown we try to apply filter Flink side
+            return Optional.empty();
+        }
         switch (op) {
             case IS_NULL:
                 return onlyChildAs(call, FieldReferenceExpression.class)
@@ -158,10 +169,8 @@ public class BigQueryRestriction {
                 return convertLike(call);
 
             default:
-                throw new BigQueryConnectorException(
-                        String.format(
-                                "The provided Flink expression is not supported %s.",
-                                call.getFunctionName()));
+                // Defensive check if there exists something FILTERS we don't explicitly handle
+                return Optional.empty();
         }
     }
 
