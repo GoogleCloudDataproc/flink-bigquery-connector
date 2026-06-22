@@ -32,6 +32,11 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
     private final String columnProjection;
     private final Integer maxStreamCount;
     private final Long snapshotTimestamp;
+    private final Boolean viewsEnabled;
+    private final String materializationProject;
+    private final String materializationDataset;
+    private final Integer materializationExpirationHours;
+    private final String billingProject;
 
     BigQueryReadTableConfig(
             String project,
@@ -46,7 +51,12 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             Integer maxStreamCount,
             String rowRestriction,
             Integer limit,
-            Long snapshotTimestamp) {
+            Long snapshotTimestamp,
+            Boolean viewsEnabled,
+            String materializationProject,
+            String materializationDataset,
+            Integer materializationExpirationHours,
+            String billingProject) {
         super(
                 project,
                 quotaProjectId,
@@ -62,6 +72,11 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         this.limit = limit;
         this.maxStreamCount = maxStreamCount;
         this.snapshotTimestamp = snapshotTimestamp;
+        this.viewsEnabled = viewsEnabled;
+        this.materializationProject = materializationProject;
+        this.materializationDataset = materializationDataset;
+        this.materializationExpirationHours = materializationExpirationHours;
+        this.billingProject = billingProject;
     }
 
     public static BigQueryReadTableConfig.Builder newBuilder() {
@@ -91,6 +106,27 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             tableDescriptorBuilder.option(
                     BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP, this.snapshotTimestamp);
         }
+        if (this.viewsEnabled != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.VIEWS_ENABLED, this.viewsEnabled);
+        }
+        if (this.materializationProject != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.MATERIALIZATION_PROJECT, this.materializationProject);
+        }
+        if (this.materializationDataset != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.MATERIALIZATION_DATASET, this.materializationDataset);
+        }
+        if (this.materializationExpirationHours != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS,
+                    this.materializationExpirationHours);
+        }
+        if (this.billingProject != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.BILLING_PROJECT, this.billingProject);
+        }
         return tableDescriptorBuilder.build();
     }
 
@@ -103,6 +139,11 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         private String columnProjection;
         private Integer maxStreamCount;
         private Long snapshotTimestamp;
+        private Boolean viewsEnabled;
+        private String materializationProject;
+        private String materializationDataset;
+        private Integer materializationExpirationHours;
+        private String billingProject;
 
         @Override
         public BigQueryReadTableConfig.Builder project(String project) {
@@ -203,6 +244,34 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             return this;
         }
 
+        public BigQueryReadTableConfig.Builder viewsEnabled(Boolean viewsEnabled) {
+            this.viewsEnabled = viewsEnabled;
+            return this;
+        }
+
+        public BigQueryReadTableConfig.Builder materializationProject(
+                String materializationProject) {
+            this.materializationProject = materializationProject;
+            return this;
+        }
+
+        public BigQueryReadTableConfig.Builder materializationDataset(
+                String materializationDataset) {
+            this.materializationDataset = materializationDataset;
+            return this;
+        }
+
+        public BigQueryReadTableConfig.Builder materializationExpirationHours(
+                Integer materializationExpirationHours) {
+            this.materializationExpirationHours = materializationExpirationHours;
+            return this;
+        }
+
+        public BigQueryReadTableConfig.Builder billingProject(String billingProject) {
+            this.billingProject = billingProject;
+            return this;
+        }
+
         public BigQueryReadTableConfig build() {
             return new BigQueryReadTableConfig(
                     project,
@@ -217,7 +286,12 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
                     maxStreamCount,
                     rowRestriction,
                     limit,
-                    snapshotTimestamp);
+                    snapshotTimestamp,
+                    viewsEnabled,
+                    materializationProject,
+                    materializationDataset,
+                    materializationExpirationHours,
+                    billingProject);
         }
     }
 }

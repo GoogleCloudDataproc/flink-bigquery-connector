@@ -129,6 +129,14 @@ public class BigQueryTableConfigurationProvider {
                                 .setQuotaProjectId(
                                         config.get(BigQueryConnectorOptions.QUOTA_PROJECT_ID))
                                 .build())
+                .setViewsEnabled(config.get(BigQueryConnectorOptions.VIEWS_ENABLED))
+                .setMaterializedTableExpirationHours(
+                        config.get(BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS))
+                .setMaterializationProject(
+                        config.get(BigQueryConnectorOptions.MATERIALIZATION_PROJECT))
+                .setMaterializationDataset(
+                        config.get(BigQueryConnectorOptions.MATERIALIZATION_DATASET))
+                .setBillingProject(config.get(BigQueryConnectorOptions.BILLING_PROJECT))
                 .build();
     }
 }

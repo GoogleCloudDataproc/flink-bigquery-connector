@@ -717,6 +717,10 @@ public class BigQueryIntegrationTest {
                         .dataset(sourceDatasetName)
                         .table(sourceTableName)
                         .testMode(false)
+                        .viewsEnabled(true)
+                        .materializationProject(matProject)
+                        .materializationDataset(matDataset)
+                        .billingProject(billProject)
                         .build();
 
         // Register the Source Table

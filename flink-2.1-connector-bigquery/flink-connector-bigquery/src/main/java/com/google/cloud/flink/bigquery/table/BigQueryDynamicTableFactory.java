@@ -92,6 +92,11 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.WRITE_TEMP_PROJECT);
         additionalOptions.add(BigQueryConnectorOptions.WRITE_TEMP_DATASET);
         additionalOptions.add(BigQueryConnectorOptions.WRITE_JOB_PROJECT);
+        additionalOptions.add(BigQueryConnectorOptions.VIEWS_ENABLED);
+        additionalOptions.add(BigQueryConnectorOptions.MATERIALIZATION_PROJECT);
+        additionalOptions.add(BigQueryConnectorOptions.MATERIALIZATION_DATASET);
+        additionalOptions.add(BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS);
+        additionalOptions.add(BigQueryConnectorOptions.BILLING_PROJECT);
 
         return additionalOptions;
     }
@@ -131,6 +136,11 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.WRITE_TEMP_PROJECT);
         forwardOptions.add(BigQueryConnectorOptions.WRITE_TEMP_DATASET);
         forwardOptions.add(BigQueryConnectorOptions.WRITE_JOB_PROJECT);
+        forwardOptions.add(BigQueryConnectorOptions.VIEWS_ENABLED);
+        forwardOptions.add(BigQueryConnectorOptions.MATERIALIZATION_PROJECT);
+        forwardOptions.add(BigQueryConnectorOptions.MATERIALIZATION_DATASET);
+        forwardOptions.add(BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS);
+        forwardOptions.add(BigQueryConnectorOptions.BILLING_PROJECT);
 
         return forwardOptions;
     }

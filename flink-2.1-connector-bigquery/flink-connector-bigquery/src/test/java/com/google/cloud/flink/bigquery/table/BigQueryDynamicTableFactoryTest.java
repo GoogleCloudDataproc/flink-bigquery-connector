@@ -121,6 +121,39 @@ public class BigQueryDynamicTableFactoryTest {
     }
 
     @Test
+    public void testBigQueryReadPropertiesWithViews() throws IOException {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.VIEWS_ENABLED.key(), "true");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_PROJECT.key(), "temp-project");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_DATASET.key(), "temp_dataset");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS.key(), "6");
+        properties.put(BigQueryConnectorOptions.BILLING_PROJECT.key(), "billing-project");
+
+        DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, properties);
+
+        BigQueryReadOptions readOptions =
+                BigQueryReadOptions.builder()
+                        .setBigQueryConnectOptions(
+                                BigQueryConnectOptions.builder()
+                                        .setDataset("dataset")
+                                        .setProjectId("project")
+                                        .setTable("table")
+                                        .setCredentialsOptions(CredentialsOptions.builder().build())
+                                        .setViewsEnabled(true)
+                                        .setMaterializationProject("temp-project")
+                                        .setMaterializationDataset("temp_dataset")
+                                        .setMaterializedTableExpirationHours(6)
+                                        .setBillingProject("billing-project")
+                                        .build())
+                        .build();
+
+        BigQueryDynamicTableSource expected =
+                new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType(), null);
+
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
     public void testDefaultColumnNamesAreAllDdlColumns() throws IOException {
         DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, getRequiredOptions());
 
