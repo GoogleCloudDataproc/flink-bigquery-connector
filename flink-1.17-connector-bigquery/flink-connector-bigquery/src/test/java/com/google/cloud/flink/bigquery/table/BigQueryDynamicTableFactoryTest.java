@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.catalog.UniqueConstraint;
@@ -144,6 +145,22 @@ public class BigQueryDynamicTableFactoryTest {
                 new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType());
 
         assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testBigQueryReadPropertiesWithViewsMissingDataset() {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.VIEWS_ENABLED.key(), "true");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_PROJECT.key(), "temp-project");
+
+        Assertions.assertThatThrownBy(() -> FactoryMocks.createTableSource(SCHEMA, properties))
+                .isInstanceOf(ValidationException.class)
+                .getCause()
+                .hasMessageContaining(
+                        String.format(
+                                "Option '%s' must be set when '%s' is set to true.",
+                                BigQueryConnectorOptions.MATERIALIZATION_DATASET.key(),
+                                BigQueryConnectorOptions.VIEWS_ENABLED.key()));
     }
 
     @Test
