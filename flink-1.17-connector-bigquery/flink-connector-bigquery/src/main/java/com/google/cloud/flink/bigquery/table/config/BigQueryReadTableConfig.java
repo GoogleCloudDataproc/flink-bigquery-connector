@@ -249,12 +249,14 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             return this;
         }
 
-        public BigQueryReadTableConfig.Builder materializationProject(String materializationProject) {
+        public BigQueryReadTableConfig.Builder materializationProject(
+                String materializationProject) {
             this.materializationProject = materializationProject;
             return this;
         }
 
-        public BigQueryReadTableConfig.Builder materializationDataset(String materializationDataset) {
+        public BigQueryReadTableConfig.Builder materializationDataset(
+                String materializationDataset) {
             this.materializationDataset = materializationDataset;
             return this;
         }

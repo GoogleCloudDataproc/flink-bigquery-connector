@@ -246,7 +246,9 @@ public class BigQueryConnectorOptions {
                     .noDefaultValue()
                     .withDescription("GCP project where the temporary table is materialized.");
 
-    /** [OPTIONAL, Read Configuration] BigQuery dataset where the temporary table is materialized. */
+    /**
+     * [OPTIONAL, Read Configuration] BigQuery dataset where the temporary table is materialized.
+     */
     public static final ConfigOption<String> MATERIALIZATION_DATASET =
             ConfigOptions.key("read.views.materialization-dataset")
                     .stringType()
