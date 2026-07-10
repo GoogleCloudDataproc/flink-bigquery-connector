@@ -32,6 +32,7 @@ import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.file.src.FileSource;
 import org.apache.flink.connector.file.src.reader.TextLineInputFormat;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.formats.avro.AvroWriters;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -54,10 +55,12 @@ import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.utils.ParameterTool;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.FormatOptions;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
@@ -361,6 +364,13 @@ public class BigQueryIntegrationTest {
                     case "bounded":
                         sourceDatasetName = parameterTool.getRequired("bq-source-dataset");
                         sourceTableName = parameterTool.getRequired("bq-source-table");
+                        String writeModeStr = parameterTool.get("write-mode", "STORAGE_WRITE_API");
+                        String tempGcsPath =
+                                parameterTool.get(
+                                        "temp-gcs-path", parameterTool.get("temporary-gcs-bucket"));
+                        String tempProject = parameterTool.get("temp-project");
+                        String tempDataset = parameterTool.get("temp-dataset");
+                        String jobProject = parameterTool.get("job-project");
                         runBoundedFlinkJobWithSink(
                                 sourceGcpProjectName,
                                 sourceDatasetName,
@@ -371,6 +381,11 @@ public class BigQueryIntegrationTest {
                                 isExactlyOnceEnabled,
                                 sinkParallelism,
                                 enableTableCreation,
+                                writeModeStr,
+                                tempGcsPath,
+                                tempProject,
+                                tempDataset,
+                                jobProject,
                                 matProject,
                                 matDataset,
                                 billProject);
@@ -428,6 +443,11 @@ public class BigQueryIntegrationTest {
             boolean exactlyOnce,
             Integer sinkParallelism,
             boolean enableTableCreation,
+            String writeModeStr,
+            String tempGcsPath,
+            String tempProject,
+            String tempDataset,
+            String jobProject,
             String matProject,
             String matDataset,
             String billProject)
@@ -460,15 +480,34 @@ public class BigQueryIntegrationTest {
                         .setTable(destTableName)
                         .build();
 
+        BigQuerySchemaProvider destSchemaProvider =
+                new BigQuerySchemaProviderImpl(sinkConnectOptions);
+
         BigQuerySinkConfig.Builder<GenericRecord> sinkConfigBuilder =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
+                        .schemaProvider(destSchemaProvider)
                         .serializer(new AvroToProtoSerializer())
                         .deliveryGuarantee(
                                 exactlyOnce
                                         ? DeliveryGuarantee.EXACTLY_ONCE
                                         : DeliveryGuarantee.AT_LEAST_ONCE)
                         .streamExecutionEnvironment(env);
+
+        boolean isIndirect =
+                "INDIRECT".equalsIgnoreCase(writeModeStr)
+                        || (tempGcsPath != null && !tempGcsPath.isEmpty());
+        if (isIndirect) {
+            sinkConfigBuilder
+                    .writeMode(WriteMode.INDIRECT)
+                    .tempGcsPath(tempGcsPath)
+                    .tempProject(tempProject != null ? tempProject : destGcpProjectName)
+                    .tempDataset(tempDataset != null ? tempDataset : destDatasetName)
+                    .jobProject(jobProject != null ? jobProject : destGcpProjectName)
+                    .bulkWriterFactory(
+                            AvroWriters.forGenericRecord(destSchemaProvider.getAvroSchema()))
+                    .formatOptions(FormatOptions.avro());
+        }
 
         if (enableTableCreation) {
             sinkConfigBuilder
