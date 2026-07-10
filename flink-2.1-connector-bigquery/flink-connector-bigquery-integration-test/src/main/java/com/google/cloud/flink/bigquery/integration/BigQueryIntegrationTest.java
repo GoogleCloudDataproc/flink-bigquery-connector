@@ -480,13 +480,9 @@ public class BigQueryIntegrationTest {
                         .setTable(destTableName)
                         .build();
 
-        BigQuerySchemaProvider destSchemaProvider =
-                new BigQuerySchemaProviderImpl(sinkConnectOptions);
-
         BigQuerySinkConfig.Builder<GenericRecord> sinkConfigBuilder =
                 BigQuerySinkConfig.<GenericRecord>newBuilder()
                         .connectOptions(sinkConnectOptions)
-                        .schemaProvider(destSchemaProvider)
                         .serializer(new AvroToProtoSerializer())
                         .deliveryGuarantee(
                                 exactlyOnce
@@ -496,9 +492,14 @@ public class BigQueryIntegrationTest {
 
         boolean isIndirect =
                 "INDIRECT".equalsIgnoreCase(writeModeStr)
-                        || (tempGcsPath != null && !tempGcsPath.isEmpty());
+                        || (tempGcsPath != null
+                                && !tempGcsPath.isEmpty()
+                                && !"STORAGE_WRITE_API".equalsIgnoreCase(writeModeStr));
         if (isIndirect) {
+            BigQuerySchemaProvider destSchemaProvider =
+                    new BigQuerySchemaProviderImpl(sinkConnectOptions);
             sinkConfigBuilder
+                    .schemaProvider(destSchemaProvider)
                     .writeMode(WriteMode.INDIRECT)
                     .tempGcsPath(tempGcsPath)
                     .tempProject(tempProject != null ? tempProject : destGcpProjectName)
