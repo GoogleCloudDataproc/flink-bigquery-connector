@@ -50,6 +50,7 @@ import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
+import com.google.cloud.bigquery.FormatOptions;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.utils.ParameterTool;
@@ -60,7 +61,6 @@ import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
-import com.google.cloud.flink.bigquery.sink.serializer.FormatOptions;
 import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
