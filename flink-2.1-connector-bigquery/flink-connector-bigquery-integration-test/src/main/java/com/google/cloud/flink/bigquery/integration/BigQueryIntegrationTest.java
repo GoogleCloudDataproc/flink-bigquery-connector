@@ -364,7 +364,13 @@ public class BigQueryIntegrationTest {
                     case "bounded":
                         sourceDatasetName = parameterTool.getRequired("bq-source-dataset");
                         sourceTableName = parameterTool.getRequired("bq-source-table");
-                        String writeModeStr = parameterTool.get("write-mode", "STORAGE_WRITE_API");
+                        boolean isIndirect =
+                                WriteMode.INDIRECT
+                                        .name()
+                                        .equalsIgnoreCase(
+                                                parameterTool.get(
+                                                        "write-mode",
+                                                        WriteMode.STORAGE_WRITE_API.name()));
                         String tempGcsPath =
                                 parameterTool.get(
                                         "temp-gcs-path", parameterTool.get("temporary-gcs-bucket"));
@@ -381,7 +387,7 @@ public class BigQueryIntegrationTest {
                                 isExactlyOnceEnabled,
                                 sinkParallelism,
                                 enableTableCreation,
-                                writeModeStr,
+                                isIndirect,
                                 tempGcsPath,
                                 tempProject,
                                 tempDataset,
@@ -443,7 +449,7 @@ public class BigQueryIntegrationTest {
             boolean exactlyOnce,
             Integer sinkParallelism,
             boolean enableTableCreation,
-            String writeModeStr,
+            boolean isIndirect,
             String tempGcsPath,
             String tempProject,
             String tempDataset,
@@ -490,12 +496,8 @@ public class BigQueryIntegrationTest {
                                         : DeliveryGuarantee.AT_LEAST_ONCE)
                         .streamExecutionEnvironment(env);
 
-        boolean isIndirect =
-                "INDIRECT".equalsIgnoreCase(writeModeStr)
-                        || (tempGcsPath != null
-                                && !tempGcsPath.isEmpty()
-                                && !"STORAGE_WRITE_API".equalsIgnoreCase(writeModeStr));
-        if (isIndirect) {
+        boolean indirect = isIndirect || (tempGcsPath != null && !tempGcsPath.isEmpty());
+        if (indirect) {
             BigQuerySchemaProvider destSchemaProvider =
                     new BigQuerySchemaProviderImpl(sinkConnectOptions);
             sinkConfigBuilder
