@@ -495,9 +495,7 @@ public class BigQueryIntegrationTest {
                                         ? DeliveryGuarantee.EXACTLY_ONCE
                                         : DeliveryGuarantee.AT_LEAST_ONCE)
                         .streamExecutionEnvironment(env);
-
-        boolean indirect = isIndirect || (tempGcsPath != null && !tempGcsPath.isEmpty());
-        if (indirect) {
+        if (isIndirect) {
             BigQuerySchemaProvider destSchemaProvider =
                     new BigQuerySchemaProviderImpl(sinkConnectOptions);
             sinkConfigBuilder
