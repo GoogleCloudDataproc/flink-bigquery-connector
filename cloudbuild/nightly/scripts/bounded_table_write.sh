@@ -50,4 +50,8 @@ if [ -n "${PERSISTENT_GCS_BUCKET:-}" ]; then
   FLINK_ARGS+=("--persistent-gcs-bucket" "$PERSISTENT_GCS_BUCKET")
 fi
 
+if [ -n "${WRITE_MODE:-}" ]; then
+  FLINK_ARGS+=("--write-mode" "$WRITE_MODE")
+fi
+
 gcloud dataproc jobs submit flink --id "$JOB_ID" --jar="$GCS_JAR_LOCATION" --cluster="$CLUSTER_NAME" --region="$REGION" --properties="$PROPERTIES" -- "${FLINK_ARGS[@]}"
