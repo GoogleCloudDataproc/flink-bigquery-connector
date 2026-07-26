@@ -93,6 +93,8 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
         assertEquals(0, defaultWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(0, defaultWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(0, defaultWriter.numRecordsSend.getCount());
+        assertEquals(0, defaultWriter.numBytesSend.getCount());
     }
 
     @Test
@@ -116,7 +118,23 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        assertEquals(1, defaultWriter.numRecordsSend.getCount());
+        assertEquals(5, defaultWriter.numBytesSend.getCount());
         getTestQueryClient();
+    }
+
+    @Test
+    public void testStandardFlinkMetrics_afterWrite() {
+        BigQueryDefaultWriter<Object> defaultWriter =
+                createDefaultWriter(
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")), null);
+        // "foo" is 3 bytes, plus 2 bytes protobuf overhead = 5 bytes per record.
+        defaultWriter.write(new Object(), null);
+        assertEquals(1, defaultWriter.numRecordsSend.getCount());
+        assertEquals(5, defaultWriter.numBytesSend.getCount());
+        defaultWriter.write(new Object(), null);
+        assertEquals(2, defaultWriter.numRecordsSend.getCount());
+        assertEquals(10, defaultWriter.numBytesSend.getCount());
     }
 
     @Test
@@ -320,6 +338,10 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        // Standard metrics should NOT be incremented when serialization fails
+        // (record not added to append request).
+        assertEquals(0, defaultWriter.numRecordsSend.getCount());
+        assertEquals(0, defaultWriter.numBytesSend.getCount());
     }
 
     @Test(expected = BigQueryConnectorException.class)
@@ -358,6 +380,9 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        // Standard metrics should NOT be incremented when element exceeds max request size.
+        assertEquals(0, defaultWriter.numRecordsSend.getCount());
+        assertEquals(0, defaultWriter.numBytesSend.getCount());
     }
 
     @Test(expected = BigQueryConnectorException.class)
