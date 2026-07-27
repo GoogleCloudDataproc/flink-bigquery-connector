@@ -45,6 +45,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Writer implementation for {@link BigQueryBufferedSink}.
@@ -230,6 +232,8 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         if (StringUtils.isNullOrWhitespaceOnly(streamName)) {
             createWriteStream(WriteStream.Type.BUFFERED);
             createStreamWriter(false);
+        } else if (streamWriter == null) {
+            createStreamWriter(false);
         }
         ApiFuture<AppendRowsResponse> future = streamWriter.append(protoRows, streamOffset);
         postAppendOps(future, rowCount);
@@ -243,12 +247,16 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         long recordsAppended = appendInfo.getRecordsAppended();
         AppendRowsResponse response;
         try {
-            response = appendResponseFuture.get();
+            response =
+                    appendResponseFuture.get(
+                            DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (response.hasError()) {
+                resetStreamWriter();
                 logAndThrowFatalException(response.getError().getMessage());
             }
             long offset = response.getAppendResult().getOffset().getValue();
             if (offset != expectedOffset) {
+                resetStreamWriter();
                 logAndThrowFatalException(
                         String.format(
                                 "Inconsistent offset in BigQuery API response. Found %d, expected %d",
@@ -256,6 +264,12 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             }
             totalRecordsWritten += recordsAppended;
             numberOfRecordsBufferedByBigQuerySinceCheckpoint.inc(recordsAppended);
+        } catch (TimeoutException e) {
+            resetStreamWriter();
+            logAndThrowFatalException(
+                    String.format(
+                            "AppendRows request timed out after %d seconds waiting for response in subtask %d",
+                            DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS, subtaskId));
         } catch (ExecutionException | InterruptedException e) {
             if (e.getCause().getClass() == OffsetAlreadyExists.class) {
                 logger.info(
@@ -263,6 +277,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                         subtaskId);
                 return;
             }
+            resetStreamWriter();
             logAndThrowFatalException(e);
         }
     }
@@ -334,9 +349,13 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         try {
             // Get this future immediately to check whether append worked or not, inferring stream
             // is usable or not.
-            response = future.get();
+            response = future.get(DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             postAppendOps(ApiFutures.immediateFuture(response), rowCount);
+        } catch (TimeoutException e) {
+            resetStreamWriter();
+            discardStreamAndResendAppendRequest(e, protoRows);
         } catch (ExecutionException | InterruptedException e) {
+            resetStreamWriter();
             if (e.getCause().getClass() == OffsetAlreadyExists.class
                     || e.getCause().getClass() == OffsetOutOfRange.class
                     || e.getCause().getClass() == StreamFinalizedException.class

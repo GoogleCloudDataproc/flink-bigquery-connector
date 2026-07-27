@@ -56,6 +56,8 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -1125,6 +1127,23 @@ public class BigQueryBufferedWriterTest {
         bufferedWriter.write(new Object(), null);
         assertEquals(0, bufferedWriter.getProtoRows().getSerializedRowsCount());
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+    }
+
+    @Test(expected = BigQueryConnectorException.class)
+    public void testValidateAppendResponse_withTimeoutException() throws Exception {
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        null, 0L, 0L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
+        @SuppressWarnings("unchecked")
+        ApiFuture<AppendRowsResponse> mockFuture = Mockito.mock(ApiFuture.class);
+        Mockito.when(mockFuture.get(Mockito.anyLong(), Mockito.any(TimeUnit.class)))
+                .thenThrow(new TimeoutException("Timeout waiting for response"));
+        try {
+            bufferedWriter.validateAppendResponse(
+                    new BigQueryBufferedWriter.AppendInfo(mockFuture, 0L, 10L));
+        } finally {
+            assertNull(bufferedWriter.streamWriter);
+        }
     }
 
     private BigQueryBufferedWriter<Object> createBufferedWriter(
