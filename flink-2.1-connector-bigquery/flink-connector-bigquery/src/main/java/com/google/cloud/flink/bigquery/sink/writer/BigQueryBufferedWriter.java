@@ -273,7 +273,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                             "AppendRows request timed out after %d seconds waiting for response in subtask %d",
                             DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS, subtaskId));
         } catch (ExecutionException | InterruptedException e) {
-            if (e.getCause().getClass() == OffsetAlreadyExists.class) {
+            if (e.getCause() instanceof OffsetAlreadyExists) {
                 logger.info(
                         "Ignoring OffsetAlreadyExists error in subtask {} as this can be due to faulty retries",
                         subtaskId);
@@ -358,10 +358,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             discardStreamAndResendAppendRequest(e, protoRows);
         } catch (ExecutionException | InterruptedException e) {
             resetStreamWriter();
-            if (e.getCause().getClass() == OffsetAlreadyExists.class
-                    || e.getCause().getClass() == OffsetOutOfRange.class
-                    || e.getCause().getClass() == StreamFinalizedException.class
-                    || e.getCause().getClass() == StreamNotFound.class) {
+            if (e.getCause() instanceof OffsetAlreadyExists
+                    || e.getCause() instanceof OffsetOutOfRange
+                    || e.getCause() instanceof StreamFinalizedException
+                    || e.getCause() instanceof StreamNotFound) {
                 discardStreamAndResendAppendRequest(e, protoRows);
                 return;
             }

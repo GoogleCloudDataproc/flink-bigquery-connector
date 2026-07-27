@@ -598,6 +598,18 @@ public class BigQueryBufferedWriterTest {
                         ApiFutures.immediateFailedFuture(mock(OffsetOutOfRange.class)), 0L, 0L));
     }
 
+    @Test(expected = BigQueryConnectorException.class)
+    public void testValidateAppendResponse_withInterruptedException() throws Exception {
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        null, 0L, 10L, 0L, 0L, FakeBigQuerySerializer.getEmptySerializer());
+        ApiFuture<AppendRowsResponse> futureMock = mock(ApiFuture.class);
+        Mockito.when(futureMock.get(Mockito.anyLong(), Mockito.any()))
+                .thenThrow(new InterruptedException("interrupted"));
+        bufferedWriter.validateAppendResponse(
+                new BigQueryDefaultWriter.AppendInfo(futureMock, 0L, 0L));
+    }
+
     @Test
     public void testFlush() {
         BigQueryBufferedWriter<Object> bufferedWriter =
