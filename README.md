@@ -93,6 +93,7 @@ repository.
 | Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.4.0` | Exactly Once Sink Support   |
 | Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.5.0` | Table Creation by Sink      |
 | Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:1.0.0` | Long Term Support (GA)      |
+| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:1.1.0` | Dependency Updates & Bug Fixes |
 
 #### GitHub
 
@@ -103,7 +104,7 @@ Users can obtain the connector artifact from our [GitHub repository](https://git
 ```shell
 git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
 cd flink-bigquery-connector
-git checkout tags/1.0.0
+git checkout tags/1.1.0
 mvn clean install -DskipTests -Pflink_1.17
 ```
 
@@ -124,7 +125,7 @@ If only the jars are needed, then execute maven `package` instead of `install`.
 <dependency>
   <groupId>com.google.cloud.flink</groupId>
   <artifactId>flink-1.17-connector-bigquery</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
@@ -134,11 +135,11 @@ For details, check [pom file](https://github.com/GoogleCloudDataproc/flink-bigqu
 
 ###### Original Jar
 
-Use `flink-1.17-connector-bigquery-1.0.0.jar` for connector library jar as created by maven's default packaging.
+Use `flink-1.17-connector-bigquery-1.1.0.jar` for connector library jar as created by maven's default packaging.
 
 ###### Shaded Jar
 
-Use `flink-1.17-connector-bigquery-1.0.0-shaded.jar` for connector library jar bundled with relevant dependencies,
+Use `flink-1.17-connector-bigquery-1.1.0-shaded.jar` for connector library jar bundled with relevant dependencies,
 where google and apache dependencies are shaded. This jar is created using maven-shade-plugin. 
 
 ### Connector to Flink Compatibility
@@ -152,6 +153,7 @@ where google and apache dependencies are shaded. This jar is created using maven
 | 0.4.0                         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
 | 0.5.0                         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
 | 1.0.0                         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
+| 1.1.0                         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
 
 Note that this connector is built on Flink 1.17 libraries. In order to run it in other Flink runtimes without 
 using the shaded jar, you have to exclude the entire flink module, i.e. `group = "org.apache.flink"`, when 
@@ -181,6 +183,7 @@ Follow [this document](https://cloud.google.com/dataproc/docs/concepts/component
 | 0.4.0                          | ✓   | ✓   |
 | 0.5.0                          | ✓   | ✓   |
 | 1.0.0                          | ✓   | ✓   |
+| 1.1.0                          | ✓   | ✓   |
 
 
 ## Table API
