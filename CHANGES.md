@@ -1,6 +1,7 @@
 # Release Notes
+## NEXT
 
-## Next
+## 1.2.0 - 2026-07-31
 
 * Support indirect writes in DataStream and Table/SQL API using BigQuery Load Jobs via GCS staging, including support for large workloads (>15 TB) and configurable job project.
 * Support querying BigQuery views in Flink Table/SQL API.
