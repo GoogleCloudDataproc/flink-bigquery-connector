@@ -151,15 +151,26 @@ public class BigQueryDefaultWriter<IN> extends BaseWriter<IN> {
         long recordsAppended = appendInfo.getRecordsAppended();
         AppendRowsResponse response;
         try {
-            response = appendResponseFuture.get();
+            response =
+                    appendResponseFuture.get(
+                            DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS,
+                            java.util.concurrent.TimeUnit.SECONDS);
             if (response.hasError()) {
+                resetStreamWriter();
                 logAndThrowFatalException(response.getError().getMessage());
             }
             totalRecordsWritten += recordsAppended;
             // the request succeeded without errors (records are in BQ)
             numberOfRecordsWrittenToBigQuery.inc(recordsAppended);
             numberOfRecordsWrittenToBigQuerySinceCheckpoint.inc(recordsAppended);
+        } catch (java.util.concurrent.TimeoutException e) {
+            resetStreamWriter();
+            logAndThrowFatalException(
+                    String.format(
+                            "AppendRows request timed out after %d seconds waiting for response in subtask %d",
+                            DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS, subtaskId));
         } catch (ExecutionException | InterruptedException e) {
+            resetStreamWriter();
             if (e.getCause() instanceof Exceptions.AppendSerializationError) {
                 Exceptions.AppendSerializationError appendSerializationError =
                         (Exceptions.AppendSerializationError) e.getCause();

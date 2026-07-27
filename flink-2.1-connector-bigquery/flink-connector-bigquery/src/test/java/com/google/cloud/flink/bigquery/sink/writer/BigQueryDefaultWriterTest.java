@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.sink.writer;
 import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
+import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.StreamWriter;
@@ -39,6 +40,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -383,6 +387,22 @@ public class BigQueryDefaultWriterTest {
         defaultWriter.validateAppendResponse(
                 new BigQueryDefaultWriter.AppendInfo(
                         ApiFutures.immediateFailedFuture(new RuntimeException("foo")), -1L, 10L));
+    }
+
+    @Test(expected = BigQueryConnectorException.class)
+    public void testValidateAppendResponse_withTimeoutException() throws Exception {
+        BigQueryDefaultWriter<Object> defaultWriter =
+                createDefaultWriter(FakeBigQuerySerializer.getEmptySerializer(), null);
+        @SuppressWarnings("unchecked")
+        ApiFuture<AppendRowsResponse> mockFuture = Mockito.mock(ApiFuture.class);
+        Mockito.when(mockFuture.get(Mockito.anyLong(), Mockito.any(TimeUnit.class)))
+                .thenThrow(new TimeoutException("Timeout waiting for response"));
+        try {
+            defaultWriter.validateAppendResponse(
+                    new BigQueryDefaultWriter.AppendInfo(mockFuture, -1L, 10L));
+        } finally {
+            assertNull(defaultWriter.streamWriter);
+        }
     }
 
     private BigQueryDefaultWriter<Object> createDefaultWriter(

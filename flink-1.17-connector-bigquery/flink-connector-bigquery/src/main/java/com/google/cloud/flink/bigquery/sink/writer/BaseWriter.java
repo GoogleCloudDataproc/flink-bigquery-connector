@@ -84,6 +84,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     // Multiply 0.95 to keep a buffer from exceeding payload limits.
     private static final long MAX_APPEND_REQUEST_BYTES =
             (long) (StreamWriter.getApiMaxRequestBytes() * 0.95);
+    protected static final long DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS = 420L;
 
     // Number of bytes to be sent in the next append request.
     private long appendRequestSizeBytes;
@@ -182,6 +183,22 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         }
         if (writeClient != null) {
             writeClient.close();
+        }
+    }
+
+    void resetStreamWriter() {
+        if (streamWriter != null) {
+            try {
+                streamWriter.close();
+            } catch (Exception e) {
+                logger.warn(
+                        String.format(
+                                "Error closing StreamWriter for stream %s in subtask %d",
+                                streamName, subtaskId),
+                        e);
+            } finally {
+                streamWriter = null;
+            }
         }
     }
 
