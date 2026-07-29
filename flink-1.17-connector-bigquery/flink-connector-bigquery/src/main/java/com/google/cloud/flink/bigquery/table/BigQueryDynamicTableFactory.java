@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
@@ -82,6 +83,11 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.PARTITION_EXPIRATION_MILLIS);
         additionalOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
         additionalOptions.add(BigQueryConnectorOptions.REGION);
+        additionalOptions.add(BigQueryConnectorOptions.VIEWS_ENABLED);
+        additionalOptions.add(BigQueryConnectorOptions.MATERIALIZATION_PROJECT);
+        additionalOptions.add(BigQueryConnectorOptions.MATERIALIZATION_DATASET);
+        additionalOptions.add(BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS);
+        additionalOptions.add(BigQueryConnectorOptions.BILLING_PROJECT);
 
         return additionalOptions;
     }
@@ -111,6 +117,11 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.CLUSTERED_FIELDS);
         forwardOptions.add(BigQueryConnectorOptions.REGION);
         forwardOptions.add(BigQueryConnectorOptions.FATALIZE_SERIALIZER);
+        forwardOptions.add(BigQueryConnectorOptions.VIEWS_ENABLED);
+        forwardOptions.add(BigQueryConnectorOptions.MATERIALIZATION_PROJECT);
+        forwardOptions.add(BigQueryConnectorOptions.MATERIALIZATION_DATASET);
+        forwardOptions.add(BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS);
+        forwardOptions.add(BigQueryConnectorOptions.BILLING_PROJECT);
 
         return forwardOptions;
     }
@@ -123,6 +134,19 @@ public class BigQueryDynamicTableFactory
         BigQueryTableConfigurationProvider configProvider =
                 new BigQueryTableConfigurationProvider(helper.getOptions());
         helper.validate();
+
+        Boolean viewsEnabled = helper.getOptions().get(BigQueryConnectorOptions.VIEWS_ENABLED);
+        if (Boolean.TRUE.equals(viewsEnabled)) {
+            String materializationDataset =
+                    helper.getOptions().get(BigQueryConnectorOptions.MATERIALIZATION_DATASET);
+            if (materializationDataset == null || materializationDataset.trim().isEmpty()) {
+                throw new ValidationException(
+                        String.format(
+                                "Option '%s' must be set when '%s' is set to true.",
+                                BigQueryConnectorOptions.MATERIALIZATION_DATASET.key(),
+                                BigQueryConnectorOptions.VIEWS_ENABLED.key()));
+            }
+        }
 
         if (configProvider.isTestModeEnabled()) {
             configProvider = configProvider.withTestingServices(testingServices);

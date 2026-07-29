@@ -21,6 +21,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedCatalogTable;
@@ -118,6 +119,55 @@ public class BigQueryDynamicTableFactoryTest {
 
         assertThat(actual).isEqualTo(expected);
         assertThat(actual.hashCode()).isEqualTo(expected.hashCode());
+    }
+
+    @Test
+    public void testBigQueryReadPropertiesWithViews() throws IOException {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.VIEWS_ENABLED.key(), "true");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_PROJECT.key(), "temp-project");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_DATASET.key(), "temp_dataset");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_EXPIRATION_HOURS.key(), "6");
+        properties.put(BigQueryConnectorOptions.BILLING_PROJECT.key(), "billing-project");
+
+        DynamicTableSource actual = FactoryMocks.createTableSource(SCHEMA, properties);
+
+        BigQueryReadOptions readOptions =
+                BigQueryReadOptions.builder()
+                        .setBigQueryConnectOptions(
+                                BigQueryConnectOptions.builder()
+                                        .setDataset("dataset")
+                                        .setProjectId("project")
+                                        .setTable("table")
+                                        .setCredentialsOptions(CredentialsOptions.builder().build())
+                                        .setViewsEnabled(true)
+                                        .setMaterializationProject("temp-project")
+                                        .setMaterializationDataset("temp_dataset")
+                                        .setMaterializedTableExpirationHours(6)
+                                        .setBillingProject("billing-project")
+                                        .build())
+                        .build();
+
+        BigQueryDynamicTableSource expected =
+                new BigQueryDynamicTableSource(readOptions, SCHEMA.toPhysicalRowDataType(), null);
+
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testBigQueryReadPropertiesWithViewsMissingDataset() {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.VIEWS_ENABLED.key(), "true");
+        properties.put(BigQueryConnectorOptions.MATERIALIZATION_PROJECT.key(), "temp-project");
+
+        Assertions.assertThatThrownBy(() -> FactoryMocks.createTableSource(SCHEMA, properties))
+                .isInstanceOf(ValidationException.class)
+                .getCause()
+                .hasMessageContaining(
+                        String.format(
+                                "Option '%s' must be set when '%s' is set to true.",
+                                BigQueryConnectorOptions.MATERIALIZATION_DATASET.key(),
+                                BigQueryConnectorOptions.VIEWS_ENABLED.key()));
     }
 
     @Test

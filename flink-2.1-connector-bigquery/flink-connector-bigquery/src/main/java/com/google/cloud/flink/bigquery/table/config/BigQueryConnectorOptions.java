@@ -360,4 +360,43 @@ public class BigQueryConnectorOptions {
                     .withDescription(
                             "GCP project under which BigQuery load and copy jobs are submitted "
                                     + "(required for INDIRECT write mode).");
+
+    /**
+     * [OPTIONAL, Read Configuration] Boolean value indicating if reading BigQuery views is enabled.
+     */
+    public static final ConfigOption<Boolean> VIEWS_ENABLED =
+            ConfigOptions.key("read.views.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Specifies if reading BigQuery views is enabled.");
+
+    /** [OPTIONAL, Read Configuration] GCP project where the temporary table is materialized. */
+    public static final ConfigOption<String> MATERIALIZATION_PROJECT =
+            ConfigOptions.key("read.views.materialization-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("GCP project where the temporary table is materialized.");
+
+    /**
+     * [OPTIONAL, Read Configuration] BigQuery dataset where the temporary table is materialized.
+     */
+    public static final ConfigOption<String> MATERIALIZATION_DATASET =
+            ConfigOptions.key("read.views.materialization-dataset")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("BigQuery dataset where the temporary table is materialized.");
+
+    /** [OPTIONAL, Read Configuration] Expiration hours for the materialized temporary table. */
+    public static final ConfigOption<Integer> MATERIALIZATION_EXPIRATION_HOURS =
+            ConfigOptions.key("read.views.materialization-expiration-hours")
+                    .intType()
+                    .defaultValue(24)
+                    .withDescription("Expiration hours for the materialized temporary table.");
+
+    /** [OPTIONAL, Read Configuration] GCP project under which the materialization job is billed. */
+    public static final ConfigOption<String> BILLING_PROJECT =
+            ConfigOptions.key("read.views.billing-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("GCP project under which the materialization job is billed.");
 }
