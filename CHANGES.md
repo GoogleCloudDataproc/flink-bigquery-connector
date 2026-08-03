@@ -16,6 +16,19 @@
 * Fix missing transitive dependencies in unshaded JAR's published POM.
 * Update dependencies (Avro 1.11.5, Log4j 2.25.4, Hadoop Common 3.4.0, Flink Table Runtime 2.1.2).
 
+* Support indirect writes in DataStream and Table/SQL API using BigQuery Load Jobs via GCS staging, including support for large workloads (>15 TB) and configurable job project.
+* Support querying BigQuery views in Flink Table/SQL API.
+* Support BigQuery upsert in Flink 2.1 and add integration tests for Flink 2.1.
+* Support nested projection pushdown and nested fields in row-restrictions (filter pushdown).
+* Add timeout handling for buffered and default writers in BigQuery sink.
+* Fix LIKE filter pushdown never being applied.
+* Update filter pushdown logic so only filters rejected by BigQuery remain in Flink.
+* Fix critical data loss bug in reader split handling by signaling no-more-splits per reader and removing completed readers from queue.
+* Populate default columns when selecting zero columns to prevent querying empty column sets from BigQuery.
+* Encode optimal default read stream counts based on task parallelism.
+* Fix missing transitive dependencies in unshaded JAR's published POM.
+* Update dependencies (Avro 1.11.5, Log4j 2.25.4, Hadoop Common 3.4.0, Flink Table Runtime 2.1.2).
+
 ## 1.1.0 - 2026-02-11
 * PR #260: Upgrade dependencies versions.
 * PR #258: Fix temporal type formatting in BigQueryRestriction to consistently use 6 decimal digits
