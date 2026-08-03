@@ -84,7 +84,11 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     // Multiply 0.95 to keep a buffer from exceeding payload limits.
     private static final long MAX_APPEND_REQUEST_BYTES =
             (long) (StreamWriter.getApiMaxRequestBytes() * 0.95);
+<<<<<<< HEAD
     protected static final long DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS = 420L;
+=======
+    protected static final long DEFAULT_APPEND_RESPONSE_TIMEOUT_SECONDS = 300L;
+>>>>>>> 8b68717 (Add timeout handling for buffered and default writer)
 
     // Number of bytes to be sent in the next append request.
     private long appendRequestSizeBytes;

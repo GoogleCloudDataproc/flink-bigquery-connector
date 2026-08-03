@@ -24,7 +24,7 @@ under the License.
     <parent>
         <groupId>com.google.cloud.flink</groupId>
         <artifactId>flink-2.1-connector-bigquery-parent</artifactId>
-        <version>${revision}</version>
+        <version>1.2.0</version>
     </parent>
 
     <properties>

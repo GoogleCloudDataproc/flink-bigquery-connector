@@ -358,10 +358,17 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             discardStreamAndResendAppendRequest(e, protoRows);
         } catch (ExecutionException | InterruptedException e) {
             resetStreamWriter();
+<<<<<<< HEAD
             if (e.getCause() instanceof OffsetAlreadyExists
                     || e.getCause() instanceof OffsetOutOfRange
                     || e.getCause() instanceof StreamFinalizedException
                     || e.getCause() instanceof StreamNotFound) {
+=======
+            if (e.getCause().getClass() == OffsetAlreadyExists.class
+                    || e.getCause().getClass() == OffsetOutOfRange.class
+                    || e.getCause().getClass() == StreamFinalizedException.class
+                    || e.getCause().getClass() == StreamNotFound.class) {
+>>>>>>> 8b68717 (Add timeout handling for buffered and default writer)
                 discardStreamAndResendAppendRequest(e, protoRows);
                 return;
             }
