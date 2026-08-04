@@ -94,7 +94,7 @@ repository.
 | Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:0.5.0` | Table Creation by Sink      |
 | Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:1.0.0` | Long Term Support (GA)      |
 | Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:1.1.0` | Dependency Updates & Bug Fixes |
-| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:1.2.0` | In-Direct Write & Bug Fixes |
+| Flink 1.17.x  | `com.google.cloud.flink:flink-1.17-connector-bigquery:1.2.0` | Indirect Write & Bug Fixes |
 
 #### GitHub
 
