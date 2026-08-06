@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Builds the FLIP-314 {@link LineageDataset} shared by the BigQuery source and sink.
@@ -74,6 +75,8 @@ public final class BigQueryLineageUtil {
      */
     public static SourceLineageVertex sourceVertexOf(
             BigQueryConnectOptions options, Boundedness boundedness) {
+        Objects.requireNonNull(options, "options must not be null");
+        Objects.requireNonNull(boundedness, "boundedness must not be null");
         List<LineageDataset> datasets = Collections.singletonList(datasetOf(options));
         return new SourceLineageVertex() {
             @Override
@@ -93,6 +96,7 @@ public final class BigQueryLineageUtil {
      * {@code options}.
      */
     public static LineageVertex sinkVertexOf(BigQueryConnectOptions options) {
+        Objects.requireNonNull(options, "options must not be null");
         List<LineageDataset> datasets = Collections.singletonList(datasetOf(options));
         return () -> datasets;
     }
@@ -103,9 +107,10 @@ public final class BigQueryLineageUtil {
      * DatasetConfigFacet} (so they survive the Table planner overriding {@code name()}).
      */
     private static LineageDataset datasetOf(BigQueryConnectOptions options) {
-        String project = options.getProjectId();
-        String dataset = options.getDataset();
-        String table = options.getTable();
+        String project =
+                Objects.requireNonNull(options.getProjectId(), "projectId must not be null");
+        String dataset = Objects.requireNonNull(options.getDataset(), "dataset must not be null");
+        String table = Objects.requireNonNull(options.getTable(), "table must not be null");
         String name = String.join(".", project, dataset, table);
 
         Map<String, String> config = new LinkedHashMap<>();
