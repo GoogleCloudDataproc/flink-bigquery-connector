@@ -82,6 +82,14 @@ under the License.
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-force-shading</artifactId>
         </dependency>
+        <!-- FLIP-314 data-lineage interfaces (org.apache.flink.streaming.api.lineage.*) live in
+             flink-runtime. Scope 'provided': compiled against here, supplied by the Flink cluster
+             at runtime, and never bundled into the shaded connector jar. -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-runtime</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-test-utils-junit</artifactId>

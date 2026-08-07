@@ -19,6 +19,9 @@ package com.google.cloud.flink.bigquery.sink;
 import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.lineage.DatasetConfigFacet;
+import org.apache.flink.streaming.api.lineage.LineageDataset;
+import org.apache.flink.streaming.api.lineage.LineageDatasetFacet;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
@@ -35,6 +38,8 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
 import static com.google.cloud.flink.bigquery.RestartStrategyConfigUtils.fixedDelayRestartStrategyConfig;
 import static com.google.common.truth.Truth.assertThat;
@@ -302,6 +307,33 @@ public class BigQueryDefaultSinkTest {
         BigQueryDefaultSink<GenericRecord> sink = new BigQueryDefaultSink<>(sinkConfig);
         assertEquals("us", sink.region);
         assertEquals(512, sink.maxParallelism);
+    }
+
+    @Test
+    public void testGetLineageVertex() {
+        BigQuerySinkConfig<Object> sinkConfig =
+                BigQuerySinkConfig.<Object>newBuilder()
+                        .connectOptions(getConnectOptions(true))
+                        .schemaProvider(TestBigQuerySchemas.getSimpleRecordSchema())
+                        .serializer(new FakeBigQuerySerializer(ByteString.copyFromUtf8("foo")))
+                        .streamExecutionEnvironment(env)
+                        .build();
+        BigQueryDefaultSink<Object> sink = new BigQueryDefaultSink<>(sinkConfig);
+
+        List<LineageDataset> datasets = sink.getLineageVertex().datasets();
+        assertThat(datasets).hasSize(1);
+        LineageDataset dataset = datasets.get(0);
+        assertThat(dataset.namespace()).isEqualTo("bigquery");
+        assertThat(dataset.name()).isEqualTo("project.dataset.table");
+
+        // The BigQuery coordinates are also published in a config facet so they survive the Table
+        // planner overriding name() with the Flink object identifier for FlinkSQL jobs.
+        LineageDatasetFacet facet = dataset.facets().get("bigquery");
+        assertThat(facet).isInstanceOf(DatasetConfigFacet.class);
+        Map<String, String> config = ((DatasetConfigFacet) facet).config();
+        assertThat(config).containsEntry("project", "project");
+        assertThat(config).containsEntry("dataset", "dataset");
+        assertThat(config).containsEntry("table", "table");
     }
 
     private static BigQueryConnectOptions getConnectOptions(boolean tableExists) {

@@ -17,11 +17,14 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.streaming.api.lineage.LineageVertex;
+import org.apache.flink.streaming.api.lineage.LineageVertexProvider;
 import org.apache.flink.util.StringUtils;
 
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.lineage.BigQueryLineageUtil;
 import com.google.cloud.flink.bigquery.sink.client.BigQueryClientWithErrorHandling;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
@@ -35,7 +38,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Base class for developing a BigQuery sink. */
-abstract class BigQueryBaseSink<IN> implements Sink<IN> {
+abstract class BigQueryBaseSink<IN> implements Sink<IN>, LineageVertexProvider {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -172,5 +175,17 @@ abstract class BigQueryBaseSink<IN> implements Sink<IN> {
             }
         }
         return DEFAULT_MAX_SINK_PARALLELISM;
+    }
+
+    /**
+     * Exposes this sink's BigQuery table as FLIP-314 lineage metadata, with the {@code (namespace,
+     * name)} pair {@code ("bigquery", "project.dataset.table")} a downstream {@link
+     * org.apache.flink.core.execution.JobStatusChangedListener} can consume. Both concrete sinks
+     * ({@code BigQueryDefaultSink}, {@code BigQueryExactlyOnceSink}) inherit this. See {@link
+     * BigQueryLineageUtil} for details.
+     */
+    @Override
+    public LineageVertex getLineageVertex() {
+        return BigQueryLineageUtil.sinkVertexOf(connectOptions);
     }
 }

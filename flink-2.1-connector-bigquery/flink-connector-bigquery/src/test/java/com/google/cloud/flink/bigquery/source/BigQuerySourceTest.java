@@ -18,6 +18,9 @@ package com.google.cloud.flink.bigquery.source;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
+import org.apache.flink.streaming.api.lineage.DatasetConfigFacet;
+import org.apache.flink.streaming.api.lineage.LineageDataset;
+import org.apache.flink.streaming.api.lineage.LineageDatasetFacet;
 
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
@@ -25,6 +28,8 @@ import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -40,5 +45,28 @@ public class BigQuerySourceTest {
         TypeInformation<GenericRecord> expected =
                 new GenericRecordAvroTypeInfo(StorageClientFaker.SIMPLE_AVRO_SCHEMA);
         assertThat(source.getDeserializationSchema().getProducedType()).isEqualTo(expected);
+    }
+
+    @Test
+    public void testGetLineageVertex() throws IOException {
+        BigQueryReadOptions readOptions =
+                StorageClientFaker.createReadOptions(
+                        10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING);
+        BigQuerySource<GenericRecord> source = BigQuerySource.readAvros(readOptions);
+
+        List<LineageDataset> datasets = source.getLineageVertex().datasets();
+        assertThat(datasets).hasSize(1);
+        LineageDataset dataset = datasets.get(0);
+        assertThat(dataset.namespace()).isEqualTo("bigquery");
+        assertThat(dataset.name()).isEqualTo("project.dataset.table");
+
+        // The BigQuery coordinates are also published in a config facet so they survive the Table
+        // planner overriding name() with the Flink object identifier for FlinkSQL jobs.
+        LineageDatasetFacet facet = dataset.facets().get("bigquery");
+        assertThat(facet).isInstanceOf(DatasetConfigFacet.class);
+        Map<String, String> config = ((DatasetConfigFacet) facet).config();
+        assertThat(config).containsEntry("project", "project");
+        assertThat(config).containsEntry("dataset", "dataset");
+        assertThat(config).containsEntry("table", "table");
     }
 }

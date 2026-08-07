@@ -27,11 +27,14 @@ import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.streaming.api.lineage.LineageVertex;
+import org.apache.flink.streaming.api.lineage.LineageVertexProvider;
 
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.utils.SchemaTransform;
+import com.google.cloud.flink.bigquery.lineage.BigQueryLineageUtil;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.emitter.BigQueryRecordEmitter;
@@ -79,7 +82,8 @@ import java.util.function.Supplier;
 @PublicEvolving
 public abstract class BigQuerySource<OUT>
         implements Source<OUT, BigQuerySourceSplit, BigQuerySourceEnumState>,
-                ResultTypeQueryable<OUT> {
+                ResultTypeQueryable<OUT>,
+                LineageVertexProvider {
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySource.class);
 
     public abstract BigQueryDeserializationSchema<GenericRecord, OUT> getDeserializationSchema();
@@ -91,6 +95,19 @@ public abstract class BigQuerySource<OUT>
     @Override
     public Boundedness getBoundedness() {
         return getSourceBoundedness();
+    }
+
+    /**
+     * Exposes this source's BigQuery table as FLIP-314 lineage metadata, with the {@code
+     * (namespace, name)} pair {@code ("bigquery", "project.dataset.table")} a downstream {@link
+     * org.apache.flink.core.execution.JobStatusChangedListener} can consume. Implemented on the
+     * source (not the pipeline) so lineage is emitted for pure FlinkSQL jobs too. See {@link
+     * BigQueryLineageUtil} for details.
+     */
+    @Override
+    public LineageVertex getLineageVertex() {
+        return BigQueryLineageUtil.sourceVertexOf(
+                getReadOptions().getBigQueryConnectOptions(), getBoundedness());
     }
 
     @Override
