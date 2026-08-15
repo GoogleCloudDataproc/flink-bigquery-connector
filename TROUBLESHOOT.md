@@ -20,11 +20,13 @@ collect and report Flink Metrics for a Flink Application.
 The details of the metrics supported so far are available in the 
 [README](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/blob/main/README.md#flink-metrics).
 
-An overview of records seen by the writer and number of records successfully written to 
-BigQuery would enable users to track the flow of records through their application. 
-Comparison of the counts would help troubleshoot if records are being seen by the Sink (Writer) 
-at all, are being serialized and send to the Write API and if BigQuery is able to write 
-these records.
+The connector reports standard Flink sink metrics (`numRecordsSend`, `numBytesSend`) that appear
+automatically in the Flink Web UI and monitoring tools, as well as connector-specific metrics for
+deeper observability.
+
+Comparing the three record counters helps pinpoint where records are being lost:
+- `numberOfRecordsSeenByWriter` > `numRecordsSend` → records are failing serialization
+- `numRecordsSend` > `numberOfRecordsWrittenToBigQuery` → records are buffered but not yet confirmed by BigQuery
 
 See Flink’s documentation on 
 [Metric Reporters](https://nightlies.apache.org/flink/flink-docs-master/docs/deployment/metric_reporters/) 
