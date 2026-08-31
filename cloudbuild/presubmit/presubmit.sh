@@ -29,13 +29,13 @@ cd /workspace
 case $STEP in
   # Download maven and all the dependencies
   init)
-    $MVN clean install -DskipTests -Pflink_1.17,flink_2.1
+    $MVN clean install -DskipTests -Pflink_1.17,flink_2.1,flink_2.2,flink_2.3
     exit
     ;;
 
   # Run unit & integration tests
   tests)
-    $MVN clean clover:setup verify clover:aggregate clover:check clover:clover -Pflink_1.17,flink_2.1,clover
+    $MVN clean clover:setup verify clover:aggregate clover:check clover:clover -Pflink_1.17,flink_2.1,flink_2.2,flink_2.3,clover
     ;;
 
   *)
@@ -46,4 +46,3 @@ esac
 
 # Upload test coverage report to Codecov
 bash <(curl -s https://codecov.io/bash) -K -F "${STEP}"
-
