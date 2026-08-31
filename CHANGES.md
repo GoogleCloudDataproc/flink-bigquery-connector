@@ -2,6 +2,7 @@
 
 ## Next
 
+* Add dedicated connector artifacts, build profiles, and nightly-test wiring for Flink 2.2.1 and 2.3.0.
 * Support indirect writes in DataStream and Table/SQL API using BigQuery Load Jobs via GCS staging, including support for large workloads (>15 TB) and configurable job project.
 * Support querying BigQuery views in Flink Table/SQL API.
 * Support BigQuery upsert in Flink 2.1 and add integration tests for Flink 2.1.

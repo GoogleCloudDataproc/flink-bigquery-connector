@@ -191,7 +191,7 @@ The operator groups files by checkpoint ID and tracks completion via Committable
 
 * Although SupportsPostCommitTopology is annotated @Experimental, it is being used in other major OSS connectors e.g. Apache Iceberg’s new IcebergSink. There is an open JIRA to promote it to @PublicEvolving: [FLINK-37526](https://issues.apache.org/jira/browse/FLINK-37526).
 * There is an issue with SupportsPostCommitTopology that makes streaming \+ bounded use cases challenging (though not impossible) to support: [https://issues.apache.org/jira/browse/FLINK-39192](https://issues.apache.org/jira/browse/FLINK-39192)   
-* SupportsPostCommitTopology is only available in the Flink 2.1 version of the connector, so these changes cannot be backported to earlier Flink versions.
+* SupportsPostCommitTopology is available in the Flink 2.1 and later connector artifacts, so these changes cannot be backported to earlier Flink versions.
 
 **Alternatives:**
 
