@@ -27,8 +27,8 @@ under the License.
         <version>${revision}</version>
     </parent>
 
-    <artifactId>flink-2.1-connector-bigquery-parent</artifactId>
-    <name>Flink : Connectors : Google BigQuery Connector Parent (Flink v2.1)</name>
+    <artifactId>flink-2.3-connector-bigquery-parent</artifactId>
+    <name>Flink : Connectors : Google BigQuery Connector Parent (Flink v2.3)</name>
 
     <packaging>pom</packaging>
 
@@ -41,8 +41,8 @@ under the License.
     </licenses>
 
     <properties>
-		<flink.version>2.1.2</flink.version>
-        <flink.shaded.version>17.0</flink.shaded.version>
+		<flink.version>2.3.0</flink.version>
+        <flink.shaded.version>21.0</flink.shaded.version>
         <maven.compiler.release>11</maven.compiler.release>
     </properties>
 

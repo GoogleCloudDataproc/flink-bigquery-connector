@@ -24,13 +24,13 @@ under the License.
     <!-- Adding example root as parent to make sure the common dependencies are added -->
     <parent>
         <groupId>com.google.cloud.flink</groupId>
-        <artifactId>flink-2.1-connector-bigquery-parent</artifactId>
+        <artifactId>flink-2.3-connector-bigquery-parent</artifactId>
         <version>${revision}</version>
     </parent>
 
 
-    <artifactId>flink-2.1-connector-bigquery-table-api-examples</artifactId>
-    <name>Flink : Connectors : Google BigQuery Table API Example (Flink v2.1)</name>
+    <artifactId>flink-2.3-connector-bigquery-table-api-examples</artifactId>
+    <name>Flink : Connectors : Google BigQuery Table API Example (Flink v2.3)</name>
     <packaging>jar</packaging>
 
     <properties>
@@ -48,7 +48,7 @@ under the License.
     <dependencies>
         <dependency>
             <groupId>com.google.cloud.flink</groupId>
-            <artifactId>flink-2.1-connector-bigquery</artifactId>
+            <artifactId>flink-2.3-connector-bigquery</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
@@ -100,7 +100,7 @@ under the License.
                                  flink-parquet/flink-avro/flink-connector-files includes below. -->
                             <artifactSet combine.self="override">
                                 <includes>
-                                    <include>com.google.cloud.flink:flink-2.1-connector-bigquery</include>
+                                    <include>com.google.cloud.flink:flink-2.3-connector-bigquery</include>
                                     <!-- Flink format/connector-files modules not in flink-dist -->
                                     <include>org.apache.flink:flink-avro</include>
                                     <include>org.apache.flink:flink-parquet</include>
@@ -152,7 +152,7 @@ under the License.
                             </relocations>
                             <filters>
                                 <filter>
-                                    <artifact>com.google.cloud.flink:flink-2.1-connector-bigquery-table-api-example*</artifact>
+                                    <artifact>com.google.cloud.flink:flink-2.3-connector-bigquery-table-api-example*</artifact>
                                     <includes>
                                         <include>com/google/cloud/flink/bigquery/examples/**</include>
                                     </includes>
