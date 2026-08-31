@@ -26,7 +26,7 @@ under the License.
         <artifactId>flink-2.3-connector-bigquery-parent</artifactId>
         <version>${revision}</version>
     </parent>
-    
+
     <properties>
         <shade.skip>false</shade.skip>
     </properties>
@@ -115,8 +115,8 @@ under the License.
                                     <include>org.apache.flink:flink-avro</include>
                                     <include>org.apache.flink:flink-util</include>
                                     <include>com.google.*:*</include>
-                                    <include>commons-codec:commons-codec</include>    
-                                    <include>dev.failsafe:*</include>                                
+                                    <include>commons-codec:commons-codec</include>
+                                    <include>dev.failsafe:*</include>
                                     <include>org.apache.avro:*</include>
                                     <include>org.apache.httpcomponents:*</include>
                                     <include>org.codehaus.mojo:animal-sniffer-annotations</include>

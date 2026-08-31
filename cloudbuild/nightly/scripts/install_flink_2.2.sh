@@ -43,7 +43,7 @@ ln -sf /usr/lib/flink/bin/flink /usr/bin/flink
 systemctl restart flink-history-server || true
 
 # Dataproc natively relies on 'yarn-per-job' mode which Apache Flink 2.0+ completely removed.
-# Because Dataproc doesn't natively boot a background YARN session service, 
+# Because Dataproc doesn't natively boot a background YARN session service,
 # 'yarn-session' executions will crash because they cannot find an active session!
 # We must start a background session aggressively here so jobs can natively latch on.
 ROLE="$(/usr/share/google/get_metadata_value attributes/dataproc-role)"

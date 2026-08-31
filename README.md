@@ -131,6 +131,19 @@ If only the jars are needed, then execute maven `package` instead of `install`.
 
 #### Compilation Dependency
 
+For a connector built from this source tree, use the artifact ID for the target Flink runtime from the table above
+and the project version installed by Maven. For example, the current checkout installs the Flink 2.3 connector as:
+
+```xml
+<dependency>
+  <groupId>com.google.cloud.flink</groupId>
+  <artifactId>flink-2.3-connector-bigquery</artifactId>
+  <version>1.2-SNAPSHOT</version>
+</dependency>
+```
+
+The following examples refer specifically to the latest released Flink 1.17 artifact.
+
 ##### Maven
 
 ```xml

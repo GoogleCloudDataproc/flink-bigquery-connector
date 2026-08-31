@@ -94,7 +94,7 @@ case $STEP in
     FLINK_CONNECTOR_VERSION="$FLINK_VERSION"
     FLINK_INIT_SCRIPT=""
     case "$FLINK_VERSION" in
-      2.1|2.1.*)
+      2.1|2.1.0)
         FLINK_CONNECTOR_VERSION="2.1"
         FLINK_INIT_SCRIPT="install_flink_2.1.sh"
         ;;
@@ -106,9 +106,9 @@ case $STEP in
         FLINK_CONNECTOR_VERSION="2.3"
         FLINK_INIT_SCRIPT="install_flink_2.3.sh"
         ;;
-      2.2.*|2.3.*)
+      2.1.*|2.2.*|2.3.*)
         echo "Unsupported Flink patch version: $FLINK_VERSION" >&2
-        echo "Use 2.2 or 2.2.1, or 2.3 or 2.3.0." >&2
+        echo "Use 2.1 or 2.1.0, 2.2 or 2.2.1, or 2.3 or 2.3.0." >&2
         exit 2
         ;;
     esac
