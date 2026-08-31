@@ -23,7 +23,7 @@ under the License.
 
     <parent>
         <groupId>com.google.cloud.flink</groupId>
-        <artifactId>flink-2.1-connector-bigquery-parent</artifactId>
+        <artifactId>flink-2.2-connector-bigquery-parent</artifactId>
         <version>${revision}</version>
     </parent>
     
@@ -31,8 +31,8 @@ under the License.
         <shade.skip>false</shade.skip>
     </properties>
 
-    <artifactId>flink-2.1-connector-bigquery-integration-test</artifactId>
-    <name>Flink : Connectors : Google BigQuery IT (Flink v2.1)</name>
+    <artifactId>flink-2.2-connector-bigquery-integration-test</artifactId>
+    <name>Flink : Connectors : Google BigQuery IT (Flink v2.2)</name>
     <packaging>jar</packaging>
 
     <licenses>
@@ -46,7 +46,7 @@ under the License.
     <dependencies>
         <dependency>
             <groupId>com.google.cloud.flink</groupId>
-            <artifactId>flink-2.1-connector-bigquery</artifactId>
+            <artifactId>flink-2.2-connector-bigquery</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
