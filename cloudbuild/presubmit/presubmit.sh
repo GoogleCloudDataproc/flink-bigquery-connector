@@ -35,7 +35,10 @@ case $STEP in
 
   # Run unit & integration tests
   tests)
-    $MVN clean clover:setup verify clover:aggregate clover:check clover:clover -Pflink_1.17,flink_2.1,flink_2.2,flink_2.3,clover
+    # Exercise the new minor-line artifacts independently. Their source is
+    # covered through flink_2.1; merging duplicate source models confuses Clover.
+    $MVN clean verify -Pflink_2.2,flink_2.3
+    $MVN clean clover:setup verify clover:aggregate clover:check clover:clover -Pflink_1.17,flink_2.1,clover
     ;;
 
   *)
