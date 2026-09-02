@@ -333,13 +333,15 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
 
     @Override
     public void close() {
-        if (!streamNameInState.equals(streamName)) {
+        if (!StringUtils.isNullOrWhitespaceOnly(streamName)
+                && !streamNameInState.equals(streamName)) {
             // This stream was created after the last snapshot, so no checkpoint references it and
             // nothing will ever flush it. Finalize it, i.e. "close" it. A stream that is in state
             // is left open even if it has uncommitted appends: the committer may still have to
             // flush it up to the checkpointed offset on restore, and BigQuery rejects FlushRows on
             // a finalized stream. The uncommitted appends are never flushed and are replaced by
-            // the replay from the checkpoint.
+            // the replay from the checkpoint. A writer whose stream was discarded and not replaced
+            // yet holds no stream at all, so there is nothing to finalize either.
             finalizeStream();
         }
         super.close();

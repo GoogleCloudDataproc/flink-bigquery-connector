@@ -64,6 +64,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 /** Tests for {@link BigQueryBufferedWriter}. */
@@ -1048,6 +1049,40 @@ public class BigQueryBufferedWriterTest {
         assertEquals(0, bufferedWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         assertEquals(200, bufferedWriter.numberOfRecordsWrittenToBigQuery.getCount());
         assertEquals(0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
+    }
+
+    @Test
+    public void testClose_afterStreamDiscarded_withoutReplacement() {
+        // The restored stream is unusable and the replacement stream cannot be created, so the
+        // writer is closed while it holds no stream. Nothing must be finalized: the discarded
+        // stream is still referenced by checkpoint state, and there is no new stream.
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        "restored_stream",
+                        100L,
+                        210L,
+                        200L,
+                        100L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            ApiFutures.immediateFailedFuture(mock(StreamFinalizedException.class))
+                        },
+                        null,
+                        FinalizeWriteStreamResponse.getDefaultInstance());
+        bufferedWriter.write(new Object(), null);
+        try {
+            bufferedWriter.write(new Object(), null);
+            fail("Expected the replacement stream creation to fail");
+        } catch (RuntimeException e) {
+            // Expected: the fake write client cannot create a write stream.
+        }
+        assertEquals("", bufferedWriter.streamName);
+        assertEquals("restored_stream", bufferedWriter.getStreamNameInState());
+        bufferedWriter.close();
+        assertEquals(
+                0,
+                ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                        .getFinalizeWriteStreamInvocations());
     }
 
     @Test
