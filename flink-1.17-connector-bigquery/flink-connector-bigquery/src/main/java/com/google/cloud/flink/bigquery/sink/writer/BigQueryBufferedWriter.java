@@ -62,6 +62,13 @@ import java.util.concurrent.TimeoutException;
  * <p>In case of stream replay upon failure recovery, previously buffered data will be discarded and
  * records will be buffered again from the latest checkpoint.
  *
+ * <p>A write stream held in checkpoint state is never finalized by the writer, not even when it is
+ * discarded (which can happen on the first append after any checkpoint, not only after a restore)
+ * or closed with uncommitted appends. BigQuery rejects FlushRows on a finalized stream, and the
+ * committer may still have to flush that stream up to the checkpointed offset, either when the
+ * checkpoint completes or when it is restored. The committer finalizes a stream once a later
+ * checkpoint has committed the stream that replaced it.
+ *
  * <p>Records are grouped to maximally utilize the BigQuery append request's payload.
  *
  * <p>Depending on the checkpointing mode, this writer offers the following consistency guarantees:
@@ -326,10 +333,13 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
 
     @Override
     public void close() {
-        if (!streamNameInState.equals(streamName) || streamOffsetInState != streamOffset) {
-            // Either new stream was created which will not be stored in any state, or something was
-            // appended to the existing stream which will not be committed. In both scenarios, the
-            // stream is not usable and must be finalized, i.e. "closed".
+        if (!streamNameInState.equals(streamName)) {
+            // This stream was created after the last snapshot, so no checkpoint references it and
+            // nothing will ever flush it. Finalize it, i.e. "close" it. A stream that is in state
+            // is left open even if it has uncommitted appends: the committer may still have to
+            // flush it up to the checkpointed offset on restore, and BigQuery rejects FlushRows on
+            // a finalized stream. The uncommitted appends are never flushed and are replaced by
+            // the replay from the checkpoint.
             finalizeStream();
         }
         super.close();
@@ -380,7 +390,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
                         "Writer %d cannot use stream %s. Discarding this stream.",
                         subtaskId, streamName),
                 e);
-        finalizeStream();
+        // The discarded stream is the one held in checkpoint state. It must not be finalized here:
+        // the committer may still have to flush it up to the checkpointed offset if this checkpoint
+        // is restored again, and BigQuery rejects FlushRows on a finalized stream. The committer
+        // finalizes it once a later checkpoint has committed the stream created below.
         // Empty streamName will prompt following sendAppendRequest invocation to create anew write
         // stream.
         streamName = "";

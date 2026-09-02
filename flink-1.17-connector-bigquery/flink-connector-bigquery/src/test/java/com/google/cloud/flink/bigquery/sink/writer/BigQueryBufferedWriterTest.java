@@ -418,9 +418,10 @@ public class BigQueryBufferedWriterTest {
                     0, bufferedWriter.numberOfRecordsBufferedByBigQuerySinceCheckpoint.getCount());
 
             bufferedWriter.write(new Object(), null);
-            // Existing stream was finalized.
+            // Existing stream was discarded but not finalized: it is still referenced by the
+            // checkpoint this writer was restored from, and the committer may have to flush it.
             assertEquals(
-                    1,
+                    0,
                     ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                             .getFinalizeWriteStreamInvocations());
             // New stream was created.
@@ -462,15 +463,27 @@ public class BigQueryBufferedWriterTest {
             ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                     .verifytAppendWithOffsetInvocations(3);
 
-            // Ensure finalize or new stream creation were not invoked again.
+            // Ensure finalize was not invoked and new stream creation was not invoked again.
             assertEquals(
-                    1,
+                    0,
                     ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                             .getFinalizeWriteStreamInvocations());
             assertEquals(
                     1,
                     ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
                             .getCreateWriteStreamInvocations());
+
+            // The new stream was created after the last snapshot, so no checkpoint references it
+            // and closing the writer finalizes it. The discarded restored stream stays open.
+            bufferedWriter.close();
+            assertEquals(
+                    1,
+                    ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                            .getFinalizeWriteStreamInvocations());
+            assertEquals(
+                    "new_stream",
+                    ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                            .getLastFinalizedStreamName());
         }
     }
 
@@ -1090,6 +1103,42 @@ public class BigQueryBufferedWriterTest {
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
         assertNull(bufferedWriter.streamWriter);
         assertNull(bufferedWriter.writeClient);
+    }
+
+    @Test
+    public void testClose_withRestoredStream_withUncommittedAppends() {
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        "restored_stream",
+                        100L,
+                        210L,
+                        200L,
+                        100L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            ApiFutures.immediateFuture(
+                                    AppendRowsResponse.newBuilder()
+                                            .setAppendResult(
+                                                    AppendResult.newBuilder()
+                                                            .setOffset(Int64Value.of(100))
+                                                            .build())
+                                            .build())
+                        },
+                        null,
+                        FinalizeWriteStreamResponse.getDefaultInstance());
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.write(new Object(), null);
+        // One append went to the restored stream beyond the offset stored in state.
+        assertEquals(101, bufferedWriter.getStreamOffset());
+        assertEquals(100, bufferedWriter.getStreamOffsetInState());
+        bufferedWriter.close();
+        // The stream is still referenced by checkpoint state, so it must stay open for the
+        // committer. The uncommitted append is simply never flushed.
+        assertEquals(
+                0,
+                ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                        .getFinalizeWriteStreamInvocations());
+        assertTrue(bufferedWriter.streamWriter.isUserClosed());
     }
 
     @Test
