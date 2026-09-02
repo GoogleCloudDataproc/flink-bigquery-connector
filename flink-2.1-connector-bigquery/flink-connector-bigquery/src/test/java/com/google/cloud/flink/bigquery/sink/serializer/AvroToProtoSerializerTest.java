@@ -241,6 +241,24 @@ public class AvroToProtoSerializerTest {
         assertEquals(value.toString(), AvroSchemaHandler.convertTime(value, true));
     }
 
+    /** Test for time string Values on an exact minute boundary, which must keep their seconds. */
+    @Test
+    public void testValidTimeOnMinuteBoundaryFromStringConversion() {
+        assertEquals("12:30:00.000000", AvroSchemaHandler.convertTime("12:30:00", true));
+        assertEquals("12:30:00.500000", AvroSchemaHandler.convertTime("12:30:00.5", true));
+    }
+
+    /**
+     * Test for time long Values on an exact minute boundary. This branch formats with {@code
+     * DateTimeFormatter.ISO_TIME}, which always emits the seconds; the assertions guard against a
+     * change back to {@code LocalTime.toString()}.
+     */
+    @Test
+    public void testValidTimeOnMinuteBoundaryFromLongConversion() {
+        assertEquals("12:30:00", AvroSchemaHandler.convertTime(45000000000L, true));
+        assertEquals("12:30:00", AvroSchemaHandler.convertTime(45000000, false));
+    }
+
     /**
      * Test for a valid LONG type Value (representing a valid time). The LONG value here denotes
      * microseconds since midnight.
@@ -458,7 +476,26 @@ public class AvroToProtoSerializerTest {
     @Test
     public void testValidDateTimeFromLongConversion() {
         Object value = 1710290574347000L;
-        assertEquals("2024-03-13T00:42:54.347", AvroSchemaHandler.convertDateTime(value, true));
+        assertEquals("2024-03-13T00:42:54.347000", AvroSchemaHandler.convertDateTime(value, true));
+    }
+
+    /**
+     * Test for datetime Values on an exact minute boundary. BigQuery rejects DATETIME strings
+     * without seconds, so "2026-08-31T12:30" must not be produced for these.
+     */
+    @Test
+    public void testValidDateTimeOnMinuteBoundaryConversion() {
+        String expected = "2026-08-31T12:30:00.000000";
+        assertEquals(expected, AvroSchemaHandler.convertDateTime(1788179400000000L, true));
+        assertEquals(expected, AvroSchemaHandler.convertDateTime(1788179400000L, false));
+        assertEquals(expected, AvroSchemaHandler.convertDateTime("2026-08-31 12:30:00", true));
+        assertEquals(expected, AvroSchemaHandler.convertDateTime("2026-08-31T12:30:00", true));
+        String expectedWithFraction = "2026-08-31T12:30:00.500000";
+        assertEquals(
+                expectedWithFraction, AvroSchemaHandler.convertDateTime(1788179400500000L, true));
+        assertEquals(
+                expectedWithFraction,
+                AvroSchemaHandler.convertDateTime("2026-08-31 12:30:00.5", true));
     }
 
     /**
@@ -793,7 +830,8 @@ public class AvroToProtoSerializerTest {
         DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
         assertEquals(1710919250269000L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals("12:42:25.727", message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals("2024-03-20T12:43:07.462", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                "2024-03-20T12:43:07.462000", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(
                 "8e25e7e5-0dc5-4292-b59b-3665b0ab8280",
                 message.getField(descriptor.findFieldByNumber(4)));
@@ -1215,7 +1253,8 @@ public class AvroToProtoSerializerTest {
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
         assertEquals("12:42:25.727", message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals("2024-03-20T12:43:07.462", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                "2024-03-20T12:43:07.462000", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(
                 "8e25e7e5-0dc5-4292-b59b-3665b0ab8280",
                 message.getField(descriptor.findFieldByNumber(4)));
@@ -1663,7 +1702,7 @@ public class AvroToProtoSerializerTest {
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(2);
-        assertEquals("2024-03-20T12:43:07.462", arrayResult.get(0));
+        assertEquals("2024-03-20T12:43:07.462000", arrayResult.get(0));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(1);
