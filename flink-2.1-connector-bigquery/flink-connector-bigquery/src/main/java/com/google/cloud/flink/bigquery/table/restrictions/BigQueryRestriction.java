@@ -36,6 +36,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -60,7 +61,8 @@ public class BigQueryRestriction {
             DateTimeFormatterPatterns.TIME_OUTPUT_FORMATTER;
 
     private static final DateTimeFormatter INSTANT_FORMATTER =
-            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSSSS'Z'").withZone(ZoneOffset.UTC);
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.ROOT)
+                    .withZone(ZoneOffset.UTC);
 
     /** Represents the possible BQ expressions supported for the correspondent flink ones. */
     enum Operation {
