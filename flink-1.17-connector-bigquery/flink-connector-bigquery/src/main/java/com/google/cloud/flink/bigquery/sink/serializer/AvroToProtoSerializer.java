@@ -649,11 +649,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 Long convertedTs =
                         convertTimestamp(value, micros, "Local Timestamp(millis/micros)");
                 Timestamp convertedTimestamp = Timestamp.ofTimeMicroseconds(convertedTs);
+                // Do not use LocalDateTime.toString() here: it omits the seconds when they are
+                // zero, and BigQuery rejects DATETIME strings without seconds.
                 return LocalDateTime.ofEpochSecond(
                                 convertedTimestamp.getSeconds(),
                                 convertedTimestamp.getNanos(),
                                 ZoneOffset.UTC)
-                        .toString();
+                        .format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER);
             }
             String obtainedValue;
             if (value instanceof String) {
@@ -677,7 +679,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             try {
                 return LocalDateTime.parse(
                                 obtainedValue, DateTimeFormatterPatterns.DATETIME_FORMATTER)
-                        .toString();
+                        .format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER);
             } catch (DateTimeParseException e) {
                 throw new IllegalArgumentException(
                         String.format(
@@ -711,7 +713,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#time_type.
                 try {
                     return LocalTime.parse((String) value, DateTimeFormatterPatterns.TIME_FORMATTER)
-                            .toString();
+                            .format(DateTimeFormatterPatterns.TIME_OUTPUT_FORMATTER);
                 } catch (DateTimeParseException e) {
                     throw new IllegalArgumentException(
                             String.format(

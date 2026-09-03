@@ -17,9 +17,10 @@
 package com.google.cloud.flink.bigquery.common.utils;
 
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 /**
- * Static {@link DateTimeFormatter} instances for BigQuery date/time parsing.
+ * Static {@link DateTimeFormatter} instances for parsing and formatting BigQuery date/time values.
  *
  * <p>DateTimeFormatter.ofPattern() compiles the pattern on each call, so these are cached as static
  * constants to avoid repeated compilation in hot paths.
@@ -59,4 +60,20 @@ public final class DateTimeFormatterPatterns {
     public static final DateTimeFormatter TIME_FORMATTER =
             DateTimeFormatter.ofPattern(
                     "H[H]':'m[m]':'s[s]['.'SSSSSS]['.'SSSSS]['.'SSSS]['.'SSS]['.'SS]['.'S]");
+
+    /**
+     * Formatter for DATETIME values sent to BigQuery, both as sink payload strings and as literals
+     * in pushed-down filters.
+     *
+     * <p>BigQuery requires the seconds to be present, but {@link
+     * java.time.LocalDateTime#toString()} omits them when they are zero (for example
+     * "2024-03-13T00:42" for a value on a minute boundary), so values are always written as
+     * "uuuu-MM-dd'T'HH:mm:ss.SSSSSS" with the six fractional digits BigQuery stores.
+     */
+    public static final DateTimeFormatter DATETIME_OUTPUT_FORMATTER =
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSSSS", Locale.ROOT);
+
+    /** Formatter for TIME values sent to BigQuery. See {@link #DATETIME_OUTPUT_FORMATTER}. */
+    public static final DateTimeFormatter TIME_OUTPUT_FORMATTER =
+            DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS", Locale.ROOT);
 }

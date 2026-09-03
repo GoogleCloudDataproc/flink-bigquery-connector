@@ -519,7 +519,8 @@ public class RowDataToProtoSerializerTest {
                 rowDataSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
         assertEquals(1710919250269000L, message.getField(descriptor.findFieldByNumber(1)));
         assertEquals("12:42:25.727", message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals("2024-03-20T12:43:07.462", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                "2024-03-20T12:43:07.462000", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(
                 "8e25e7e5-0dc5-4292-b59b-3665b0ab8280",
                 message.getField(descriptor.findFieldByNumber(4)));
@@ -912,7 +913,8 @@ public class RowDataToProtoSerializerTest {
                 descriptor.findNestedTypeByName(
                         descriptor.findFieldByNumber(1).toProto().getTypeName());
         assertEquals("12:42:25.727", message.getField(descriptor.findFieldByNumber(2)));
-        assertEquals("2024-03-20T12:43:07.462", message.getField(descriptor.findFieldByNumber(3)));
+        assertEquals(
+                "2024-03-20T12:43:07.462000", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(
                 "8e25e7e5-0dc5-4292-b59b-3665b0ab8280",
                 message.getField(descriptor.findFieldByNumber(4)));
@@ -1322,7 +1324,7 @@ public class RowDataToProtoSerializerTest {
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(3));
         assertThat(arrayResult).hasSize(2);
-        assertEquals("2024-03-20T12:43:07.462", arrayResult.get(0));
+        assertEquals("2024-03-20T12:43:07.462000", arrayResult.get(0));
 
         arrayResult = (List<Object>) message.getField(descriptor.findFieldByNumber(4));
         assertThat(arrayResult).hasSize(1);

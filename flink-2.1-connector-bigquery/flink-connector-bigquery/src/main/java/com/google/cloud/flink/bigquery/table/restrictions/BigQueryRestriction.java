@@ -27,6 +27,7 @@ import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.FunctionDefinition;
 
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
+import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,6 +37,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -54,13 +56,14 @@ public class BigQueryRestriction {
     private static final Pattern STARTS_WITH_PATTERN = Pattern.compile("([^%]+)%");
 
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+            DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER;
 
     private static final DateTimeFormatter LOCAL_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
+            DateTimeFormatterPatterns.TIME_OUTPUT_FORMATTER;
 
     private static final DateTimeFormatter INSTANT_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'").withZone(ZoneOffset.UTC);
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.ROOT)
+                    .withZone(ZoneOffset.UTC);
 
     /** Represents the possible BQ expressions supported for the correspondent flink ones. */
     enum Operation {
