@@ -31,6 +31,7 @@ import com.google.cloud.bigquery.storage.v1.Exceptions.OffsetOutOfRange;
 import com.google.cloud.bigquery.storage.v1.Exceptions.StreamFinalizedException;
 import com.google.cloud.bigquery.storage.v1.Exceptions.StreamNotFound;
 import com.google.cloud.bigquery.storage.v1.ProtoRows;
+import com.google.cloud.bigquery.storage.v1.StreamWriter;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
@@ -104,6 +105,10 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
     // This is set true once the snapshot is completed, indicating that the checkpoint is complete.
     private boolean isFirstWriteAfterCheckpoint;
 
+    // True while a write stream restored from state still awaits its synchronous first append.
+    // False for a new writer, and cleared as soon as that append starts.
+    private boolean restoredStreamUnverified;
+
     public BigQueryBufferedWriter(
             String tablePath,
             BigQueryConnectOptions connectOptions,
@@ -168,6 +173,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         this.totalRecordsCommitted = totalRecordsCommitted;
         appendRequestRowCount = 0L;
         isFirstWriteAfterCheckpoint = true;
+        restoredStreamUnverified = !this.streamNameInState.isEmpty();
         initializeExactlyOnceMetrics(context);
     }
 
@@ -219,15 +225,18 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
      * usable. The stream may be corrupt due to several reasons (listed below in code), in which
      * case it must be discarded and the writer will create a new write stream. If the stream was
      * not corrupt and is indeed usable, then the writer will continue appending to it.
+     *
+     * <p>This check runs once, on the first append after a restore. A checkpoint does not repeat
+     * it: the writer keeps appending to the same write stream through the same {@link
+     * StreamWriter}. The restore is tracked with a flag because the stream name and offset stored
+     * in state match the current ones after a checkpoint as well as after a restore.
      */
     @Override
     void sendAppendRequest(ProtoRows protoRows) {
         long rowCount = protoRows.getSerializedRowsCount();
-        if (streamOffset == streamOffsetInState
-                && !StringUtils.isNullOrWhitespaceOnly(streamName)
-                && streamName.equals(streamNameInState)) {
-            // Writer has an associated write stream and is invoking append for the first
-            // time since re-initialization.
+        if (restoredStreamUnverified) {
+            // Writer has been restored with an associated write stream and is invoking append
+            // for the first time since restoration.
             performFirstAppendOnRestoredStream(protoRows, rowCount);
             return;
         }
@@ -337,7 +346,15 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         super.close();
     }
 
+    /**
+     * Creates a StreamWriter for the stream held in state and appends synchronously to find out
+     * whether the stream is still usable. Runs once, on the first append after a restore.
+     */
     private void performFirstAppendOnRestoredStream(ProtoRows protoRows, long rowCount) {
+        // Below, the restored stream is verified or discarded, or the writer fails. After a
+        // verification or a discard, the append requests that follow (including the resend after
+        // a discard) take the regular path.
+        restoredStreamUnverified = false;
         try {
             // Connection pool (method parameter below) can be enabled only for default stream.
             createStreamWriter(false);
@@ -358,6 +375,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
             discardStreamAndResendAppendRequest(e, protoRows);
         } catch (ExecutionException | InterruptedException e) {
             resetStreamWriter();
+            // Unlike validateAppendResponse, OffsetAlreadyExists discards the stream here: on a
+            // restored stream it means rows past the checkpointed offset survived (for example a
+            // failed finalize of the previous run), so the stream cannot be trusted.
             if (e.getCause() instanceof OffsetAlreadyExists
                     || e.getCause() instanceof OffsetOutOfRange
                     || e.getCause() instanceof StreamFinalizedException
