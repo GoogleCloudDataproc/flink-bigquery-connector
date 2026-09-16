@@ -249,7 +249,23 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
                                 schema, field, fieldNumber, descriptorProtoBuilder);
                 break;
             case MAP:
-                throw new UnsupportedOperationException("MAP type not supported yet.");
+                Schema mapValueSchema = schema.getValueType();
+                Schema unwrappedMapValueSchema =
+                        mapValueSchema.getType() == Schema.Type.UNION
+                                ? AvroSchemaHandler.handleUnionSchema(mapValueSchema).getLeft()
+                                : mapValueSchema;
+                if (!AvroSchemaHandler.isSupportedMapValueSchema(unwrappedMapValueSchema)) {
+                    throw new UnsupportedOperationException(
+                            "MAP value type '"
+                                    + unwrappedMapValueSchema.getType()
+                                    + "' is not supported for serialization to a BigQuery "
+                                    + "STRING/JSON column. Supported value types are: STRING, "
+                                    + "BOOLEAN, INT, LONG, FLOAT, DOUBLE.");
+                }
+                // MAP fields are serialized as a JSON string, so the destination proto field is
+                // a plain STRING (the same representation used for a BigQuery JSON column).
+                fieldDescriptorBuilder.setType(FieldDescriptorProto.Type.TYPE_STRING);
+                break;
             case UNION:
                 /* Union schemas can mainly be of the following types:
                 1. Only null value (["null"])
