@@ -19,12 +19,15 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.MapData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LocalZonedTimestampType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
+import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.TimeType;
 import org.apache.flink.table.types.logical.TimestampType;
@@ -39,6 +42,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -314,10 +318,11 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                         fieldDescriptor));
                     }
                     return arrayResult;
+                case MAP:
+                    return convertMapToJsonString(fieldType, fieldNumber, element, fieldDescriptor);
                     // all the below types are not supported yet.
                 case INTERVAL_YEAR_MONTH:
                 case INTERVAL_DAY_TIME:
-                case MAP:
                 case MULTISET:
                 case NULL:
                 case SYMBOL:
@@ -341,7 +346,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                                     "CHAR, VARCHAR, BOOLEAN, BINARY, VARBINARY,"
                                             + " DECIMAL, TINYINT, SMALLINT, INTEGER,"
                                             + " DATE, BIGINT, FLOAT, DOUBLE, ROW, TIME_WITHOUT_TIME_ZONE, TIMESTAMP_WITHOUT_TIME_ZONE,"
-                                            + " TIMESTAMP_WITH_LOCAL_TIME_ZONE, and ARRAY"));
+                                            + " TIMESTAMP_WITH_LOCAL_TIME_ZONE, ARRAY, and MAP"));
                     throw new UnsupportedOperationException(notSupportedError);
             }
         } catch (UnsupportedOperationException
@@ -408,6 +413,98 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
             FieldDescriptor fieldDescriptor) {
         Object ele = elementGetter.getElementOrNull(element.getArray(fieldNumber), pos);
         return toProtoValue(arrayElementType, 0, GenericRowData.of(ele), fieldDescriptor);
+    }
+
+    /**
+     * Converts a Flink {@link MapType} value into a JSON string, for writing to a BigQuery
+     * STRING/JSON column. Only string-family keys and primitive-typed values are supported.
+     *
+     * @param fieldType the MAP {@link LogicalType} of the field being converted.
+     * @param fieldNumber index of the field in {@code element}.
+     * @param element the {@link RowData} containing the map field.
+     * @param fieldDescriptor the destination proto {@link FieldDescriptor}, which must be of type
+     *     STRING.
+     * @return the map serialized as a JSON string.
+     */
+    private String convertMapToJsonString(
+            LogicalType fieldType,
+            int fieldNumber,
+            RowData element,
+            FieldDescriptor fieldDescriptor) {
+        if (fieldDescriptor.getType() != FieldDescriptor.Type.STRING) {
+            throw new IllegalArgumentException(
+                    "MAP type can only be written to a BigQuery STRING/JSON column, but the "
+                            + "destination field '"
+                            + fieldDescriptor.getName()
+                            + "' is of type "
+                            + fieldDescriptor.getType().name()
+                            + ".");
+        }
+        MapType mapType = (MapType) fieldType;
+        LogicalType keyType = mapType.getKeyType();
+        LogicalType valueType = mapType.getValueType();
+        if (!keyType.getTypeRoot().getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+            throw new IllegalArgumentException(
+                    "MAP type written to a BigQuery JSON column must have a string-family key "
+                            + "type, but got: "
+                            + keyType.getTypeRoot());
+        }
+        if (!isSupportedMapValueType(valueType.getTypeRoot())) {
+            throw new UnsupportedOperationException(
+                    "MAP value type '"
+                            + valueType.getTypeRoot()
+                            + "' is not supported for serialization to a BigQuery JSON column. "
+                            + "Supported value types are: CHAR, VARCHAR, BOOLEAN, TINYINT, "
+                            + "SMALLINT, INTEGER, BIGINT, FLOAT, DOUBLE.");
+        }
+
+        ArrayData.ElementGetter keyGetter = ArrayData.createElementGetter(keyType);
+        ArrayData.ElementGetter valueGetter = ArrayData.createElementGetter(valueType);
+        MapData mapData = element.getMap(fieldNumber);
+        ArrayData keyArray = mapData.keyArray();
+        ArrayData valueArray = mapData.valueArray();
+
+        JSONObject jsonObject = new JSONObject();
+        for (int pos = 0; pos < mapData.size(); pos++) {
+            Object rawKey = keyGetter.getElementOrNull(keyArray, pos);
+            if (rawKey == null) {
+                throw new IllegalArgumentException(
+                        "MAP written to a BigQuery JSON column cannot contain a null key.");
+            }
+            String key = rawKey.toString();
+            Object rawValue = valueGetter.getElementOrNull(valueArray, pos);
+            if (rawValue == null) {
+                jsonObject.put(key, JSONObject.NULL);
+            } else if (valueType.getTypeRoot() == LogicalTypeRoot.CHAR
+                    || valueType.getTypeRoot() == LogicalTypeRoot.VARCHAR) {
+                jsonObject.put(key, rawValue.toString());
+            } else {
+                jsonObject.put(key, rawValue);
+            }
+        }
+        return jsonObject.toString();
+    }
+
+    /**
+     * Checks whether a MAP value type is currently supported for serialization to a BigQuery JSON
+     * column. Nested/complex value types (ROW, ARRAY, MAP, DECIMAL, temporal types) are not
+     * supported yet.
+     */
+    private static boolean isSupportedMapValueType(LogicalTypeRoot valueTypeRoot) {
+        switch (valueTypeRoot) {
+            case CHAR:
+            case VARCHAR:
+            case BOOLEAN:
+            case TINYINT:
+            case SMALLINT:
+            case INTEGER:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**

@@ -355,7 +355,7 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 // Get the schema of the field.
                 return toProtoValue(fieldDescriptor, type, value);
             case MAP:
-                throw new UnsupportedOperationException("MAP type not supported yet");
+                return AvroSchemaHandler.handleMapSchema(fieldDescriptor, avroSchema, value);
             case STRING:
                 /*
                 Logical Types currently supported are of the following underlying types:
@@ -450,6 +450,85 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 result.add(toProtoValue(fieldDescriptor, arrayElementType, v));
             }
             return result;
+        }
+
+        /**
+         * Helper function to convert an Avro <b>MAP</b> Type value to a JSON string, for writing to
+         * a BigQuery STRING/JSON column. Only primitive-typed map values are supported.
+         *
+         * @param fieldDescriptor destination proto {@link FieldDescriptor}, which must be of type
+         *     STRING.
+         * @param avroSchema {@link Schema} of type MAP describing the value.
+         * @param value the map value, expected to be a {@link java.util.Map}.
+         * @return the map serialized as a JSON string.
+         */
+        public static String handleMapSchema(
+                FieldDescriptor fieldDescriptor, Schema avroSchema, Object value) {
+            if (fieldDescriptor.getType() != FieldDescriptor.Type.STRING) {
+                throw new IllegalArgumentException(
+                        "MAP type can only be written to a BigQuery STRING/JSON column, but the "
+                                + "destination field '"
+                                + fieldDescriptor.getName()
+                                + "' is of type "
+                                + fieldDescriptor.getType().name()
+                                + ".");
+            }
+            if (!(value instanceof java.util.Map)) {
+                LOG.error(getLogErrorMessage("Map", "MAP", value.getClass().toString()));
+                throw new IllegalArgumentException("Expecting the value as Map type for type MAP.");
+            }
+            Schema valueSchema = avroSchema.getValueType();
+            Schema unwrappedValueSchema =
+                    valueSchema.getType() == Schema.Type.UNION
+                            ? handleUnionSchema(valueSchema).getLeft()
+                            : valueSchema;
+            if (!isSupportedMapValueSchema(unwrappedValueSchema)) {
+                throw new UnsupportedOperationException(
+                        "MAP value type '"
+                                + unwrappedValueSchema.getType()
+                                + "' is not supported for serialization to a BigQuery JSON "
+                                + "column. Supported value types are: STRING, BOOLEAN, INT, LONG, "
+                                + "FLOAT, DOUBLE.");
+            }
+
+            JSONObject jsonObject = new JSONObject();
+            for (Object entryObject : ((java.util.Map<?, ?>) value).entrySet()) {
+                java.util.Map.Entry<?, ?> entry = (java.util.Map.Entry<?, ?>) entryObject;
+                Object rawKey = entry.getKey();
+                if (rawKey == null) {
+                    throw new IllegalArgumentException(
+                            "MAP written to a BigQuery JSON column cannot contain a null key.");
+                }
+                String key = rawKey.toString();
+                Object rawValue = entry.getValue();
+                if (rawValue == null) {
+                    jsonObject.put(key, JSONObject.NULL);
+                } else if (rawValue instanceof Utf8) {
+                    jsonObject.put(key, rawValue.toString());
+                } else {
+                    jsonObject.put(key, rawValue);
+                }
+            }
+            return jsonObject.toString();
+        }
+
+        /**
+         * Checks whether an Avro MAP value schema is currently supported for serialization to a
+         * BigQuery JSON column. Nested/complex value schemas (RECORD, ARRAY, MAP, UNION, logical
+         * types) are not supported yet.
+         */
+        static boolean isSupportedMapValueSchema(Schema valueSchema) {
+            switch (valueSchema.getType()) {
+                case STRING:
+                case BOOLEAN:
+                case INT:
+                case LONG:
+                case FLOAT:
+                case DOUBLE:
+                    return valueSchema.getLogicalType() == null;
+                default:
+                    return false;
+            }
         }
 
         /**
