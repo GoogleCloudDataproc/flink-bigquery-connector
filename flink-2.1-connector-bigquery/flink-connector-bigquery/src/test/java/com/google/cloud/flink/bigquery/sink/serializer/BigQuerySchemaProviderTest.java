@@ -161,8 +161,20 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testRecordOfMapSchemaConversation() {
+        // The nested MAP has a primitive (long) value type, so it is serialized as a
+        // BigQuery STRING/JSON field rather than throwing.
         String fieldString = TestBigQuerySchemas.getSchemaWithRecordOfMap();
-        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(avroSchema).getDescriptor();
+
+        FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
+        assertEquals("record_with_map", fieldDescriptorProto.getName());
+        assertEquals(FieldDescriptorProto.Type.TYPE_MESSAGE, fieldDescriptorProto.getType());
+        Descriptor nestedDescriptor =
+                descriptor.findNestedTypeByName(fieldDescriptorProto.getTypeName());
+        FieldDescriptor mapFieldDescriptor = nestedDescriptor.findFieldByNumber(1);
+        assertEquals("map_in_record", mapFieldDescriptor.getName());
+        assertEquals(FieldDescriptor.Type.STRING, mapFieldDescriptor.getType());
     }
 
     @Test
@@ -257,32 +269,47 @@ public class BigQuerySchemaProviderTest {
     // ------------Test Schemas with MAP of Different Types --------------
     @Test
     public void testMapOfArraySchemaConversion() {
+        // ARRAY is not a supported MAP value type for serialization to a JSON column.
         String fieldString = TestBigQuerySchemas.getSchemaWithMapOfArray();
-        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
+        assertExpectedUnsupportedException(fieldString, "is not supported");
     }
 
     @Test
     public void testMapOfUnionSchemaConversion() {
+        // The union's non-null branch (FLOAT) is a supported primitive value type, so this
+        // MAP is serialized as a BigQuery STRING/JSON field rather than throwing.
         String fieldString = TestBigQuerySchemas.getSchemaWithMapOfUnionType();
-        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(avroSchema).getDescriptor();
+        FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
+        assertEquals("map_of_union", fieldDescriptor.getName());
+        assertEquals(FieldDescriptor.Type.STRING, fieldDescriptor.getType());
     }
 
     @Test
     public void testMapOfMapSchemaConversion() {
+        // MAP is not a supported MAP value type for serialization to a JSON column.
         String fieldString = TestBigQuerySchemas.getSchemaWithMapOfMap();
-        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
+        assertExpectedUnsupportedException(fieldString, "is not supported");
     }
 
     @Test
     public void testMapOfRecordSchemaConversion() {
+        // RECORD is not a supported MAP value type for serialization to a JSON column.
         String fieldString = TestBigQuerySchemas.getSchemaWithMapOfRecord();
-        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
+        assertExpectedUnsupportedException(fieldString, "is not supported");
     }
 
     @Test
     public void testMapSchemaConversion() {
+        // The MAP has a primitive (long) value type, so it is serialized as a BigQuery
+        // STRING/JSON field rather than throwing.
         String fieldString = TestBigQuerySchemas.getSchemaWithMapType();
-        assertExpectedUnsupportedException(fieldString, "MAP type not supported yet.");
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(avroSchema).getDescriptor();
+        FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
+        assertEquals("map_field", fieldDescriptor.getName());
+        assertEquals(FieldDescriptor.Type.STRING, fieldDescriptor.getType());
     }
 
     // ------------Test Schemas with ARRAY of Different Types -------------
