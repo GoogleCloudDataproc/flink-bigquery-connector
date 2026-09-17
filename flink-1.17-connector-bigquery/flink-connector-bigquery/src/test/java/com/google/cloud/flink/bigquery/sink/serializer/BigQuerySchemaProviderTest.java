@@ -340,9 +340,11 @@ public class BigQuerySchemaProviderTest {
 
     @Test
     public void testArrayOfUnionOfMapSchemaConversion() {
+        // The union's non-null branch is ARRAY (of MAP), so this is a nullable ARRAY in a
+        // UNION, which is still rejected regardless of the MAP support added elsewhere.
         String fieldString = TestBigQuerySchemas.getSchemaWithArrayOfUnionOfMap();
         assertExpectedUnsupportedException(
-                fieldString, "MAP/ARRAYS in UNION types are not supported");
+                fieldString, "NULLABLE ARRAY in UNION types is not supported");
     }
 
     @Test
@@ -421,21 +423,27 @@ public class BigQuerySchemaProviderTest {
     public void testUnionOfArraySchemaConversion() {
         String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArray();
         assertExpectedUnsupportedException(
-                fieldString, "MAP/ARRAYS in UNION types are not supported");
+                fieldString, "NULLABLE ARRAY in UNION types is not supported");
     }
 
     @Test
     public void testUnionOfArrayOfRecordSchemaConversion() {
         String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfArrayOfRecord();
         assertExpectedUnsupportedException(
-                fieldString, "MAP/ARRAYS in UNION types are not supported");
+                fieldString, "NULLABLE ARRAY in UNION types is not supported");
     }
 
     @Test
     public void testUnionOfMapSchemaConversion() {
+        // The MAP has a primitive (long) value type and is now serialized as a JSON string
+        // into a scalar STRING field, so a nullable MAP is valid as an OPTIONAL STRING field.
         String fieldString = TestBigQuerySchemas.getSchemaWithUnionOfMap();
-        assertExpectedUnsupportedException(
-                fieldString, "MAP/ARRAYS in UNION types are not supported");
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(avroSchema).getDescriptor();
+        FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
+        assertEquals("map_field_union", fieldDescriptor.getName());
+        assertEquals(FieldDescriptor.Type.STRING, fieldDescriptor.getType());
+        assertTrue(fieldDescriptor.isOptional());
     }
 
     @Test

@@ -2054,6 +2054,21 @@ public class AvroToProtoSerializerTest {
     }
 
     @Test
+    public void testMapWithNullValueThrowsIllegalArgumentExceptionNotNPE() {
+        Schema avroSchema = getMapOfStringToStringSchema();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
+        Schema mapSchema = avroSchema.getField("map_field").schema();
+
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.handleMapSchema(fieldDescriptor, mapSchema, null));
+        Assertions.assertThat(exception).hasMessageContaining("but got null");
+    }
+
+    @Test
     public void testMapWithRecordValueTypeThrows() {
         String fieldString =
                 " \"fields\": [\n"
