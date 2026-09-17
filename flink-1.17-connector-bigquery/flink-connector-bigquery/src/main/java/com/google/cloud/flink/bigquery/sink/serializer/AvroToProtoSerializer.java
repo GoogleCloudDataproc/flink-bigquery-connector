@@ -473,6 +473,10 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                                 + fieldDescriptor.getType().name()
                                 + ".");
             }
+            if (value == null) {
+                throw new IllegalArgumentException(
+                        "Expecting the value as Map type for type MAP, but got null.");
+            }
             if (!(value instanceof java.util.Map)) {
                 LOG.error(getLogErrorMessage("Map", "MAP", value.getClass().toString()));
                 throw new IllegalArgumentException("Expecting the value as Map type for type MAP.");
