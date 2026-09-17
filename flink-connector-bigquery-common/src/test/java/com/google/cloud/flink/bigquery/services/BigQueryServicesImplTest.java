@@ -17,11 +17,14 @@
 package com.google.cloud.flink.bigquery.services;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobConfiguration;
 import com.google.cloud.bigquery.JobId;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.LoadJobConfiguration;
+import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.TableId;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -31,9 +34,11 @@ import java.lang.reflect.Field;
 import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,6 +67,80 @@ public class BigQueryServicesImplTest {
         return LoadJobConfiguration.newBuilder(
                         TableId.of("p", "d", "t"), Collections.singletonList("gs://bucket/a.avro"))
                 .build();
+    }
+
+    @Test
+    public void materializeViewSubmitsJobUnderBillingProject() throws Exception {
+        BigQuery bq = mock(BigQuery.class);
+        BigQueryOptions defaultOptions = mock(BigQueryOptions.class);
+        BigQueryOptions.Builder billingOptionsBuilder = mock(BigQueryOptions.Builder.class);
+        BigQueryOptions billingOptions = mock(BigQueryOptions.class);
+        BigQuery billingBigQuery = mock(BigQuery.class);
+        when(bq.getOptions()).thenReturn(defaultOptions);
+        when(defaultOptions.toBuilder()).thenReturn(billingOptionsBuilder);
+        when(billingOptionsBuilder.setQuotaProjectId("billing-project"))
+                .thenReturn(billingOptionsBuilder);
+        when(billingOptionsBuilder.build()).thenReturn(billingOptions);
+        when(billingOptions.getService()).thenReturn(billingBigQuery);
+        when(billingBigQuery.create(any(JobInfo.class)))
+                .thenThrow(new BigQueryException(500, "stop after job submission"));
+
+        BigQueryServicesImpl.QueryDataClientImpl client = newClientWithMockBigQuery(bq);
+
+        assertThrows(
+                RuntimeException.class,
+                () ->
+                        client.materializeView(
+                                "source-project",
+                                "source-dataset",
+                                "source-view",
+                                Collections.emptyList(),
+                                null,
+                                24,
+                                "materialization-project",
+                                "materialization-dataset",
+                                "billing-project"));
+
+        // The job is submitted through the quota-project client with an explicit JobId
+        // carrying the billing project.
+        ArgumentCaptor<JobInfo> jobInfoCaptor = ArgumentCaptor.forClass(JobInfo.class);
+        verify(billingBigQuery).create(jobInfoCaptor.capture());
+        JobId jobId = jobInfoCaptor.getValue().getJobId();
+        assertEquals("billing-project", jobId.getProject());
+        // The job id itself stays client-generated.
+        assertNotNull(jobId.getJob());
+
+        QueryJobConfiguration config = jobInfoCaptor.getValue().getConfiguration();
+        assertEquals("materialization-project", config.getDestinationTable().getProject());
+        assertEquals("materialization-dataset", config.getDestinationTable().getDataset());
+    }
+
+    @Test
+    public void materializeViewWithoutBillingProjectHasNoExplicitJobId() throws Exception {
+        BigQuery bq = mock(BigQuery.class);
+        when(bq.create(any(JobInfo.class)))
+                .thenThrow(new BigQueryException(500, "stop after job submission"));
+
+        BigQueryServicesImpl.QueryDataClientImpl client = newClientWithMockBigQuery(bq);
+
+        assertThrows(
+                RuntimeException.class,
+                () ->
+                        client.materializeView(
+                                "source-project",
+                                "source-dataset",
+                                "source-view",
+                                Collections.emptyList(),
+                                null,
+                                24,
+                                "materialization-project",
+                                "materialization-dataset",
+                                null));
+
+        // No explicit JobId: BigQuery#create places the job in the client's default project
+        ArgumentCaptor<JobInfo> jobInfoCaptor = ArgumentCaptor.forClass(JobInfo.class);
+        verify(bq).create(jobInfoCaptor.capture());
+        assertNull(jobInfoCaptor.getValue().getJobId());
     }
 
     @Test

@@ -498,7 +498,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
         public String materializeView(
                 String project,
                 String dataset,
-                String table,
+                String view,
                 List<String> selectedFields,
                 String rowRestriction,
                 Integer expirationHours,
@@ -526,7 +526,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
             String query =
                     String.format(
                             "SELECT %s FROM `%s.%s.%s` %s",
-                            columns, project, dataset, table, whereClause);
+                            columns, project, dataset, view, whereClause);
 
             QueryJobConfiguration.Builder queryConfigBuilder =
                     QueryJobConfiguration.newBuilder(query)
@@ -536,6 +536,7 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                             .WRITE_TRUNCATE);
 
             BigQuery materializedBigQuery = bigQuery;
+            JobInfo.Builder jobInfo = JobInfo.newBuilder(queryConfigBuilder.build());
             if (billingProject != null) {
                 materializedBigQuery =
                         bigQuery.getOptions()
@@ -543,18 +544,16 @@ public class BigQueryServicesImpl implements BigQueryServices {
                                 .setQuotaProjectId(billingProject)
                                 .build()
                                 .getService();
+                jobInfo.setJobId(
+                        JobId.newBuilder().setProject(billingProject).setRandomJob().build());
                 LOG.info(
                         "Materializing view {} via custom billing project: {}",
-                        table,
+                        view,
                         billingProject);
             }
 
-            QueryJobConfiguration queryConfig = queryConfigBuilder.build();
-
             try {
-                com.google.cloud.bigquery.Job job =
-                        materializedBigQuery.create(
-                                com.google.cloud.bigquery.JobInfo.of(queryConfig));
+                Job job = materializedBigQuery.create(jobInfo.build());
                 job.waitFor();
 
                 // Set expiration time for the temp table using the correct billing context

@@ -269,7 +269,9 @@ public interface BigQueryServices extends Serializable {
          * @param expirationHours The expiration time for the materialized table in hours.
          * @param materializationProject The GCP project where the temp table is created.
          * @param materializationDataset The BigQuery dataset where the temp table is created.
-         * @param billingProject The GCP project billed for the query compute.
+         * @param billingProject The GCP project under which the materialization job is submitted
+         *     and billed for the query compute. Falls back to the BigQuery client's default project
+         *     when null.
          * @return The name of the materialized table.
          */
         String materializeView(
