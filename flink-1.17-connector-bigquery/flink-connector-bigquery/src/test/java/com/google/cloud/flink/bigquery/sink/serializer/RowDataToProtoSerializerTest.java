@@ -17,7 +17,9 @@
 package com.google.cloud.flink.bigquery.sink.serializer;
 
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericArrayData;
+import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
@@ -47,7 +49,9 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getRecordSchema;
@@ -1434,35 +1438,140 @@ public class RowDataToProtoSerializerTest {
         assertEquals(123L, message.getField(descriptor.findFieldByNumber(2)));
     }
 
-    /**
-     * Test to check the conversion of an Unsupported Data Type to BigQuery Proto. <br>
-     * A generic Logical type (NULLABLE String Type) has been provided for the purpose of descriptor
-     * formation as MAP and other types that are unsupported here are unsupported in the descriptor
-     * formation as well. <br>
-     * Expects to get a <code>BigQuerySerializationException</code>
-     */
-    @Test
-    public void testInvalidLogicalTypeToByteStringIncorrectly() {
-        // Form the Schema.
-        DataType dataType =
-                DataTypes.ROW(DataTypes.FIELD("generic_type", DataTypes.STRING())).notNull();
-        LogicalType genericType = dataType.getLogicalType();
-        Schema avroSchema = BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(genericType);
-        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+    // --------------- Test MAP type (serialized as a JSON string) ---------------
 
-        // Initialize the record.
-        GenericRowData row = new GenericRowData(1);
-        row.setField(0, "hello");
-
-        LogicalType logicalType =
-                DataTypes.ROW(
-                                DataTypes.FIELD(
-                                        "generic_type",
-                                        DataTypes.MAP(
-                                                DataTypes.STRING().notNull(),
-                                                DataTypes.STRING().notNull())))
+    private static BigQuerySchemaProvider getMapSchemaProvider(DataType mapFieldType) {
+        LogicalType rowType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
                         .notNull()
                         .getLogicalType();
+        Schema avroSchema = BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(rowType);
+        return new BigQuerySchemaProviderImpl(avroSchema);
+    }
+
+    @Test
+    public void testMapOfStringToStringConversionToDynamicMessageCorrectly() {
+        DataType mapFieldType = DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider = getMapSchemaProvider(mapFieldType);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(StringData.fromString("firstName"), StringData.fromString("John"));
+        map.put(StringData.fromString("lastName"), StringData.fromString("Doe"));
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        DynamicMessage message =
+                rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
+        String json = (String) message.getField(descriptor.findFieldByNumber(1));
+        org.json.JSONObject jsonObject = new org.json.JSONObject(json);
+        assertEquals("John", jsonObject.get("firstName"));
+        assertEquals("Doe", jsonObject.get("lastName"));
+    }
+
+    @Test
+    public void testMapWithPrimitiveValueTypesConversionToDynamicMessageCorrectly() {
+        DataType mapFieldType = DataTypes.MAP(DataTypes.STRING(), DataTypes.INT()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider = getMapSchemaProvider(mapFieldType);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(StringData.fromString("age"), 42);
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        DynamicMessage message =
+                rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
+        String json = (String) message.getField(descriptor.findFieldByNumber(1));
+        org.json.JSONObject jsonObject = new org.json.JSONObject(json);
+        assertEquals(42, jsonObject.get("age"));
+    }
+
+    @Test
+    public void testMapWithNullValueConversionToDynamicMessageCorrectly() {
+        DataType mapFieldType = DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider = getMapSchemaProvider(mapFieldType);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(StringData.fromString("key"), null);
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        DynamicMessage message =
+                rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
+        String json = (String) message.getField(descriptor.findFieldByNumber(1));
+        org.json.JSONObject jsonObject = new org.json.JSONObject(json);
+        assertThat(jsonObject.isNull("key")).isTrue();
+    }
+
+    @Test
+    public void testEmptyMapConversionToDynamicMessageCorrectly() {
+        DataType mapFieldType = DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider = getMapSchemaProvider(mapFieldType);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(new HashMap<>()));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        DynamicMessage message =
+                rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
+        assertEquals("{}", message.getField(descriptor.findFieldByNumber(1)));
+    }
+
+    @Test
+    public void testMapWithNonStringKeyThrows() {
+        DataType mapFieldType = DataTypes.MAP(DataTypes.INT(), DataTypes.STRING()).notNull();
+        // Descriptor formation only depends on the value type, so build it via the value-only
+        // helper and bypass the (unsupported) INT-keyed avro map schema derivation by directly
+        // constructing the row's LogicalType with an INT key.
+        DataType stringKeyedMapFieldType =
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                getMapSchemaProvider(stringKeyedMapFieldType);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(1, StringData.fromString("value"));
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
         RowDataToProtoSerializer rowDataToProtoSerializer =
                 new RowDataToProtoSerializer(logicalType);
         rowDataToProtoSerializer.init(bigQuerySchemaProvider);
@@ -1471,10 +1580,165 @@ public class RowDataToProtoSerializerTest {
                 assertThrows(
                         BigQuerySerializationException.class,
                         () -> rowDataToProtoSerializer.serialize(row));
+        Assertions.assertThat(exception).hasMessageContaining("must have a string-family key type");
+    }
 
+    @Test
+    public void testMapWithNullKeyThrows() {
+        DataType mapFieldType = DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider = getMapSchemaProvider(mapFieldType);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(null, StringData.fromString("value"));
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataToProtoSerializer.serialize(row));
+        Assertions.assertThat(exception).hasMessageContaining("cannot contain a null key");
+    }
+
+    @Test
+    public void testMapWithRowValueTypeThrows() {
+        DataType rowValueMapFieldType =
+                DataTypes.MAP(
+                                DataTypes.STRING(),
+                                DataTypes.ROW(DataTypes.FIELD("nested", DataTypes.STRING())))
+                        .notNull();
+        // BigQuerySchemaProviderImpl derivation for a ROW-valued map value is out of scope for
+        // this restriction test; instead validate directly against a STRING-destination
+        // descriptor built from a primitive-valued map, matching the actual restriction enforced
+        // in RowDataToProtoSerializer.toProtoValue for MAP.
+        DataType placeholderMapFieldType =
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                getMapSchemaProvider(placeholderMapFieldType);
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", rowValueMapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        GenericRowData innerRow = new GenericRowData(1);
+        innerRow.setField(0, StringData.fromString("value"));
+        Map<Object, Object> map = new HashMap<>();
+        map.put(StringData.fromString("key"), innerRow);
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataToProtoSerializer.serialize(row));
+        Assertions.assertThat(exception).hasMessageContaining("is not supported");
+    }
+
+    @Test
+    public void testMapWithArrayValueTypeThrows() {
+        DataType arrayValueMapFieldType =
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.ARRAY(DataTypes.STRING())).notNull();
+        DataType placeholderMapFieldType =
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                getMapSchemaProvider(placeholderMapFieldType);
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", arrayValueMapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(
+                StringData.fromString("key"),
+                new GenericArrayData(new Object[] {StringData.fromString("a")}));
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataToProtoSerializer.serialize(row));
+        Assertions.assertThat(exception).hasMessageContaining("is not supported");
+    }
+
+    @Test
+    public void testMapWithDecimalValueTypeThrows() {
+        DataType decimalValueMapFieldType =
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.DECIMAL(10, 2)).notNull();
+        DataType placeholderMapFieldType =
+                DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                getMapSchemaProvider(placeholderMapFieldType);
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", decimalValueMapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(StringData.fromString("key"), DecimalData.fromUnscaledLong(1050L, 10, 2));
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataToProtoSerializer.serialize(row));
+        Assertions.assertThat(exception).hasMessageContaining("is not supported");
+    }
+
+    @Test
+    public void testMapWrittenToNonStringDestinationFieldThrows() {
+        // Build a descriptor where the destination field is an INTEGER, then attempt to
+        // serialize a MAP-typed RowData value into it.
+        LogicalType destinationLogicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", DataTypes.BIGINT()))
+                        .notNull()
+                        .getLogicalType();
+        Schema avroSchema =
+                BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(destinationLogicalType);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+
+        DataType mapFieldType = DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()).notNull();
+        LogicalType logicalType =
+                DataTypes.ROW(DataTypes.FIELD("map_field", mapFieldType))
+                        .notNull()
+                        .getLogicalType();
+
+        Map<Object, Object> map = new HashMap<>();
+        map.put(StringData.fromString("key"), StringData.fromString("value"));
+        GenericRowData row = new GenericRowData(1);
+        row.setField(0, new GenericMapData(map));
+
+        RowDataToProtoSerializer rowDataToProtoSerializer =
+                new RowDataToProtoSerializer(logicalType);
+        rowDataToProtoSerializer.init(bigQuerySchemaProvider);
+
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class,
+                        () -> rowDataToProtoSerializer.serialize(row));
         Assertions.assertThat(exception)
-                .hasMessageContaining(
-                        "Serialization to ByteString for the passed "
-                                + "RowData type: 'MAP' is not supported yet!");
+                .hasMessageContaining("can only be written to a BigQuery STRING/JSON column");
     }
 }

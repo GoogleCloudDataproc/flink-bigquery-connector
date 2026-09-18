@@ -1949,4 +1949,164 @@ public class AvroToProtoSerializerTest {
         Assertions.assertThat(exception)
                 .hasMessageContaining("Null Type Field not supported in BigQuery!");
     }
+
+    // --------------- Test MAP type (serialized as a JSON string) ---------------
+
+    private static Schema getMapOfStringToStringSchema() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", "
+                        + "\"values\": \"string\"}}\n"
+                        + " ]\n";
+        return getAvroSchemaFromFieldString(fieldString);
+    }
+
+    @Test
+    public void testMapOfStringToStringConversionToDynamicMessageCorrectly() {
+        Schema avroSchema = getMapOfStringToStringSchema();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        map.put("firstName", "John");
+        map.put("lastName", "Doe");
+        GenericRecord record = new GenericRecordBuilder(avroSchema).set("map_field", map).build();
+
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        String json = (String) message.getField(descriptor.findFieldByNumber(1));
+        org.json.JSONObject jsonObject = new org.json.JSONObject(json);
+        assertEquals("John", jsonObject.get("firstName"));
+        assertEquals("Doe", jsonObject.get("lastName"));
+    }
+
+    @Test
+    public void testMapWithPrimitiveValueTypesConversionToDynamicMessageCorrectly() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", "
+                        + "\"values\": \"int\"}}\n"
+                        + " ]\n";
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+
+        java.util.Map<String, Integer> map = new java.util.HashMap<>();
+        map.put("age", 42);
+        GenericRecord record = new GenericRecordBuilder(avroSchema).set("map_field", map).build();
+
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        String json = (String) message.getField(descriptor.findFieldByNumber(1));
+        org.json.JSONObject jsonObject = new org.json.JSONObject(json);
+        assertEquals(42, jsonObject.get("age"));
+    }
+
+    @Test
+    public void testMapWithNullValueConversionToDynamicMessageCorrectly() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", "
+                        + "\"values\": [\"null\", \"string\"]}}\n"
+                        + " ]\n";
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        map.put("key", null);
+        GenericRecord record = new GenericRecordBuilder(avroSchema).set("map_field", map).build();
+
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        String json = (String) message.getField(descriptor.findFieldByNumber(1));
+        org.json.JSONObject jsonObject = new org.json.JSONObject(json);
+        assertThat(jsonObject.isNull("key")).isTrue();
+    }
+
+    @Test
+    public void testEmptyMapConversionToDynamicMessageCorrectly() {
+        Schema avroSchema = getMapOfStringToStringSchema();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("map_field", new java.util.HashMap<String, String>())
+                        .build();
+
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        assertEquals("{}", message.getField(descriptor.findFieldByNumber(1)));
+    }
+
+    @Test
+    public void testMapWithNullKeyThrows() {
+        Schema avroSchema = getMapOfStringToStringSchema();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        map.put(null, "value");
+        GenericRecord record = new GenericRecordBuilder(avroSchema).set("map_field", map).build();
+
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class, () -> serializer.serialize(record));
+        Assertions.assertThat(exception).hasMessageContaining("cannot contain a null key");
+    }
+
+    @Test
+    public void testMapWithNullValueThrowsIllegalArgumentExceptionNotNPE() {
+        Schema avroSchema = getMapOfStringToStringSchema();
+        BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
+        FieldDescriptor fieldDescriptor = descriptor.findFieldByNumber(1);
+        Schema mapSchema = avroSchema.getField("map_field").schema();
+
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> AvroSchemaHandler.handleMapSchema(fieldDescriptor, mapSchema, null));
+        Assertions.assertThat(exception).hasMessageContaining("but got null");
+    }
+
+    @Test
+    public void testMapWithRecordValueTypeThrows() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "   {\"name\": \"map_field\", \"type\": {\"type\": \"map\", "
+                        + "\"values\": "
+                        + getRecordSchema("nested_record")
+                        + "}}\n"
+                        + " ]\n";
+        Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
+
+        UnsupportedOperationException exception =
+                assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> new BigQuerySchemaProviderImpl(avroSchema));
+        Assertions.assertThat(exception).hasMessageContaining("is not supported");
+    }
+
+    @Test
+    public void testMapWrittenToNonStringDestinationFieldThrows() {
+        // Build a descriptor where the destination field is an INTEGER, then attempt to
+        // serialize a MAP-typed Avro value into it.
+        String notNullSchemaFieldString =
+                " \"fields\": [\n" + "   {\"name\": \"map_field\", \"type\": \"long\"}\n" + " ]\n";
+        Schema notNullSchema = getAvroSchemaFromFieldString(notNullSchemaFieldString);
+        BigQuerySchemaProvider bigQuerySchemaProvider =
+                new BigQuerySchemaProviderImpl(notNullSchema);
+
+        Schema mapSchema = getMapOfStringToStringSchema();
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        map.put("key", "value");
+        GenericRecord record = new GenericRecordBuilder(mapSchema).set("map_field", map).build();
+
+        BigQueryProtoSerializer<GenericRecord> serializer = new AvroToProtoSerializer();
+        serializer.init(bigQuerySchemaProvider);
+        BigQuerySerializationException exception =
+                assertThrows(
+                        BigQuerySerializationException.class, () -> serializer.serialize(record));
+        Assertions.assertThat(exception)
+                .hasMessageContaining("can only be written to a BigQuery STRING/JSON column");
+    }
 }
