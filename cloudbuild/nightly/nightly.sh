@@ -89,20 +89,45 @@ case $STEP in
     GCS_BASE_PATH="$GCS_JAR_LOCATION"/"$timestamp"
     export GCS_JAR_LOCATION="$GCS_BASE_PATH"/"$GCS_JAR_NAME"
 
+    # Versioned connector artifacts and Maven profiles use the Flink minor
+    # version, while callers may request a fully qualified runtime version.
+    FLINK_CONNECTOR_VERSION="$FLINK_VERSION"
+    FLINK_INIT_SCRIPT=""
+    case "$FLINK_VERSION" in
+      2.1|2.1.0)
+        FLINK_CONNECTOR_VERSION="2.1"
+        FLINK_INIT_SCRIPT="install_flink_2.1.sh"
+        ;;
+      2.2|2.2.1)
+        FLINK_CONNECTOR_VERSION="2.2"
+        FLINK_INIT_SCRIPT="install_flink_2.2.sh"
+        ;;
+      2.3|2.3.0)
+        FLINK_CONNECTOR_VERSION="2.3"
+        FLINK_INIT_SCRIPT="install_flink_2.3.sh"
+        ;;
+      2.1.*|2.2.*|2.3.*)
+        echo "Unsupported Flink patch version: $FLINK_VERSION" >&2
+        echo "Use 2.1 or 2.1.0, 2.2 or 2.2.1, or 2.3 or 2.3.0." >&2
+        exit 2
+        ;;
+    esac
+
     # Extract revision from pom.xml
     RELEASE_VERSION=$($MVN help:evaluate -Dexpression=project.version -q -DforceStdout)
     # Construct the path to the JAR in the local maven repository
-    ARTIFACT_ID="flink-${FLINK_VERSION}-connector-bigquery-integration-test"
+    ARTIFACT_ID="flink-${FLINK_CONNECTOR_VERSION}-connector-bigquery-integration-test"
     MVN_JAR_PATH="/workspace/.repository/com/google/cloud/flink/${ARTIFACT_ID}/${RELEASE_VERSION}/${ARTIFACT_ID}-${RELEASE_VERSION}.jar"
 
-    $MVN clean install -DskipTests -P"flink_${FLINK_VERSION}"
+    $MVN clean install -DskipTests -P"flink_${FLINK_CONNECTOR_VERSION}"
     gcloud storage cp "${MVN_JAR_PATH}" "$GCS_JAR_LOCATION"
     echo "$GCS_JAR_LOCATION" > "$GCS_JAR_LOCATION_FILE"
-    
-    # Upload Flink initialization script if Flink 2.1 is requested
-    if [[ "$FLINK_VERSION" == "2.1" || "$FLINK_VERSION" == "2.1."* ]]; then
-        export GCS_INIT_SCRIPT_LOCATION="$GCS_BASE_PATH/install_flink_2.1.sh"
-        gcloud storage cp "cloudbuild/nightly/scripts/install_flink_2.1.sh" "$GCS_INIT_SCRIPT_LOCATION"
+
+    # Dataproc does not yet provide these Flink 2.x runtimes, so install the
+    # requested version with an initialization action.
+    if [[ -n "$FLINK_INIT_SCRIPT" ]]; then
+        export GCS_INIT_SCRIPT_LOCATION="$GCS_BASE_PATH/$FLINK_INIT_SCRIPT"
+        gcloud storage cp "cloudbuild/nightly/scripts/$FLINK_INIT_SCRIPT" "$GCS_INIT_SCRIPT_LOCATION"
         echo "$GCS_INIT_SCRIPT_LOCATION" > "initialization_script_uri.txt"
     fi
     exit
