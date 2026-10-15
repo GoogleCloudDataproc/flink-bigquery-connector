@@ -1,0 +1,747 @@
+/*
+ * Copyright (C) 2024 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+package com.google.cloud.flink.bigquery.sink;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.serialization.BulkWriter;
+import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.configuration.RestartStrategyOptions;
+import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.RowType;
+
+import com.google.cloud.bigquery.FormatOptions;
+import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.sink.indirect.RowDataParquetWriterFactory;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
+import com.google.cloud.flink.bigquery.sink.serializer.BigQueryTableSchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Configurations for a BigQuery Sink.
+ *
+ * <p>Uses static inner builder to initialize new instances.
+ *
+ * @param <IN> Type of input to sink.
+ */
+public class BigQuerySinkConfig<IN> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BigQuerySink.class);
+    private static final long MILLISECONDS_PER_SECOND = 1000L;
+    private static final long MILLISECONDS_PER_MINUTE = 60L * 1000L;
+    private static final long MILLISECONDS_PER_HOUR = 60L * 60L * 1000L;
+    private static final String RESTART_STRATEGY_FIXED_DELAY = "fixed-delay";
+    private static final String RESTART_STRATEGY_EXPONENTIAL_DELAY = "exponential-delay";
+    private static final String RESTART_STRATEGY_FAILURE_RATE = "failure-rate";
+    private static final String RESTART_STRATEGY_NONE = "none";
+
+    private final BigQueryConnectOptions connectOptions;
+    private final DeliveryGuarantee deliveryGuarantee;
+    private final BigQuerySchemaProvider schemaProvider;
+    private final BigQueryProtoSerializer<IN> serializer;
+    private final boolean enableTableCreation;
+    private final String partitionField;
+    private final TimePartitioning.Type partitionType;
+    private final Long partitionExpirationMillis;
+    private final List<String> clusteredFields;
+    private final String region;
+    private final boolean fatalizeSerializer;
+    // CDC (Change Data Capture) configuration
+    private final boolean cdcEnabled;
+    private final String cdcSequenceField;
+    private final List<String> cdcPrimaryKeyColumns;
+    private final String cdcMaxStaleness;
+    private final CdcChangeTypeProvider<?> cdcChangeTypeProvider;
+    private final WriteMode writeMode;
+    private final String tempGcsPath;
+    private final String tempProject;
+    private final String tempDataset;
+    private final String jobProject;
+    private final BulkWriter.Factory<IN> bulkWriterFactory;
+    private final FormatOptions formatOptions;
+
+    public static <IN> Builder<IN> newBuilder() {
+        return new Builder<>();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                connectOptions,
+                deliveryGuarantee,
+                schemaProvider,
+                serializer,
+                enableTableCreation,
+                partitionField,
+                partitionType,
+                partitionExpirationMillis,
+                clusteredFields,
+                region,
+                fatalizeSerializer,
+                cdcEnabled,
+                cdcSequenceField,
+                cdcPrimaryKeyColumns,
+                cdcMaxStaleness,
+                cdcChangeTypeProvider,
+                writeMode,
+                tempGcsPath,
+                tempProject,
+                tempDataset,
+                jobProject,
+                bulkWriterFactory,
+                formatOptions);
+    }
+
+    private static Class<?> serializerClass(BigQuerySinkConfig<?> config) {
+        return config.getSerializer() == null ? null : config.getSerializer().getClass();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        BigQuerySinkConfig<IN> object = (BigQuerySinkConfig<IN>) obj;
+        return (Objects.equals(this.getConnectOptions(), object.getConnectOptions())
+                && Objects.equals(serializerClass(this), serializerClass(object))
+                && (this.getDeliveryGuarantee() == object.getDeliveryGuarantee())
+                && (this.enableTableCreation() == object.enableTableCreation())
+                && (Objects.equals(this.getPartitionField(), object.getPartitionField()))
+                && (this.getPartitionType() == object.getPartitionType())
+                && (Objects.equals(
+                        this.getPartitionExpirationMillis(), object.getPartitionExpirationMillis()))
+                && (Objects.equals(this.getClusteredFields(), object.getClusteredFields()))
+                && (Objects.equals(this.getRegion(), object.getRegion()))
+                && (Objects.equals(this.getSchemaProvider(), object.getSchemaProvider()))
+                && (this.fatalizeSerializer() == object.fatalizeSerializer())
+                && (this.isCdcEnabled() == object.isCdcEnabled())
+                && (Objects.equals(this.getCdcSequenceField(), object.getCdcSequenceField()))
+                && (Objects.equals(
+                        this.getCdcPrimaryKeyColumns(), object.getCdcPrimaryKeyColumns()))
+                && (Objects.equals(this.getCdcMaxStaleness(), object.getCdcMaxStaleness()))
+                && (Objects.equals(
+                        this.getCdcChangeTypeProvider(), object.getCdcChangeTypeProvider()))
+                && (this.writeMode == object.writeMode)
+                && (Objects.equals(this.tempGcsPath, object.tempGcsPath))
+                && (Objects.equals(this.tempProject, object.tempProject))
+                && (Objects.equals(this.tempDataset, object.tempDataset))
+                && (Objects.equals(this.jobProject, object.jobProject))
+                && (Objects.equals(this.bulkWriterFactory, object.bulkWriterFactory))
+                && (Objects.equals(this.formatOptions, object.formatOptions)));
+    }
+
+    private BigQuerySinkConfig(
+            BigQueryConnectOptions connectOptions,
+            DeliveryGuarantee deliveryGuarantee,
+            BigQuerySchemaProvider schemaProvider,
+            BigQueryProtoSerializer<IN> serializer,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            Long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region,
+            boolean fatalizeSerializer,
+            boolean cdcEnabled,
+            String cdcSequenceField,
+            List<String> cdcPrimaryKeyColumns,
+            String cdcMaxStaleness,
+            CdcChangeTypeProvider<?> cdcChangeTypeProvider,
+            WriteMode writeMode,
+            String tempGcsPath,
+            String tempProject,
+            String tempDataset,
+            String jobProject,
+            BulkWriter.Factory<IN> bulkWriterFactory,
+            FormatOptions formatOptions) {
+        this.connectOptions = connectOptions;
+        this.deliveryGuarantee = deliveryGuarantee;
+        this.schemaProvider = schemaProvider;
+        this.serializer = serializer;
+        this.enableTableCreation = enableTableCreation;
+        this.partitionField = partitionField;
+        this.partitionType = partitionType;
+        this.partitionExpirationMillis = partitionExpirationMillis;
+        this.clusteredFields = clusteredFields;
+        this.region = region;
+        this.fatalizeSerializer = fatalizeSerializer;
+        this.cdcEnabled = cdcEnabled;
+        this.cdcSequenceField = cdcSequenceField;
+        this.cdcPrimaryKeyColumns = cdcPrimaryKeyColumns;
+        this.cdcMaxStaleness = cdcMaxStaleness;
+        this.cdcChangeTypeProvider = cdcChangeTypeProvider;
+        this.writeMode = writeMode;
+        this.tempGcsPath = tempGcsPath;
+        this.tempProject = tempProject;
+        this.tempDataset = tempDataset;
+        this.jobProject = jobProject;
+        this.bulkWriterFactory = bulkWriterFactory;
+        this.formatOptions = formatOptions;
+    }
+
+    public BigQueryConnectOptions getConnectOptions() {
+        return connectOptions;
+    }
+
+    public DeliveryGuarantee getDeliveryGuarantee() {
+        return deliveryGuarantee;
+    }
+
+    public BigQueryProtoSerializer<IN> getSerializer() {
+        return serializer;
+    }
+
+    public BigQuerySchemaProvider getSchemaProvider() {
+        return schemaProvider;
+    }
+
+    public boolean enableTableCreation() {
+        return enableTableCreation;
+    }
+
+    public String getPartitionField() {
+        return partitionField;
+    }
+
+    public TimePartitioning.Type getPartitionType() {
+        return partitionType;
+    }
+
+    public Long getPartitionExpirationMillis() {
+        return partitionExpirationMillis;
+    }
+
+    public List<String> getClusteredFields() {
+        return clusteredFields;
+    }
+
+    public String getRegion() {
+        return region;
+    }
+
+    public boolean fatalizeSerializer() {
+        return fatalizeSerializer;
+    }
+
+    public boolean isCdcEnabled() {
+        return cdcEnabled;
+    }
+
+    public String getCdcSequenceField() {
+        return cdcSequenceField;
+    }
+
+    public List<String> getCdcPrimaryKeyColumns() {
+        return cdcPrimaryKeyColumns;
+    }
+
+    public String getCdcMaxStaleness() {
+        return cdcMaxStaleness;
+    }
+
+    public CdcChangeTypeProvider<?> getCdcChangeTypeProvider() {
+        return cdcChangeTypeProvider;
+    }
+
+    public WriteMode getWriteMode() {
+        return writeMode;
+    }
+
+    public String getTempGcsPath() {
+        return tempGcsPath;
+    }
+
+    public String getTempProject() {
+        return tempProject;
+    }
+
+    public String getTempDataset() {
+        return tempDataset;
+    }
+
+    public String getJobProject() {
+        return jobProject;
+    }
+
+    public BulkWriter.Factory<IN> getBulkWriterFactory() {
+        return bulkWriterFactory;
+    }
+
+    public FormatOptions getFormatOptions() {
+        return formatOptions;
+    }
+
+    /**
+     * Builder for BigQuerySinkConfig.
+     *
+     * @param <IN> Type of input to sink.
+     */
+    public static class Builder<IN> {
+
+        private BigQueryConnectOptions connectOptions;
+        private DeliveryGuarantee deliveryGuarantee;
+        private BigQuerySchemaProvider schemaProvider;
+        private BigQueryProtoSerializer<IN> serializer;
+        private boolean enableTableCreation;
+        private String partitionField;
+        private TimePartitioning.Type partitionType;
+        private Long partitionExpirationMillis;
+        private List<String> clusteredFields;
+        private String region;
+        private boolean fatalizeSerializer;
+        private StreamExecutionEnvironment env;
+        // CDC configuration
+        private boolean cdcEnabled;
+        private String cdcSequenceField;
+        private List<String> cdcPrimaryKeyColumns;
+        private String cdcMaxStaleness;
+        private CdcChangeTypeProvider<IN> cdcChangeTypeProvider;
+        private WriteMode writeMode = WriteMode.STORAGE_WRITE_API;
+        private String tempGcsPath;
+        private String tempProject;
+        private String tempDataset;
+        private String jobProject;
+        private BulkWriter.Factory<IN> bulkWriterFactory;
+        private FormatOptions formatOptions;
+
+        public Builder<IN> connectOptions(BigQueryConnectOptions connectOptions) {
+            this.connectOptions = connectOptions;
+            return this;
+        }
+
+        public Builder<IN> deliveryGuarantee(DeliveryGuarantee deliveryGuarantee) {
+            this.deliveryGuarantee = deliveryGuarantee;
+            return this;
+        }
+
+        public Builder<IN> schemaProvider(BigQuerySchemaProvider schemaProvider) {
+            this.schemaProvider = schemaProvider;
+            return this;
+        }
+
+        public Builder<IN> serializer(BigQueryProtoSerializer<IN> serializer) {
+            this.serializer = serializer;
+            return this;
+        }
+
+        public Builder<IN> enableTableCreation(boolean enableTableCreation) {
+            this.enableTableCreation = enableTableCreation;
+            return this;
+        }
+
+        public Builder<IN> partitionField(String partitionField) {
+            this.partitionField = partitionField;
+            return this;
+        }
+
+        public Builder<IN> partitionType(TimePartitioning.Type partitionType) {
+            this.partitionType = partitionType;
+            return this;
+        }
+
+        public Builder<IN> partitionExpirationMillis(Long partitionExpirationMillis) {
+            this.partitionExpirationMillis = partitionExpirationMillis;
+            return this;
+        }
+
+        public Builder<IN> clusteredFields(List<String> clusteredFields) {
+            this.clusteredFields = clusteredFields;
+            return this;
+        }
+
+        public Builder<IN> region(String region) {
+            this.region = region;
+            return this;
+        }
+
+        public Builder<IN> fatalizeSerializer(boolean fatalizeSerializer) {
+            this.fatalizeSerializer = fatalizeSerializer;
+            return this;
+        }
+
+        public Builder<IN> streamExecutionEnvironment(
+                StreamExecutionEnvironment streamExecutionEnvironment) {
+            this.env = streamExecutionEnvironment;
+            return this;
+        }
+
+        public Builder<IN> enableCdc(boolean cdcEnabled) {
+            this.cdcEnabled = cdcEnabled;
+            return this;
+        }
+
+        public Builder<IN> cdcSequenceField(String cdcSequenceField) {
+            this.cdcSequenceField = cdcSequenceField;
+            return this;
+        }
+
+        public Builder<IN> cdcPrimaryKeyColumns(List<String> cdcPrimaryKeyColumns) {
+            this.cdcPrimaryKeyColumns = cdcPrimaryKeyColumns;
+            return this;
+        }
+
+        public Builder<IN> cdcMaxStaleness(String cdcMaxStaleness) {
+            this.cdcMaxStaleness = cdcMaxStaleness;
+            return this;
+        }
+
+        public Builder<IN> cdcChangeTypeProvider(CdcChangeTypeProvider<IN> cdcChangeTypeProvider) {
+            this.cdcChangeTypeProvider = cdcChangeTypeProvider;
+            return this;
+        }
+
+        public Builder<IN> writeMode(WriteMode writeMode) {
+            this.writeMode = writeMode;
+            return this;
+        }
+
+        public Builder<IN> tempGcsPath(String tempGcsPath) {
+            this.tempGcsPath = tempGcsPath;
+            return this;
+        }
+
+        public Builder<IN> tempProject(String tempProject) {
+            this.tempProject = tempProject;
+            return this;
+        }
+
+        public Builder<IN> tempDataset(String tempDataset) {
+            this.tempDataset = tempDataset;
+            return this;
+        }
+
+        public Builder<IN> jobProject(String jobProject) {
+            this.jobProject = jobProject;
+            return this;
+        }
+
+        public Builder<IN> bulkWriterFactory(BulkWriter.Factory<IN> bulkWriterFactory) {
+            this.bulkWriterFactory = bulkWriterFactory;
+            return this;
+        }
+
+        public Builder<IN> formatOptions(FormatOptions formatOptions) {
+            this.formatOptions = formatOptions;
+            return this;
+        }
+
+        public BigQuerySinkConfig<IN> build() {
+            if (writeMode == WriteMode.INDIRECT) {
+                validateIndirect(
+                        tempGcsPath,
+                        tempProject,
+                        tempDataset,
+                        jobProject,
+                        bulkWriterFactory,
+                        formatOptions,
+                        cdcEnabled,
+                        enableTableCreation);
+            } else if (deliveryGuarantee == DeliveryGuarantee.EXACTLY_ONCE) {
+                validateStreamExecutionEnvironment(env);
+            }
+            return new BigQuerySinkConfig<>(
+                    connectOptions,
+                    deliveryGuarantee,
+                    schemaProvider,
+                    serializer,
+                    enableTableCreation,
+                    partitionField,
+                    partitionType,
+                    partitionExpirationMillis,
+                    clusteredFields,
+                    region,
+                    fatalizeSerializer,
+                    cdcEnabled,
+                    cdcSequenceField,
+                    cdcPrimaryKeyColumns,
+                    cdcMaxStaleness,
+                    cdcChangeTypeProvider,
+                    writeMode,
+                    tempGcsPath,
+                    tempProject,
+                    tempDataset,
+                    jobProject,
+                    bulkWriterFactory,
+                    formatOptions);
+        }
+    }
+
+    // DO NOT USE!
+    // This method is used internally to create sink config for the Table API integration.
+    // Note that the serializer is hard coded for Flink Table's RowData.
+    @Internal
+    public static BigQuerySinkConfig<RowData> forTable(
+            BigQueryConnectOptions connectOptions,
+            DeliveryGuarantee deliveryGuarantee,
+            LogicalType logicalType,
+            boolean enableTableCreation,
+            String partitionField,
+            TimePartitioning.Type partitionType,
+            Long partitionExpirationMillis,
+            List<String> clusteredFields,
+            String region,
+            boolean fatalizeSerializer,
+            boolean cdcEnabled,
+            String cdcSequenceField,
+            List<String> cdcPrimaryKeyColumns,
+            String cdcMaxStaleness,
+            CdcChangeTypeProvider<RowData> cdcChangeTypeProvider,
+            WriteMode writeMode,
+            String tempGcsPath,
+            String tempProject,
+            String tempDataset,
+            String jobProject) {
+        boolean indirect = writeMode == WriteMode.INDIRECT;
+        BulkWriter.Factory<RowData> bulkWriterFactory =
+                indirect ? RowDataParquetWriterFactory.create((RowType) logicalType) : null;
+        FormatOptions formatOptions =
+                indirect ? RowDataParquetWriterFactory.PARQUET_FORMAT_OPTIONS : null;
+        BigQuerySchemaProvider schemaProvider =
+                indirect
+                        ? null
+                        : new BigQuerySchemaProviderImpl(
+                                BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(
+                                        logicalType));
+        BigQueryProtoSerializer<RowData> serializer =
+                indirect ? null : new RowDataToProtoSerializer(logicalType);
+        return new BigQuerySinkConfig<>(
+                connectOptions,
+                deliveryGuarantee,
+                schemaProvider,
+                serializer,
+                enableTableCreation,
+                partitionField,
+                partitionType,
+                partitionExpirationMillis,
+                clusteredFields,
+                region,
+                fatalizeSerializer,
+                cdcEnabled,
+                cdcSequenceField,
+                cdcPrimaryKeyColumns,
+                cdcMaxStaleness,
+                cdcChangeTypeProvider,
+                writeMode,
+                tempGcsPath,
+                tempProject,
+                tempDataset,
+                jobProject,
+                bulkWriterFactory,
+                formatOptions);
+    }
+
+    /**
+     * Validates INDIRECT-mode configuration. INDIRECT writes go through GCS-staged Parquet files +
+     * BigQuery load jobs. CDC and table-auto-creation are unsupported on that path; reject them
+     * eagerly so misconfigurations fail at job-graph build, not silently at runtime.
+     */
+    static void validateIndirect(
+            String tempGcsPath,
+            String tempProject,
+            String tempDataset,
+            String jobProject,
+            BulkWriter.Factory<?> bulkWriterFactory,
+            FormatOptions formatOptions,
+            boolean cdcEnabled,
+            boolean enableTableCreation) {
+        if (tempGcsPath == null || tempGcsPath.isEmpty()) {
+            throw new IllegalArgumentException("tempGcsPath is required for INDIRECT write mode");
+        }
+        if (tempProject == null || tempProject.isEmpty()) {
+            throw new IllegalArgumentException("tempProject is required for INDIRECT write mode");
+        }
+        if (tempDataset == null || tempDataset.isEmpty()) {
+            throw new IllegalArgumentException("tempDataset is required for INDIRECT write mode");
+        }
+        if (jobProject == null || jobProject.isEmpty()) {
+            throw new IllegalArgumentException("jobProject is required for INDIRECT write mode");
+        }
+        if (bulkWriterFactory == null) {
+            throw new IllegalArgumentException(
+                    "bulkWriterFactory is required for INDIRECT write mode");
+        }
+        if (formatOptions == null) {
+            throw new IllegalArgumentException("formatOptions is required for INDIRECT write mode");
+        }
+        if (cdcEnabled) {
+            throw new IllegalArgumentException("CDC is not supported in INDIRECT write mode");
+        }
+        if (enableTableCreation) {
+            throw new IllegalArgumentException(
+                    "Table auto-creation is not supported in INDIRECT write mode");
+        }
+    }
+
+    public static void validateStreamExecutionEnvironment(StreamExecutionEnvironment env) {
+        if (env == null) {
+            throw new IllegalArgumentException(
+                    "Expected StreamExecutionEnvironment, found null."
+                            + " Please provide the StreamExecutionEnvironment used in Flink job.");
+        }
+        validateRestartStrategy(env.getConfiguration());
+    }
+
+    private static void validateRestartStrategy(ReadableConfig config) {
+        if (config == null) {
+            throw new IllegalArgumentException(
+                    "Could not read Configuration from StreamExecutionEnvironment."
+                            + " Please provide the StreamExecutionEnvironment used in Flink job and"
+                            + " set a restart strategy.");
+        }
+
+        Optional<String> maybeRestartStrategy =
+                config.getOptional(RestartStrategyOptions.RESTART_STRATEGY);
+        if (maybeRestartStrategy.isPresent()) {
+            // Restart configurations are mostly being checked against Flink defaults for optimum
+            // interactions with external systems, primarily BigQuery storage write APIs.
+            // Keep in mind, maximum 10,000 CreateWriteStream calls are allowed by BigQuery per hour
+            // per
+            // project per region.
+            String restartStrategy = maybeRestartStrategy.get();
+            if (restartStrategy.equals(RESTART_STRATEGY_FIXED_DELAY)) {
+                Duration delayBetweenAttemptsInterval =
+                        config.get(RestartStrategyOptions.RESTART_STRATEGY_FIXED_DELAY_DELAY);
+                Integer restartAttempts =
+                        config.get(RestartStrategyOptions.RESTART_STRATEGY_FIXED_DELAY_ATTEMPTS);
+
+                if (delayBetweenAttemptsInterval.toMillis() < MILLISECONDS_PER_SECOND
+                        || restartAttempts > 10) {
+                    LOG.error(
+                            "Invalid fixed delay restart strategy configuration: found restart delay {},"
+                                    + " milliseconds, and {} restart attempts. Should be used with"
+                                    + " restart delay at least 1 second, and at most 10 restart"
+                                    + " attempts.",
+                            delayBetweenAttemptsInterval.toMillis(),
+                            restartAttempts);
+                    throw new IllegalArgumentException(
+                            "Invalid restart strategy: fixed delay restart strategy configuration should"
+                                    + " be used with at least restart delay 1 second, and at most 10"
+                                    + " restart attempts.");
+                }
+            } else if (restartStrategy.equals(RESTART_STRATEGY_EXPONENTIAL_DELAY)) {
+                Double backoffMultiplier =
+                        config.get(
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_BACKOFF_MULTIPLIER);
+                Duration initialBackoff =
+                        config.get(
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_INITIAL_BACKOFF);
+                Duration maxBackoff =
+                        config.get(
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_MAX_BACKOFF);
+                Duration resetBackoffThreshold =
+                        config.get(
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_RESET_BACKOFF_THRESHOLD);
+
+                if (backoffMultiplier < 2.0
+                        || initialBackoff.toMillis() < MILLISECONDS_PER_SECOND
+                        || maxBackoff.toMillis() < (5L * MILLISECONDS_PER_MINUTE)
+                        || resetBackoffThreshold.toMillis() < MILLISECONDS_PER_HOUR) {
+                    LOG.error(
+                            "Invalid exponential delay restart strategy configuration: found backoff"
+                                    + " multiplier {}, initial backoff {} milliseconds, maximum backoff"
+                                    + " {} milliseconds, and reset threshold {} milliseconds. Should be"
+                                    + " used with backoff multiplier at least 2, initial backoff at"
+                                    + " least 1 second, maximum backoff at least 5 minutes, and reset"
+                                    + " threshold at least 1 hour",
+                            backoffMultiplier,
+                            initialBackoff.toMillis(),
+                            maxBackoff.toMillis(),
+                            resetBackoffThreshold.toMillis());
+                    throw new IllegalArgumentException(
+                            "Invalid restart strategy: exponential delay restart strategy configuration"
+                                    + " should be used with backoff multiplier at least 2, initial"
+                                    + " backoff at least 1 second, maximum backoff at-least 5 minutes,"
+                                    + " and reset threshold at least 1 hour");
+                }
+            } else if (restartStrategy.equals(RESTART_STRATEGY_FAILURE_RATE)) {
+                Duration failureInterval =
+                        config.get(
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_FAILURE_RATE_FAILURE_RATE_INTERVAL);
+                Integer maxFailureRate =
+                        config.get(
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_FAILURE_RATE_MAX_FAILURES_PER_INTERVAL);
+                Duration delayBetweenAttemptsInterval =
+                        config.get(RestartStrategyOptions.RESTART_STRATEGY_FAILURE_RATE_DELAY);
+
+                double failureIntervalInMinutes =
+                        ((double) failureInterval.toMillis()) / MILLISECONDS_PER_MINUTE;
+                double allowedFailuresPerMinute =
+                        ((double) maxFailureRate) / failureIntervalInMinutes;
+                if (delayBetweenAttemptsInterval.toMillis() < MILLISECONDS_PER_SECOND
+                        || allowedFailuresPerMinute > 1.0) {
+                    LOG.error(
+                            "Invalid failure rate restart strategy configuration: found restart delay {}"
+                                    + " milliseconds, and allowed failure rate {} per minute. Should be"
+                                    + " used with restart delay at least 1 second, and allowed failure"
+                                    + " rate at most 1 per minute.",
+                            delayBetweenAttemptsInterval.toMillis(),
+                            allowedFailuresPerMinute);
+                    throw new IllegalArgumentException(
+                            "Invalid restart strategy: failure rate restart strategy configuration should"
+                                    + " be used with restart delay at least 1 second, and allowed"
+                                    + " failure rate at most 1 per minute.");
+                }
+            } else if (restartStrategy.equals(RESTART_STRATEGY_NONE)) {
+                LOG.debug("Found no restart strategy. No validation needed.");
+            } else {
+                throw new IllegalStateException(
+                        "Encountered unexpected restart strategy: " + restartStrategy);
+            }
+        } else {
+            throw new IllegalArgumentException(
+                    "Cannot validate RestartStrategyConfiguration in StreamExecutionEnvironment."
+                            + " We recommend explicitly setting the restart strategy as one of the"
+                            + " following:"
+                            + " "
+                            + RESTART_STRATEGY_FIXED_DELAY
+                            + ","
+                            + " "
+                            + RESTART_STRATEGY_EXPONENTIAL_DELAY
+                            + ","
+                            + " "
+                            + RESTART_STRATEGY_FAILURE_RATE
+                            + " or"
+                            + " "
+                            + RESTART_STRATEGY_NONE);
+        }
+    }
+}
