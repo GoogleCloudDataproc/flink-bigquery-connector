@@ -32,6 +32,7 @@ import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.file.src.FileSource;
 import org.apache.flink.connector.file.src.reader.TextLineInputFormat;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.formats.avro.AvroWriters;
 import org.apache.flink.formats.avro.typeutils.GenericRecordAvroTypeInfo;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -49,11 +50,13 @@ import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
+import com.google.cloud.bigquery.FormatOptions;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.utils.ParameterTool;
 import com.google.cloud.flink.bigquery.sink.BigQuerySink;
 import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
+import com.google.cloud.flink.bigquery.sink.WriteMode;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProviderImpl;
@@ -361,6 +364,19 @@ public class BigQueryIntegrationTest {
                     case "bounded":
                         sourceDatasetName = parameterTool.getRequired("bq-source-dataset");
                         sourceTableName = parameterTool.getRequired("bq-source-table");
+                        boolean isIndirect =
+                                WriteMode.INDIRECT
+                                        .name()
+                                        .equalsIgnoreCase(
+                                                parameterTool.get(
+                                                        "write-mode",
+                                                        WriteMode.STORAGE_WRITE_API.name()));
+                        String tempGcsPath =
+                                parameterTool.get(
+                                        "temp-gcs-path", parameterTool.get("temporary-gcs-bucket"));
+                        String tempProject = parameterTool.get("temp-project");
+                        String tempDataset = parameterTool.get("temp-dataset");
+                        String jobProject = parameterTool.get("job-project");
                         runBoundedFlinkJobWithSink(
                                 sourceGcpProjectName,
                                 sourceDatasetName,
@@ -371,6 +387,11 @@ public class BigQueryIntegrationTest {
                                 isExactlyOnceEnabled,
                                 sinkParallelism,
                                 enableTableCreation,
+                                isIndirect,
+                                tempGcsPath,
+                                tempProject,
+                                tempDataset,
+                                jobProject,
                                 matProject,
                                 matDataset,
                                 billProject);
@@ -428,6 +449,11 @@ public class BigQueryIntegrationTest {
             boolean exactlyOnce,
             Integer sinkParallelism,
             boolean enableTableCreation,
+            boolean isIndirect,
+            String tempGcsPath,
+            String tempProject,
+            String tempDataset,
+            String jobProject,
             String matProject,
             String matDataset,
             String billProject)
@@ -469,6 +495,20 @@ public class BigQueryIntegrationTest {
                                         ? DeliveryGuarantee.EXACTLY_ONCE
                                         : DeliveryGuarantee.AT_LEAST_ONCE)
                         .streamExecutionEnvironment(env);
+        if (isIndirect) {
+            BigQuerySchemaProvider destSchemaProvider =
+                    new BigQuerySchemaProviderImpl(sinkConnectOptions);
+            sinkConfigBuilder
+                    .schemaProvider(destSchemaProvider)
+                    .writeMode(WriteMode.INDIRECT)
+                    .tempGcsPath(tempGcsPath)
+                    .tempProject(tempProject != null ? tempProject : destGcpProjectName)
+                    .tempDataset(tempDataset != null ? tempDataset : destDatasetName)
+                    .jobProject(jobProject != null ? jobProject : destGcpProjectName)
+                    .bulkWriterFactory(
+                            AvroWriters.forGenericRecord(destSchemaProvider.getAvroSchema()))
+                    .formatOptions(FormatOptions.avro());
+        }
 
         if (enableTableCreation) {
             sinkConfigBuilder
