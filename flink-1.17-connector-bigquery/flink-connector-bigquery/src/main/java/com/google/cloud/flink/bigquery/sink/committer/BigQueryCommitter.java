@@ -30,18 +30,31 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Committer implementation for {@link BigQueryExactlyOnceSink}.
  *
  * <p>The committer is responsible for committing records buffered in BigQuery write stream to
- * BigQuery table.
+ * BigQuery table. It also finalizes a producer's previous write stream once a committable for a
+ * different stream has been committed, because that is the earliest point at which no restorable
+ * checkpoint references the previous stream anymore.
  */
 public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closeable {
 
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryCommitter.class);
 
     private final BigQueryConnectOptions connectOptions;
+
+    // Stream last committed for each producer. A committable that names a different stream means
+    // the writer discarded the previous one (its first append after a restore or a checkpoint was
+    // rejected), and that stream can now be finalized. It cannot be finalized any earlier: BigQuery
+    // rejects
+    // FlushRows on a finalized stream even for an offset that was already flushed, and until the
+    // checkpoint that introduced the new stream has completed, which is what a commit implies, a
+    // restore could still require this committer to flush the previous stream again.
+    private final Map<Long, String> lastCommittedStreamNames = new HashMap<>();
 
     public BigQueryCommitter(BigQueryConnectOptions connectOptions) {
         this.connectOptions = connectOptions;
@@ -74,9 +87,29 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
                     throw new BigQueryConnectorException(
                             String.format("Commit operation failed for producer %d", producerId));
                 }
+                String previousStreamName = lastCommittedStreamNames.put(producerId, streamName);
+                if (previousStreamName != null && !previousStreamName.equals(streamName)) {
+                    finalizeReplacedStream(writeClient, previousStreamName, producerId);
+                }
             }
         } catch (IOException | ApiException e) {
             throw new BigQueryConnectorException("Commit operation failed", e);
+        }
+    }
+
+    private void finalizeReplacedStream(
+            BigQueryServices.StorageWriteClient writeClient, String streamName, long producerId) {
+        LOG.info("Finalizing write stream {} replaced by producer {}", streamName, producerId);
+        try {
+            writeClient.finalizeWriteStream(streamName);
+        } catch (Exception e) {
+            // Not fatal: nothing is appended to or flushed from this stream anymore, and BigQuery
+            // expires idle streams on its own.
+            LOG.warn(
+                    String.format(
+                            "Failed to finalize write stream %s replaced by producer %d",
+                            streamName, producerId),
+                    e);
         }
     }
 

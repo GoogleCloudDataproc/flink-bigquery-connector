@@ -446,6 +446,7 @@ public class StorageClientFaker {
 
             private int createWriteStreamInvocations;
             private int finalizeWriteStreamInvocations;
+            private String lastFinalizedStreamName;
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
@@ -517,6 +518,7 @@ public class StorageClientFaker {
             @Override
             public FinalizeWriteStreamResponse finalizeWriteStream(String streamName) {
                 finalizeWriteStreamInvocations++;
+                lastFinalizedStreamName = streamName;
                 if (finalizeResponse == null) {
                     throw new RuntimeException("testing error scenario");
                 }
@@ -534,6 +536,10 @@ public class StorageClientFaker {
 
             public int getFinalizeWriteStreamInvocations() {
                 return finalizeWriteStreamInvocations;
+            }
+
+            public String getLastFinalizedStreamName() {
+                return lastFinalizedStreamName;
             }
 
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
