@@ -663,8 +663,14 @@ The connector currently does not offer the following:
 over smaller variants. This is because BigQuery upcasts numeric types to their largest variants.
 For instance, check [Avro conversion](https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-avro#avro_conversions)
 and [issue 219](https://github.com/GoogleCloudDataproc/flink-bigquery-connector/issues/219).
-* Map type is not supported by BigQuery. Alternative is to use array of structs,
-where each struct has fields `key` and `value`.
+* BigQuery has no native map type. When writing a Flink `MAP` field to the sink, the connector
+serializes it to a JSON string, so the destination BigQuery column must be typed `STRING` or
+`JSON`. Only `MAP` types with a string-family key and a primitive value type (`CHAR`, `VARCHAR`,
+`BOOLEAN`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `FLOAT`, `DOUBLE`) are currently supported;
+maps with non-string keys or nested/complex value types (e.g. `ROW`, `ARRAY`, `MAP`, `DECIMAL`,
+temporal types) are not supported yet. As an alternative for those cases, use an array of structs,
+where each struct has fields `key` and `value`. This is a write-only conversion: reading a
+BigQuery `JSON`/`STRING` column back into a Flink `MAP` is not supported.
 * Nullable array is not supported by BigQuery.
 * Array with nullable element is not supported by BigQuery.
 * Avro's decimal precision above 77 is not supported by BigQuery. NUMERIC handles precision up to 38,

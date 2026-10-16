@@ -249,7 +249,23 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
                                 schema, field, fieldNumber, descriptorProtoBuilder);
                 break;
             case MAP:
-                throw new UnsupportedOperationException("MAP type not supported yet.");
+                Schema mapValueSchema = schema.getValueType();
+                Schema unwrappedMapValueSchema =
+                        mapValueSchema.getType() == Schema.Type.UNION
+                                ? AvroSchemaHandler.handleUnionSchema(mapValueSchema).getLeft()
+                                : mapValueSchema;
+                if (!AvroSchemaHandler.isSupportedMapValueSchema(unwrappedMapValueSchema)) {
+                    throw new UnsupportedOperationException(
+                            "MAP value type '"
+                                    + unwrappedMapValueSchema.getType()
+                                    + "' is not supported for serialization to a BigQuery "
+                                    + "STRING/JSON column. Supported value types are: STRING, "
+                                    + "BOOLEAN, INT, LONG, FLOAT, DOUBLE.");
+                }
+                // MAP fields are serialized as a JSON string, so the destination proto field is
+                // a plain STRING (the same representation used for a BigQuery JSON column).
+                fieldDescriptorBuilder.setType(FieldDescriptorProto.Type.TYPE_STRING);
+                break;
             case UNION:
                 /* Union schemas can mainly be of the following types:
                 1. Only null value (["null"])
@@ -300,8 +316,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
      * @return {@link FieldDescriptorProto.Builder} obtained for the UNION schema field.
      * @throws IllegalArgumentException If the elementType is not ["null","datatype"] or
      *     ["datatype"].
-     * @throws UnsupportedOperationException In case schema of a type ["null", "MAP"] or ["null",
-     *     "ARRAY"] is obtained.
+     * @throws UnsupportedOperationException In case schema of a type ["null", "ARRAY"] is obtained.
      */
     private static FieldDescriptorProto.Builder getDescriptorProtoForUnionSchema(
             Schema elementType,
@@ -315,17 +330,15 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
         if (elementType == null) {
             throw new IllegalArgumentException("Unexpected null element type!");
         }
-        /* UNION of type MAP and ARRAY is not supported.
-        ARRAY is mapped to REPEATED type in Bigquery, which cannot be OPTIONAL.
-        MAP datatype is mapped to "REPEATED field of type MESSAGE,"
-        which cannot be OPTIONAL.
-        If we have the datatype is ["null", "MAP"] or ["null", "ARRAY"],
-        UnsupportedOperationException is thrown. */
-        if (isNullable
-                && (elementType.getType() == Schema.Type.MAP
-                        || elementType.getType() == Schema.Type.ARRAY)) {
+        /* UNION of type ARRAY is not supported as OPTIONAL: ARRAY is mapped to REPEATED type in
+        BigQuery, which cannot be OPTIONAL. If we have the datatype ["null", "ARRAY"],
+        UnsupportedOperationException is thrown.
+        MAP is not included here: it is serialized as a JSON string (a scalar STRING field, see
+        the MAP case in fieldDescriptorFromSchemaField), and a nullable STRING field is valid, so
+        ["null", "map"] should fall through to the normal recursive descriptor derivation below. */
+        if (isNullable && elementType.getType() == Schema.Type.ARRAY) {
             throw new UnsupportedOperationException(
-                    "NULLABLE MAP/ARRAYS in UNION types are not supported");
+                    "NULLABLE ARRAY in UNION types is not supported");
         }
         /* Obtain the descriptor for the non-null datatype in the UNION schema.
         Set the field as NULLABLE in case UNION of a type ["null", datatype]
