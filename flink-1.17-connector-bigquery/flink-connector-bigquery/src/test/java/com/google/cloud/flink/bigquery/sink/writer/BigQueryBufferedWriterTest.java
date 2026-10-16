@@ -21,6 +21,7 @@ import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
+import com.google.api.core.SettableApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse.AppendResult;
 import com.google.cloud.bigquery.storage.v1.Exceptions.OffsetAlreadyExists;
@@ -63,6 +64,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -1038,6 +1041,268 @@ public class BigQueryBufferedWriterTest {
     }
 
     @Test
+    public void testFirstAppendAfterCheckpoint_reusesStreamWriter()
+            throws IOException, InterruptedException {
+        int checkpoints = 3;
+        ApiFuture[] appendResponseFutures = new ApiFuture[checkpoints];
+        for (int i = 0; i < checkpoints; i++) {
+            appendResponseFutures[i] = appendResponseFuture(i);
+        }
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        appendResponseFutures,
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null);
+        for (int checkpointId = 1; checkpointId <= checkpoints; checkpointId++) {
+            bufferedWriter.write(new Object(), null);
+            bufferedWriter.flush(false);
+            bufferedWriter.prepareCommit();
+            bufferedWriter.snapshotState(checkpointId);
+            // The StreamWriter created for the first append serves every later checkpoint.
+            assertEquals(
+                    1,
+                    ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                            .getCreateStreamWriterInvocations());
+            Mockito.verify(bufferedWriter.streamWriter, Mockito.never()).close();
+        }
+        FakeBigQueryStorageWriteClient writeClient =
+                (FakeBigQueryStorageWriteClient) bufferedWriter.writeClient;
+        assertEquals(1, writeClient.getCreateWriteStreamInvocations());
+        assertEquals(checkpoints, bufferedWriter.getStreamOffset());
+        assertEquals(checkpoints, bufferedWriter.totalRecordsWritten);
+        writeClient.verifytAppendWithOffsetInvocations(checkpoints);
+        bufferedWriter.close();
+        Mockito.verify(bufferedWriter.streamWriter, Mockito.times(1)).close();
+        // A checkpoint immediately precedes the close, so the stream is still committable.
+        assertEquals(0, writeClient.getFinalizeWriteStreamInvocations());
+    }
+
+    @Test
+    public void testFirstAppendAfterRestore_thenReuseAcrossCheckpoints()
+            throws IOException, InterruptedException {
+        int checkpoints = 3;
+        ApiFuture[] appendResponseFutures = new ApiFuture[checkpoints];
+        for (int i = 0; i < checkpoints; i++) {
+            appendResponseFutures[i] = appendResponseFuture(100 + i);
+        }
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        "restored_stream",
+                        100L,
+                        210L,
+                        200L,
+                        100L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        appendResponseFutures,
+                        null,
+                        null);
+        for (int checkpointId = 1; checkpointId <= checkpoints; checkpointId++) {
+            bufferedWriter.write(new Object(), null);
+            bufferedWriter.flush(false);
+            bufferedWriter.prepareCommit();
+            bufferedWriter.snapshotState(checkpointId);
+            // The StreamWriter created for the verification serves every later checkpoint.
+            assertEquals(
+                    1,
+                    ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                            .getCreateStreamWriterInvocations());
+            Mockito.verify(bufferedWriter.streamWriter, Mockito.never()).close();
+        }
+        FakeBigQueryStorageWriteClient writeClient =
+                (FakeBigQueryStorageWriteClient) bufferedWriter.writeClient;
+        assertEquals("restored_stream", bufferedWriter.streamName);
+        assertEquals(0, writeClient.getCreateWriteStreamInvocations());
+        assertEquals(0, writeClient.getFinalizeWriteStreamInvocations());
+        assertEquals(100 + checkpoints, bufferedWriter.getStreamOffset());
+        assertEquals(200 + checkpoints, bufferedWriter.totalRecordsWritten);
+        writeClient.verifytAppendWithOffsetInvocations(checkpoints);
+    }
+
+    @Test
+    public void testAppendAfterCheckpoint_ignoresOffsetAlreadyExists()
+            throws IOException, InterruptedException {
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            appendResponseFuture(0),
+                            ApiFutures.immediateFailedFuture(mock(OffsetAlreadyExists.class))
+                        },
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.flush(false);
+        bufferedWriter.prepareCommit();
+        bufferedWriter.snapshotState(1);
+        bufferedWriter.write(new Object(), null);
+        // Ignored as on any other append: the buffered stream is exclusive to this writer, so the
+        // rows at that offset are its own. The ignored append is not counted as written.
+        bufferedWriter.flush(false);
+        FakeBigQueryStorageWriteClient writeClient =
+                (FakeBigQueryStorageWriteClient) bufferedWriter.writeClient;
+        assertEquals("new_stream", bufferedWriter.streamName);
+        assertEquals(1, writeClient.getCreateWriteStreamInvocations());
+        assertEquals(0, writeClient.getFinalizeWriteStreamInvocations());
+        assertEquals(1, writeClient.getCreateStreamWriterInvocations());
+        assertNotNull(bufferedWriter.streamWriter);
+        assertEquals(2, bufferedWriter.getStreamOffset());
+        assertEquals(1, bufferedWriter.totalRecordsWritten);
+    }
+
+    @Test
+    public void testFirstAppendAfterCheckpoint_doesNotWaitForResponse()
+            throws IOException, InterruptedException {
+        SettableApiFuture<AppendRowsResponse> pendingResponse = SettableApiFuture.create();
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            appendResponseFuture(0), pendingResponse, appendResponseFuture(2)
+                        },
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.flush(false);
+        bufferedWriter.prepareCommit();
+        bufferedWriter.snapshotState(1);
+        assertEquals(1, bufferedWriter.totalRecordsWritten);
+        // The second record exceeds the append request size, so the first one is appended while
+        // its response is still pending. The writer must queue the response instead of waiting.
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.write(new Object(), null);
+        assertEquals(1, bufferedWriter.appendResponseFuturesQueue.size());
+        assertSame(pendingResponse, bufferedWriter.appendResponseFuturesQueue.peek().getFuture());
+        assertEquals(2, bufferedWriter.getStreamOffset());
+        assertEquals(1, bufferedWriter.totalRecordsWritten);
+        FakeBigQueryStorageWriteClient writeClient =
+                (FakeBigQueryStorageWriteClient) bufferedWriter.writeClient;
+        assertEquals(1, writeClient.getCreateStreamWriterInvocations());
+        pendingResponse.set(appendResponse(1));
+        bufferedWriter.flush(false);
+        assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
+        assertEquals(3, bufferedWriter.getStreamOffset());
+        assertEquals(3, bufferedWriter.totalRecordsWritten);
+        assertEquals(1, writeClient.getCreateStreamWriterInvocations());
+        Mockito.verify(bufferedWriter.streamWriter, Mockito.never()).close();
+    }
+
+    /**
+     * Guards the flag against being cleared by snapshotState. This also holds for the previous
+     * implementation, which re-derived the restored state from the offsets after every checkpoint.
+     */
+    @Test
+    public void testFirstAppendAfterRestore_afterEmptyCheckpoint_verifiesStream()
+            throws IOException, InterruptedException {
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        "restored_stream",
+                        100L,
+                        210L,
+                        200L,
+                        100L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            ApiFutures.immediateFailedFuture(mock(StreamFinalizedException.class)),
+                            appendResponseFuture(0)
+                        },
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null);
+        // A checkpoint before the first append leaves the restored stream unverified.
+        bufferedWriter.flush(false);
+        assertTrue(bufferedWriter.prepareCommit().isEmpty());
+        bufferedWriter.snapshotState(1);
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.flush(false);
+        // The synchronous first append found the restored stream unusable, so the writer
+        // discarded it and moved to a new stream instead of failing.
+        FakeBigQueryStorageWriteClient writeClient =
+                (FakeBigQueryStorageWriteClient) bufferedWriter.writeClient;
+        assertEquals("new_stream", bufferedWriter.streamName);
+        assertEquals(1, writeClient.getCreateWriteStreamInvocations());
+        assertEquals(2, writeClient.getCreateStreamWriterInvocations());
+        assertEquals(1, bufferedWriter.getStreamOffset());
+        assertEquals(201, bufferedWriter.totalRecordsWritten);
+    }
+
+    @Test
+    public void testAppendFailureAfterCheckpoint_isFatal()
+            throws IOException, InterruptedException {
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        "restored_stream",
+                        100L,
+                        210L,
+                        200L,
+                        100L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {
+                            appendResponseFuture(100),
+                            ApiFutures.immediateFailedFuture(mock(StreamFinalizedException.class))
+                        },
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null);
+        // First append after restore verifies the stream.
+        bufferedWriter.write(new Object(), null);
+        bufferedWriter.flush(false);
+        bufferedWriter.prepareCommit();
+        bufferedWriter.snapshotState(1);
+        // After a checkpoint the stream is trusted, so a failed append is a fatal error rather
+        // than a reason to discard the stream.
+        bufferedWriter.write(new Object(), null);
+        assertThrows(BigQueryConnectorException.class, () -> bufferedWriter.flush(false));
+        FakeBigQueryStorageWriteClient writeClient =
+                (FakeBigQueryStorageWriteClient) bufferedWriter.writeClient;
+        assertEquals("restored_stream", bufferedWriter.streamName);
+        assertEquals(0, writeClient.getCreateWriteStreamInvocations());
+        assertEquals(0, writeClient.getFinalizeWriteStreamInvocations());
+        assertEquals(1, writeClient.getCreateStreamWriterInvocations());
+        assertNull(bufferedWriter.streamWriter);
+    }
+
+    @Test
+    public void testCreateStreamWriter_closesReplacedStreamWriter() {
+        BigQueryBufferedWriter<Object> bufferedWriter =
+                createBufferedWriter(
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        new ApiFuture[] {},
+                        WriteStream.newBuilder().setName("new_stream").build(),
+                        null);
+        bufferedWriter.streamName = "new_stream";
+        bufferedWriter.createStreamWriter(false);
+        assertNotNull(bufferedWriter.streamWriter);
+        Mockito.verify(bufferedWriter.streamWriter, Mockito.never()).close();
+        // The writer no longer replaces a live StreamWriter itself, so this pins the guard in
+        // BaseWriter directly: whoever replaces one must close it first.
+        bufferedWriter.createStreamWriter(false);
+        Mockito.verify(bufferedWriter.streamWriter, Mockito.times(1)).close();
+        assertEquals(
+                2,
+                ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
+                        .getCreateStreamWriterInvocations());
+    }
+
+    @Test
     public void testClose_withStreamFinalize() {
         BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
@@ -1155,6 +1420,16 @@ public class BigQueryBufferedWriterTest {
         } finally {
             assertNull(bufferedWriter.streamWriter);
         }
+    }
+
+    private static AppendRowsResponse appendResponse(long offset) {
+        return AppendRowsResponse.newBuilder()
+                .setAppendResult(AppendResult.newBuilder().setOffset(Int64Value.of(offset)).build())
+                .build();
+    }
+
+    private static ApiFuture<AppendRowsResponse> appendResponseFuture(long offset) {
+        return ApiFutures.immediateFuture(appendResponse(offset));
     }
 
     private BigQueryBufferedWriter<Object> createBufferedWriter(

@@ -278,6 +278,14 @@ public class BigQueryDefaultWriterTest {
         assertEquals(0, defaultWriter.numberOfRecordsWrittenToBigQuerySinceCheckpoint.getCount());
         assertEquals(2, defaultWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(0, defaultWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
+        // Further writes and flushes keep using the same StreamWriter.
+        defaultWriter.write(new Object(), null);
+        defaultWriter.flush(false);
+        assertEquals(3, defaultWriter.totalRecordsWritten);
+        assertEquals(
+                1,
+                ((FakeBigQueryServices.FakeBigQueryStorageWriteClient) defaultWriter.writeClient)
+                        .getCreateStreamWriterInvocations());
     }
 
     @Test

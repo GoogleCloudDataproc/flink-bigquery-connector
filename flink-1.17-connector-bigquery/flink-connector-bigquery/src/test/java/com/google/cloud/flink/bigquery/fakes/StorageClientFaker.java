@@ -446,6 +446,7 @@ public class StorageClientFaker {
             private final FlushRowsResponse flushResponse;
             private final FinalizeWriteStreamResponse finalizeResponse;
 
+            private int createStreamWriterInvocations;
             private int createWriteStreamInvocations;
             private int finalizeWriteStreamInvocations;
 
@@ -482,6 +483,7 @@ public class StorageClientFaker {
                 this.writeStream = writeStream;
                 this.flushResponse = flushResponse;
                 this.finalizeResponse = finalizeResponse;
+                createStreamWriterInvocations = 0;
                 createWriteStreamInvocations = 0;
                 finalizeWriteStreamInvocations = 0;
             }
@@ -492,6 +494,7 @@ public class StorageClientFaker {
                     ProtoSchema protoSchema,
                     boolean enableConnectionPool,
                     String traceId) {
+                createStreamWriterInvocations++;
                 return mockedWriter;
             }
 
@@ -528,6 +531,10 @@ public class StorageClientFaker {
             @Override
             public void close() {
                 Mockito.when(mockedWriter.isUserClosed()).thenReturn(true);
+            }
+
+            public int getCreateStreamWriterInvocations() {
+                return createStreamWriterInvocations;
             }
 
             public int getCreateWriteStreamInvocations() {
