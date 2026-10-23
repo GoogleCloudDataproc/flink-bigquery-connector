@@ -378,13 +378,18 @@ under the License.
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>shaded</shadedClassifierName>
                             <artifactSet>
+                                <!-- Do not include or relocate org.conscrypt. Its native library
+                                     hard-codes the org/conscrypt/* class names, so a relocated (or
+                                     minimized) copy makes the JVM abort when Netty probes Conscrypt
+                                     on Java 8-14. Bundling also discards Conscrypt's jar signature,
+                                     which some JVMs require for JCE providers. Runtimes that want
+                                     Conscrypt should supply the official jar on the classpath. -->
                                 <includes>
                                     <include>org.apache.*:*</include>
                                     <include>com.google.*:*</include>
                                     <include>commons-codec:commons-codec</include>
                                     <include>dev.failsafe:*</include>
                                     <include>org.codehaus.mojo:animal-sniffer-annotations</include>
-                                    <include>org.conscrypt:*</include>
                                     <include>com.fasterxml.jackson.*:*</include>
                                     <include>org.threeten:*</include>
                                     <include>org.checkerframework:*</include>
@@ -448,10 +453,6 @@ under the License.
                                 <relocation>
                                     <pattern>dev.failsafe</pattern>
                                     <shadedPattern>com.google.cloud.flink.bigquery.shaded.dev.failsafe</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.conscrypt</pattern>
-                                    <shadedPattern>com.google.cloud.flink.bigquery.shaded.org.conscrypt</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.joda.time</pattern>
