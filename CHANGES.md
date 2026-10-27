@@ -14,6 +14,9 @@
 * Encode optimal default read stream counts based on task parallelism.
 * Fix missing transitive dependencies in unshaded JAR's published POM.
 * Update dependencies (Avro 1.11.5, Log4j 2.25.4, Hadoop Common 3.4.0, Flink Table Runtime 2.1.2).
+* Fix DECIMAL writes in the Storage Write API sink by writing NUMERIC and BIGNUMERIC values as strings, matching the Spark BigQuery connector. The encoder no longer needs the destination column type, so values that need BIGNUMERIC no longer fail with `ByteString overflow`, and values are not stored with the wrong scale. Custom schema providers that return BYTES descriptors keep the previous binary encoding. Invalid decimal values are now rejected by BigQuery as append errors instead of during serialization (GoogleCloudDataproc/flink-bigquery-connector#356).
+* Fix `AvroSchemaConvertor` tagging a decimal as NUMERIC based on precision alone. A decimal is now NUMERIC only if its scale is at most 9 and it has at most 29 integer digits, so wider types such as `DECIMAL(38, 0)` use BIGNUMERIC (GoogleCloudDataproc/flink-bigquery-connector#354).
+* Derive the schema for a table created by the sink from `AvroSchemaConvertor`, which adds support for `TIMESTAMP` precision above 3, `TIMESTAMP_LTZ`, and `TIME` precision above 3.
 
 ## 1.1.0 - 2026-02-11
 * PR #260: Upgrade dependencies versions.

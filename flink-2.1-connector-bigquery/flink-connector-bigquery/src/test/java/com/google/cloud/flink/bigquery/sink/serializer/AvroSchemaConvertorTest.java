@@ -684,6 +684,57 @@ public class AvroSchemaConvertorTest {
     }
 
     @Test
+    public void testBigNumericTypeConversionToAvroType() {
+        // Form the Data Type, with 38 integer digits, which is more than NUMERIC can hold.
+        DataType dataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "bignumeric_type", DataTypes.DECIMAL(38, 0).notNull()))
+                        .notNull();
+        LogicalType logicalType = dataType.getLogicalType();
+
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
+
+        // Check the expected type, which is not tagged as NUMERIC.
+        String exectedFieldString =
+                "\"fields\":["
+                        + "{\"name\":\"bignumeric_type\", \"type\": {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"scale\" : 0, \"precision\": 38}} "
+                        + "]";
+        Schema expectedAvroSchema = getAvroSchemaFromFieldString(exectedFieldString);
+
+        // Check the expected type.
+        assertEquals(expectedAvroSchema, convertedAvroSchema);
+    }
+
+    /**
+     * Test to check that a decimal with a scale above NUMERIC's limit is not tagged as NUMERIC,
+     * even if its number of integer digits fits in NUMERIC.
+     */
+    @Test
+    public void testDecimalScaleAboveNumericScaleConversionToAvroType() {
+        // Form the Data Type, with 28 integer digits and 10 fractional digits.
+        DataType dataType =
+                DataTypes.ROW(
+                                DataTypes.FIELD(
+                                        "bignumeric_scale_type",
+                                        DataTypes.DECIMAL(38, 10).notNull()))
+                        .notNull();
+        LogicalType logicalType = dataType.getLogicalType();
+
+        Schema convertedAvroSchema = avroSchemaConvertor.convertToSchema(logicalType);
+
+        // Check the expected type, which is not tagged as NUMERIC.
+        String exectedFieldString =
+                "\"fields\":["
+                        + "{\"name\":\"bignumeric_scale_type\", \"type\": {\"type\": \"bytes\", \"logicalType\": \"decimal\", \"scale\" : 10, \"precision\": 38}} "
+                        + "]";
+        Schema expectedAvroSchema = getAvroSchemaFromFieldString(exectedFieldString);
+
+        // Check the expected type.
+        assertEquals(expectedAvroSchema, convertedAvroSchema);
+    }
+
+    @Test
     public void testArrayTypeConversionToAvroType() {
         // Form the Data Type
         DataType dataType =

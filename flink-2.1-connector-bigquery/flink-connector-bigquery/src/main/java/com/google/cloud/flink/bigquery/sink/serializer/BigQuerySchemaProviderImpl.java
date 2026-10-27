@@ -37,6 +37,8 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import javax.annotation.Nullable;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -152,7 +154,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.date().getName(), FieldDescriptorProto.Type.TYPE_INT32);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
-                LogicalTypes.decimal(1).getName(), FieldDescriptorProto.Type.TYPE_BYTES);
+                LogicalTypes.decimal(1).getName(), FieldDescriptorProto.Type.TYPE_STRING);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
                 LogicalTypes.timestampMicros().getName(), FieldDescriptorProto.Type.TYPE_INT64);
         LOGICAL_AVRO_TYPES_TO_PROTO.put(
@@ -375,8 +377,31 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
          * Any default value present in the schema is also set in descriptor.*/
         fieldDescriptorBuilder.setType(type);
         if (field.hasDefaultValue()) {
-            fieldDescriptorBuilder.setDefaultValue(field.defaultVal().toString());
+            fieldDescriptorBuilder.setDefaultValue(getDefaultValue(elementType, field, type));
         }
+    }
+
+    /**
+     * Returns the default value of a field for the proto descriptor. Decimal defaults are bytes in
+     * Avro, but a decimal column is written as a string, so these defaults are converted.
+     */
+    private static String getDefaultValue(
+            Schema elementType, Schema.Field field, FieldDescriptorProto.Type type) {
+        if (type == FieldDescriptorProto.Type.TYPE_STRING
+                && elementType.getLogicalType() instanceof LogicalTypes.Decimal) {
+            return getDecimalDefaultValue(
+                    field.defaultVal(), (LogicalTypes.Decimal) elementType.getLogicalType());
+        }
+        return field.defaultVal().toString();
+    }
+
+    private static String getDecimalDefaultValue(
+            Object defaultValue, LogicalTypes.Decimal decimalType) {
+        if (!(defaultValue instanceof byte[])) {
+            return defaultValue.toString();
+        }
+        return new BigDecimal(new BigInteger((byte[]) defaultValue), decimalType.getScale())
+                .toPlainString();
     }
 
     /**

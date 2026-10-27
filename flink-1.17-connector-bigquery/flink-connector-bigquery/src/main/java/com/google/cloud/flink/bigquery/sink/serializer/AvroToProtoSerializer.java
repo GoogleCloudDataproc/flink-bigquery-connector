@@ -372,21 +372,26 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                     JSON - STRING
                 */
                 Object convertedValue =
-                        AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                        AvroSchemaHandler.handleLogicalTypeSchema(
+                                fieldDescriptor, avroSchema, value);
                 if (convertedValue != value) {
                     return convertedValue;
                 }
                 return value.toString();
             case LONG:
             case INT:
-                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                convertedValue =
+                        AvroSchemaHandler.handleLogicalTypeSchema(
+                                fieldDescriptor, avroSchema, value);
                 if (convertedValue != value) {
                     return convertedValue;
                 }
                 return ((Number) value).longValue();
             case BYTES:
                 // Find if it is of decimal Type.
-                convertedValue = AvroSchemaHandler.handleLogicalTypeSchema(avroSchema, value);
+                convertedValue =
+                        AvroSchemaHandler.handleLogicalTypeSchema(
+                                fieldDescriptor, avroSchema, value);
                 if (convertedValue != value) {
                     return convertedValue;
                 }
@@ -498,17 +503,20 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         /**
          * Function to convert Avro Schema Field value to Dynamic Message value (for Logical Types).
          *
+         * @param fieldDescriptor {@link FieldDescriptor} of the destination field.
          * @param fieldSchema Avro Schema describing the schema for the value.
          * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
          * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
          *     value otherwise.
          */
-        private static Object handleLogicalTypeSchema(Schema fieldSchema, Object value) {
+        private static Object handleLogicalTypeSchema(
+                FieldDescriptor fieldDescriptor, Schema fieldSchema, Object value) {
             String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
             if (logicalTypeString != null) {
                 // 1. In case, the Schema has a Logical Type.
                 @Nullable
-                UnaryOperator<Object> encoder = getLogicalEncoder(fieldSchema, logicalTypeString);
+                UnaryOperator<Object> encoder =
+                        getLogicalEncoder(fieldDescriptor, fieldSchema, logicalTypeString);
                 // 2. Check if this is supported, Return the value
                 if (encoder != null) {
                     return encoder.apply(value);
@@ -522,16 +530,20 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to
          * Dynamic Message.
          *
+         * @param fieldDescriptor {@link FieldDescriptor} of the destination field.
+         * @param fieldSchema Avro Schema describing the schema for the value.
          * @param logicalTypeString String containing the name for Logical Schema Type.
          * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
          */
         private static UnaryOperator<Object> getLogicalEncoder(
-                Schema fieldSchema, String logicalTypeString) {
+                FieldDescriptor fieldDescriptor, Schema fieldSchema, String logicalTypeString) {
             Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
             mapping.put(LogicalTypes.date().getName(), AvroSchemaHandler::convertDate);
             mapping.put(
                     LogicalTypes.decimal(1).getName(),
-                    value -> AvroSchemaHandler.convertBigDecimal(value, fieldSchema));
+                    value ->
+                            AvroSchemaHandler.convertBigDecimal(
+                                    value, fieldSchema, fieldDescriptor));
             mapping.put(
                     LogicalTypes.timestampMicros().getName(),
                     value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
@@ -749,36 +761,22 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         }
 
         /**
-         * Function to convert ByteBuffer value to ByteString for Bignumeric Field.
+         * Converts an Avro decimal value to the destination field's representation. A STRING field
+         * receives the decimal as text. A BYTES field receives a NUMERIC or BIGNUMERIC {@link
+         * ByteString} for compatibility with custom schema providers.
          *
-         * <ol>
-         *   <li>If scale and precision is set in the BQ Table
-         *       <ul>
-         *         <li>Precision > BQ table and Scale > BQ Table - ERROR while inserting to Storage
-         *             Write API
-         *         <li>Precision > BQ table and Scale <= BQ Table - ERROR while inserting to Storage
-         *             Write API
-         *         <li>Precision <= BQ table and Scale > BQ Table - ROUND OFF
-         *             <ul>
-         *               <li>Example: 1.234567(Precision 7, Scale = 6) value is converted to 1.23457
-         *                   for a table of type BIGNUMERIC(9, 5)
-         *             </ul>
-         *         <li>Precision <= BQ table and Scale <= BQ Table - AS IT IS
-         *       </ul>
-         *   <li>If No scale is set in the BQ Table
-         *       <ul>
-         *         <li>The value is inserted as it is (should be within the limits of BIG NUMERIC
-         *             Field of a BigQuery Table)
-         *       </ul>
-         * </ol>
+         * <p>BigQuery applies the destination column's precision and scale. A value with more
+         * fractional digits than the column is rounded. A value that does not fit the column is
+         * rejected by the Storage Write API.
          *
-         * @param value {@link ByteBuffer} object containing the 2's-complement binary
-         *     representation of a BigInteger (in big-endian byte order).
-         * @param fieldSchema {@link Schema} object of the value to be converted.
-         * @return {@link ByteString} object of the converted BigDecimal
+         * @param value {@link ByteBuffer} with the 2's-complement big-endian unscaled value.
+         * @param fieldSchema {@link Schema} of the value.
+         * @param fieldDescriptor {@link FieldDescriptor} of the destination field, null for the
+         *     legacy BYTES-only conversion.
+         * @return decimal string, or {@link ByteString} for a BYTES field.
          */
-        @VisibleForTesting
-        static ByteString convertBigDecimal(Object value, Schema fieldSchema) {
+        static Object convertBigDecimal(
+                Object value, Schema fieldSchema, @Nullable FieldDescriptor fieldDescriptor) {
             // Check if a ByteBuffer instance is obtained.\
             if (!(value instanceof ByteBuffer)) {
                 LOG.error(
@@ -798,9 +796,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             BigInteger scaledValue = new BigInteger(byteArray); // requires big-endian.
             BigDecimal decimalValue = new BigDecimal(scaledValue, scale);
 
+            if (fieldDescriptor != null
+                    && fieldDescriptor.getType() == FieldDescriptor.Type.STRING) {
+                return decimalValue.toPlainString();
+            }
+
             try {
-                if (fieldSchema.getObjectProp("isNumeric") != null
-                        && (boolean) fieldSchema.getObjectProp("isNumeric")) {
+                if (isTaggedNumeric(fieldSchema)) {
                     // Pass the BigDecimal Object to be converted to ByteString (with Numeric
                     // Scale).
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
@@ -810,6 +812,16 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException(e);
             }
+        }
+
+        @VisibleForTesting
+        static ByteString convertBigDecimal(Object value, Schema fieldSchema) {
+            return (ByteString) convertBigDecimal(value, fieldSchema, null);
+        }
+
+        private static boolean isTaggedNumeric(Schema fieldSchema) {
+            Object isNumeric = fieldSchema.getObjectProp("isNumeric");
+            return isNumeric != null && Boolean.parseBoolean(isNumeric.toString());
         }
 
         @VisibleForTesting

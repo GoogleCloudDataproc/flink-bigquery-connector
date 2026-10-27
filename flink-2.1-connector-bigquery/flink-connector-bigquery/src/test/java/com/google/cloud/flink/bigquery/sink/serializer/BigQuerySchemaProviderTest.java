@@ -479,6 +479,26 @@ public class BigQuerySchemaProviderTest {
         assertEquals("100", fieldDescriptorProto.getDefaultValue());
     }
 
+    @Test
+    public void testDecimalDefaultValueSchemaConversion() {
+        String fieldString =
+                " \"fields\": [\n"
+                        + "{\"name\": \"decimal_with_default\", \"type\":"
+                        + "{\"type\": \"bytes\", \"logicalType\": \"decimal\","
+                        + " \"precision\": 10, \"scale\": 2},"
+                        + " \"default\": \"\\u0004\\u00d2\"}"
+                        + " ]\n";
+        Descriptor descriptor =
+                new BigQuerySchemaProviderImpl(getAvroSchemaFromFieldString(fieldString))
+                        .getDescriptor();
+
+        FieldDescriptorProto fieldDescriptorProto = descriptor.findFieldByNumber(1).toProto();
+        assertEquals("decimal_with_default", fieldDescriptorProto.getName());
+        assertEquals(FieldDescriptorProto.Type.TYPE_STRING, fieldDescriptorProto.getType());
+        assertTrue(fieldDescriptorProto.hasDefaultValue());
+        assertEquals("12.34", fieldDescriptorProto.getDefaultValue());
+    }
+
     private static void assertExpectedUnsupportedException(
             String fieldString, String expectedError) {
         Schema avroSchema = getAvroSchemaFromFieldString(fieldString);
@@ -636,7 +656,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(
                 descriptor.findFieldByNumber(5).toProto(),
                 FieldDescriptorProto.newBuilder()
-                        .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
                         .setName("numeric_field")
                         .setNumber(5)
                         .setLabel(label)
@@ -645,7 +665,7 @@ public class BigQuerySchemaProviderTest {
         assertEquals(
                 descriptor.findFieldByNumber(6).toProto(),
                 FieldDescriptorProto.newBuilder()
-                        .setType(FieldDescriptorProto.Type.TYPE_BYTES)
+                        .setType(FieldDescriptorProto.Type.TYPE_STRING)
                         .setName("bignumeric_field")
                         .setNumber(6)
                         .setLabel(label)

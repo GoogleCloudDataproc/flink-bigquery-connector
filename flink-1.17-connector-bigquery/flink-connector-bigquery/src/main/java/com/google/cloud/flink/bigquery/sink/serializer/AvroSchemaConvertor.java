@@ -35,6 +35,7 @@ import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.TypeInformationRawType;
 import org.apache.flink.util.Preconditions;
 
+import com.google.cloud.flink.bigquery.common.utils.AvroToBigQuerySchemaTransform;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -425,7 +426,8 @@ public class AvroSchemaConvertor {
         Schema decimal =
                 LogicalTypes.decimal(precision, decimalType.getScale())
                         .addToSchema(SchemaBuilder.builder().bytesType());
-        if (precision <= 38 && precision > 0) {
+        // BigQuery NUMERIC columns are tagged with "isNumeric". Anything wider is BIGNUMERIC.
+        if (AvroToBigQuerySchemaTransform.fitsInNumeric(precision, decimalType.getScale())) {
             decimal.addProp("isNumeric", true);
         }
         return decimal;
