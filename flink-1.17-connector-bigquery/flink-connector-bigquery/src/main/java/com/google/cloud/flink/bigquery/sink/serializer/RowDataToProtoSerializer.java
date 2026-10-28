@@ -16,7 +16,6 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
-import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -72,7 +71,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     public void init(BigQuerySchemaProvider bigQuerySchemaProvider) {
         Preconditions.checkNotNull(
                 bigQuerySchemaProvider,
-                "BigQuerySchemaProvider not found while initializing AvroToProtoSerializer");
+                "BigQuerySchemaProvider not found while initializing RowDataToProtoSerializer");
         Descriptor derivedDescriptor = bigQuerySchemaProvider.getDescriptor();
         Preconditions.checkNotNull(
                 derivedDescriptor, "Destination BigQuery table's Proto Schema could not be found.");
@@ -82,7 +81,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
     @Override
     public Schema getAvroSchema(RowData record) {
         // Doesn't actually depend on record
-        return AvroSchemaConverter.convertToSchema(this.type);
+        return BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(this.type);
     }
 
     @Override
@@ -121,6 +120,12 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     int scale = decimalType.getScale();
                     BigDecimal decimalValue =
                             element.getDecimal(fieldNumber, precision, scale).toBigDecimal();
+                    if (fieldDescriptor.getType() == FieldDescriptor.Type.STRING) {
+                        return decimalValue.toPlainString();
+                    }
+                    // Custom schema providers may still use BYTES. Keep the previous NUMERIC
+                    // encoding for them: unlike the Avro serializer, this serializer cannot see
+                    // the destination column type, and the Flink type does not determine it.
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
                 case SMALLINT:

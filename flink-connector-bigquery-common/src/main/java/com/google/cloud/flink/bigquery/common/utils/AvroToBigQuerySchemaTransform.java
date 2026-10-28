@@ -440,9 +440,7 @@ public class AvroToBigQuerySchemaTransform {
         long precision = ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getPrecision();
         long scale = ((LogicalTypes.Decimal) avroSchema.getLogicalType()).getScale();
 
-        if (precision > 0
-                && precision <= (scale + (MAX_BQ_NUMERIC_PRECISION - MAX_BQ_NUMERIC_SCALE))
-                && scale <= MAX_BQ_NUMERIC_SCALE) {
+        if (fitsInNumeric(precision, scale)) {
             return StandardSQLTypeName.NUMERIC;
         } else if (precision > 0
                 && precision <= (scale + (MAX_BQ_BIGNUMERIC_PRECISION - MAX_BQ_BIGNUMERIC_SCALE))
@@ -455,6 +453,21 @@ public class AvroToBigQuerySchemaTransform {
                                 + "BigQuery does not support Decimal types with "
                                 + "precision %d and scale %d.",
                         name, precision, scale));
+    }
+
+    /**
+     * Returns whether a decimal fits in a BigQuery {@code NUMERIC} column. NUMERIC allows a scale
+     * of up to 9 and up to 29 integer digits.
+     *
+     * @param precision Total number of digits.
+     * @param scale Number of fractional digits.
+     * @return true if the decimal fits in NUMERIC, false if it requires BIGNUMERIC.
+     */
+    public static boolean fitsInNumeric(long precision, long scale) {
+        return precision > 0
+                && scale >= 0
+                && scale <= MAX_BQ_NUMERIC_SCALE
+                && precision - scale <= MAX_BQ_NUMERIC_PRECISION - MAX_BQ_NUMERIC_SCALE;
     }
 
     /**
