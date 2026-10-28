@@ -1746,6 +1746,22 @@ public class RowDataToProtoSerializerTest {
                         BigDecimalByteStringEncoder.decodeNumericByteString((ByteString) field)));
     }
 
+    @Test
+    public void testDecimalWithBytesDescriptorUsesBigNumericEncoding() throws Exception {
+        BigQuerySchemaProvider schemaProvider =
+                getSchemaProviderWithBytesDescriptor("BIGNUMERIC", 38, 0);
+        BigDecimal value = new BigDecimal("420000000000000030869540569088");
+
+        Object field = serializeDecimal(schemaProvider, 38, 0, value);
+
+        assertThat(field).isInstanceOf(ByteString.class);
+        assertEquals(
+                0,
+                value.compareTo(
+                        BigDecimalByteStringEncoder.decodeBigNumericByteString(
+                                (ByteString) field)));
+    }
+
     private static BigQuerySchemaProvider getSchemaProviderWithBytesDescriptor(
             String bqType, long precision, long scale) throws DescriptorValidationException {
         BigQuerySchemaProvider stringProvider =

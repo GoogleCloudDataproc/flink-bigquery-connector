@@ -16,10 +16,16 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer.AvroSchemaHandler;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
+import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
 import org.apache.avro.Schema;
@@ -1962,5 +1968,116 @@ public class AvroToProtoSerializerTest {
         // Check for the desired results.
         Assertions.assertThat(exception)
                 .hasMessageContaining("Null Type Field not supported in BigQuery!");
+    }
+
+    @Test
+    public void testFixedDecimalConversionToString() throws Exception {
+        String schemaString =
+                "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                        + "{\"name\":\"fixed_decimal\",\"type\":"
+                        + "{\"type\":\"fixed\",\"name\":\"decimal_fixed\",\"size\":4,"
+                        + "\"logicalType\":\"decimal\",\"precision\":9,\"scale\":2}}]}";
+        Schema avroSchema = new Schema.Parser().parse(schemaString);
+        BigQuerySchemaProvider schemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set(
+                                "fixed_decimal",
+                                new GenericData.Fixed(
+                                        avroSchema.getField("fixed_decimal").schema(),
+                                        new byte[] {0, 0, 0x30, 0x39}))
+                        .build();
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(schemaProvider);
+        Descriptor descriptor = schemaProvider.getDescriptor();
+
+        DynamicMessage message = DynamicMessage.parseFrom(descriptor, serializer.serialize(record));
+
+        assertEquals("123.45", message.getField(descriptor.findFieldByNumber(1)));
+    }
+
+    @Test
+    public void testBytesDescriptorWithQuotedNumericTagUsesNumericEncoding() throws Exception {
+        String schemaString =
+                "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                        + "{\"name\":\"decimal_field\",\"type\":"
+                        + "{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":29,"
+                        + "\"scale\":0,\"isNumeric\":\"true\"}}]}";
+        Schema avroSchema = new Schema.Parser().parse(schemaString);
+        BigQuerySchemaProvider schemaProvider = getSchemaProviderWithBytesDescriptor(avroSchema);
+        BigDecimal value = new BigDecimal("12345678901234567890123456789");
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("decimal_field", ByteBuffer.wrap(value.unscaledValue().toByteArray()))
+                        .build();
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(schemaProvider);
+        Descriptor descriptor = schemaProvider.getDescriptor();
+
+        Object field =
+                DynamicMessage.parseFrom(descriptor, serializer.serialize(record))
+                        .getField(descriptor.findFieldByNumber(1));
+
+        assertThat(field).isInstanceOf(ByteString.class);
+        assertEquals(
+                0,
+                value.compareTo(
+                        BigDecimalByteStringEncoder.decodeNumericByteString((ByteString) field)));
+    }
+
+    @Test
+    public void testBytesDescriptorWithoutNumericTagUsesBigNumericEncoding() throws Exception {
+        String schemaString =
+                "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                        + "{\"name\":\"decimal_field\",\"type\":"
+                        + "{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,"
+                        + "\"scale\":0}}]}";
+        Schema avroSchema = new Schema.Parser().parse(schemaString);
+        BigQuerySchemaProvider schemaProvider = getSchemaProviderWithBytesDescriptor(avroSchema);
+        BigDecimal value = new BigDecimal("420000000000000030869540569088");
+        GenericRecord record =
+                new GenericRecordBuilder(avroSchema)
+                        .set("decimal_field", ByteBuffer.wrap(value.unscaledValue().toByteArray()))
+                        .build();
+        AvroToProtoSerializer serializer = new AvroToProtoSerializer();
+        serializer.init(schemaProvider);
+        Descriptor descriptor = schemaProvider.getDescriptor();
+
+        Object field =
+                DynamicMessage.parseFrom(descriptor, serializer.serialize(record))
+                        .getField(descriptor.findFieldByNumber(1));
+
+        assertThat(field).isInstanceOf(ByteString.class);
+        assertEquals(
+                0,
+                value.compareTo(
+                        BigDecimalByteStringEncoder.decodeBigNumericByteString(
+                                (ByteString) field)));
+    }
+
+    private static BigQuerySchemaProvider getSchemaProviderWithBytesDescriptor(Schema avroSchema)
+            throws DescriptorValidationException {
+        BigQuerySchemaProvider stringProvider = new BigQuerySchemaProviderImpl(avroSchema);
+        DescriptorProto descriptorProto =
+                stringProvider
+                        .getDescriptorProto()
+                        .toBuilder()
+                        .setField(
+                                0,
+                                stringProvider
+                                        .getDescriptorProto()
+                                        .getField(0)
+                                        .toBuilder()
+                                        .setType(FieldDescriptorProto.Type.TYPE_BYTES))
+                        .build();
+        Descriptor descriptor =
+                Descriptors.FileDescriptor.buildFrom(
+                                FileDescriptorProto.newBuilder()
+                                        .addMessageType(descriptorProto)
+                                        .build(),
+                                new Descriptors.FileDescriptor[0])
+                        .getMessageTypes()
+                        .get(0);
+        return new TestSchemaProvider(avroSchema, descriptor);
     }
 }

@@ -31,6 +31,7 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -399,6 +400,9 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             case ENUM:
                 return value.toString();
             case FIXED:
+                if (avroSchema.getLogicalType() instanceof LogicalTypes.Decimal) {
+                    return AvroSchemaHandler.convertBigDecimal(value, avroSchema, fieldDescriptor);
+                }
                 return ByteString.copyFrom(((GenericData.Fixed) value).bytes());
             case BOOLEAN:
                 return (boolean) value;
@@ -765,9 +769,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          * receives the decimal as text. A BYTES field receives a NUMERIC or BIGNUMERIC {@link
          * ByteString} for compatibility with custom schema providers.
          *
-         * <p>BigQuery applies the destination column's precision and scale. A value with more
-         * fractional digits than the column is rounded. A value that does not fit the column is
-         * rejected by the Storage Write API.
+         * <p>BigQuery applies the destination column's precision and scale. A value that does not
+         * fit the column is rejected by the Storage Write API.
          *
          * @param value {@link ByteBuffer} with the 2's-complement big-endian unscaled value.
          * @param fieldSchema {@link Schema} of the value.
@@ -777,14 +780,18 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          */
         static Object convertBigDecimal(
                 Object value, Schema fieldSchema, @Nullable FieldDescriptor fieldDescriptor) {
-            // Check if a ByteBuffer instance is obtained.\
-            if (!(value instanceof ByteBuffer)) {
+            final byte[] byteArray;
+            if (value instanceof ByteBuffer) {
+                byteArray = ((ByteBuffer) value).array(); // This is in big-endian format.
+            } else if (value instanceof GenericFixed) {
+                byteArray = ((GenericFixed) value).bytes();
+            } else {
                 LOG.error(
                         getLogErrorMessage(
-                                "ByteBuffer", "BigDecimal", value.getClass().toString()));
-                throw new IllegalArgumentException(getErrorMessage("ByteBuffer", "BigDecimal"));
+                                "ByteBuffer or Fixed", "BigDecimal", value.getClass().toString()));
+                throw new IllegalArgumentException(
+                        getErrorMessage("ByteBuffer or Fixed", "BigDecimal"));
             }
-            byte[] byteArray = ((ByteBuffer) value).array(); // This is in big-endian format.
 
             // Extract the scale from the Record Schema.
             Preconditions.checkNotNull(
