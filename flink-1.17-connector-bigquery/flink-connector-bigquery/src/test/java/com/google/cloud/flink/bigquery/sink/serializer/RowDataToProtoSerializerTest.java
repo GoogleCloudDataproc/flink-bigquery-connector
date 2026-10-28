@@ -1735,20 +1735,24 @@ public class RowDataToProtoSerializerTest {
                         BigDecimalByteStringEncoder.decodeNumericByteString((ByteString) field)));
     }
 
+    /**
+     * Test to check a custom schema provider that maps decimals to BYTES, with a Flink type wider
+     * than NUMERIC. The previous NUMERIC encoding is kept, because a NUMERIC column commonly
+     * receives such types, e.g. the DECIMAL(38, 2) result of a SUM.
+     */
     @Test
-    public void testDecimalWithBytesDescriptorUsesBigNumericEncoding() throws Exception {
+    public void testWideDecimalWithBytesDescriptorKeepsNumericEncoding() throws Exception {
         BigQuerySchemaProvider schemaProvider =
-                getSchemaProviderWithBytesDescriptor("BIGNUMERIC", 38, 0);
-        BigDecimal value = new BigDecimal("420000000000000030869540569088");
+                getSchemaProviderWithBytesDescriptor("NUMERIC", 38, 9);
+        BigDecimal value = new BigDecimal("123456.78");
 
-        Object field = serializeDecimal(schemaProvider, 38, 0, value);
+        Object field = serializeDecimal(schemaProvider, 38, 2, value);
 
         assertThat(field).isInstanceOf(ByteString.class);
         assertEquals(
                 0,
                 value.compareTo(
-                        BigDecimalByteStringEncoder.decodeBigNumericByteString(
-                                (ByteString) field)));
+                        BigDecimalByteStringEncoder.decodeNumericByteString((ByteString) field)));
     }
 
     private static BigQuerySchemaProvider getSchemaProviderWithBytesDescriptor(

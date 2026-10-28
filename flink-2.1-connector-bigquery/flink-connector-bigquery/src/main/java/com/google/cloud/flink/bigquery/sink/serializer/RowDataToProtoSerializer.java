@@ -30,7 +30,6 @@ import org.apache.flink.table.types.logical.TimestampType;
 
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
-import com.google.cloud.flink.bigquery.common.utils.AvroToBigQuerySchemaTransform;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -245,13 +244,10 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     if (fieldDescriptor.getType() == FieldDescriptor.Type.STRING) {
                         return decimalValue.toPlainString();
                     }
-                    // Custom schema providers may still use BYTES. Use the same bounds rule as the
-                    // Avro serializer for the binary encoding.
-                    return AvroToBigQuerySchemaTransform.fitsInNumeric(
-                                    decimalType.getPrecision(), decimalType.getScale())
-                            ? BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue)
-                            : BigDecimalByteStringEncoder.encodeToBigNumericByteString(
-                                    decimalValue);
+                    // Custom schema providers may still use BYTES. Keep the previous NUMERIC
+                    // encoding for them: unlike the Avro serializer, this serializer cannot see
+                    // the destination column type, and the Flink type does not determine it.
+                    return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
                 case SMALLINT:
                     return (long) element.getShort(fieldNumber);
