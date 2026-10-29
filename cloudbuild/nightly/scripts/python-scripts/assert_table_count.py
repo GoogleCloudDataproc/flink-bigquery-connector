@@ -155,8 +155,11 @@ def assert_unique_key_count(bq_client, storage_client, project_name, dataset_nam
         if source_unique_key_count != destination_unique_key_count:
             raise AssertionError("Source and Destination Key counts do not match!")
     else:
-        if source_unique_key_count < destination_unique_key_count:
-            raise AssertionError("Destination Row Key count is less than Source Key Count!")
+        # Duplicates allowed by at-least-once delivery do not change the distinct key count,
+        # so the counts must still match exactly.
+        if source_unique_key_count != destination_unique_key_count:
+            raise AssertionError(
+                "Source and Destination Key counts do not match (at-least-once)!")
 
 
 def main(argv: Sequence[str]) -> None:
