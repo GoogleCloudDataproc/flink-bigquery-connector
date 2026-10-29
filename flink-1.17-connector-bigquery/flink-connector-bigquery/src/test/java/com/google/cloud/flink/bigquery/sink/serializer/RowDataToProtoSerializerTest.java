@@ -16,26 +16,39 @@
 
 package com.google.cloud.flink.bigquery.sink.serializer;
 
+import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericArrayData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.ArrayType;
+import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.Timestamp;
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
+import com.google.cloud.flink.bigquery.common.utils.AvroToBigQuerySchemaTransform;
+import com.google.cloud.flink.bigquery.sink.BigQuerySinkConfig;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataConverters;
-import com.google.common.primitives.Bytes;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
+import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.generic.IndexedRecord;
@@ -354,8 +367,8 @@ public class RowDataToProtoSerializerTest {
      *   <li>"TIME" - LONG (microseconds since MIDNIGHT) {time-micros}
      *   <li>"DATETIME" - INTEGER/LONG (microseconds since MIDNIGHT) {local-timestamp-micros}
      *   <li>"DATE" - INTEGER (number of days since EPOCH) {date}
-     *   <li>"NUMERIC" - BYTES {decimal, isNumeric}
-     *   <li>"BIGNUMERIC" - BYTES {decimal}
+     *   <li>"NUMERIC" - STRING {decimal, isNumeric}
+     *   <li>"BIGNUMERIC" - STRING {decimal}
      *   <li>"GEOGRAPHY" - STRING {geography_wkt}
      *   <li>"JSON" - STRING {Json}
      * </ul>
@@ -398,7 +411,7 @@ public class RowDataToProtoSerializerTest {
         RowDataToProtoSerializer rowDataSerializer = new RowDataToProtoSerializer(logicalType);
         rowDataSerializer.init(bigQuerySchemaProvider);
 
-        BigDecimal bigDecimal = new BigDecimal("123456.7891011");
+        BigDecimal bigDecimal = new BigDecimal("1234.567891011");
         byte[] bytes = bigDecimal.unscaledValue().toByteArray();
 
         IndexedRecord record =
@@ -429,9 +442,7 @@ public class RowDataToProtoSerializerTest {
         assertEquals(
                 "2024-03-20T13:59:04.787424", message.getField(descriptor.findFieldByNumber(3)));
         assertEquals(19802, message.getField(descriptor.findFieldByNumber(4)));
-        bytes = bigDecimal.unscaledValue().toByteArray();
-        Bytes.reverse(bytes);
-        assertEquals(ByteString.copyFrom(bytes), message.getField(descriptor.findFieldByNumber(5)));
+        assertEquals(bigDecimal.toPlainString(), message.getField(descriptor.findFieldByNumber(5)));
         assertEquals(
                 "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (3 4, 5 6))",
                 message.getField(descriptor.findFieldByNumber(6)));
@@ -1476,5 +1487,298 @@ public class RowDataToProtoSerializerTest {
                 .hasMessageContaining(
                         "Serialization to ByteString for the passed "
                                 + "RowData type: 'MAP' is not supported yet!");
+    }
+
+    // ------------ Test Schemas with DECIMAL (NUMERIC and BIGNUMERIC) -------------
+
+    /**
+     * Builds the destination schema of a table with a single REQUIRED <code>decimal_field</code>
+     * column.
+     */
+    private static BigQuerySchemaProvider getSchemaWithDecimalColumn(
+            String bqType, long precision, long scale) {
+        return new BigQuerySchemaProviderImpl(
+                new TableSchema()
+                        .setFields(
+                                Collections.singletonList(
+                                        new TableFieldSchema()
+                                                .setName("decimal_field")
+                                                .setType(bqType)
+                                                .setPrecision(precision)
+                                                .setScale(scale)
+                                                .setMode("REQUIRED"))));
+    }
+
+    /**
+     * Serializes a DECIMAL value and returns the value written to the <code>decimal_field</code>
+     * column.
+     */
+    private static Object serializeDecimal(
+            BigQuerySchemaProvider schemaProvider, int precision, int scale, BigDecimal value)
+            throws BigQuerySerializationException, InvalidProtocolBufferException {
+        RowDataToProtoSerializer serializer =
+                new RowDataToProtoSerializer(
+                        RowType.of(false, new DecimalType(false, precision, scale)));
+        serializer.init(schemaProvider);
+        ByteString serialized =
+                serializer.serialize(
+                        GenericRowData.of(DecimalData.fromBigDecimal(value, precision, scale)));
+        Descriptor descriptor = schemaProvider.getDescriptor();
+        return DynamicMessage.parseFrom(descriptor, serialized)
+                .getField(descriptor.findFieldByNumber(1));
+    }
+
+    private static Object serializeDecimal(
+            String bqType, int precision, int scale, BigDecimal value)
+            throws BigQuerySerializationException, InvalidProtocolBufferException {
+        return serializeDecimal(
+                getSchemaWithDecimalColumn(bqType, precision, scale), precision, scale, value);
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for a DECIMAL value which is too large for NUMERIC.
+     * The value is written as a string for a BIGNUMERIC column, so the Storage Write API does not
+     * have to interpret NUMERIC-scaled bytes.
+     */
+    @Test
+    public void testDecimalTooLargeForNumericIsWrittenAsString() throws Exception {
+        BigDecimal value = new BigDecimal("420000000000000030869540569088");
+
+        Object field = serializeDecimal("BIGNUMERIC", 38, 0, value);
+
+        assertEquals(value.toPlainString(), field);
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for a DECIMAL value with a scale above NUMERIC's
+     * limit.
+     */
+    @Test
+    public void testDecimalWithScaleAboveNumericIsWrittenAsString() throws Exception {
+        BigDecimal value = new BigDecimal("0.000000001850000000");
+
+        Object field = serializeDecimal("BIGNUMERIC", 38, 18, value);
+
+        assertEquals(value.toPlainString(), field);
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for a Flink DECIMAL type with precision 38 written to
+     * a NUMERIC column. The string form keeps the value independent of the column's scale.
+     */
+    @Test
+    public void testDecimalWithWideTypeIsWrittenAsString() throws Exception {
+        BigDecimal value = new BigDecimal("123456789012345678901234567.890000000");
+
+        Object field = serializeDecimal("NUMERIC", 38, 9, value);
+
+        assertEquals(value.toPlainString(), field);
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for a table the sink creates. The derived schema must
+     * use the column type chosen for the decimal, and the value must be written as a string.
+     */
+    @Test
+    public void testDecimalWithDerivedDestinationSchemaIsWrittenAsString() throws Exception {
+        RowType rowType = RowType.of(false, new DecimalType(false, 38, 0));
+        RowDataToProtoSerializer serializer = new RowDataToProtoSerializer(rowType);
+        Schema derivedSchema = serializer.getAvroSchema(GenericRowData.of());
+        assertEquals(
+                StandardSQLTypeName.BIGNUMERIC,
+                AvroToBigQuerySchemaTransform.getBigQuerySchema(derivedSchema)
+                        .getFields()
+                        .get(0)
+                        .getType()
+                        .getStandardType());
+        BigQuerySchemaProvider schemaProvider = new BigQuerySchemaProviderImpl(derivedSchema);
+        serializer.init(schemaProvider);
+
+        BigDecimal value = new BigDecimal("420000000000000030869540569088");
+        Descriptor descriptor = schemaProvider.getDescriptor();
+        Object field =
+                DynamicMessage.parseFrom(
+                                descriptor,
+                                serializer.serialize(
+                                        GenericRowData.of(
+                                                DecimalData.fromBigDecimal(value, 38, 0))))
+                        .getField(descriptor.findFieldByNumber(1));
+
+        assertEquals(value.toPlainString(), field);
+    }
+
+    /**
+     * Test to check the Table API path. <code>BigQuerySinkConfig.forTable</code> builds the schema
+     * from the Flink type, so the serializer must not depend on the destination table schema.
+     */
+    @Test
+    public void testTableApiDecimalIsWrittenAsString() throws Exception {
+        RowType rowType = RowType.of(false, new DecimalType(false, 38, 2));
+        BigQueryConnectOptions connectOptions =
+                BigQueryConnectOptions.builder()
+                        .setProjectId("project")
+                        .setDataset("dataset")
+                        .setTable("table")
+                        .build();
+        BigQuerySinkConfig<RowData> sinkConfig =
+                BigQuerySinkConfig.forTable(
+                        connectOptions,
+                        DeliveryGuarantee.AT_LEAST_ONCE,
+                        rowType,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        false);
+        RowDataToProtoSerializer serializer = (RowDataToProtoSerializer) sinkConfig.getSerializer();
+        serializer.init(sinkConfig.getSchemaProvider());
+
+        BigDecimal value = new BigDecimal("123456789012345678901234567.89");
+        Descriptor descriptor = sinkConfig.getSchemaProvider().getDescriptor();
+        Object field =
+                DynamicMessage.parseFrom(
+                                descriptor,
+                                serializer.serialize(
+                                        GenericRowData.of(
+                                                DecimalData.fromBigDecimal(value, 38, 2))))
+                        .getField(descriptor.findFieldByNumber(1));
+
+        assertEquals(value.toPlainString(), field);
+    }
+
+    /**
+     * Test to check <code>serialize()</code> for NUMERIC and BIGNUMERIC columns inside a RECORD and
+     * an ARRAY.
+     */
+    @Test
+    public void testNestedAndRepeatedDecimalColumnsAreWrittenAsStrings() throws Exception {
+        TableSchema tableSchema =
+                new TableSchema()
+                        .setFields(
+                                Arrays.asList(
+                                        new TableFieldSchema()
+                                                .setName("numeric_field")
+                                                .setType("NUMERIC")
+                                                .setMode("NULLABLE"),
+                                        new TableFieldSchema()
+                                                .setName("record_field")
+                                                .setType("RECORD")
+                                                .setMode("NULLABLE")
+                                                .setFields(
+                                                        Collections.singletonList(
+                                                                new TableFieldSchema()
+                                                                        .setName("bignumeric_field")
+                                                                        .setType("BIGNUMERIC")
+                                                                        .setMode("REQUIRED"))),
+                                        new TableFieldSchema()
+                                                .setName("bignumeric_array")
+                                                .setType("BIGNUMERIC")
+                                                .setMode("REPEATED")));
+        BigQuerySchemaProvider schemaProvider = new BigQuerySchemaProviderImpl(tableSchema);
+        DecimalType numericType = new DecimalType(true, 38, 9);
+        DecimalType bigNumericType = new DecimalType(false, 38, 0);
+        RowType recordType =
+                RowType.of(new LogicalType[] {bigNumericType}, new String[] {"bignumeric_field"});
+        RowType rowType =
+                RowType.of(
+                        new LogicalType[] {
+                            numericType, recordType.copy(true), new ArrayType(false, bigNumericType)
+                        },
+                        new String[] {"numeric_field", "record_field", "bignumeric_array"});
+        RowDataToProtoSerializer serializer = new RowDataToProtoSerializer(rowType);
+        serializer.init(schemaProvider);
+
+        BigDecimal numericValue = new BigDecimal("123456.789101112");
+        BigDecimal bigNumericValue = new BigDecimal("420000000000000030869540569088");
+        RowData row =
+                GenericRowData.of(
+                        DecimalData.fromBigDecimal(numericValue, 38, 9),
+                        GenericRowData.of(DecimalData.fromBigDecimal(bigNumericValue, 38, 0)),
+                        new GenericArrayData(
+                                new Object[] {DecimalData.fromBigDecimal(bigNumericValue, 38, 0)}));
+
+        Descriptor descriptor = schemaProvider.getDescriptor();
+        DynamicMessage message = DynamicMessage.parseFrom(descriptor, serializer.serialize(row));
+        DynamicMessage record =
+                (DynamicMessage) message.getField(descriptor.findFieldByName("record_field"));
+        Descriptor recordDescriptor = record.getDescriptorForType();
+        List<?> array = (List<?>) message.getField(descriptor.findFieldByName("bignumeric_array"));
+
+        assertEquals(
+                numericValue.toPlainString(),
+                message.getField(descriptor.findFieldByName("numeric_field")));
+        assertEquals(
+                bigNumericValue.toPlainString(),
+                record.getField(recordDescriptor.findFieldByName("bignumeric_field")));
+        assertEquals(1, array.size());
+        assertEquals(bigNumericValue.toPlainString(), array.get(0));
+    }
+
+    /**
+     * Test to check a custom schema provider that still maps decimals to BYTES. The previous
+     * NUMERIC encoding is kept for compatibility.
+     */
+    @Test
+    public void testDecimalWithBytesDescriptorKeepsNumericEncoding() throws Exception {
+        BigQuerySchemaProvider schemaProvider =
+                getSchemaProviderWithBytesDescriptor("NUMERIC", 29, 0);
+        BigDecimal value = new BigDecimal("12345678901234567890123456789");
+
+        Object field = serializeDecimal(schemaProvider, 29, 0, value);
+
+        assertThat(field).isInstanceOf(ByteString.class);
+        assertEquals(
+                0,
+                value.compareTo(
+                        BigDecimalByteStringEncoder.decodeNumericByteString((ByteString) field)));
+    }
+
+    /**
+     * Test to check a custom schema provider that maps decimals to BYTES, with a Flink type wider
+     * than NUMERIC. The previous NUMERIC encoding is kept, because a NUMERIC column commonly
+     * receives such types, e.g. the DECIMAL(38, 2) result of a SUM.
+     */
+    @Test
+    public void testWideDecimalWithBytesDescriptorKeepsNumericEncoding() throws Exception {
+        BigQuerySchemaProvider schemaProvider =
+                getSchemaProviderWithBytesDescriptor("NUMERIC", 38, 9);
+        BigDecimal value = new BigDecimal("123456.78");
+
+        Object field = serializeDecimal(schemaProvider, 38, 2, value);
+
+        assertThat(field).isInstanceOf(ByteString.class);
+        assertEquals(
+                0,
+                value.compareTo(
+                        BigDecimalByteStringEncoder.decodeNumericByteString((ByteString) field)));
+    }
+
+    private static BigQuerySchemaProvider getSchemaProviderWithBytesDescriptor(
+            String bqType, long precision, long scale) throws DescriptorValidationException {
+        BigQuerySchemaProvider stringProvider =
+                getSchemaWithDecimalColumn(bqType, precision, scale);
+        DescriptorProto descriptorProto =
+                stringProvider
+                        .getDescriptorProto()
+                        .toBuilder()
+                        .setField(
+                                0,
+                                stringProvider
+                                        .getDescriptorProto()
+                                        .getField(0)
+                                        .toBuilder()
+                                        .setType(FieldDescriptorProto.Type.TYPE_BYTES))
+                        .build();
+        Descriptor descriptor =
+                Descriptors.FileDescriptor.buildFrom(
+                                FileDescriptorProto.newBuilder()
+                                        .addMessageType(descriptorProto)
+                                        .build(),
+                                new Descriptors.FileDescriptor[0])
+                        .getMessageTypes()
+                        .get(0);
+        return new TestSchemaProvider(stringProvider.getAvroSchema(), descriptor);
     }
 }
