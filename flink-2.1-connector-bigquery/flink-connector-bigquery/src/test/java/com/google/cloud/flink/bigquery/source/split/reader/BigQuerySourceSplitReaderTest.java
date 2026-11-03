@@ -37,6 +37,61 @@ import static com.google.common.truth.Truth.assertThat;
 public class BigQuerySourceSplitReaderTest {
 
     @Test
+    public void testProjectedFetchAcrossResponsesAndSplits() throws Exception {
+        checkProjectedFetch(-1, 0L, 5000, 5000L);
+        checkProjectedFetch(311, 0L, 311, 311L);
+        checkProjectedFetch(274, 0L, 274, 274L);
+        checkProjectedFetch(-1, 123L, 4877, 4877L);
+        checkProjectedFetch(274, 123L, 151, 274L);
+        checkProjectedFetch(274, 274L, 0, 274L);
+    }
+
+    private void checkProjectedFetch(int limit, long offset, int expected, long expectedCount)
+            throws Exception {
+        BigQueryReadOptions options =
+                StorageClientFaker.createReadOptions(
+                                2500, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING)
+                        .toBuilder()
+                        .setColumnNames(Arrays.asList("name"))
+                        .setAvroProjectedBatchSize(137)
+                        .build();
+        BigQuerySourceReaderContext context =
+                new BigQuerySourceReaderContext(Mockito.mock(SourceReaderContext.class), limit);
+        try (BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(options, context)) {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Arrays.asList(
+                                    new BigQuerySourceSplit("stream1", offset),
+                                    new BigQuerySourceSplit("stream2", 0L))));
+            int total = 0;
+            int finished = 0;
+            for (int fetch = 0; fetch < 100 && finished < 2; fetch++) {
+                RecordsWithSplitIds<GenericRecord> records = reader.fetch();
+                int batch = 0;
+                while (records.nextSplit() != null) {
+                    GenericRecord record;
+                    while ((record = records.nextRecordFromSplit()) != null) {
+                        assertThat(record.getSchema().getFields()).hasSize(1);
+                        assertThat(record.getSchema().getField("name")).isNotNull();
+                        batch++;
+                    }
+                }
+                assertThat(batch).isAtMost(137);
+                total += batch;
+                if (offset > 0 && finished == 0 && records.finishedSplits().isEmpty()) {
+                    assertThat(reader.offsetToFetch(new BigQuerySourceSplit("stream1", offset)))
+                            .isEqualTo(offset + total);
+                }
+                finished += records.finishedSplits().size();
+                records.recycle();
+            }
+            assertThat(total).isEqualTo(expected);
+            assertThat(finished).isEqualTo(2);
+            assertThat(context.currentReadCount()).isEqualTo(expectedCount);
+        }
+    }
+
+    @Test
     public void testSplitReaderSmall() throws IOException {
         // init the read options for BQ
         BigQueryReadOptions readOptions =
