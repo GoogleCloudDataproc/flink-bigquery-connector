@@ -88,6 +88,64 @@ public class ProjectedAvroReaderTest {
     }
 
     @Test
+    public void reorderedDuplicatePathsPreserveSchemaOrder() throws Exception {
+        Schema projected =
+                ProjectedAvroReader.projectSchema(
+                        SCHEMA,
+                        Arrays.asList("items.drop", "items.keep", "items.drop", "id", "id"));
+        assertThat(projected.getFields().stream().map(Schema.Field::name))
+                .containsExactly("id", "items")
+                .inOrder();
+        Schema items = projected.getField("items").schema();
+        assertThat(items.getTypes().stream().map(Schema::getType))
+                .containsExactly(Schema.Type.NULL, Schema.Type.ARRAY)
+                .inOrder();
+        assertThat(
+                        items.getTypes().get(1).getElementType().getFields().stream()
+                                .map(Schema.Field::name))
+                .containsExactly("keep", "drop")
+                .inOrder();
+        assertThat(projected)
+                .isEqualTo(
+                        ProjectedAvroReader.projectSchema(
+                                SCHEMA, Arrays.asList("id", "items.keep", "items.drop")));
+    }
+
+    @Test
+    public void reorderedDuplicateNestedPathsDecodeSelectedFields() throws Exception {
+        ProjectedAvroReader reader =
+                new ProjectedAvroReader(
+                        SCHEMA, Arrays.asList("items.keep", "id", "items.keep", "id"), rows());
+        for (long i = 0; i < 7; i++) {
+            assertThat(reader.hasNext()).isTrue();
+            GenericRecord record = reader.read();
+            assertThat(record.get("id")).isEqualTo(i);
+            assertThat(record.getSchema().getFields().stream().map(Schema.Field::name))
+                    .containsExactly("id", "items")
+                    .inOrder();
+            if (i == 0) {
+                assertThat(record.get("items")).isNull();
+            } else {
+                GenericRecord item = ((java.util.List<GenericRecord>) record.get("items")).get(0);
+                assertThat(item.getSchema().getFields().stream().map(Schema.Field::name))
+                        .containsExactly("keep");
+                assertThat(item.get("keep")).isEqualTo(i);
+            }
+        }
+        assertThat(reader.hasNext()).isFalse();
+    }
+
+    @Test
+    public void duplicateParentPathsKeepAllChildrenRegardlessOfPathOrder() {
+        Schema projected =
+                ProjectedAvroReader.projectSchema(
+                        SCHEMA, Arrays.asList("items.keep", "items", "items.keep", "items"));
+        assertThat(projected.getFields().stream().map(Schema.Field::name)).containsExactly("items");
+        assertThat(projected.getField("items").schema())
+                .isEqualTo(SCHEMA.getField("items").schema());
+    }
+
+    @Test
     public void emptyProjectionKeepsAllFields() throws Exception {
         ProjectedAvroReader reader =
                 new ProjectedAvroReader(SCHEMA, Collections.emptyList(), rows());

@@ -25,7 +25,9 @@ import org.apache.avro.io.DecoderFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Avoids retaining decoded rows and fields that the source does not need. */
@@ -46,7 +48,7 @@ public final class ProjectedAvroReader {
     }
 
     public static Schema projectSchema(Schema writerSchema, List<String> columns) {
-        return columns.isEmpty() ? writerSchema : project(writerSchema, columns);
+        return columns.isEmpty() ? writerSchema : project(writerSchema, new HashSet<>(columns));
     }
 
     public boolean hasNext() throws IOException {
@@ -57,7 +59,7 @@ public final class ProjectedAvroReader {
         return datumReader.read(null, decoder);
     }
 
-    private static Schema project(Schema schema, List<String> paths) {
+    private static Schema project(Schema schema, Set<String> paths) {
         switch (schema.getType()) {
             case UNION:
                 return Schema.createUnion(
@@ -81,11 +83,11 @@ public final class ProjectedAvroReader {
                         fields.add(new Schema.Field(field, field.schema()));
                     } else {
                         String prefix = field.name() + ".";
-                        List<String> children =
+                        Set<String> children =
                                 paths.stream()
                                         .filter(path -> path.startsWith(prefix))
                                         .map(path -> path.substring(prefix.length()))
-                                        .collect(Collectors.toList());
+                                        .collect(Collectors.toSet());
                         if (!children.isEmpty()) {
                             fields.add(new Schema.Field(field, project(field.schema(), children)));
                         }
