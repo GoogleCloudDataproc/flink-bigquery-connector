@@ -69,8 +69,8 @@ import java.util.concurrent.TimeoutException;
  * discarded (which can happen only on the first append after a restore) or closed with uncommitted
  * appends. BigQuery rejects FlushRows on a finalized stream, and the committer may still have to
  * flush that stream up to the checkpointed offset, either when the checkpoint completes or when it
- * is restored. The committer finalizes a stream once a later checkpoint has committed the stream
- * that replaced it.
+ * is restored. The committer finalizes a discarded stream, on a best-effort basis, after it has
+ * committed the stream that replaced it.
  *
  * <p>Records are grouped to maximally utilize the BigQuery append request's payload.
  *
@@ -388,8 +388,9 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         } catch (ExecutionException | InterruptedException e) {
             resetStreamWriter();
             // Unlike validateAppendResponse, OffsetAlreadyExists discards the stream here: on a
-            // restored stream it means rows past the checkpointed offset survived (for example a
-            // failed finalize of the previous run), so the stream cannot be trusted.
+            // restored stream it means the previous run appended rows past the checkpointed
+            // offset. The replay is not guaranteed to put the same rows at the same offsets, so
+            // the stream cannot be appended to.
             if (e.getCause() instanceof OffsetAlreadyExists
                     || e.getCause() instanceof OffsetOutOfRange
                     || e.getCause() instanceof StreamFinalizedException
@@ -417,7 +418,7 @@ public class BigQueryBufferedWriter<IN> extends BaseWriter<IN>
         // The discarded stream is the one held in checkpoint state. It must not be finalized here:
         // the committer may still have to flush it up to the checkpointed offset if this checkpoint
         // is restored again, and BigQuery rejects FlushRows on a finalized stream. The committer
-        // finalizes it once a later checkpoint has committed the stream created below.
+        // finalizes it, on a best-effort basis, after it has committed the stream created below.
         // Empty streamName will prompt following sendAppendRequest invocation to create anew write
         // stream.
         streamName = "";

@@ -19,9 +19,9 @@ package com.google.cloud.flink.bigquery.sink.writer;
 import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
+import com.google.api.core.AbstractApiFuture;
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
-import com.google.api.core.SettableApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse.AppendResult;
 import com.google.cloud.bigquery.storage.v1.Exceptions.OffsetAlreadyExists;
@@ -57,12 +57,14 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
@@ -1212,7 +1214,7 @@ public class BigQueryBufferedWriterTest {
     @Test
     public void testFirstAppendAfterCheckpoint_doesNotWaitForResponse()
             throws IOException, InterruptedException {
-        SettableApiFuture<AppendRowsResponse> pendingResponse = SettableApiFuture.create();
+        PendingAppendResponse pendingResponse = new PendingAppendResponse();
         BigQueryBufferedWriter<Object> bufferedWriter =
                 createBufferedWriter(
                         null,
@@ -1242,7 +1244,7 @@ public class BigQueryBufferedWriterTest {
         FakeBigQueryStorageWriteClient writeClient =
                 (FakeBigQueryStorageWriteClient) bufferedWriter.writeClient;
         assertEquals(1, writeClient.getCreateStreamWriterInvocations());
-        pendingResponse.set(appendResponse(1));
+        pendingResponse.complete(appendResponse(1));
         bufferedWriter.flush(false);
         assertTrue(bufferedWriter.getAppendResponseFuturesQueue().isEmpty());
         assertEquals(3, bufferedWriter.getStreamOffset());
@@ -1341,10 +1343,16 @@ public class BigQueryBufferedWriterTest {
         bufferedWriter.createStreamWriter(false);
         assertNotNull(bufferedWriter.streamWriter);
         Mockito.verify(bufferedWriter.streamWriter, Mockito.never()).close();
+        // The fake write client hands out a single StreamWriter mock. Swap in a separate one to
+        // tell the replaced StreamWriter from its replacement.
+        StreamWriter replacedStreamWriter = mock(StreamWriter.class);
+        bufferedWriter.streamWriter = replacedStreamWriter;
         // The writer no longer replaces a live StreamWriter itself, so this pins the guard in
         // BaseWriter directly: whoever replaces one must close it first.
         bufferedWriter.createStreamWriter(false);
-        Mockito.verify(bufferedWriter.streamWriter, Mockito.times(1)).close();
+        Mockito.verify(replacedStreamWriter, Mockito.times(1)).close();
+        assertNotSame(replacedStreamWriter, bufferedWriter.streamWriter);
+        Mockito.verify(bufferedWriter.streamWriter, Mockito.never()).close();
         assertEquals(
                 2,
                 ((FakeBigQueryStorageWriteClient) bufferedWriter.writeClient)
@@ -1504,6 +1512,26 @@ public class BigQueryBufferedWriterTest {
                     new BigQueryBufferedWriter.AppendInfo(mockFuture, 0L, 10L));
         } finally {
             assertNull(bufferedWriter.streamWriter);
+        }
+    }
+
+    /**
+     * An append response that is not available yet. Waiting for it fails right away, where a plain
+     * pending future would block the writer for its whole append response timeout.
+     */
+    private static class PendingAppendResponse extends AbstractApiFuture<AppendRowsResponse> {
+
+        void complete(AppendRowsResponse response) {
+            set(response);
+        }
+
+        @Override
+        public AppendRowsResponse get(long timeout, TimeUnit unit)
+                throws InterruptedException, ExecutionException, TimeoutException {
+            if (!isDone()) {
+                throw new AssertionError("The writer waited for a pending append response");
+            }
+            return super.get(timeout, unit);
         }
     }
 

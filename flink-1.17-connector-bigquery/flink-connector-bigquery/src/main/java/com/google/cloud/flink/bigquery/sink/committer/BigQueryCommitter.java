@@ -37,9 +37,14 @@ import java.util.Map;
  * Committer implementation for {@link BigQueryExactlyOnceSink}.
  *
  * <p>The committer is responsible for committing records buffered in BigQuery write stream to
- * BigQuery table. It also finalizes a producer's previous write stream once a committable for a
- * different stream has been committed, because that is the earliest point at which no restorable
- * checkpoint references the previous stream anymore.
+ * BigQuery table. It also finalizes a producer's previous write stream after committing a
+ * committable of that producer for a different stream: from then on the latest checkpoint no longer
+ * references the previous stream. A savepoint or retained checkpoint taken before that still does,
+ * and cannot be restored once the stream is finalized.
+ *
+ * <p>The finalize is best effort. The committer only knows the streams it has committed since it
+ * was created, so a previous stream it has not committed in this run is left to expire on the
+ * BigQuery side.
  */
 public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closeable {
 
