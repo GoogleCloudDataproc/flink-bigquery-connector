@@ -19,15 +19,30 @@ package com.google.cloud.flink.bigquery.sink.committer;
 import org.apache.flink.api.connector.sink2.Committer.CommitRequest;
 
 import com.google.api.core.ApiFuture;
+import com.google.api.gax.rpc.ApiException;
+import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServices;
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageWriteClient;
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServices.TestStatusCode;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /** Tests for {@link BigQueryCommitter}. */
 public class BigQueryCommitterTest {
+
+    private BigQueryConnectOptions connectOptions;
 
     @Test
     public void testCommit_withEmptyCommitRequest() {
@@ -67,15 +82,85 @@ public class BigQueryCommitterTest {
                         new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L))));
     }
 
+    @Test
+    public void testCommit_withStreamAlreadyFlushedPastOffset() throws IOException {
+        BigQueryCommitter committer =
+                createCommitter(FlushRowsResponse.newBuilder().setOffset(10L).build());
+        // Restored committable of an earlier checkpoint, while the stream was already flushed
+        // further by the committable of a later one.
+        getWriteClient().setFlushRowsError(flushRowsError(StatusCode.Code.ALREADY_EXISTS));
+        TestCommitRequest earlier = new TestCommitRequest(new BigQueryCommittable(1L, "foo", 5L));
+        committer.commit(Collections.singletonList(earlier));
+        assertTrue(earlier.isAlreadyCommitted());
+        // Restored committable of the later checkpoint: flushing to the flushed offset succeeds.
+        getWriteClient().setFlushRowsError(null);
+        TestCommitRequest later = new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L));
+        committer.commit(Collections.singletonList(later));
+        assertFalse(later.isAlreadyCommitted());
+    }
+
+    @Test
+    public void testCommit_withStreamAlreadyFlushedPastOffset_commitsRemainingRequests()
+            throws IOException {
+        BigQueryCommitter committer =
+                createCommitter(FlushRowsResponse.newBuilder().setOffset(10L).build());
+        // One commit call can carry committables of several producers, for instance when the
+        // state of several subtasks is restored into one. Skipping the committable that is
+        // already flushed must not skip the ones after it.
+        getWriteClient().setFlushRowsError("foo", flushRowsError(StatusCode.Code.ALREADY_EXISTS));
+        TestCommitRequest alreadyFlushed =
+                new TestCommitRequest(new BigQueryCommittable(1L, "foo", 5L));
+        TestCommitRequest pending = new TestCommitRequest(new BigQueryCommittable(2L, "bar", 10L));
+        committer.commit(Arrays.asList(alreadyFlushed, pending));
+        assertTrue(alreadyFlushed.isAlreadyCommitted());
+        assertFalse(pending.isAlreadyCommitted());
+        assertEquals(2, getWriteClient().getFlushRowsInvocations());
+    }
+
+    @Test
+    public void testCommit_withOtherFlushRowsErrors() throws IOException {
+        // An offset beyond the appended rows, or a finalized stream, must still fail the commit.
+        for (StatusCode.Code code :
+                new StatusCode.Code[] {
+                    StatusCode.Code.OUT_OF_RANGE, StatusCode.Code.INVALID_ARGUMENT
+                }) {
+            BigQueryCommitter committer =
+                    createCommitter(FlushRowsResponse.newBuilder().setOffset(10L).build());
+            getWriteClient().setFlushRowsError(flushRowsError(code));
+            TestCommitRequest request =
+                    new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L));
+            try {
+                committer.commit(Collections.singletonList(request));
+                fail("Commit should fail for " + code);
+            } catch (BigQueryConnectorException e) {
+                assertFalse(request.isAlreadyCommitted());
+            }
+        }
+    }
+
+    private static ApiException flushRowsError(StatusCode.Code code) {
+        return new ApiException(
+                new RuntimeException("testing error scenario"), new TestStatusCode(code), false);
+    }
+
     private BigQueryCommitter createCommitter(FlushRowsResponse flushRowsResponse) {
-        return new BigQueryCommitter(
+        connectOptions =
                 StorageClientFaker.createConnectOptionsForWrite(
-                        new ApiFuture[] {null}, null, flushRowsResponse, null));
+                        new ApiFuture[] {null}, null, flushRowsResponse, null);
+        return new BigQueryCommitter(connectOptions);
+    }
+
+    private FakeBigQueryStorageWriteClient getWriteClient() throws IOException {
+        // FakeBigQueryServices returns the same write client instance on every invocation.
+        return (FakeBigQueryStorageWriteClient)
+                ((FakeBigQueryServices) connectOptions.getTestingBigQueryServices().get())
+                        .createStorageWriteClient(null);
     }
 
     static class TestCommitRequest implements CommitRequest<BigQueryCommittable> {
 
         private final BigQueryCommittable committable;
+        private boolean alreadyCommitted;
 
         TestCommitRequest(BigQueryCommittable committable) {
             this.committable = committable;
@@ -113,7 +198,11 @@ public class BigQueryCommitterTest {
 
         @Override
         public void signalAlreadyCommitted() {
-            // Do nothing.
+            alreadyCommitted = true;
+        }
+
+        boolean isAlreadyCommitted() {
+            return alreadyCommitted;
         }
     }
 }
