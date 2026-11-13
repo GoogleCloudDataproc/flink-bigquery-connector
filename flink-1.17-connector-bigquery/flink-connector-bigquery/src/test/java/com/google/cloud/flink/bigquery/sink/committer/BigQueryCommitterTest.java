@@ -19,15 +19,24 @@ package com.google.cloud.flink.bigquery.sink.committer;
 import org.apache.flink.api.connector.sink2.Committer.CommitRequest;
 
 import com.google.api.core.ApiFuture;
+import com.google.cloud.bigquery.storage.v1.FinalizeWriteStreamResponse;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServices;
+import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServices.FakeBigQueryStorageWriteClient;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.Collections;
+
+import static org.junit.Assert.assertEquals;
 
 /** Tests for {@link BigQueryCommitter}. */
 public class BigQueryCommitterTest {
+
+    private BigQueryConnectOptions connectOptions;
 
     @Test
     public void testCommit_withEmptyCommitRequest() {
@@ -67,10 +76,66 @@ public class BigQueryCommitterTest {
                         new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L))));
     }
 
+    @Test
+    public void testCommit_finalizesStreamReplacedByProducer() throws IOException {
+        BigQueryCommitter committer =
+                createCommitter(
+                        FlushRowsResponse.newBuilder().setOffset(10L).build(),
+                        FinalizeWriteStreamResponse.getDefaultInstance());
+        committer.commit(
+                Collections.singletonList(
+                        new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L))));
+        // Same stream committed again, as after a restore: nothing to finalize.
+        committer.commit(
+                Collections.singletonList(
+                        new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L))));
+        assertEquals(0, getWriteClient().getFinalizeWriteStreamInvocations());
+        // Producer moved on to a new stream: the previous one is finalized after the commit.
+        committer.commit(
+                Collections.singletonList(
+                        new TestCommitRequest(new BigQueryCommittable(1L, "bar", 10L))));
+        assertEquals(1, getWriteClient().getFinalizeWriteStreamInvocations());
+        assertEquals("foo", getWriteClient().getLastFinalizedStreamName());
+        // First stream of another producer: nothing to finalize.
+        committer.commit(
+                Collections.singletonList(
+                        new TestCommitRequest(new BigQueryCommittable(2L, "baz", 10L))));
+        assertEquals(1, getWriteClient().getFinalizeWriteStreamInvocations());
+    }
+
+    @Test
+    public void testCommit_withFinalizeFailure() throws IOException {
+        // BQ write client used in this test throws a RuntimeException if finalizeWriteStream is
+        // invoked with finalizeResponse set as null. The commit itself must still succeed.
+        BigQueryCommitter committer =
+                createCommitter(FlushRowsResponse.newBuilder().setOffset(10L).build(), null);
+        committer.commit(
+                Collections.singletonList(
+                        new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L))));
+        committer.commit(
+                Collections.singletonList(
+                        new TestCommitRequest(new BigQueryCommittable(1L, "bar", 10L))));
+        assertEquals(1, getWriteClient().getFinalizeWriteStreamInvocations());
+        assertEquals("foo", getWriteClient().getLastFinalizedStreamName());
+    }
+
     private BigQueryCommitter createCommitter(FlushRowsResponse flushRowsResponse) {
-        return new BigQueryCommitter(
+        return createCommitter(flushRowsResponse, null);
+    }
+
+    private BigQueryCommitter createCommitter(
+            FlushRowsResponse flushRowsResponse, FinalizeWriteStreamResponse finalizeResponse) {
+        connectOptions =
                 StorageClientFaker.createConnectOptionsForWrite(
-                        new ApiFuture[] {null}, null, flushRowsResponse, null));
+                        new ApiFuture[] {null}, null, flushRowsResponse, finalizeResponse);
+        return new BigQueryCommitter(connectOptions);
+    }
+
+    private FakeBigQueryStorageWriteClient getWriteClient() throws IOException {
+        // FakeBigQueryServices returns the same write client instance on every invocation.
+        return (FakeBigQueryStorageWriteClient)
+                ((FakeBigQueryServices) connectOptions.getTestingBigQueryServices().get())
+                        .createStorageWriteClient(null);
     }
 
     static class TestCommitRequest implements CommitRequest<BigQueryCommittable> {

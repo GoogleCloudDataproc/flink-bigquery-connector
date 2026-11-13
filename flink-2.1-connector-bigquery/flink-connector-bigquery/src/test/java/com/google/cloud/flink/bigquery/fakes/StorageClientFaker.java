@@ -444,8 +444,10 @@ public class StorageClientFaker {
             private final FlushRowsResponse flushResponse;
             private final FinalizeWriteStreamResponse finalizeResponse;
 
+            private int createStreamWriterInvocations;
             private int createWriteStreamInvocations;
             private int finalizeWriteStreamInvocations;
+            private String lastFinalizedStreamName;
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
@@ -480,6 +482,7 @@ public class StorageClientFaker {
                 this.writeStream = writeStream;
                 this.flushResponse = flushResponse;
                 this.finalizeResponse = finalizeResponse;
+                createStreamWriterInvocations = 0;
                 createWriteStreamInvocations = 0;
                 finalizeWriteStreamInvocations = 0;
             }
@@ -490,6 +493,7 @@ public class StorageClientFaker {
                     ProtoSchema protoSchema,
                     boolean enableConnectionPool,
                     String traceId) {
+                createStreamWriterInvocations++;
                 return mockedWriter;
             }
 
@@ -517,6 +521,7 @@ public class StorageClientFaker {
             @Override
             public FinalizeWriteStreamResponse finalizeWriteStream(String streamName) {
                 finalizeWriteStreamInvocations++;
+                lastFinalizedStreamName = streamName;
                 if (finalizeResponse == null) {
                     throw new RuntimeException("testing error scenario");
                 }
@@ -528,12 +533,20 @@ public class StorageClientFaker {
                 Mockito.when(mockedWriter.isUserClosed()).thenReturn(true);
             }
 
+            public int getCreateStreamWriterInvocations() {
+                return createStreamWriterInvocations;
+            }
+
             public int getCreateWriteStreamInvocations() {
                 return createWriteStreamInvocations;
             }
 
             public int getFinalizeWriteStreamInvocations() {
                 return finalizeWriteStreamInvocations;
+            }
+
+            public String getLastFinalizedStreamName() {
+                return lastFinalizedStreamName;
             }
 
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
