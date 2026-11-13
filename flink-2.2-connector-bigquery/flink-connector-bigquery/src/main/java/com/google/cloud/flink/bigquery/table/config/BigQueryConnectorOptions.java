@@ -1,0 +1,402 @@
+/*
+ * Copyright (C) 2023 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+package com.google.cloud.flink.bigquery.table.config;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.connector.base.DeliveryGuarantee;
+import org.apache.flink.table.factories.FactoryUtil;
+
+import com.google.cloud.bigquery.TimePartitioning;
+
+/**
+ * Base options for the BigQuery connector. Needs to be public so that the {@link
+ * org.apache.flink.table.api.TableDescriptor} can access it.
+ */
+@PublicEvolving
+public class BigQueryConnectorOptions {
+
+    private BigQueryConnectorOptions() {}
+
+    /**
+     * [REQUIRED] The GCP BigQuery Project ID which contains the desired connector (source or sink)
+     * table.
+     */
+    public static final ConfigOption<String> PROJECT =
+            ConfigOptions.key("project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the GCP project for BigQuery.");
+
+    /** [OPTIONAL] The quota project ID to use when connecting. */
+    public static final ConfigOption<String> QUOTA_PROJECT_ID =
+            ConfigOptions.key("quota-project-id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the BigQuery quota project to use.");
+
+    /**
+     * [REQUIRED] The GCP BigQuery Dataset Name which contains the desired connector(source or sink)
+     * table.
+     */
+    public static final ConfigOption<String> DATASET =
+            ConfigOptions.key("dataset")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the BigQuery dataset name.");
+
+    /** [REQUIRED] Name of the table to connect to in BigQuery. */
+    public static final ConfigOption<String> TABLE =
+            ConfigOptions.key("table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the BigQuery table name.");
+
+    /**
+     * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of rows/records to
+     * be read from source. <br>
+     * Default: -1 - Reads all rows from the source table.
+     */
+    public static final ConfigOption<Integer> LIMIT =
+            ConfigOptions.key("read.limit")
+                    .intType()
+                    .defaultValue(-1)
+                    .withDescription("Specifies the limit number of rows retrieved.");
+
+    /**
+     * [OPTIONAL, Read Configuration] String value indicating any filter or restriction on the rows
+     * to be read from the source. <br>
+     * Default: None - No filter/restriction on the rows read.
+     */
+    public static final ConfigOption<String> ROW_RESTRICTION =
+            ConfigOptions.key("read.row.restriction")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("Specifies the row restriction for data retrieval.");
+
+    /**
+     * [OPTIONAL, Read Configuration] String value indicating any the columns to be included as part
+     * of the data retrieved from the source. <br>
+     * Default: None - All columns are included.
+     */
+    public static final ConfigOption<String> COLUMNS_PROJECTION =
+            ConfigOptions.key("read.columns.projection")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies, as a comma separated list of values, "
+                                    + "the columns to be included as part of the data retrieved.");
+
+    /**
+     * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of streams used to
+     * read from the underlying source table.<br>
+     * Default: 0 - BigQuery decides the optimal amount.
+     */
+    public static final ConfigOption<Integer> MAX_STREAM_COUNT =
+            ConfigOptions.key("read.streams.max-count")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "The max number of streams used to read from the underlying table,"
+                                    + " BigQuery can decide for less than this number.");
+
+    /**
+     * Read Configuration: Long value indicating the millis since epoch for the underlying table
+     * snapshot. Connector would read records from this snapshot instance table. <br>
+     * Default: latest snapshot is read.
+     */
+    public static final ConfigOption<Long> SNAPSHOT_TIMESTAMP =
+            ConfigOptions.key("read.snapshot.timestamp")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("The millis since epoch for the underlying table snapshot.");
+
+    /** [OPTIONAL] Specifies the GCP access token to use as credentials. */
+    public static final ConfigOption<String> CREDENTIALS_ACCESS_TOKEN =
+            ConfigOptions.key("credentials.access-token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the GCP access token to use as credentials.");
+
+    /** [OPTIONAL] Specifies the GCP credentials file to use as credentials. */
+    public static final ConfigOption<String> CREDENTIALS_FILE =
+            ConfigOptions.key("credentials.file")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the GCP credentials file to use.");
+
+    /** [OPTIONAL] Specifies the GCP credentials file to use as credentials. */
+    public static final ConfigOption<String> CREDENTIALS_KEY =
+            ConfigOptions.key("credentials.key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Specifies the GCP credentials key to use.");
+
+    /**
+     * [OPTIONAL] Boolean value indicating if the connector is run in test mode. In Test Mode,
+     * BigQuery Tables are not modified, mock sources and sinks are used instead. <br>
+     * Default: false
+     */
+    public static final ConfigOption<Boolean> TEST_MODE =
+            ConfigOptions.key("test.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Specifies if the connector should run in test mode.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Enum value indicating the delivery guarantee of the sink. Can
+     * be <code>DeliveryGuarantee.AT_LEAST_ONCE</code> or <code>DeliveryGuarantee.EXACTLY_ONCE
+     * </code><br>
+     * Default: <code>DeliveryGuarantee.AT_LEAST_ONCE</code> - At-least Once Mode.
+     */
+    public static final ConfigOption<DeliveryGuarantee> DELIVERY_GUARANTEE =
+            ConfigOptions.key("write.delivery-guarantee")
+                    .enumType(DeliveryGuarantee.class)
+                    .defaultValue(DeliveryGuarantee.AT_LEAST_ONCE)
+                    .withDescription("Delivery Guarantee (AT_LEAST_ONCE or EXACTLY_ONCE");
+
+    /** [OPTIONAL, Sink Configuration] Int value indicating the parallelism of the sink. */
+    public static final ConfigOption<Integer> SINK_PARALLELISM =
+            ConfigOptions.key("write.parallelism")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("Sink parallelism");
+
+    /** [OPTIONAL, Read Configuration] Int value indicating the parallelism of the source. */
+    public static final ConfigOption<Integer> SOURCE_PARALLELISM = FactoryUtil.SOURCE_PARALLELISM;
+
+    /** [OPTIONAL, Sink Configuration] Boolean flag controlling table creation in the sink. */
+    public static final ConfigOption<Boolean> ENABLE_TABLE_CREATION =
+            ConfigOptions.key("write.enable-table-creation")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Enable table creation in sink");
+
+    /** [OPTIONAL, Sink Configuration] Name of partitioning field. */
+    public static final ConfigOption<String> PARTITION_FIELD =
+            ConfigOptions.key("write.partition-field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Field for partitioning destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Enum value indicating the partitioning frequency. */
+    public static final ConfigOption<TimePartitioning.Type> PARTITION_TYPE =
+            ConfigOptions.key("write.partition-type")
+                    .enumType(TimePartitioning.Type.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "Time based partitioning frequency in destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Long value indicating the partition expiration. */
+    public static final ConfigOption<Long> PARTITION_EXPIRATION_MILLIS =
+            ConfigOptions.key("write.partition-expiration-millis")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Partition expiration in destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Names of clustered fields, comma separated. */
+    public static final ConfigOption<String> CLUSTERED_FIELDS =
+            ConfigOptions.key("write.clustered-fields")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Comma separated fields for clustering destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] GCP region of destination BigQuery table. */
+    public static final ConfigOption<String> REGION =
+            ConfigOptions.key("write.region")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCP region of destination BigQuery table (used if new table is created)");
+
+    /** [OPTIONAL, Sink Configuration] Fail if serializer cannot convert record to proto. */
+    public static final ConfigOption<Boolean> FATALIZE_SERIALIZER =
+            ConfigOptions.key("write.fatalize-serializer")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Fail if serializer cannot convert record to proto");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Enable CDC (Change Data Capture) for upsert/delete support.
+     * Requires AT_LEAST_ONCE delivery guarantee. The destination table must have a PRIMARY KEY.
+     */
+    public static final ConfigOption<Boolean> CDC_ENABLED =
+            ConfigOptions.key("write.cdc-enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable CDC for upsert/delete. Requires AT_LEAST_ONCE. Table must have PRIMARY KEY.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Field name to use for CDC sequence number ordering. Supports
+     * LONG, INT, TIMESTAMP types.
+     */
+    public static final ConfigOption<String> CDC_SEQUENCE_FIELD =
+            ConfigOptions.key("write.cdc-sequence-field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional field for CDC sequence number ordering. Supports LONG, INT, TIMESTAMP. "
+                                    + "If omitted, the connector will not populate _change_sequence_number.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Comma-separated list of BigQuery primary key columns to apply
+     * when auto-creating a CDC destination table.
+     */
+    public static final ConfigOption<String> CDC_PRIMARY_KEY_COLUMNS =
+            ConfigOptions.key("write.cdc-primary-key-columns")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Comma-separated list of primary key columns to apply when the connector "
+                                    + "auto-creates a CDC destination table.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] BigQuery INTERVAL literal intended to be used as max_staleness
+     * when auto-creating a CDC destination table.
+     *
+     * <p>Known limitation: BigQuery's REST table-creation path currently does not persist this
+     * option for CDC tables, even though table creation itself succeeds. As a result, max_staleness
+     * will remain unset after auto-creation.
+     *
+     * <p>Workaround: After the connector creates the table, run an ALTER TABLE statement such as:
+     *
+     * <p>{@code ALTER TABLE `project.dataset.table` SET OPTIONS ( max_staleness = INTERVAL 10
+     * MINUTE )}
+     */
+    public static final ConfigOption<String> CDC_MAX_STALENESS =
+            ConfigOptions.key("write.cdc-max-staleness")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "BigQuery INTERVAL literal intended for max_staleness when the "
+                                    + "connector auto-creates a CDC destination table, for "
+                                    + "example INTERVAL 10 MINUTE. Known limitation: due to a "
+                                    + "BigQuery REST API limitation, this option is currently not "
+                                    + "persisted during table creation, so max_staleness remains "
+                                    + "unset after create. Run ALTER TABLE ... SET OPTIONS "
+                                    + "(max_staleness = INTERVAL ...) after creation.");
+
+    /**
+     * [OPTIONAL, Sink Configuration] Write mode for the BigQuery sink. DIRECT uses the BigQuery
+     * Storage Write API. INDIRECT writes files to GCS and uses BigQuery load jobs. <br>
+     * Default: DIRECT
+     */
+    public static final ConfigOption<String> WRITE_MODE =
+            ConfigOptions.key("write.mode")
+                    .stringType()
+                    .defaultValue("STORAGE_WRITE_API")
+                    .withDescription(
+                            "Write mode: DIRECT (Storage Write API) or INDIRECT (GCS files + BigQuery load jobs)");
+
+    /**
+     * [REQUIRED for INDIRECT mode] GCS path for temporary files when using indirect writes. <br>
+     * Example: gs://my-bucket/flink-temp
+     */
+    public static final ConfigOption<String> TEMP_GCS_PATH =
+            ConfigOptions.key("write.indirect.temp-gcs-path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCS path for temporary files (required for INDIRECT write mode)");
+
+    /**
+     * [REQUIRED for INDIRECT mode] GCP project for temporary tables created during multi-partition
+     * loads. The dataset given by {@link #WRITE_TEMP_DATASET} must exist in this project.
+     */
+    public static final ConfigOption<String> WRITE_TEMP_PROJECT =
+            ConfigOptions.key("write.indirect.temp-bigquery-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCP project for temp tables created during multi-partition loads "
+                                    + "(required for INDIRECT write mode). The temp dataset must "
+                                    + "exist in this project.");
+
+    /**
+     * [REQUIRED for INDIRECT mode] Dataset for temporary tables created during multi-partition
+     * loads. Must already exist in the project given by {@link #WRITE_TEMP_PROJECT}. <br>
+     * Recommended: configure a default {@code tableExpirationMs} on this dataset (e.g. 24 h) so any
+     * temp tables left behind by failed jobs are auto-deleted by BigQuery.
+     */
+    public static final ConfigOption<String> WRITE_TEMP_DATASET =
+            ConfigOptions.key("write.indirect.temp-bigquery-dataset")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Dataset for temporary tables created during multi-partition loads "
+                                    + "(required for INDIRECT write mode). Must exist in the "
+                                    + "project given by write.indirect.temp-bigquery-project. "
+                                    + "Recommended: set a default tableExpirationMs on this "
+                                    + "dataset so BigQuery auto-deletes any temp tables left "
+                                    + "behind by failed jobs.");
+
+    /**
+     * [REQUIRED for INDIRECT mode] GCP project under which BigQuery load and copy jobs are
+     * submitted (i.e. where the jobs are listed and billed).
+     */
+    public static final ConfigOption<String> WRITE_JOB_PROJECT =
+            ConfigOptions.key("write.indirect.bigquery-job-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "GCP project under which BigQuery load and copy jobs are submitted "
+                                    + "(required for INDIRECT write mode).");
+
+    /**
+     * [OPTIONAL, Read Configuration] Boolean value indicating if reading BigQuery views is enabled.
+     */
+    public static final ConfigOption<Boolean> VIEWS_ENABLED =
+            ConfigOptions.key("read.views.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Specifies if reading BigQuery views is enabled.");
+
+    /** [OPTIONAL, Read Configuration] GCP project where the temporary table is materialized. */
+    public static final ConfigOption<String> MATERIALIZATION_PROJECT =
+            ConfigOptions.key("read.views.materialization-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("GCP project where the temporary table is materialized.");
+
+    /**
+     * [OPTIONAL, Read Configuration] BigQuery dataset where the temporary table is materialized.
+     */
+    public static final ConfigOption<String> MATERIALIZATION_DATASET =
+            ConfigOptions.key("read.views.materialization-dataset")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("BigQuery dataset where the temporary table is materialized.");
+
+    /** [OPTIONAL, Read Configuration] Expiration hours for the materialized temporary table. */
+    public static final ConfigOption<Integer> MATERIALIZATION_EXPIRATION_HOURS =
+            ConfigOptions.key("read.views.materialization-expiration-hours")
+                    .intType()
+                    .defaultValue(24)
+                    .withDescription("Expiration hours for the materialized temporary table.");
+
+    /** [OPTIONAL, Read Configuration] GCP project under which the materialization job is billed. */
+    public static final ConfigOption<String> BILLING_PROJECT =
+            ConfigOptions.key("read.views.billing-project")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("GCP project under which the materialization job is billed.");
+}
