@@ -289,8 +289,15 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
         BigQueryClientWithErrorHandling.createTable(connectOptions, getTableDefinition());
     }
 
-    /** Creates a StreamWriter for appending to BigQuery table. */
+    /**
+     * Creates a StreamWriter for appending to BigQuery table.
+     *
+     * <p>A StreamWriter already held by this writer is closed before it is replaced. Each
+     * StreamWriter owns a connection worker thread and a gRPC channel which are released only by
+     * {@link StreamWriter#close()}, so dropping the reference without closing leaks them.
+     */
     void createStreamWriter(boolean enableConnectionPool) {
+        resetStreamWriter();
         try {
             if (writeClient == null) {
                 writeClient = BigQueryServicesFactory.instance(connectOptions).storageWrite();

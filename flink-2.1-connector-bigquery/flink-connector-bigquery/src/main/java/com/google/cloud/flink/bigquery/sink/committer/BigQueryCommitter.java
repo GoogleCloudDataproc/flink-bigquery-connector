@@ -48,9 +48,8 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
     private final BigQueryConnectOptions connectOptions;
 
     // Stream last committed for each producer. A committable that names a different stream means
-    // the writer discarded the previous one (its first append after a restore or a checkpoint was
-    // rejected), and that stream can now be finalized. It cannot be finalized any earlier: BigQuery
-    // rejects
+    // the writer discarded the previous one (its first append after a restore was rejected), and
+    // that stream can now be finalized. It cannot be finalized any earlier: BigQuery rejects
     // FlushRows on a finalized stream even for an offset that was already flushed, and until the
     // checkpoint that introduced the new stream has completed, which is what a commit implies, a
     // restore could still require this committer to flush the previous stream again.
