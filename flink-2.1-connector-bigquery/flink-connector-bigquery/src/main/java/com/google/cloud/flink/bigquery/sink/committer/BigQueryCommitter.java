@@ -19,6 +19,7 @@ package com.google.cloud.flink.bigquery.sink.committer;
 import org.apache.flink.api.connector.sink2.Committer;
 
 import com.google.api.gax.rpc.ApiException;
+import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
@@ -65,7 +66,28 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
                         "Invoking flushRows API on stream {} till offset {}",
                         streamName,
                         streamOffset);
-                FlushRowsResponse response = writeClient.flushRows(streamName, streamOffset);
+                FlushRowsResponse response;
+                try {
+                    response = writeClient.flushRows(streamName, streamOffset);
+                } catch (ApiException e) {
+                    if (!isAlreadyFlushed(e)) {
+                        throw e;
+                    }
+                    // BigQuery has flushed this stream past streamOffset, so every row up to
+                    // it is already visible. A restore hits this when the snapshot was taken
+                    // before the commit of an earlier checkpoint completed: the restored state
+                    // still holds that checkpoint's committable, while a later committable of
+                    // the same stream has been flushed since. Failing here would fail every
+                    // restore from that snapshot.
+                    LOG.warn(
+                            "Stream {} is already flushed past offset {}. Treating the committable of"
+                                    + " producer {} as committed.",
+                            streamName,
+                            streamOffset,
+                            producerId);
+                    commitRequest.signalAlreadyCommitted();
+                    continue;
+                }
                 if (response.getOffset() != streamOffset) {
                     LOG.error(
                             "BigQuery FlushRows API failed. Returned offset {}, expected {}",
@@ -78,6 +100,11 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
         } catch (IOException | ApiException e) {
             throw new BigQueryConnectorException("Commit operation failed", e);
         }
+    }
+
+    private static boolean isAlreadyFlushed(ApiException e) {
+        return e.getStatusCode() != null
+                && e.getStatusCode().getCode() == StatusCode.Code.ALREADY_EXISTS;
     }
 
     @Override

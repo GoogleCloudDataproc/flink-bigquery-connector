@@ -448,6 +448,7 @@ public class StorageClientFaker {
 
             private int createWriteStreamInvocations;
             private int finalizeWriteStreamInvocations;
+            private ApiException flushRowsError;
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
@@ -507,6 +508,9 @@ public class StorageClientFaker {
 
             @Override
             public FlushRowsResponse flushRows(String streamName, long offset) {
+                if (flushRowsError != null) {
+                    throw flushRowsError;
+                }
                 if (flushResponse == null) {
                     throw new ApiException(
                             new RuntimeException("testing error scenario"),
@@ -538,17 +542,33 @@ public class StorageClientFaker {
                 return finalizeWriteStreamInvocations;
             }
 
+            /** Makes subsequent flushRows calls throw the given error, or succeed again if null. */
+            public void setFlushRowsError(ApiException flushRowsError) {
+                this.flushRowsError = flushRowsError;
+            }
+
             public void verifytAppendWithOffsetInvocations(int expectedInvocations) {
                 Mockito.verify(mockedWriter, Mockito.times(expectedInvocations))
                         .append(Mockito.any(ProtoRows.class), Mockito.anyLong());
             }
         }
 
-        static class TestStatusCode implements StatusCode {
+        /** Status code for test errors; the code is null unless given. */
+        public static class TestStatusCode implements StatusCode {
+
+            private final Code code;
+
+            public TestStatusCode() {
+                this(null);
+            }
+
+            public TestStatusCode(Code code) {
+                this.code = code;
+            }
 
             @Override
             public Code getCode() {
-                return null;
+                return code;
             }
 
             @Override
