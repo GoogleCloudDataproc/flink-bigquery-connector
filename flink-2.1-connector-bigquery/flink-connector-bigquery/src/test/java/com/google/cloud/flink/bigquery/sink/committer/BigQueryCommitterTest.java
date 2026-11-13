@@ -31,8 +31,10 @@ import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServ
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -95,6 +97,24 @@ public class BigQueryCommitterTest {
         TestCommitRequest later = new TestCommitRequest(new BigQueryCommittable(1L, "foo", 10L));
         committer.commit(Collections.singletonList(later));
         assertFalse(later.isAlreadyCommitted());
+    }
+
+    @Test
+    public void testCommit_withStreamAlreadyFlushedPastOffset_commitsRemainingRequests()
+            throws IOException {
+        BigQueryCommitter committer =
+                createCommitter(FlushRowsResponse.newBuilder().setOffset(10L).build());
+        // One commit call can carry committables of several producers, for instance when the
+        // state of several subtasks is restored into one. Skipping the committable that is
+        // already flushed must not skip the ones after it.
+        getWriteClient().setFlushRowsError("foo", flushRowsError(StatusCode.Code.ALREADY_EXISTS));
+        TestCommitRequest alreadyFlushed =
+                new TestCommitRequest(new BigQueryCommittable(1L, "foo", 5L));
+        TestCommitRequest pending = new TestCommitRequest(new BigQueryCommittable(2L, "bar", 10L));
+        committer.commit(Arrays.asList(alreadyFlushed, pending));
+        assertTrue(alreadyFlushed.isAlreadyCommitted());
+        assertFalse(pending.isAlreadyCommitted());
+        assertEquals(2, getWriteClient().getFlushRowsInvocations());
     }
 
     @Test

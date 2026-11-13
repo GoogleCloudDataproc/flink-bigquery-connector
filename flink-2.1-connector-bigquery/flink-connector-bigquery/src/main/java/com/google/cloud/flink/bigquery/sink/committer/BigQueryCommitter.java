@@ -81,10 +81,11 @@ public class BigQueryCommitter implements Committer<BigQueryCommittable>, Closea
                     // restore from that snapshot.
                     LOG.warn(
                             "Stream {} is already flushed past offset {}. Treating the committable of"
-                                    + " producer {} as committed.",
+                                    + " producer {} as committed. FlushRows error: {}",
                             streamName,
                             streamOffset,
-                            producerId);
+                            producerId,
+                            e.getMessage());
                     commitRequest.signalAlreadyCommitted();
                     continue;
                 }

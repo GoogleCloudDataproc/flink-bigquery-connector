@@ -446,7 +446,9 @@ public class StorageClientFaker {
 
             private int createWriteStreamInvocations;
             private int finalizeWriteStreamInvocations;
+            private int flushRowsInvocations;
             private ApiException flushRowsError;
+            private String flushRowsErrorStreamName;
 
             public FakeBigQueryStorageWriteClient(AppendRowsResponse appendResponse) {
                 mockedWriter = Mockito.mock(StreamWriter.class);
@@ -506,7 +508,10 @@ public class StorageClientFaker {
 
             @Override
             public FlushRowsResponse flushRows(String streamName, long offset) {
-                if (flushRowsError != null) {
+                flushRowsInvocations++;
+                if (flushRowsError != null
+                        && (flushRowsErrorStreamName == null
+                                || flushRowsErrorStreamName.equals(streamName))) {
                     throw flushRowsError;
                 }
                 if (flushResponse == null) {
@@ -540,8 +545,18 @@ public class StorageClientFaker {
                 return finalizeWriteStreamInvocations;
             }
 
+            public int getFlushRowsInvocations() {
+                return flushRowsInvocations;
+            }
+
             /** Makes subsequent flushRows calls throw the given error, or succeed again if null. */
             public void setFlushRowsError(ApiException flushRowsError) {
+                setFlushRowsError(null, flushRowsError);
+            }
+
+            /** Same as above, limited to flushRows calls on the given stream. */
+            public void setFlushRowsError(String streamName, ApiException flushRowsError) {
+                this.flushRowsErrorStreamName = streamName;
                 this.flushRowsError = flushRowsError;
             }
 
