@@ -68,6 +68,7 @@ public class BigQueryDynamicTableFactory
         additionalOptions.add(BigQueryConnectorOptions.LIMIT);
         additionalOptions.add(BigQueryConnectorOptions.ROW_RESTRICTION);
         additionalOptions.add(BigQueryConnectorOptions.COLUMNS_PROJECTION);
+        additionalOptions.add(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE);
         additionalOptions.add(BigQueryConnectorOptions.MAX_STREAM_COUNT);
         additionalOptions.add(BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP);
         additionalOptions.add(BigQueryConnectorOptions.CREDENTIALS_ACCESS_TOKEN);
@@ -112,6 +113,7 @@ public class BigQueryDynamicTableFactory
         forwardOptions.add(BigQueryConnectorOptions.LIMIT);
         forwardOptions.add(BigQueryConnectorOptions.ROW_RESTRICTION);
         forwardOptions.add(BigQueryConnectorOptions.COLUMNS_PROJECTION);
+        forwardOptions.add(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE);
         forwardOptions.add(BigQueryConnectorOptions.MAX_STREAM_COUNT);
         forwardOptions.add(BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP);
         forwardOptions.add(BigQueryConnectorOptions.CREDENTIALS_ACCESS_TOKEN);

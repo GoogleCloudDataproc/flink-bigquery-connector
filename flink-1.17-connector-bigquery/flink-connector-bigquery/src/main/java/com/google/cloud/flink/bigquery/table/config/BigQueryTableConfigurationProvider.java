@@ -101,6 +101,8 @@ public class BigQueryTableConfigurationProvider {
                 .setSnapshotTimestampInMillis(
                         config.get(BigQueryConnectorOptions.SNAPSHOT_TIMESTAMP))
                 .setMaxStreamCount(config.get(BigQueryConnectorOptions.MAX_STREAM_COUNT))
+                .setAvroProjectedBatchSize(
+                        config.get(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE))
                 .setRowRestriction(config.get(BigQueryConnectorOptions.ROW_RESTRICTION))
                 .setColumnNames(
                         Optional.ofNullable(config.get(BigQueryConnectorOptions.COLUMNS_PROJECTION))

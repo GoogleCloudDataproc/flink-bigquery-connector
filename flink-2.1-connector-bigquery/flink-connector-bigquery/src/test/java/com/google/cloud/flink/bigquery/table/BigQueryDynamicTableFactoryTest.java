@@ -69,6 +69,18 @@ import static org.junit.Assert.assertNull;
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
 public class BigQueryDynamicTableFactoryTest {
 
+    @Test
+    public void testProjectedAvroBatchOption() {
+        Map<String, String> properties = getRequiredOptions();
+        BigQueryDynamicTableSource source =
+                (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        assertThat(source.getReadOptions().getAvroProjectedBatchSize()).isEqualTo(0);
+        properties.put(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE.key(), "137");
+        source = (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        assertThat(source.getReadOptions().getAvroProjectedBatchSize()).isEqualTo(137);
+        assertThat(source.copy()).isEqualTo(source);
+    }
+
     private static final ResolvedSchema SCHEMA =
             new ResolvedSchema(
                     Arrays.asList(

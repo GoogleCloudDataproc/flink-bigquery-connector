@@ -40,6 +40,7 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     private static final int PREFERRED_MIN_STREAM_COUNT_MULTIPLIER = 3;
     private static final int MAX_STREAM_COUNT_MULTIPLIER = 100;
+    public static final int AVRO_PROJECTED_BATCH_SIZE_WARNING_THRESHOLD = 10000;
 
     public abstract List<String> getColumnNames();
 
@@ -52,6 +53,8 @@ public abstract class BigQueryReadOptions implements Serializable {
     public abstract Integer getMaxStreamCount();
 
     public abstract Integer getMaxRecordsPerSplitFetch();
+
+    public abstract Integer getAvroProjectedBatchSize();
 
     public abstract Integer getParallelism();
 
@@ -85,6 +88,7 @@ public abstract class BigQueryReadOptions implements Serializable {
     public final int hashCode() {
         return Objects.hash(
                 getColumnNames(),
+                getAvroProjectedBatchSize(),
                 getRowRestriction(),
                 getSnapshotTimestampInMillis(),
                 getMaxStreamCount(),
@@ -105,6 +109,8 @@ public abstract class BigQueryReadOptions implements Serializable {
         }
         final BigQueryReadOptions other = (BigQueryReadOptions) obj;
         return Objects.equals(this.getColumnNames(), other.getColumnNames())
+                && Objects.equals(
+                        this.getAvroProjectedBatchSize(), other.getAvroProjectedBatchSize())
                 && Objects.equals(this.getRowRestriction(), other.getRowRestriction())
                 && Objects.equals(
                         this.getSnapshotTimestampInMillis(), other.getSnapshotTimestampInMillis())
@@ -132,6 +138,7 @@ public abstract class BigQueryReadOptions implements Serializable {
                 .setColumnNames(Arrays.asList())
                 .setMaxStreamCount(0)
                 .setMaxRecordsPerSplitFetch(10000)
+                .setAvroProjectedBatchSize(0)
                 .setParallelism(0)
                 .setSnapshotTimestampInMillis(null);
     }
@@ -193,6 +200,8 @@ public abstract class BigQueryReadOptions implements Serializable {
          */
         public abstract Builder setMaxRecordsPerSplitFetch(Integer maxRecordsPerSplitFetch);
 
+        public abstract Builder setAvroProjectedBatchSize(Integer batchSize);
+
         /**
          * Sets the parallelism of the source, used to compute effective stream counts when {@code
          * maxStreamCount} is not explicitly set.
@@ -219,6 +228,9 @@ public abstract class BigQueryReadOptions implements Serializable {
          */
         public final BigQueryReadOptions build() {
             BigQueryReadOptions readOptions = autoBuild();
+            Preconditions.checkState(
+                    readOptions.getAvroProjectedBatchSize() >= 0,
+                    "The projected Avro batch size must be zero or positive.");
             Preconditions.checkState(
                     readOptions.getMaxStreamCount() >= 0,
                     "The max number of streams should be zero or positive.");
