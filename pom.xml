@@ -76,7 +76,7 @@ under the License.
     <properties>
         <revision>1.2-SNAPSHOT</revision>
         <flink.version>1.17.1</flink.version>
-        <bigquery.guava.version>33.4.8-jre</bigquery.guava.version>
+        <bigquery.guava.version>33.7.1-jre</bigquery.guava.version>
         <google-lib-bom.version>26.33.0</google-lib-bom.version>
 
         <junit5.version>5.10.2</junit5.version>
