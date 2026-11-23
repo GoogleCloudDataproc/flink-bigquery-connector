@@ -32,6 +32,7 @@ import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
+import com.google.cloud.flink.bigquery.source.reader.ProjectedAvroReader;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
@@ -64,6 +65,8 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     private Boolean closed = false;
     private Schema avroSchema = null;
+    private Schema projectedAvroSchema;
+    private ProjectedAvroReader pendingAvroReader;
     private Long readSoFar = 0L;
     private Long splitStartFetch;
     private Iterator<ReadRowsResponse> readStreamIterator = null;
@@ -73,6 +76,21 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         this.readOptions = readOptions;
         this.readerContext = readerContext;
         this.configuration = readerContext.getConfiguration();
+        int batchSize = readOptions.getAvroProjectedBatchSize();
+        if (batchSize > 0) {
+            if (batchSize > BigQueryReadOptions.AVRO_PROJECTED_BATCH_SIZE_WARNING_THRESHOLD) {
+                LOG.warn(
+                        "Projected Avro batch size {} exceeds the {}-row guidance threshold;"
+                                + " large values may cause high memory use. This is not a memory"
+                                + " guarantee.",
+                        batchSize,
+                        BigQueryReadOptions.AVRO_PROJECTED_BATCH_SIZE_WARNING_THRESHOLD);
+            } else {
+                LOG.info(
+                        "Projected Avro decoder enabled with batch size {} rows per fetch.",
+                        batchSize);
+            }
+        }
     }
 
     private void closeClient() {
@@ -88,8 +106,14 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     Long offsetToFetch(BigQuerySourceSplit split) {
         // honor what is coming as checkpointed
-        if (split.getOffset() > 0) {
+        if (split.getOffset() > 0
+                && (readOptions.getAvroProjectedBatchSize() == 0 || readSoFar == 0)) {
             readSoFar = split.getOffset();
+            if (readOptions.getAvroProjectedBatchSize() > 0 && readerContext.isLimitPushedDown()) {
+                // the context read count is not checkpointed; re-count the restored offset so
+                // the projected-path limit check includes rows emitted before the failover
+                readerContext.updateReadCount(readSoFar);
+            }
             splitStartFetch = System.currentTimeMillis();
         } else if (readSoFar == 0) {
             // will start reading the stream from the beginning
@@ -158,6 +182,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             .map(split -> split.splitId())
                             .collect(Collectors.toList()));
             assignedSplits.clear();
+            if (readOptions.getAvroProjectedBatchSize() > 0) {
+                pendingAvroReader = null;
+                readStreamIterator = null;
+            }
             return respBuilder.build();
         }
 
@@ -168,6 +196,9 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         Boolean truncated = false;
 
         try {
+            if (readOptions.getAvroProjectedBatchSize() > 0) {
+                return fetchProjected(assignedSplit);
+            }
             if (readStreamIterator == null) {
                 readStreamIterator = retrieveReadStream(assignedSplit).iterator();
             }
@@ -281,6 +312,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             closeClient();
             // release the iterator just in case
             readStreamIterator = null;
+            pendingAvroReader = null;
             /**
              * return an empty one, since we may need to re since last set offset (locally or from
              * checkpoint)
@@ -322,8 +354,58 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             closed = true;
             readSoFar = 0L;
             readStreamIterator = null;
+            pendingAvroReader = null;
             closeClient();
         }
+    }
+
+    private RecordsWithSplitIds<GenericRecord> fetchProjected(BigQuerySourceSplit split)
+            throws IOException {
+        RecordsBySplits.Builder<GenericRecord> result = new RecordsBySplits.Builder<>();
+        if (readStreamIterator == null) {
+            readStreamIterator = retrieveReadStream(split).iterator();
+        }
+        int read = 0;
+        boolean finished = false;
+        while (read < readOptions.getAvroProjectedBatchSize()) {
+            if (readerContext.willExceedLimit(read)) {
+                finished = true;
+                break;
+            }
+            if (pendingAvroReader == null || !pendingAvroReader.hasNext()) {
+                pendingAvroReader = null;
+                if (!readStreamIterator.hasNext()) {
+                    finished = true;
+                    break;
+                }
+                ReadRowsResponse response = readStreamIterator.next();
+                if (avroSchema == null) {
+                    if (!response.hasAvroSchema()) {
+                        throw new IllegalArgumentException("Avro schema missing from response.");
+                    }
+                    avroSchema = new Schema.Parser().parse(response.getAvroSchema().getSchema());
+                    projectedAvroSchema =
+                            ProjectedAvroReader.projectSchema(
+                                    avroSchema, readOptions.getColumnNames());
+                }
+                pendingAvroReader =
+                        new ProjectedAvroReader(
+                                avroSchema, projectedAvroSchema, response.getAvroRows());
+                continue;
+            }
+            result.add(split, pendingAvroReader.read());
+            read++;
+        }
+        readSoFar += read;
+        readerContext.updateReadCount((long) read);
+        if (finished) {
+            readSoFar = 0L;
+            assignedSplits.poll();
+            readStreamIterator = null;
+            pendingAvroReader = null;
+            result.addFinishedSplit(split.splitId());
+        }
+        return result.build();
     }
 
     static class GenericRecordReader {

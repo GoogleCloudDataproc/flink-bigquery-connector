@@ -102,6 +102,15 @@ public class BigQueryConnectorOptions {
                             "Specifies, as a comma separated list of values, "
                                     + "the columns to be included as part of the data retrieved.");
 
+    public static final ConfigOption<Integer> AVRO_PROJECTED_BATCH_SIZE =
+            ConfigOptions.key("read.avro.projected-batch-size")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Opt in to projected Avro decoding with at most this many decoded rows"
+                                    + " per fetch. Zero preserves legacy decoding. Values above"
+                                    + " 10000 trigger a memory-use warning but are not rejected.");
+
     /**
      * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of streams used to
      * read from the underlying source table.<br>

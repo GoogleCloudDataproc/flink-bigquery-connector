@@ -125,6 +125,7 @@ public class BigQuerySourceIntegrationTestCase {
     @Test
     public void testLimit() throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(PARALLELISM);
 
         final int limitSize = 10;
         BigQuerySource<RowData> bqSource = defaultSourceBuilder(limitSize).build();

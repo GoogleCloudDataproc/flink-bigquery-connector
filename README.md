@@ -572,6 +572,40 @@ The connector supports a number of options to configure the source.
 | `snapshotTimeInMillis`    | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. If unspecified, the latest snapshot is read.                                                                                                                                                                        |
 
 
+### Opt-in bounded Avro decoding
+
+Set the connector table option `'read.avro.projected-batch-size' = '128'` to enable
+projected, incremental Avro decoding in both the Flink 1.17 and 2.1 connectors.
+The default is `0`, which keeps the existing decoder and fetch behavior unchanged.
+Negative values are rejected. Values above 10,000 trigger a warning. This is a
+configuration warning, not a hard limit or a memory guarantee; choose a batch size
+that fits the row sizes in your table. The DataStream equivalent is
+`BigQueryReadOptions.builder().setAvroProjectedBatchSize(128)`.
+
+The enabled path uses the source's selected column paths as an Avro reader schema.
+Unselected fields are skipped during binary decoding, including nested fields in
+nullable and repeated records. An empty column list still means all columns.
+BigQuery Storage API column projection already happens on the server; this is an
+additional decoder-side projection, not a replacement for that pushdown.
+
+Each fetch returns at most the configured number of decoded records. The decoder
+retains its position within a response until the next fetch, rather than building
+a list for the entire response. This option replaces the legacy
+`maxRecordsPerSplitFetch` heuristic for the enabled path. When a split is
+restored from a checkpoint, the restored offset counts toward the limit, so
+the enabled path still respects a pushed-down limit after a failover.
+
+This is a row-count bound, not a byte bound. A whole encoded Storage API response,
+a single large projected row, and Flink's queued fetch batches can still occupy
+memory. This does not change the Storage API response size or RPC prefetch policy.
+
+Use a table `WITH` option, or a SQL table hint when dynamic table options are enabled:
+
+```sql
+SELECT id FROM events
+/*+ OPTIONS('read.avro.projected-batch-size' = '128') */;
+```
+
 ### Datatypes
 
 BigQuery datatypes are transformed to Avro’s `GenericRecord` as follows:

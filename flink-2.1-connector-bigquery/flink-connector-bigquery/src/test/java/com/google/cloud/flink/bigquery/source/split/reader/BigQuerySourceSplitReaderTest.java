@@ -24,17 +24,145 @@ import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceSplitReaderTest {
+
+    @Test
+    public void testProjectedFetchAcrossResponsesAndSplits() throws Exception {
+        checkProjectedFetch(-1, 0L, 5000, 5000L);
+        checkProjectedFetch(311, 0L, 311, 311L);
+        checkProjectedFetch(274, 0L, 274, 274L);
+        checkProjectedFetch(-1, 123L, 4877, 4877L);
+        checkProjectedFetch(274, 123L, 151, 274L);
+        checkProjectedFetch(274, 274L, 0, 274L);
+    }
+
+    private void checkProjectedFetch(int limit, long offset, int expected, long expectedCount)
+            throws Exception {
+        BigQueryReadOptions options =
+                StorageClientFaker.createReadOptions(
+                                2500, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING)
+                        .toBuilder()
+                        .setColumnNames(Arrays.asList("name"))
+                        .setAvroProjectedBatchSize(137)
+                        .build();
+        BigQuerySourceReaderContext context =
+                new BigQuerySourceReaderContext(Mockito.mock(SourceReaderContext.class), limit);
+        try (BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(options, context)) {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Arrays.asList(
+                                    new BigQuerySourceSplit("stream1", offset),
+                                    new BigQuerySourceSplit("stream2", 0L))));
+            int total = 0;
+            int finished = 0;
+            for (int fetch = 0; fetch < 100 && finished < 2; fetch++) {
+                RecordsWithSplitIds<GenericRecord> records = reader.fetch();
+                int batch = 0;
+                while (records.nextSplit() != null) {
+                    GenericRecord record;
+                    while ((record = records.nextRecordFromSplit()) != null) {
+                        assertThat(record.getSchema().getFields()).hasSize(1);
+                        assertThat(record.getSchema().getField("name")).isNotNull();
+                        batch++;
+                    }
+                }
+                assertThat(batch).isAtMost(137);
+                total += batch;
+                if (offset > 0 && finished == 0 && records.finishedSplits().isEmpty()) {
+                    assertThat(reader.offsetToFetch(new BigQuerySourceSplit("stream1", offset)))
+                            .isEqualTo(offset + total);
+                }
+                finished += records.finishedSplits().size();
+                records.recycle();
+            }
+            assertThat(total).isEqualTo(expected);
+            assertThat(finished).isEqualTo(2);
+            assertThat(context.currentReadCount()).isEqualTo(expectedCount);
+        }
+    }
+
+    @Test
+    public void testProjectedFetchReturnsTheLegacyValues() throws Exception {
+        // all columns, then a selection in another order than the schema's
+        for (List<String> columns :
+                Arrays.asList(Arrays.<String>asList(), Arrays.asList("ts", "name"))) {
+            List<String> legacy = readRows(0, columns);
+            assertThat(legacy).hasSize(2500 - 123 + 2500);
+            assertThat(readRows(137, columns)).containsExactlyElementsIn(legacy).inOrder();
+        }
+    }
+
+    /** Reads both splits, the first restored at offset 123, as one string per row. */
+    private static List<String> readRows(int batchSize, List<String> columns) throws Exception {
+        BigQueryReadOptions options =
+                StorageClientFaker.createReadOptions(
+                                2500,
+                                2,
+                                StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING,
+                                BigQuerySourceSplitReaderTest::distinctRecords)
+                        .toBuilder()
+                        .setColumnNames(columns)
+                        .setAvroProjectedBatchSize(batchSize)
+                        .build();
+        List<String> fields = columns.isEmpty() ? Arrays.asList("name", "number", "ts") : columns;
+        BigQuerySourceReaderContext context =
+                new BigQuerySourceReaderContext(Mockito.mock(SourceReaderContext.class), -1);
+        List<String> rows = new ArrayList<>();
+        try (BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(options, context)) {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Arrays.asList(
+                                    new BigQuerySourceSplit("stream1", 123L),
+                                    new BigQuerySourceSplit("stream2", 0L))));
+            int finished = 0;
+            for (int fetch = 0; fetch < 100 && finished < 2; fetch++) {
+                RecordsWithSplitIds<GenericRecord> records = reader.fetch();
+                String split;
+                while ((split = records.nextSplit()) != null) {
+                    GenericRecord record;
+                    while ((record = records.nextRecordFromSplit()) != null) {
+                        StringBuilder row = new StringBuilder(split);
+                        for (String field : fields) {
+                            row.append('|').append(record.get(field));
+                        }
+                        rows.add(row.toString());
+                    }
+                }
+                finished += records.finishedSplits().size();
+                records.recycle();
+            }
+            assertThat(finished).isEqualTo(2);
+        }
+        return rows;
+    }
+
+    private static List<GenericRecord> distinctRecords(
+            StorageClientFaker.RecordGenerationParams params) {
+        Schema schema = new Schema.Parser().parse(params.getAvroSchemaString());
+        List<GenericRecord> records = new ArrayList<>();
+        for (int i = 0; i < params.getRecordCount(); i++) {
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("name", "name-" + i);
+            record.put("number", 7L * i);
+            record.put("ts", 1_700_000_000_000_000L + i);
+            records.add(record);
+        }
+        return records;
+    }
 
     @Test
     public void testSplitReaderSmall() throws IOException {
