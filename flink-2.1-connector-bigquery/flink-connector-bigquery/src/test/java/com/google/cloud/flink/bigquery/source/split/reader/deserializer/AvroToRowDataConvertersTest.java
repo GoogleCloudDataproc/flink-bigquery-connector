@@ -6,6 +6,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.MapData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.DateType;
 import org.apache.flink.table.types.logical.DecimalType;
@@ -532,6 +533,46 @@ public class AvroToRowDataConvertersTest {
         // Convert and Assert.
         Object result = converter.convert(record);
         assertEquals(GenericRowData.of(12345L, StringData.fromString("value_a")), result);
+    }
+
+    @Test
+    public void testArrayConversionDoesNotRenderTheArray() {
+        RowType rowType =
+                new RowType(
+                        Collections.singletonList(
+                                new RowField("xs", new ArrayType(new BigIntType()))));
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(rowType, new String[][] {{"xs"}});
+        Schema schema =
+                org.apache.avro.SchemaBuilder.record("r")
+                        .fields()
+                        .name("xs")
+                        .type()
+                        .array()
+                        .items()
+                        .longType()
+                        .noDefault()
+                        .endRecord();
+        // rendering every element of every array cost most of the decode CPU on wide arrays
+        java.util.List<Long> xs =
+                new java.util.ArrayList<Long>(Arrays.asList(1L, 2L)) {
+                    @Override
+                    public String toString() {
+                        throw new AssertionError("array rendered on the success path");
+                    }
+                };
+        GenericRowData row =
+                (GenericRowData)
+                        converter.convert(new GenericRecordBuilder(schema).set("xs", xs).build());
+        assertEquals(2L, row.getArray(0).getLong(1));
+
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                converter.convert(
+                                        new GenericRecordBuilder(schema).set("xs", 7L).build()));
+        Assertions.assertThat(ex.getMessage()).contains("LIST");
     }
 
     @Test

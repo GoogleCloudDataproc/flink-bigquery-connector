@@ -311,8 +311,10 @@ public class AvroToRowDataConverters {
                 LogicalTypeUtils.toInternalConversionClass(arrayType.getElementType());
 
         return avroObject -> {
-            Preconditions.checkArgument(
-                    avroObject instanceof List<?>, getErrorMessage(avroObject, "LIST", "ARRAY"));
+            // build the message only on failure: it prints the whole array
+            if (!(avroObject instanceof List<?>)) {
+                throw new IllegalArgumentException(getErrorMessage(avroObject, "LIST", "ARRAY"));
+            }
             final List<?> list = (List<?>) avroObject;
             final int length = list.size();
             final Object[] array = (Object[]) Array.newInstance(elementClass, length);
@@ -330,8 +332,9 @@ public class AvroToRowDataConverters {
                 createNullableConverter(AvroSchemaConvertor.extractValueTypeToAvroMap(type));
 
         return avroObject -> {
-            Preconditions.checkArgument(
-                    avroObject instanceof Map<?, ?>, getErrorMessage(avroObject, "MAP", "MAP"));
+            if (!(avroObject instanceof Map<?, ?>)) {
+                throw new IllegalArgumentException(getErrorMessage(avroObject, "MAP", "MAP"));
+            }
             final Map<?, ?> map = (Map<?, ?>) avroObject;
             Map<Object, Object> result = new HashMap<>();
             for (Map.Entry<?, ?> entry : map.entrySet()) {
