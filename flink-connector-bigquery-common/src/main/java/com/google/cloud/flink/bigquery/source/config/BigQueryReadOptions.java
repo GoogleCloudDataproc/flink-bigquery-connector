@@ -56,6 +56,17 @@ public abstract class BigQueryReadOptions implements Serializable {
 
     public abstract Integer getAvroProjectedBatchSize();
 
+    /**
+     * Avro field paths the projected decoder keeps, down to the declared fields inside array
+     * elements, which a read session cannot select. Empty keeps the session's column names.
+     */
+    public abstract List<String> getAvroDecodePaths();
+
+    /** The field paths the projected Avro decoder keeps. */
+    public final List<String> projectedAvroPaths() {
+        return getAvroDecodePaths().isEmpty() ? getColumnNames() : getAvroDecodePaths();
+    }
+
     public abstract Integer getParallelism();
 
     public abstract BigQueryConnectOptions getBigQueryConnectOptions();
@@ -89,6 +100,7 @@ public abstract class BigQueryReadOptions implements Serializable {
         return Objects.hash(
                 getColumnNames(),
                 getAvroProjectedBatchSize(),
+                getAvroDecodePaths(),
                 getRowRestriction(),
                 getSnapshotTimestampInMillis(),
                 getMaxStreamCount(),
@@ -111,6 +123,7 @@ public abstract class BigQueryReadOptions implements Serializable {
         return Objects.equals(this.getColumnNames(), other.getColumnNames())
                 && Objects.equals(
                         this.getAvroProjectedBatchSize(), other.getAvroProjectedBatchSize())
+                && Objects.equals(this.getAvroDecodePaths(), other.getAvroDecodePaths())
                 && Objects.equals(this.getRowRestriction(), other.getRowRestriction())
                 && Objects.equals(
                         this.getSnapshotTimestampInMillis(), other.getSnapshotTimestampInMillis())
@@ -139,6 +152,7 @@ public abstract class BigQueryReadOptions implements Serializable {
                 .setMaxStreamCount(0)
                 .setMaxRecordsPerSplitFetch(10000)
                 .setAvroProjectedBatchSize(0)
+                .setAvroDecodePaths(Arrays.asList())
                 .setParallelism(0)
                 .setSnapshotTimestampInMillis(null);
     }
@@ -201,6 +215,8 @@ public abstract class BigQueryReadOptions implements Serializable {
         public abstract Builder setMaxRecordsPerSplitFetch(Integer maxRecordsPerSplitFetch);
 
         public abstract Builder setAvroProjectedBatchSize(Integer batchSize);
+
+        public abstract Builder setAvroDecodePaths(List<String> paths);
 
         /**
          * Sets the parallelism of the source, used to compute effective stream counts when {@code
