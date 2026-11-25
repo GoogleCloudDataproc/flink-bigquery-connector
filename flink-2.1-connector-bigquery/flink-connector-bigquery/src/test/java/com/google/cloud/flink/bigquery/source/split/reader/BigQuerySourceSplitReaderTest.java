@@ -20,7 +20,10 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 
+import com.google.cloud.bigquery.storage.v1.AvroRows;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
@@ -33,7 +36,10 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -162,6 +168,152 @@ public class BigQuerySourceSplitReaderTest {
             records.add(record);
         }
         return records;
+    }
+
+    @Test
+    public void testProjectedFetchSkipsResponsesWithoutRows() throws Exception {
+        List<GenericRecord> records = records(300);
+        // a heartbeat before the first schema, then responses with an empty row block
+        ListStream stream =
+                new ListStream(
+                        Arrays.asList(
+                                ReadRowsResponse.getDefaultInstance(),
+                                dataResponse(records.subList(0, 150)),
+                                ReadRowsResponse.newBuilder()
+                                        .setAvroRows(AvroRows.getDefaultInstance())
+                                        .build(),
+                                ReadRowsResponse.getDefaultInstance(),
+                                dataResponse(records.subList(150, 300))));
+        BigQuerySourceSplitReader reader = projectedReader(context(-1), stream);
+        try {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Collections.singletonList(new BigQuerySourceSplit("stream1", 0L))));
+            List<String> names = new ArrayList<>();
+            int finished = 0;
+            for (int fetch = 0; fetch < 20 && finished == 0; fetch++) {
+                RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+                while (batch.nextSplit() != null) {
+                    GenericRecord record;
+                    while ((record = batch.nextRecordFromSplit()) != null) {
+                        names.add(record.get("name").toString());
+                    }
+                }
+                finished += batch.finishedSplits().size();
+                batch.recycle();
+            }
+            assertThat(finished).isEqualTo(1);
+            assertThat(names)
+                    .containsExactlyElementsIn(
+                            records.stream()
+                                    .map(record -> record.get("name").toString())
+                                    .collect(Collectors.toList()))
+                    .inOrder();
+            assertThat(stream.cancels).isEqualTo(0);
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testProjectedFetchCountsRestoredOffsetsBeforeOpeningAStream() throws Exception {
+        BigQuerySourceReaderContext context = context(150);
+        BigQuerySourceSplitReader reader =
+                projectedReader(
+                        context,
+                        new ListStream(Collections.singletonList(dataResponse(records(300)))));
+        try {
+            // neither restored split reaches the limit alone, but both together do
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Arrays.asList(
+                                    new BigQuerySourceSplit("stream1", 100L),
+                                    new BigQuerySourceSplit("stream2", 100L))));
+            assertThat(context.currentReadCount()).isEqualTo(200L);
+            RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+            assertThat(batch.nextSplit()).isNull();
+            assertThat(batch.finishedSplits()).containsExactly("stream1", "stream2");
+            Mockito.verify(reader, Mockito.never()).retrieveReadStream(Mockito.any());
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testProjectedFetchCancelsTheStreamWhenTheLimitStopsIt() throws Exception {
+        ListStream stream = new ListStream(Collections.singletonList(dataResponse(records(300))));
+        BigQuerySourceSplitReader reader = projectedReader(context(10), stream);
+        try {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Collections.singletonList(new BigQuerySourceSplit("stream1", 0L))));
+            RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+            int read = 0;
+            while (batch.nextSplit() != null) {
+                while (batch.nextRecordFromSplit() != null) {
+                    read++;
+                }
+            }
+            assertThat(read).isEqualTo(10);
+            assertThat(batch.finishedSplits()).containsExactly("stream1");
+            assertThat(stream.cancels).isEqualTo(1);
+        } finally {
+            reader.close();
+        }
+    }
+
+    private static BigQuerySourceReaderContext context(int limit) {
+        return new BigQuerySourceReaderContext(Mockito.mock(SourceReaderContext.class), limit);
+    }
+
+    private static BigQuerySourceSplitReader projectedReader(
+            BigQuerySourceReaderContext context, ListStream stream) throws IOException {
+        BigQueryReadOptions options =
+                StorageClientFaker.createReadOptions(
+                                300, 1, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING)
+                        .toBuilder()
+                        .setColumnNames(Arrays.asList("name"))
+                        .setAvroProjectedBatchSize(137)
+                        .build();
+        BigQuerySourceSplitReader reader =
+                Mockito.spy(new BigQuerySourceSplitReader(options, context));
+        Mockito.doReturn(stream).when(reader).retrieveReadStream(Mockito.any());
+        return reader;
+    }
+
+    private static List<GenericRecord> records(int count) {
+        return distinctRecords(
+                new StorageClientFaker.RecordGenerationParams(
+                        StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING, count));
+    }
+
+    private static ReadRowsResponse dataResponse(List<GenericRecord> records) {
+        List<ReadRowsResponse> responses =
+                StorageClientFaker.createResponse(
+                        StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING, records, 0, 1);
+        assertThat(responses).hasSize(1);
+        return responses.get(0);
+    }
+
+    /** Returns the given responses and counts the cancel calls. */
+    private static class ListStream
+            implements BigQueryServices.BigQueryServerStream<ReadRowsResponse> {
+        private final List<ReadRowsResponse> responses;
+        private int cancels = 0;
+
+        private ListStream(List<ReadRowsResponse> responses) {
+            this.responses = responses;
+        }
+
+        @Override
+        public Iterator<ReadRowsResponse> iterator() {
+            return responses.iterator();
+        }
+
+        @Override
+        public void cancel() {
+            cancels++;
+        }
     }
 
     @Test

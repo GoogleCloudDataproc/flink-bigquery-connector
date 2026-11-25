@@ -157,7 +157,12 @@ public class BigQueryTableConfigurationProvider {
                 .setRowRestriction(config.get(BigQueryConnectorOptions.ROW_RESTRICTION))
                 .setColumnNames(
                         Optional.ofNullable(config.get(BigQueryConnectorOptions.COLUMNS_PROJECTION))
-                                .map(cols -> Arrays.asList(cols.split(",")))
+                                .map(
+                                        cols ->
+                                                Arrays.stream(cols.split(","))
+                                                        .map(String::trim)
+                                                        .filter(col -> !col.isEmpty())
+                                                        .collect(Collectors.toList()))
                                 .orElse(new ArrayList<>()))
                 .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                 .setLimit(config.get(BigQueryConnectorOptions.LIMIT))

@@ -567,6 +567,7 @@ The connector supports a number of options to configure the source.
 | `columnNames`             | List&lt;String&gt; | Columns to project from the table. If unspecified, all columns are fetched.                                                                                                                                                                                                                     |
 | `limit`                   | Integer            | Maximum number of rows to read from source table **per task slot**. If unspecified, all rows are fetched.                                                                                                                                                                                       |
 | `maxRecordsPerSplitFetch` | Integer            | Maximum number of records to read from a split once Flink requests fetch. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream. |
+| `avroProjectedBatchSize`  | Integer            | Opt in to projected, incremental Avro decoding with at most this many decoded rows per fetch. The decoder skips the fields outside `columnNames`, and this replaces `maxRecordsPerSplitFetch` for the enabled path. If unspecified, the default value 0 keeps the existing decoder. See [Opt-in bounded Avro decoding](#opt-in-bounded-avro-decoding). |
 | `maxStreamCount`          | Integer            | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                             |
 | `rowRestriction`          | String             | BigQuery SQL query for row filter pushdown. If unspecified, all rows are fetched.                                                                                                                                                                                                               |
 | `snapshotTimeInMillis`    | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. If unspecified, the latest snapshot is read.                                                                                                                                                                        |
@@ -585,6 +586,8 @@ that fits the row sizes in your table. The DataStream equivalent is
 The enabled path uses the source's selected column paths as an Avro reader schema.
 Unselected fields are skipped during binary decoding, including nested fields in
 nullable and repeated records. An empty column list still means all columns.
+Column paths are trimmed and blank entries are ignored. A path that does not match
+a field, or that selects a field inside a field that is not a record, fails the read.
 BigQuery Storage API column projection already happens on the server; this is an
 additional decoder-side projection, not a replacement for that pushdown.
 

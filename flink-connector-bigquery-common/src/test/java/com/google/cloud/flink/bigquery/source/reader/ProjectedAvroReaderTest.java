@@ -29,8 +29,10 @@ import org.junit.Test;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 /** Tests for {@link ProjectedAvroReader}. */
 public class ProjectedAvroReaderTest {
@@ -174,5 +176,170 @@ public class ProjectedAvroReaderTest {
                 new ProjectedAvroReader(SCHEMA, Arrays.asList("items", "items.keep"), rows());
         assertThat(reader.read().getSchema().getField("items").schema())
                 .isEqualTo(SCHEMA.getField("items").schema());
+    }
+
+    @Test
+    public void trimsPathsAndIgnoresBlankPaths() {
+        assertThat(ProjectedAvroReader.projectSchema(SCHEMA, Arrays.asList("", "  ")))
+                .isEqualTo(SCHEMA);
+        Schema projected =
+                ProjectedAvroReader.projectSchema(SCHEMA, Arrays.asList(" id", "", "items.keep "));
+        assertThat(projected.getFields().stream().map(Schema.Field::name))
+                .containsExactly("id", "items")
+                .inOrder();
+    }
+
+    @Test
+    public void rejectsNullPaths() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ProjectedAvroReader.projectSchema(SCHEMA, null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ProjectedAvroReader.projectSchema(SCHEMA, Arrays.asList("id", null)));
+    }
+
+    @Test
+    public void rejectsPathsThatMatchNoField() {
+        IllegalArgumentException topLevel =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ProjectedAvroReader.projectSchema(
+                                        SCHEMA, Arrays.asList("id", "nonexistent")));
+        assertThat(topLevel).hasMessageThat().contains("[nonexistent]");
+        IllegalArgumentException nested =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ProjectedAvroReader.projectSchema(
+                                        SCHEMA, Arrays.asList("items.keep", "items.missing")));
+        assertThat(nested).hasMessageThat().contains("[items.missing]");
+    }
+
+    @Test
+    public void rejectsPathsInsideFieldsThatAreNotRecords() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> ProjectedAvroReader.projectSchema(SCHEMA, Arrays.asList("id.sub")));
+        assertThat(ex).hasMessageThat().contains("'id.sub'");
+    }
+
+    @Test
+    public void keepsArrayProperties() {
+        Schema schema =
+                new Schema.Parser()
+                        .parse(
+                                "{\"type\":\"record\",\"name\":\"r\",\"fields\":["
+                                        + "{\"name\":\"xs\",\"type\":{\"type\":\"array\","
+                                        + "\"prop\":\"value\",\"items\":{\"type\":\"record\","
+                                        + "\"name\":\"x\",\"fields\":["
+                                        + "{\"name\":\"a\",\"type\":\"long\"},"
+                                        + "{\"name\":\"b\",\"type\":\"long\"}]}}}]}");
+        Schema projected = ProjectedAvroReader.projectSchema(schema, Arrays.asList("xs.a"));
+        assertThat(projected.getField("xs").schema().getProp("prop")).isEqualTo("value");
+    }
+
+    @Test
+    public void namesEachDifferentProjectionOfASharedRecord() throws Exception {
+        Schema shared = sharedAddressSchema();
+        Schema projected =
+                ProjectedAvroReader.projectSchema(
+                        shared, Arrays.asList("billing.street", "shipping.city"));
+        // the projected schema must stay a valid Avro schema
+        Schema reparsed = new Schema.Parser().parse(projected.toString());
+        assertThat(reparsed).isEqualTo(projected);
+        Schema billing = projected.getField("billing").schema().getTypes().get(1);
+        Schema shipping = projected.getField("shipping").schema().getTypes().get(1);
+        assertThat(billing.getFullName()).isNotEqualTo(shipping.getFullName());
+        assertThat(billing.getFields().stream().map(Schema.Field::name)).containsExactly("street");
+        assertThat(shipping.getFields().stream().map(Schema.Field::name)).containsExactly("city");
+
+        GenericRecord record =
+                new ProjectedAvroReader(shared, reparsed, addressRows(shared)).read();
+        assertThat(((GenericRecord) record.get("billing")).get("street").toString())
+                .isEqualTo("billing street");
+        assertThat(((GenericRecord) record.get("shipping")).get("city").toString())
+                .isEqualTo("shipping city");
+    }
+
+    @Test
+    public void reusesIdenticalProjectionsOfASharedRecord() {
+        Schema projected =
+                ProjectedAvroReader.projectSchema(
+                        sharedAddressSchema(), Arrays.asList("billing.street", "shipping.street"));
+        assertThat(projected.getField("shipping").schema().getTypes().get(1))
+                .isSameInstanceAs(projected.getField("billing").schema().getTypes().get(1));
+        assertThat(new Schema.Parser().parse(projected.toString())).isEqualTo(projected);
+    }
+
+    @Test
+    public void namesAProjectionOfARecordThatIsAlsoSelectedWhole() throws Exception {
+        Schema shared = sharedAddressSchema();
+        for (List<String> columns :
+                Arrays.asList(
+                        Arrays.asList("billing", "shipping.city"),
+                        Arrays.asList("billing.city", "shipping.city", "shipping.street"))) {
+            Schema projected = ProjectedAvroReader.projectSchema(shared, columns);
+            Schema reparsed = new Schema.Parser().parse(projected.toString());
+            assertThat(reparsed).isEqualTo(projected);
+            GenericRecord record =
+                    new ProjectedAvroReader(shared, reparsed, addressRows(shared)).read();
+            assertThat(((GenericRecord) record.get("billing")).get("city").toString())
+                    .isEqualTo("billing city");
+            assertThat(((GenericRecord) record.get("shipping")).get("city").toString())
+                    .isEqualTo("shipping city");
+        }
+    }
+
+    @Test
+    public void resetReusesTheReaderAndClearDropsTheRemainingRows() throws Exception {
+        ProjectedAvroReader reader =
+                new ProjectedAvroReader(
+                        SCHEMA, ProjectedAvroReader.projectSchema(SCHEMA, Arrays.asList("id")));
+        assertThat(reader.hasNext()).isFalse();
+        reader.reset(rows());
+        assertThat(reader.read().get("id")).isEqualTo(0L);
+        assertThat(reader.read().get("id")).isEqualTo(1L);
+        reader.clear();
+        assertThat(reader.hasNext()).isFalse();
+        reader.reset(rows());
+        for (long i = 0; i < 7; i++) {
+            assertThat(reader.read().get("id")).isEqualTo(i);
+        }
+        assertThat(reader.hasNext()).isFalse();
+    }
+
+    private static Schema sharedAddressSchema() {
+        return new Schema.Parser()
+                .parse(
+                        "{\"type\":\"record\",\"name\":\"order\",\"namespace\":\"ns\","
+                                + "\"fields\":[{\"name\":\"billing\",\"type\":[\"null\","
+                                + "{\"type\":\"record\",\"name\":\"Address\",\"fields\":["
+                                + "{\"name\":\"street\",\"type\":\"string\"},"
+                                + "{\"name\":\"city\",\"type\":\"string\"}]}]},"
+                                + "{\"name\":\"shipping\",\"type\":[\"null\",\"Address\"]}]}");
+    }
+
+    private static AvroRows addressRows(Schema schema) throws Exception {
+        Schema address = schema.getField("billing").schema().getTypes().get(1);
+        GenericRecord billing = new GenericData.Record(address);
+        billing.put("street", "billing street");
+        billing.put("city", "billing city");
+        GenericRecord shipping = new GenericData.Record(address);
+        shipping.put("street", "shipping street");
+        shipping.put("city", "shipping city");
+        GenericRecord order = new GenericData.Record(schema);
+        order.put("billing", billing);
+        order.put("shipping", shipping);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(bytes, null);
+        new GenericDatumWriter<GenericRecord>(schema).write(order, encoder);
+        encoder.flush();
+        return AvroRows.newBuilder()
+                .setSerializedBinaryRows(ByteString.copyFrom(bytes.toByteArray()))
+                .setRowCount(1)
+                .build();
     }
 }

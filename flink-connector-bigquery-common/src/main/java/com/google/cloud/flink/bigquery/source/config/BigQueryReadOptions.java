@@ -214,6 +214,17 @@ public abstract class BigQueryReadOptions implements Serializable {
          */
         public abstract Builder setMaxRecordsPerSplitFetch(Integer maxRecordsPerSplitFetch);
 
+        /**
+         * Enables projected, incremental Avro decoding, with at most this many decoded rows per
+         * fetch. The decoder skips the fields outside the column names, and replaces {@code
+         * maxRecordsPerSplitFetch} for the enabled path. This is a row-count bound, not a memory
+         * guarantee. Values above {@link
+         * BigQueryReadOptions#AVRO_PROJECTED_BATCH_SIZE_WARNING_THRESHOLD} log a warning.
+         *
+         * @param batchSize The maximum number of decoded rows per fetch. Zero, the default, keeps
+         *     the existing decoder and fetch behavior. Negative values are rejected.
+         * @return This {@link Builder} instance.
+         */
         public abstract Builder setAvroProjectedBatchSize(Integer batchSize);
 
         public abstract Builder setAvroDecodePaths(List<String> paths);

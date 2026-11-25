@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * A BigQuery Configuration class which can be used to transform to the option objects the source
@@ -106,7 +107,12 @@ public class BigQueryTableConfigurationProvider {
                 .setRowRestriction(config.get(BigQueryConnectorOptions.ROW_RESTRICTION))
                 .setColumnNames(
                         Optional.ofNullable(config.get(BigQueryConnectorOptions.COLUMNS_PROJECTION))
-                                .map(cols -> Arrays.asList(cols.split(",")))
+                                .map(
+                                        cols ->
+                                                Arrays.stream(cols.split(","))
+                                                        .map(String::trim)
+                                                        .filter(col -> !col.isEmpty())
+                                                        .collect(Collectors.toList()))
                                 .orElse(new ArrayList<>()))
                 .setBigQueryConnectOptions(translateBigQueryConnectOptions())
                 .setLimit(config.get(BigQueryConnectorOptions.LIMIT))
