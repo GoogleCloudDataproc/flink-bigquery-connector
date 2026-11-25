@@ -209,7 +209,13 @@ public class BigQueryDynamicTableSource
     private static void addLeafPaths(String path, LogicalType type, List<String> paths) {
         switch (type.getTypeRoot()) {
             case ROW:
-                for (RowType.RowField field : ((RowType) type).getFields()) {
+                List<RowType.RowField> fields = ((RowType) type).getFields();
+                if (fields.isEmpty()) {
+                    // a ROW without fields declares no leaf, so keep the whole field
+                    paths.add(path);
+                    return;
+                }
+                for (RowType.RowField field : fields) {
                     addLeafPaths(path + "." + field.getName(), field.getType(), paths);
                 }
                 return;

@@ -27,7 +27,9 @@ import org.threeten.bp.Instant;
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -59,11 +61,17 @@ public abstract class BigQueryReadOptions implements Serializable {
     /**
      * Avro field paths the projected decoder keeps, down to the declared fields inside array
      * elements, which a read session cannot select. Empty keeps the session's column names.
+     *
+     * <p>These paths only take effect when {@link #getAvroProjectedBatchSize()} is above zero. They
+     * do not change the read session's selected fields, which come from {@link #getColumnNames()}.
      */
     public abstract List<String> getAvroDecodePaths();
 
-    /** The field paths the projected Avro decoder keeps. */
-    public final List<String> projectedAvroPaths() {
+    /**
+     * The field paths the projected Avro decoder keeps: the Avro decode paths if there are any,
+     * otherwise the column names.
+     */
+    public final List<String> getProjectedAvroPaths() {
         return getAvroDecodePaths().isEmpty() ? getColumnNames() : getAvroDecodePaths();
     }
 
@@ -227,7 +235,19 @@ public abstract class BigQueryReadOptions implements Serializable {
          */
         public abstract Builder setAvroProjectedBatchSize(Integer batchSize);
 
+        /**
+         * Sets the Avro field paths the projected decoder keeps, down to the declared fields inside
+         * array elements. The paths only take effect when the projected Avro batch size is above
+         * zero, and do not change the read session's selected fields, which come from the column
+         * names. An empty list keeps the column names.
+         *
+         * @param paths The dotted Avro field paths to keep. The list and its paths must not be
+         *     null. The options keep a copy of the list.
+         * @return This {@link Builder} instance.
+         */
         public abstract Builder setAvroDecodePaths(List<String> paths);
+
+        abstract List<String> getAvroDecodePaths();
 
         /**
          * Sets the parallelism of the source, used to compute effective stream counts when {@code
@@ -254,6 +274,12 @@ public abstract class BigQueryReadOptions implements Serializable {
          * @return A {@link BigQueryReadOptions} instance.
          */
         public final BigQueryReadOptions build() {
+            List<String> decodePaths = getAvroDecodePaths();
+            Preconditions.checkArgument(
+                    decodePaths.stream().noneMatch(Objects::isNull),
+                    "The Avro decode paths must not contain null.");
+            // copy the paths, so later changes to the caller's list cannot change these options
+            setAvroDecodePaths(Collections.unmodifiableList(new ArrayList<>(decodePaths)));
             BigQueryReadOptions readOptions = autoBuild();
             Preconditions.checkState(
                     readOptions.getAvroProjectedBatchSize() >= 0,

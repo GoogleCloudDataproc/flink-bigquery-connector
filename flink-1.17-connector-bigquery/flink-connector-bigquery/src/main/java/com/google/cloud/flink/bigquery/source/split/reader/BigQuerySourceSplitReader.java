@@ -424,7 +424,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             new ProjectedAvroReader(
                                     avroSchema,
                                     ProjectedAvroReader.projectSchema(
-                                            avroSchema, readOptions.projectedAvroPaths()));
+                                            avroSchema, readOptions.getProjectedAvroPaths()));
                 }
                 avroReader.reset(response.getAvroRows());
                 continue;

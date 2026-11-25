@@ -270,6 +270,47 @@ public class BigQuerySourceSplitReaderTest {
         }
     }
 
+    @Test
+    public void testProjectedFetchDecodesTheAvroDecodePathsInsteadOfTheColumnNames()
+            throws Exception {
+        BigQueryReadOptions options =
+                StorageClientFaker.createReadOptions(
+                                300, 1, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING)
+                        .toBuilder()
+                        .setColumnNames(Arrays.asList("name", "number"))
+                        .setAvroDecodePaths(Arrays.asList("name"))
+                        .setAvroProjectedBatchSize(137)
+                        .build();
+        BigQuerySourceSplitReader reader = new BigQuerySourceSplitReader(options, context(-1));
+        try {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Collections.singletonList(new BigQuerySourceSplit("stream1", 0L))));
+            int total = 0;
+            int finished = 0;
+            for (int fetch = 0; fetch < 20 && finished == 0; fetch++) {
+                RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+                while (batch.nextSplit() != null) {
+                    GenericRecord record;
+                    while ((record = batch.nextRecordFromSplit()) != null) {
+                        assertThat(
+                                        record.getSchema().getFields().stream()
+                                                .map(Schema.Field::name)
+                                                .collect(Collectors.toList()))
+                                .containsExactly("name");
+                        total++;
+                    }
+                }
+                finished += batch.finishedSplits().size();
+                batch.recycle();
+            }
+            assertThat(finished).isEqualTo(1);
+            assertThat(total).isEqualTo(300);
+        } finally {
+            reader.close();
+        }
+    }
+
     private static BigQuerySourceReaderContext context(int limit) {
         return new BigQuerySourceReaderContext(Mockito.mock(SourceReaderContext.class), limit);
     }

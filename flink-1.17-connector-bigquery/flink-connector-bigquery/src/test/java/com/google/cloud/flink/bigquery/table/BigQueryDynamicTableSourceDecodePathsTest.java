@@ -118,7 +118,7 @@ public class BigQueryDynamicTableSourceDecodePathsTest {
         assertThat(bqSource.getReadOptions().getColumnNames())
                 .containsExactly("user_id", "recs")
                 .inOrder();
-        assertThat(bqSource.getReadOptions().projectedAvroPaths()).isEqualTo(paths(DECLARED));
+        assertThat(bqSource.getReadOptions().getProjectedAvroPaths()).isEqualTo(paths(DECLARED));
     }
 
     @Test
@@ -160,7 +160,7 @@ public class BigQueryDynamicTableSourceDecodePathsTest {
     }
 
     @Test
-    public void declaredElementFieldMissingFromTheWriterFailsLikeTheColumnPaths() throws Exception {
+    public void declaredElementFieldMissingFromTheWriterFails() throws Exception {
         DataType declared =
                 DataTypes.ROW(
                         DataTypes.FIELD("user_id", DataTypes.BIGINT()),
@@ -170,18 +170,51 @@ public class BigQueryDynamicTableSourceDecodePathsTest {
                                         DataTypes.ROW(
                                                 DataTypes.FIELD("product_id", DataTypes.BIGINT()),
                                                 DataTypes.FIELD("missing", DataTypes.STRING())))));
-        for (List<String> paths :
-                Arrays.asList(Arrays.asList("user_id", "recs"), paths(declared))) {
-            GenericRecord record = new ProjectedAvroReader(WRITER, paths, rows()).read();
-            IllegalArgumentException error =
-                    assertThrows(
-                            IllegalArgumentException.class,
-                            () ->
-                                    AvroToRowDataConverters.createRowConverter(
-                                                    rowType(declared), COLUMNS)
-                                            .convert(record));
-            assertThat(error).hasMessageThat().contains("Field 'missing' not found");
-        }
+        // the column paths keep the whole element, so the converter finds the missing field
+        GenericRecord record =
+                new ProjectedAvroReader(WRITER, Arrays.asList("user_id", "recs"), rows()).read();
+        IllegalArgumentException error =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroToRowDataConverters.createRowConverter(
+                                                rowType(declared), COLUMNS)
+                                        .convert(record));
+        assertThat(error).hasMessageThat().contains("Field 'missing' not found");
+        // the decode paths name the missing field, so the projection already fails
+        error =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> ProjectedAvroReader.projectSchema(WRITER, paths(declared)));
+        assertThat(error).hasMessageThat().contains("[recs.missing]");
+    }
+
+    @Test
+    public void rowsWithoutFieldsKeepTheWholeField() throws Exception {
+        DataType declared =
+                DataTypes.ROW(
+                        DataTypes.FIELD("user_id", DataTypes.BIGINT()),
+                        DataTypes.FIELD("recs", DataTypes.ARRAY(DataTypes.ROW())));
+        assertThat(paths(declared)).containsExactly("user_id", "recs").inOrder();
+        GenericRecord record = new ProjectedAvroReader(WRITER, paths(declared), rows()).read();
+        RowData row =
+                (RowData)
+                        AvroToRowDataConverters.createRowConverter(rowType(declared), COLUMNS)
+                                .convert(record);
+        assertThat(row.getArray(1).size()).isEqualTo(2);
+
+        DataType nested =
+                DataTypes.ROW(
+                        DataTypes.FIELD(
+                                "outer",
+                                DataTypes.ROW(
+                                        DataTypes.FIELD("keep", DataTypes.BIGINT()),
+                                        DataTypes.FIELD("empty_inner", DataTypes.ROW()))));
+        assertThat(
+                        BigQueryDynamicTableSource.avroDecodePaths(
+                                new String[][] {{"outer"}}, rowType(nested)))
+                .containsExactly("outer.keep", "outer.empty_inner")
+                .inOrder();
     }
 
     private static List<String> paths(DataType declared) {
