@@ -65,8 +65,8 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     private Boolean closed = false;
     private Schema avroSchema = null;
-    private Schema projectedAvroSchema;
-    private ProjectedAvroReader pendingAvroReader;
+    private ProjectedAvroReader avroReader;
+    private BigQueryServices.BigQueryServerStream<ReadRowsResponse> projectedReadStream;
     private Long readSoFar = 0L;
     private Long splitStartFetch;
     private Iterator<ReadRowsResponse> readStreamIterator = null;
@@ -109,11 +109,6 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         if (split.getOffset() > 0
                 && (readOptions.getAvroProjectedBatchSize() == 0 || readSoFar == 0)) {
             readSoFar = split.getOffset();
-            if (readOptions.getAvroProjectedBatchSize() > 0 && readerContext.isLimitPushedDown()) {
-                // the context read count is not checkpointed; re-count the restored offset so
-                // the projected-path limit check includes rows emitted before the failover
-                readerContext.updateReadCount(readSoFar);
-            }
             splitStartFetch = System.currentTimeMillis();
         } else if (readSoFar == 0) {
             // will start reading the stream from the beginning
@@ -183,8 +178,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             .collect(Collectors.toList()));
             assignedSplits.clear();
             if (readOptions.getAvroProjectedBatchSize() > 0) {
-                pendingAvroReader = null;
-                readStreamIterator = null;
+                releaseProjectedStream();
             }
             return respBuilder.build();
         }
@@ -312,7 +306,9 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             closeClient();
             // release the iterator just in case
             readStreamIterator = null;
-            pendingAvroReader = null;
+            if (readOptions.getAvroProjectedBatchSize() > 0) {
+                releaseProjectedStream();
+            }
             /**
              * return an empty one, since we may need to re since last set offset (locally or from
              * checkpoint)
@@ -332,6 +328,15 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             splitsChanges.getClass()));
         }
 
+        if (readOptions.getAvroProjectedBatchSize() > 0 && readerContext.isLimitPushedDown()) {
+            // the context read count is not checkpointed, so count the rows that restored splits
+            // emitted before the failover when the splits arrive, before any stream is opened
+            long restoredRows =
+                    splitsChanges.splits().stream().mapToLong(BigQuerySourceSplit::getOffset).sum();
+            if (restoredRows > 0) {
+                readerContext.updateReadCount(restoredRows);
+            }
+        }
         assignedSplits.addAll(splitsChanges.splits());
     }
 
@@ -354,7 +359,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             closed = true;
             readSoFar = 0L;
             readStreamIterator = null;
-            pendingAvroReader = null;
+            releaseProjectedStream();
             closeClient();
         }
     }
@@ -363,7 +368,8 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             throws IOException {
         RecordsBySplits.Builder<GenericRecord> result = new RecordsBySplits.Builder<>();
         if (readStreamIterator == null) {
-            readStreamIterator = retrieveReadStream(split).iterator();
+            projectedReadStream = retrieveReadStream(split);
+            readStreamIterator = projectedReadStream.iterator();
         }
         int read = 0;
         boolean finished = false;
@@ -372,28 +378,37 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 finished = true;
                 break;
             }
-            if (pendingAvroReader == null || !pendingAvroReader.hasNext()) {
-                pendingAvroReader = null;
+            if (avroReader == null || !avroReader.hasNext()) {
                 if (!readStreamIterator.hasNext()) {
+                    // the stream ended by itself, so there is nothing to cancel
+                    projectedReadStream = null;
                     finished = true;
                     break;
                 }
                 ReadRowsResponse response = readStreamIterator.next();
-                if (avroSchema == null) {
-                    if (!response.hasAvroSchema()) {
-                        throw new IllegalArgumentException("Avro schema missing from response.");
-                    }
+                if (avroSchema == null && response.hasAvroSchema()) {
                     avroSchema = new Schema.Parser().parse(response.getAvroSchema().getSchema());
-                    projectedAvroSchema =
-                            ProjectedAvroReader.projectSchema(
-                                    avroSchema, readOptions.getColumnNames());
                 }
-                pendingAvroReader =
-                        new ProjectedAvroReader(
-                                avroSchema, projectedAvroSchema, response.getAvroRows());
+                if (!response.hasAvroRows()
+                        || response.getAvroRows().getSerializedBinaryRows().isEmpty()) {
+                    // progress and heartbeat responses have no rows
+                    continue;
+                }
+                if (avroSchema == null) {
+                    throw new IllegalArgumentException(
+                            "Avro schema not initialized and not available in the response.");
+                }
+                if (avroReader == null) {
+                    avroReader =
+                            new ProjectedAvroReader(
+                                    avroSchema,
+                                    ProjectedAvroReader.projectSchema(
+                                            avroSchema, readOptions.getColumnNames()));
+                }
+                avroReader.reset(response.getAvroRows());
                 continue;
             }
-            result.add(split, pendingAvroReader.read());
+            result.add(split, avroReader.read());
             read++;
         }
         readSoFar += read;
@@ -401,11 +416,21 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         if (finished) {
             readSoFar = 0L;
             assignedSplits.poll();
-            readStreamIterator = null;
-            pendingAvroReader = null;
+            releaseProjectedStream();
             result.addFinishedSplit(split.splitId());
         }
         return result.build();
+    }
+
+    private void releaseProjectedStream() {
+        if (projectedReadStream != null) {
+            projectedReadStream.cancel();
+            projectedReadStream = null;
+        }
+        readStreamIterator = null;
+        if (avroReader != null) {
+            avroReader.clear();
+        }
     }
 
     static class GenericRecordReader {

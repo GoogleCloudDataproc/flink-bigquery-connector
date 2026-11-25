@@ -138,6 +138,86 @@ public class BigQuerySourceIntegrationTestCase {
     }
 
     @Test
+    public void testReadCountWithProjectedAvroDecoding() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        BigQuerySource<RowData> bqSource =
+                defaultSourceBuilder(
+                                projected(
+                                        StorageClientFaker.createReadOptions(
+                                                TOTAL_ROW_COUNT_PER_STREAM,
+                                                STREAM_COUNT,
+                                                StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING)))
+                        .build();
+
+        List<RowData> results =
+                CollectionUtil.iteratorToList(
+                        env.fromSource(
+                                        bqSource,
+                                        WatermarkStrategy.noWatermarks(),
+                                        "BigQuery-Source")
+                                .executeAndCollect());
+
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
+    }
+
+    @Test
+    public void testLimitWithProjectedAvroDecoding() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(PARALLELISM);
+
+        final int limitSize = 10;
+        BigQuerySource<RowData> bqSource =
+                defaultSourceBuilder(
+                                projected(
+                                        StorageClientFaker.createReadOptions(
+                                                TOTAL_ROW_COUNT_PER_STREAM,
+                                                STREAM_COUNT,
+                                                StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING,
+                                                limitSize)))
+                        .build();
+
+        List<RowData> results =
+                env.fromSource(bqSource, WatermarkStrategy.noWatermarks(), "BigQuery-Source")
+                        .executeAndCollect(TOTAL_ROW_COUNT_PER_STREAM);
+        assertThat(results).hasSize(limitSize * PARALLELISM);
+    }
+
+    @Test
+    public void testReaderRecoveryWithProjectedAvroDecoding() throws Exception {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.enableCheckpointing(300L);
+
+        BigQuerySource<RowData> bqSource =
+                defaultSourceBuilder(
+                                projected(
+                                        StorageClientFaker.createReadOptions(
+                                                TOTAL_ROW_COUNT_PER_STREAM,
+                                                STREAM_COUNT,
+                                                StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING,
+                                                params ->
+                                                        StorageClientFaker.createRecordList(params),
+                                                // fail 10% of the response reads
+                                                10D)))
+                        .build();
+
+        List<RowData> results =
+                CollectionUtil.iteratorToList(
+                        env.fromSource(
+                                        bqSource,
+                                        WatermarkStrategy.noWatermarks(),
+                                        "BigQuery-Source")
+                                .executeAndCollect());
+
+        assertThat(results).hasSize(TOTAL_ROW_COUNT_PER_STREAM * STREAM_COUNT);
+    }
+
+    private static BigQueryReadOptions projected(BigQueryReadOptions options) {
+        // smaller than a stream, so each split takes several fetches
+        return options.toBuilder().setAvroProjectedBatchSize(7).build();
+    }
+
+    @Test
     @org.junit.jupiter.api.Disabled(
             "Test hangs consistently; needs investigation. See internal task.")
     public void testDownstreamRecovery() throws Exception {

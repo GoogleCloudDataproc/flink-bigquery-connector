@@ -74,6 +74,24 @@ public class BigQueryDynamicTableFactoryTest {
         assertThat(source.copy()).isEqualTo(source);
     }
 
+    @Test
+    public void testColumnsProjectionIgnoresSpacesAndBlankEntries() {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.COLUMNS_PROJECTION.key(), " aaa, ,bbb ,");
+        BigQueryDynamicTableSource source =
+                (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        assertThat(source.getReadOptions().getColumnNames()).containsExactly("aaa", "bbb");
+
+        // a blank option selects the same columns as no option
+        properties.put(BigQueryConnectorOptions.COLUMNS_PROJECTION.key(), " ");
+        source = (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        BigQueryDynamicTableSource unprojected =
+                (BigQueryDynamicTableSource)
+                        FactoryMocks.createTableSource(SCHEMA, getRequiredOptions());
+        assertThat(source.getReadOptions().getColumnNames())
+                .isEqualTo(unprojected.getReadOptions().getColumnNames());
+    }
+
     private static final ResolvedSchema SCHEMA =
             new ResolvedSchema(
                     Arrays.asList(
