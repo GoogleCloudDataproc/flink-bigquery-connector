@@ -332,6 +332,7 @@ public class AvroToRowDataConverters {
                 createNullableConverter(AvroSchemaConvertor.extractValueTypeToAvroMap(type));
 
         return avroObject -> {
+            // build the message only on failure: it prints the whole map
             if (!(avroObject instanceof Map<?, ?>)) {
                 throw new IllegalArgumentException(getErrorMessage(avroObject, "MAP", "MAP"));
             }

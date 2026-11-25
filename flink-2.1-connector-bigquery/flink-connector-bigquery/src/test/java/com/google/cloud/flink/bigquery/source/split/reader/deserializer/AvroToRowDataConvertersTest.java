@@ -36,9 +36,11 @@ import org.junit.Test;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas.getAvroSchemaFromFieldString;
@@ -554,8 +556,8 @@ public class AvroToRowDataConvertersTest {
                         .noDefault()
                         .endRecord();
         // rendering every element of every array cost most of the decode CPU on wide arrays
-        java.util.List<Long> xs =
-                new java.util.ArrayList<Long>(Arrays.asList(1L, 2L)) {
+        List<Long> xs =
+                new ArrayList<Long>(Arrays.asList(1L, 2L)) {
                     @Override
                     public String toString() {
                         throw new AssertionError("array rendered on the success path");
@@ -573,6 +575,50 @@ public class AvroToRowDataConvertersTest {
                                 converter.convert(
                                         new GenericRecordBuilder(schema).set("xs", 7L).build()));
         Assertions.assertThat(ex.getMessage()).contains("LIST");
+    }
+
+    @Test
+    public void testMapConversionDoesNotRenderTheMap() {
+        RowType rowType =
+                new RowType(
+                        Collections.singletonList(
+                                new RowField(
+                                        "m", new MapType(new VarCharType(), new BigIntType()))));
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(rowType, new String[][] {{"m"}});
+        Schema schema =
+                org.apache.avro.SchemaBuilder.record("r")
+                        .fields()
+                        .name("m")
+                        .type()
+                        .map()
+                        .values()
+                        .longType()
+                        .noDefault()
+                        .endRecord();
+        Map<String, Long> m =
+                new HashMap<String, Long>() {
+                    @Override
+                    public String toString() {
+                        throw new AssertionError("map rendered on the success path");
+                    }
+                };
+        m.put("a", 1L);
+        GenericRowData row =
+                (GenericRowData)
+                        converter.convert(new GenericRecordBuilder(schema).set("m", m).build());
+        MapData mapData = row.getMap(0);
+        assertEquals(1, mapData.size());
+        assertEquals("a", mapData.keyArray().getString(0).toString());
+        assertEquals(1L, mapData.valueArray().getLong(0));
+
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                converter.convert(
+                                        new GenericRecordBuilder(schema).set("m", 7L).build()));
+        Assertions.assertThat(ex.getMessage()).contains("MAP");
     }
 
     @Test
