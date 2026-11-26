@@ -40,6 +40,7 @@ import org.junit.Test;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -2118,5 +2119,138 @@ public class AvroToProtoSerializerTest {
                         .getMessageTypes()
                         .get(0);
         return new TestSchemaProvider(avroSchema, descriptor);
+    }
+
+    private static final Schema BYTES_AND_NUMERIC_SCHEMA =
+            new Schema.Parser()
+                    .parse(
+                            "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                                    + "{\"name\":\"payload\",\"type\":\"bytes\"},"
+                                    + "{\"name\":\"amount\",\"type\":{\"type\":\"bytes\","
+                                    + "\"logicalType\":\"decimal\",\"precision\":38,\"scale\":9,"
+                                    + "\"isNumeric\":true}}]}");
+
+    /** Serializes payload and amount, and returns them as written to the proto message. */
+    private static Object[] serializeBytesAndNumeric(ByteBuffer payload, ByteBuffer amount) {
+        Descriptor descriptor =
+                new BigQuerySchemaProviderImpl(BYTES_AND_NUMERIC_SCHEMA).getDescriptor();
+        GenericRecord record = new GenericData.Record(BYTES_AND_NUMERIC_SCHEMA);
+        record.put("payload", payload);
+        record.put("amount", amount);
+        DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+        return new Object[] {
+            message.getField(descriptor.findFieldByName("payload")),
+            message.getField(descriptor.findFieldByName("amount"))
+        };
+    }
+
+    @Test
+    public void testSerializationPreservesBufferPositionAndLimit() {
+        Schema schema =
+                new Schema.Parser()
+                        .parse(
+                                "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                                        + "{\"name\":\"payload\",\"type\":\"bytes\"},"
+                                        + "{\"name\":\"amount\",\"type\":{\"type\":\"bytes\","
+                                        + "\"logicalType\":\"decimal\",\"precision\":38,\"scale\":9,\"isNumeric\":true}},"
+                                        + "{\"name\":\"big_amount\",\"type\":{\"type\":\"bytes\","
+                                        + "\"logicalType\":\"decimal\",\"precision\":76,\"scale\":38}}]}");
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(schema).getDescriptor();
+        for (boolean direct : new boolean[] {false, true}) {
+            GenericRecord record = new GenericData.Record(schema);
+            List<ByteBuffer> buffers = new ArrayList<>();
+            for (String field : new String[] {"payload", "amount", "big_amount"}) {
+                ByteBuffer buffer = direct ? ByteBuffer.allocateDirect(8) : ByteBuffer.allocate(8);
+                buffer.put(new byte[] {9, 9, 1, 2, 3, 9, 9, 9});
+                buffer.position(2);
+                buffer.limit(5);
+                buffer = buffer.asReadOnlyBuffer();
+                record.put(field, buffer);
+                buffers.add(buffer);
+            }
+            DynamicMessage first = getDynamicMessageFromGenericRecord(record, descriptor);
+            DynamicMessage second = getDynamicMessageFromGenericRecord(record, descriptor);
+            assertEquals(first, second);
+            assertEquals(
+                    ByteString.copyFrom(new byte[] {1, 2, 3}),
+                    first.getField(descriptor.findFieldByName("payload")));
+            for (ByteBuffer buffer : buffers) {
+                assertEquals(2, buffer.position());
+                assertEquals(5, buffer.limit());
+            }
+        }
+    }
+
+    @Test
+    public void testBytesAndNumericUseOnlyTheBufferContent() {
+        BigDecimal amount = new BigDecimal("1234.567891011");
+        byte[] unscaled = amount.unscaledValue().toByteArray();
+        // both values sit in the middle of larger arrays, between unrelated bytes
+        byte[] payloadArray = {9, 9, 1, 2, 3, 9};
+        byte[] amountArray = new byte[unscaled.length + 4];
+        Arrays.fill(amountArray, (byte) 0x7f);
+        System.arraycopy(unscaled, 0, amountArray, 2, unscaled.length);
+        ByteBuffer payload = ByteBuffer.wrap(payloadArray, 2, 3);
+        ByteBuffer amountBuffer = ByteBuffer.wrap(amountArray, 2, unscaled.length).slice();
+
+        Object[] written = serializeBytesAndNumeric(payload, amountBuffer);
+
+        assertEquals(ByteString.copyFrom(new byte[] {1, 2, 3}), written[0]);
+        assertEquals(amount.toPlainString(), written[1]);
+        // the record's buffers are not consumed
+        assertEquals(2, payload.position());
+        assertEquals(0, amountBuffer.position());
+    }
+
+    @Test
+    public void testBytesAndNumericAfterAvroDecodingReusesTheBuffers() throws Exception {
+        BigDecimal longAmount = new BigDecimal("98765432101234.567891011");
+        // the schema scale is 9, so the unscaled bytes need that scale
+        BigDecimal shortAmount = new BigDecimal("1.500000000");
+        GenericRecord first = new GenericData.Record(BYTES_AND_NUMERIC_SCHEMA);
+        first.put("payload", ByteBuffer.wrap("a longer first payload".getBytes()));
+        first.put("amount", ByteBuffer.wrap(longAmount.unscaledValue().toByteArray()));
+        GenericRecord second = new GenericData.Record(BYTES_AND_NUMERIC_SCHEMA);
+        second.put("payload", ByteBuffer.wrap("short".getBytes()));
+        second.put("amount", ByteBuffer.wrap(shortAmount.unscaledValue().toByteArray()));
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        org.apache.avro.io.BinaryEncoder encoder =
+                org.apache.avro.io.EncoderFactory.get().binaryEncoder(bytes, null);
+        org.apache.avro.generic.GenericDatumWriter<GenericRecord> writer =
+                new org.apache.avro.generic.GenericDatumWriter<>(BYTES_AND_NUMERIC_SCHEMA);
+        writer.write(first, encoder);
+        writer.write(second, encoder);
+        encoder.flush();
+
+        // decoding into the previous record reuses its byte buffers, so the second record's
+        // buffers are longer than their values
+        org.apache.avro.io.BinaryDecoder decoder =
+                org.apache.avro.io.DecoderFactory.get().binaryDecoder(bytes.toByteArray(), null);
+        org.apache.avro.generic.GenericDatumReader<GenericRecord> reader =
+                new org.apache.avro.generic.GenericDatumReader<>(BYTES_AND_NUMERIC_SCHEMA);
+        GenericRecord record = reader.read(null, decoder);
+        record = reader.read(record, decoder);
+        ByteBuffer payload = (ByteBuffer) record.get("payload");
+        assertThat(payload.capacity()).isGreaterThan(payload.remaining());
+
+        Object[] written = serializeBytesAndNumeric(payload, (ByteBuffer) record.get("amount"));
+
+        assertEquals(ByteString.copyFromUtf8("short"), written[0]);
+        assertEquals(shortAmount.toPlainString(), written[1]);
+    }
+
+    @Test
+    public void testBytesAndNumericFromDirectBuffers() {
+        BigDecimal amount = new BigDecimal("42.000000001");
+        byte[] unscaled = amount.unscaledValue().toByteArray();
+        ByteBuffer payload = ByteBuffer.allocateDirect(3).put(new byte[] {4, 5, 6});
+        payload.flip();
+        ByteBuffer amountBuffer = ByteBuffer.allocateDirect(unscaled.length).put(unscaled);
+        amountBuffer.flip();
+
+        Object[] written = serializeBytesAndNumeric(payload, amountBuffer);
+
+        assertEquals(ByteString.copyFrom(new byte[] {4, 5, 6}), written[0]);
+        assertEquals(amount.toPlainString(), written[1]);
     }
 }

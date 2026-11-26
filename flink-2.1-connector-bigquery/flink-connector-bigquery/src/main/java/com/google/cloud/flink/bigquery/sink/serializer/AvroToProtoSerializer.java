@@ -346,7 +346,9 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 if (convertedValue != value) {
                     return convertedValue;
                 }
-                return ByteString.copyFrom(((ByteBuffer) value).array());
+                // copy only position..limit: the backing array can hold other bytes, for example
+                // when Avro decodes into a reused buffer
+                return ByteString.copyFrom(((ByteBuffer) value).duplicate());
             case ENUM:
                 return value.toString();
             case FIXED:
@@ -713,7 +715,10 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 Object value, Schema fieldSchema, @Nullable FieldDescriptor fieldDescriptor) {
             final byte[] byteArray;
             if (value instanceof ByteBuffer) {
-                byteArray = ((ByteBuffer) value).array(); // This is in big-endian format.
+                // big-endian; read only position..limit, without moving the caller's buffer
+                ByteBuffer buffer = ((ByteBuffer) value).duplicate();
+                byteArray = new byte[buffer.remaining()];
+                buffer.get(byteArray);
             } else if (value instanceof GenericFixed) {
                 byteArray = ((GenericFixed) value).bytes();
             } else {
