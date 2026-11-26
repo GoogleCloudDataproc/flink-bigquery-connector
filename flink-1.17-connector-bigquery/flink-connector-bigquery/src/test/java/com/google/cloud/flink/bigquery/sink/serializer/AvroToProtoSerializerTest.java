@@ -40,6 +40,7 @@ import org.junit.Test;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -2141,6 +2142,43 @@ public class AvroToProtoSerializerTest {
             message.getField(descriptor.findFieldByName("payload")),
             message.getField(descriptor.findFieldByName("amount"))
         };
+    }
+
+    @Test
+    public void testSerializationPreservesBufferPositionAndLimit() {
+        Schema schema =
+                new Schema.Parser()
+                        .parse(
+                                "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                                        + "{\"name\":\"payload\",\"type\":\"bytes\"},"
+                                        + "{\"name\":\"amount\",\"type\":{\"type\":\"bytes\","
+                                        + "\"logicalType\":\"decimal\",\"precision\":38,\"scale\":9,\"isNumeric\":true}},"
+                                        + "{\"name\":\"big_amount\",\"type\":{\"type\":\"bytes\","
+                                        + "\"logicalType\":\"decimal\",\"precision\":76,\"scale\":38}}]}");
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(schema).getDescriptor();
+        for (boolean direct : new boolean[] {false, true}) {
+            GenericRecord record = new GenericData.Record(schema);
+            List<ByteBuffer> buffers = new ArrayList<>();
+            for (String field : new String[] {"payload", "amount", "big_amount"}) {
+                ByteBuffer buffer = direct ? ByteBuffer.allocateDirect(8) : ByteBuffer.allocate(8);
+                buffer.put(new byte[] {9, 9, 1, 2, 3, 9, 9, 9});
+                buffer.position(2);
+                buffer.limit(5);
+                buffer = buffer.asReadOnlyBuffer();
+                record.put(field, buffer);
+                buffers.add(buffer);
+            }
+            DynamicMessage first = getDynamicMessageFromGenericRecord(record, descriptor);
+            DynamicMessage second = getDynamicMessageFromGenericRecord(record, descriptor);
+            assertEquals(first, second);
+            assertEquals(
+                    ByteString.copyFrom(new byte[] {1, 2, 3}),
+                    first.getField(descriptor.findFieldByName("payload")));
+            for (ByteBuffer buffer : buffers) {
+                assertEquals(2, buffer.position());
+                assertEquals(5, buffer.limit());
+            }
+        }
     }
 
     @Test
