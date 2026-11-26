@@ -349,7 +349,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
                 String changeType = cdcChangeTypeProvider.getChangeType(element);
                 String sequenceNumber = serializer.extractSequenceNumber(element, cdcSequenceField);
                 protoRow = serializer.serializeWithCdc(element, changeType, sequenceNumber);
-            } catch (IllegalArgumentException e) {
+            } catch (RuntimeException e) {
                 throw new BigQuerySerializationException("Unable to serialize CDC metadata", e);
             }
         } else {

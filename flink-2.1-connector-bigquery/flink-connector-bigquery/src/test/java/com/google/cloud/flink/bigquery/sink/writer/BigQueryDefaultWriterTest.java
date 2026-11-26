@@ -93,7 +93,7 @@ public class BigQueryDefaultWriterTest {
                         };
                 if (invalidSequence) {
                     Mockito.when(serializer.extractSequenceNumber(Mockito.any(), Mockito.eq("seq")))
-                            .thenThrow(new IllegalArgumentException("bad sequence"));
+                            .thenThrow(new ClassCastException("bad sequence"));
                 }
                 BigQueryDefaultWriter<Object> writer =
                         new BigQueryDefaultWriter<>(
@@ -115,7 +115,7 @@ public class BigQueryDefaultWriterTest {
                                     BigQueryConnectorException.class,
                                     () -> writer.write(new Object(), null));
                     assertTrue(error.getCause() instanceof BigQuerySerializationException);
-                    assertTrue(error.getCause().getCause() instanceof IllegalArgumentException);
+                    assertTrue(error.getCause().getCause() instanceof RuntimeException);
                 } else {
                     writer.write(new Object(), null);
                     assertEquals(0, writer.getProtoRows().getSerializedRowsCount());
