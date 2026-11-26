@@ -35,6 +35,7 @@ import org.junit.Test;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -223,6 +224,48 @@ public class AvroToRowDataConvertersTest {
         Assertions.assertThat(exception)
                 .hasMessageContaining(
                         "The Avro datetime string input for conversion to Flink's 'TIMESTAMP_LTZ' Logical Type");
+    }
+
+    @Test
+    public void testDatetimeStringConversion() {
+        RowType rowType =
+                new RowType(Collections.singletonList(new RowField("dt", new TimestampType(6))));
+        AvroToRowDataConverters.AvroToRowDataConverter converter =
+                AvroToRowDataConverters.createRowConverter(rowType, new String[][] {{"dt"}});
+        Schema schema =
+                getAvroSchemaFromFieldString(
+                        " \"fields\": [{\"name\": \"dt\", \"type\": \"string\"}]");
+        // a Utf8 whose buffer is longer than its value, as when Avro reuses a buffer
+        Utf8 reused = new Utf8("2024-01-15T10:30:45.123456 and more text");
+        reused.setByteLength(26);
+        Object[][] cases = {
+            {reused, LocalDateTime.of(2024, 1, 15, 10, 30, 45, 123_456_000)},
+            {new Utf8("2024-01-15 10:30:45"), LocalDateTime.of(2024, 1, 15, 10, 30, 45)},
+            {"2024-01-15t10:30:45.1", LocalDateTime.of(2024, 1, 15, 10, 30, 45, 100_000_000)},
+            // shapes that the formatter still parses
+            {new Utf8("2024-1-5 9:5:3"), LocalDateTime.of(2024, 1, 5, 9, 5, 3)},
+            {"2024-01-15T10:30:45.123", LocalDateTime.of(2024, 1, 15, 10, 30, 45, 123_000_000)}
+        };
+        for (Object[] testCase : cases) {
+            GenericRowData row =
+                    (GenericRowData)
+                            converter.convert(
+                                    new GenericRecordBuilder(schema)
+                                            .set("dt", testCase[0])
+                                            .build());
+            assertEquals(
+                    TimestampData.fromLocalDateTime((LocalDateTime) testCase[1]),
+                    row.getTimestamp(0, 6));
+        }
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                converter.convert(
+                                        new GenericRecordBuilder(schema)
+                                                .set("dt", new Utf8("2024-01-15T24:00:00Z"))
+                                                .build()));
+        Assertions.assertThat(exception).hasMessageContaining("is of invalid format");
     }
 
     @Test
