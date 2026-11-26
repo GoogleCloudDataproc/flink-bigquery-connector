@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.Year;
 import java.time.format.DateTimeParseException;
+import java.util.Objects;
 
 /**
  * Parses BigQuery DATETIME strings with the same result as {@code LocalDateTime.parse(text,
@@ -42,11 +43,14 @@ public final class BigQueryDatetimeParser {
     /**
      * Parses a DATETIME string.
      *
-     * @throws DateTimeParseException if the formatter cannot parse the text.
+     * @param text the DATETIME text
+     * @return the parsed date and time
+     * @throws NullPointerException if {@code text} is null
+     * @throws DateTimeParseException if the formatter cannot parse the text
      */
     public static LocalDateTime parse(String text) {
-        LocalDateTime value =
-                parseCanonical(text.getBytes(StandardCharsets.ISO_8859_1), text.length());
+        Objects.requireNonNull(text, "text");
+        LocalDateTime value = parseCanonical(text);
         if (value != null) {
             return value;
         }
@@ -56,9 +60,19 @@ public final class BigQueryDatetimeParser {
     /**
      * Parses a DATETIME string from the first {@code length} bytes of its UTF-8 encoding.
      *
-     * @throws DateTimeParseException if the formatter cannot parse the text.
+     * @param utf8 the UTF-8 bytes; bytes after {@code length} are ignored
+     * @param length the number of bytes to parse, from zero through {@code utf8.length}
+     * @return the parsed date and time
+     * @throws NullPointerException if {@code utf8} is null
+     * @throws IndexOutOfBoundsException if {@code length} is negative or exceeds the array length
+     * @throws DateTimeParseException if the formatter cannot parse the text
      */
     public static LocalDateTime parse(byte[] utf8, int length) {
+        Objects.requireNonNull(utf8, "utf8");
+        if (length < 0 || length > utf8.length) {
+            throw new IndexOutOfBoundsException(
+                    "length must be between 0 and " + utf8.length + ": " + length);
+        }
         LocalDateTime value = parseCanonical(utf8, length);
         if (value != null) {
             return value;
@@ -66,6 +80,66 @@ public final class BigQueryDatetimeParser {
         return LocalDateTime.parse(
                 new String(utf8, 0, length, StandardCharsets.UTF_8),
                 DateTimeFormatterPatterns.DATETIME_FORMATTER);
+    }
+
+    /** Returns the value of the canonical shape, or null for any other text. */
+    static LocalDateTime parseCanonical(String text) {
+        int length = text.length();
+        if (length != 19 && (length < 21 || length > 26)) {
+            return null;
+        }
+        if (text.charAt(4) != '-'
+                || text.charAt(7) != '-'
+                || text.charAt(13) != ':'
+                || text.charAt(16) != ':') {
+            return null;
+        }
+        char separator = text.charAt(10);
+        if (separator != 'T' && separator != ' ' && separator != 't') {
+            return null;
+        }
+        int year = digits(text, 0, 4);
+        int month = digits(text, 5, 2);
+        int day = digits(text, 8, 2);
+        int hour = digits(text, 11, 2);
+        int minute = digits(text, 14, 2);
+        int second = digits(text, 17, 2);
+        if (year < 1 || month < 1 || month > 12 || day < 1 || hour < 0 || hour > 23) {
+            return null;
+        }
+        if (minute < 0 || minute > 59 || second < 0 || second > 59) {
+            return null;
+        }
+        // the formatter moves a day past the end of the month back to the last day
+        if (day > 28 && day > Month.of(month).length(Year.isLeap(year))) {
+            return null;
+        }
+        int nanos = 0;
+        if (length > 19) {
+            if (text.charAt(19) != '.') {
+                return null;
+            }
+            int fractionDigits = length - 20;
+            int fraction = digits(text, 20, fractionDigits);
+            if (fraction < 0) {
+                return null;
+            }
+            nanos = fraction * FRACTION_SCALE[fractionDigits];
+        }
+        return LocalDateTime.of(year, month, day, hour, minute, second, nanos);
+    }
+
+    /** Returns the decimal value of {@code count} ASCII digits, or -1 if one is not a digit. */
+    private static int digits(String text, int start, int count) {
+        int value = 0;
+        for (int i = start; i < start + count; i++) {
+            int digit = text.charAt(i) - '0';
+            if (digit < 0 || digit > 9) {
+                return -1;
+            }
+            value = value * 10 + digit;
+        }
+        return value;
     }
 
     /** Returns the value of the canonical shape, or null for any other text. */

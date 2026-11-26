@@ -28,6 +28,7 @@ import java.util.Random;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 /** Tests for {@link BigQueryDatetimeParser}. */
 public class BigQueryDatetimeParserTest {
@@ -136,6 +137,55 @@ public class BigQueryDatetimeParserTest {
         byte[] nonCanonical = "2024-1-5 9:5:3 and more".getBytes(StandardCharsets.UTF_8);
         assertThat(BigQueryDatetimeParser.parse(nonCanonical, 14))
                 .isEqualTo(LocalDateTime.of(2024, 1, 5, 9, 5, 3));
+    }
+
+    @Test
+    public void rejectsInvalidByteRangesBeforeParsing() {
+        byte[] bytes = "2024-01-15T10:30:45".getBytes(StandardCharsets.UTF_8);
+        for (int length : new int[] {-1, 20, 26, Integer.MAX_VALUE}) {
+            IndexOutOfBoundsException error =
+                    assertThrows(
+                            IndexOutOfBoundsException.class,
+                            () -> BigQueryDatetimeParser.parse(bytes, length));
+            assertThat(error.getClass()).isEqualTo(IndexOutOfBoundsException.class);
+            assertThat(error).hasMessageThat().contains("length");
+        }
+        assertThrows(
+                NullPointerException.class, () -> BigQueryDatetimeParser.parse((byte[]) null, 0));
+        assertThrows(NullPointerException.class, () -> BigQueryDatetimeParser.parse((String) null));
+        assertThrows(
+                DateTimeParseException.class, () -> BigQueryDatetimeParser.parse(new byte[0], 0));
+    }
+
+    @Test
+    public void matchesTheFormatterForEveryMonthAndFractionLength() {
+        for (int year : new int[] {1, 1900, 2000, 2023, 2024, 9999}) {
+            for (int month = 1; month <= 12; month++) {
+                for (int day : new int[] {28, 29, 30, 31}) {
+                    for (String separator : Arrays.asList("T", "t", " ")) {
+                        for (int digits = 0; digits <= 9; digits++) {
+                            String text =
+                                    String.format(
+                                            "%04d-%02d-%02d%s23:59:59",
+                                            year, month, day, separator);
+                            if (digits > 0) {
+                                text += "." + "123456789".substring(0, digits);
+                            }
+                            assertMatchesFormatter(text);
+                        }
+                    }
+                }
+            }
+        }
+        for (String text :
+                Arrays.asList(
+                        "２０２４-01-15T10:30:45",
+                        "2024-01-15T10:30:4😀",
+                        "2024-01-15T10:30:45.é",
+                        "2024/01/15T10:30:45",
+                        "2024-01-15X10:30:45")) {
+            assertMatchesFormatter(text);
+        }
     }
 
     private static LocalDateTime parseCanonical(String text) {
