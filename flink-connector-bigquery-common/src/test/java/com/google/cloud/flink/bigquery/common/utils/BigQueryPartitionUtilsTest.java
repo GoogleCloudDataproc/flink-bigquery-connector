@@ -26,13 +26,67 @@ import org.junit.Test;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /** */
 public class BigQueryPartitionUtilsTest {
+
+    @Test
+    public void testConcurrentPartitionListing() throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(8);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<?>> tasks = new ArrayList<>();
+        try {
+            for (int worker = 0; worker < 8; worker++) {
+                final int year = 2020 + worker;
+                tasks.add(
+                        executor.submit(
+                                () -> {
+                                    start.await();
+                                    for (int iteration = 0; iteration < 500; iteration++) {
+                                        for (String suffix :
+                                                new String[] {"", "06", "0628", "062823"}) {
+                                            String expected =
+                                                    year
+                                                            + (suffix.isEmpty()
+                                                                    ? "-01-01"
+                                                                    : suffix.length() == 2
+                                                                            ? "-06-01"
+                                                                            : suffix.length() == 4
+                                                                                    ? "-06-28"
+                                                                                    : "-06-28 23:00:00");
+                                            Assertions.assertThat(
+                                                            BigQueryPartitionUtils
+                                                                    .partitionValuesFromIdAndDataType(
+                                                                            Collections
+                                                                                    .singletonList(
+                                                                                            year
+                                                                                                    + suffix),
+                                                                            StandardSQLTypeName
+                                                                                    .TIMESTAMP))
+                                                    .containsExactly(expected);
+                                        }
+                                    }
+                                    return null;
+                                }));
+            }
+            start.countDown();
+            for (Future<?> task : tasks) {
+                task.get(30, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 
     @Test
     public void testPartitionHour() {
