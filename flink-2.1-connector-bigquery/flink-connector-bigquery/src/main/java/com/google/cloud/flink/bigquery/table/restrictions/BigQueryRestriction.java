@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Utility class to transform a Flink {@link ResolvedExpression} in a string restriction that can be
@@ -191,6 +193,10 @@ public class BigQueryRestriction {
         return Optional.of(expectedChildClass.cast(child));
     }
 
+    private static String quoteColumn(String name) {
+        return "`" + name.replace("\\", "\\\\").replace("`", "\\`") + "`";
+    }
+
     private static Optional<String> convertLike(CallExpression call) {
         List<ResolvedExpression> args = call.getResolvedChildren();
         if (args.size() != 2) {
@@ -211,7 +217,11 @@ public class BigQueryRestriction {
                                 // exclude special char of LIKE
                                 // '_' is the wildcard of the SQL LIKE
                                 if (!pattern.contains("_") && matcher.matches()) {
-                                    return Optional.of(name + " LIKE '" + matcher.group(1) + "%'");
+                                    // the prefix is a LIKE pattern inside a string literal:
+                                    // escape the LIKE escape character, then the literal
+                                    String prefix = matcher.group(1).replace("\\", "\\\\");
+                                    return Optional.of(
+                                            name + " LIKE " + addSingleQuotes(prefix + "%"));
                                 }
 
                                 return Optional.empty();
@@ -228,11 +238,13 @@ public class BigQueryRestriction {
      */
     private static Optional<String> toColumnPath(Expression expr) {
         if (expr instanceof FieldReferenceExpression) {
-            return Optional.of(((FieldReferenceExpression) expr).getName());
+            return Optional.of(quoteColumn(((FieldReferenceExpression) expr).getName()));
         }
         if (expr instanceof NestedFieldReferenceExpression) {
             return Optional.of(
-                    String.join(".", ((NestedFieldReferenceExpression) expr).getFieldNames()));
+                    Arrays.stream(((NestedFieldReferenceExpression) expr).getFieldNames())
+                            .map(BigQueryRestriction::quoteColumn)
+                            .collect(Collectors.joining(".")));
         }
         return Optional.empty();
     }
@@ -266,8 +278,29 @@ public class BigQueryRestriction {
         return Optional.empty();
     }
 
+    /** Returns a BigQuery string literal, escaping the characters that would end or change it. */
     private static String addSingleQuotes(String input) {
-        return "'" + input + "'";
+        StringBuilder literal = new StringBuilder(input.length() + 2).append('\'');
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            switch (c) {
+                case '\\':
+                    literal.append("\\\\");
+                    break;
+                case '\'':
+                    literal.append("\\'");
+                    break;
+                case '\n':
+                    literal.append("\\n");
+                    break;
+                case '\r':
+                    literal.append("\\r");
+                    break;
+                default:
+                    literal.append(c);
+            }
+        }
+        return literal.append('\'').toString();
     }
 
     private static Optional<Object> convertLiteral(ValueLiteralExpression expression) {

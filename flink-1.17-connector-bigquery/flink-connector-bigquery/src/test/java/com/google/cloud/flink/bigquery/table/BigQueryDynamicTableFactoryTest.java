@@ -320,7 +320,44 @@ public class BigQueryDynamicTableFactoryTest {
 
         assertThat(result.getAcceptedFilters()).containsExactly(translatableFilter);
         assertThat(result.getRemainingFilters()).containsExactly(untranslatableFilter);
-        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("(aaa > 10)");
+        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("(`aaa` > 10)");
+    }
+
+    @Test
+    public void testApplyFiltersKeepsAnOrInTheExistingRestrictionTogether() throws IOException {
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        getConnectorOptions()
+                                .toBuilder()
+                                .setRowRestriction("aaa = 1 OR aaa = 2")
+                                .build(),
+                        SCHEMA.toPhysicalRowDataType());
+        source.applyFilters(
+                Collections.singletonList(
+                        createCallExpression(
+                                "greaterThan",
+                                BuiltInFunctionDefinitions.GREATER_THAN,
+                                createField("aaa", DataTypes.INT().notNull()),
+                                createLiteral(10, DataTypes.INT().notNull()))));
+        assertThat(source.getReadOptions().getRowRestriction())
+                .isEqualTo("(aaa = 1 OR aaa = 2) AND ((`aaa` > 10))");
+    }
+
+    @Test
+    public void testApplyFiltersEscapesStringLiterals() throws IOException {
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        getConnectorOptions(), SCHEMA.toPhysicalRowDataType());
+        source.applyFilters(
+                Collections.singletonList(
+                        createCallExpression(
+                                "equals",
+                                BuiltInFunctionDefinitions.EQUALS,
+                                createField("bbb", DataTypes.STRING().notNull()),
+                                createLiteral(
+                                        "x' OR '1'='1 \\ \n", DataTypes.STRING().notNull()))));
+        assertThat(source.getReadOptions().getRowRestriction())
+                .isEqualTo("(`bbb` = 'x\\' OR \\'1\\'=\\'1 \\\\ \\n')");
     }
 
     @Test
@@ -495,7 +532,20 @@ public class BigQueryDynamicTableFactoryTest {
 
         assertThat(source.getReadOptions().getRowRestriction())
                 .isEqualTo(
-                        "id > 10 AND (ts >= '2026-01-01 00:00:00' AND ts < '2026-01-01 01:00:00')");
+                        "(id > 10) AND (ts >= '2026-01-01 00:00:00' AND ts < '2026-01-01 01:00:00')");
+    }
+
+    @Test
+    public void testApplyPartitionsKeepsAnOrInTheExistingRestrictionTogether() {
+        BigQueryDynamicTableSource source = createSourceWithFakeServices("id = 1 OR id = 2");
+
+        source.applyPartitions(
+                Arrays.asList(Collections.singletonMap("ts", "2026-01-01 00:00:00")));
+
+        assertThat(source.getReadOptions().getRowRestriction())
+                .isEqualTo(
+                        "(id = 1 OR id = 2) AND "
+                                + "(ts >= '2026-01-01 00:00:00' AND ts < '2026-01-01 01:00:00')");
     }
 
     @Test

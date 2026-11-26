@@ -133,12 +133,12 @@ public class BigQueryRestriction {
         switch (op) {
             case IS_NULL:
                 return onlyChildAs(call, FieldReferenceExpression.class)
-                        .map(FieldReferenceExpression::getName)
+                        .map(field -> quoteColumn(field.getName()))
                         .map(field -> field + " IS NULL");
 
             case NOT_NULL:
                 return onlyChildAs(call, FieldReferenceExpression.class)
-                        .map(FieldReferenceExpression::getName)
+                        .map(field -> quoteColumn(field.getName()))
                         .map(field -> "NOT " + field + " IS NULL");
 
             case LT:
@@ -194,6 +194,10 @@ public class BigQueryRestriction {
         return Optional.of(expectedChildClass.cast(child));
     }
 
+    private static String quoteColumn(String name) {
+        return "`" + name.replace("\\", "\\\\").replace("`", "\\`") + "`";
+    }
+
     private static Optional<String> convertLike(CallExpression call) {
         List<ResolvedExpression> args = call.getResolvedChildren();
         if (args.size() != 2) {
@@ -204,7 +208,7 @@ public class BigQueryRestriction {
         Expression right = args.get(1);
 
         if (left instanceof FieldReferenceExpression && right instanceof ValueLiteralExpression) {
-            String name = ((FieldReferenceExpression) left).getName();
+            String name = quoteColumn(((FieldReferenceExpression) left).getName());
             return ((ValueLiteralExpression) right)
                     .getValueAs(String.class)
                     .flatMap(
@@ -213,7 +217,11 @@ public class BigQueryRestriction {
                                 // exclude special char of LIKE
                                 // '_' is the wildcard of the SQL LIKE
                                 if (!pattern.contains("_") && matcher.matches()) {
-                                    return Optional.of(name + " LIKE '" + matcher.group(1) + "%'");
+                                    // the prefix is a LIKE pattern inside a string literal:
+                                    // escape the LIKE escape character, then the literal
+                                    String prefix = matcher.group(1).replace("\\", "\\\\");
+                                    return Optional.of(
+                                            name + " LIKE " + addSingleQuotes(prefix + "%"));
                                 }
 
                                 return Optional.empty();
@@ -240,8 +248,29 @@ public class BigQueryRestriction {
         return Optional.empty();
     }
 
+    /** Returns a BigQuery string literal, escaping the characters that would end or change it. */
     private static String addSingleQuotes(String input) {
-        return "'" + input + "'";
+        StringBuilder literal = new StringBuilder(input.length() + 2).append('\'');
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            switch (c) {
+                case '\\':
+                    literal.append("\\\\");
+                    break;
+                case '\'':
+                    literal.append("\\'");
+                    break;
+                case '\n':
+                    literal.append("\\n");
+                    break;
+                case '\r':
+                    literal.append("\\r");
+                    break;
+                default:
+                    literal.append(c);
+            }
+        }
+        return literal.append('\'').toString();
     }
 
     private static Optional<Object> convertLiteral(ValueLiteralExpression expression) {
@@ -280,12 +309,12 @@ public class BigQueryRestriction {
         Optional<Object> leftOption = Optional.empty();
         Optional<Object> rightOption = Optional.empty();
         if (left instanceof FieldReferenceExpression && right instanceof ValueLiteralExpression) {
-            leftOption = Optional.of(((FieldReferenceExpression) left).getName());
+            leftOption = Optional.of(quoteColumn(((FieldReferenceExpression) left).getName()));
             rightOption = convertLiteral((ValueLiteralExpression) right);
         } else if (left instanceof ValueLiteralExpression
                 && right instanceof FieldReferenceExpression) {
             leftOption = convertLiteral((ValueLiteralExpression) left);
-            rightOption = Optional.of(((FieldReferenceExpression) right).getName());
+            rightOption = Optional.of(quoteColumn(((FieldReferenceExpression) right).getName()));
         }
 
         if (leftOption.isPresent() && rightOption.isPresent()) {
