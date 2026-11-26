@@ -105,6 +105,18 @@ public class AvroToRowDataConverters {
                 GenericRecord record = (GenericRecord) avroObject;
                 if (indexMapping == null) {
                     indexMapping = computeIndexMapping(record, nestedPaths);
+                    for (int i = 0; i < arity; i++) {
+                        org.apache.avro.Schema fieldSchema = record.getSchema();
+                        for (int position : indexMapping[i]) {
+                            fieldSchema =
+                                    unwrapNullableUnion(fieldSchema)
+                                            .getFields()
+                                            .get(position)
+                                            .schema();
+                        }
+                        fieldConverters[i] =
+                                createNullableConverter(rowType.getTypeAt(i), fieldSchema);
+                    }
                 }
                 GenericRowData row = new GenericRowData(arity);
                 for (int i = 0; i < arity; ++i) {
@@ -174,7 +186,12 @@ public class AvroToRowDataConverters {
 
     /** Creates a runtime converter which is null safe. */
     private static AvroToRowDataConverter createNullableConverter(LogicalType type) {
-        final AvroToRowDataConverter converter = createConverter(type);
+        return createNullableConverter(type, null);
+    }
+
+    private static AvroToRowDataConverter createNullableConverter(
+            LogicalType type, org.apache.avro.Schema schema) {
+        final AvroToRowDataConverter converter = createConverter(type, schema);
         return avroObject -> {
             if (avroObject == null) {
                 return null;
@@ -185,6 +202,16 @@ public class AvroToRowDataConverters {
 
     /** Creates a runtime converter which assuming input object is not null. */
     private static AvroToRowDataConverter createConverter(LogicalType type) {
+        return createConverter(type, null);
+    }
+
+    private static AvroToRowDataConverter createConverter(
+            LogicalType type, org.apache.avro.Schema schema) {
+        schema = schema == null ? null : unwrapNullableUnion(schema);
+        String logicalType =
+                schema == null || schema.getLogicalType() == null
+                        ? ""
+                        : schema.getLogicalType().getName();
         switch (type.getTypeRoot()) {
             case NULL:
                 return avroObject -> null;
@@ -205,6 +232,17 @@ public class AvroToRowDataConverters {
             case TIME_WITHOUT_TIME_ZONE:
                 int timePrecision = ((TimeType) type).getPrecision();
                 if (timePrecision <= MILLIS_PRECISION) {
+                    if ("time-micros".equals(logicalType)) {
+                        final int millisQuantum = (int) Math.pow(10, 3 - timePrecision);
+                        return avroObject ->
+                                avroObject instanceof Long
+                                        ? (int)
+                                                (Math.floorDiv(
+                                                                (Long) avroObject,
+                                                                1000L * millisQuantum)
+                                                        * millisQuantum)
+                                        : convertToMillisTime(avroObject, MILLIS_PRECISION);
+                    }
                     return avroObject -> convertToMillisTime(avroObject, MILLIS_PRECISION);
                 } else if (timePrecision <= MICROS_PRECISION) {
                     return avroObject -> convertToMicrosTime(avroObject, MICROS_PRECISION);
@@ -218,10 +256,10 @@ public class AvroToRowDataConverters {
                 }
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 int localTsPrecision = ((LocalZonedTimestampType) type).getPrecision();
-                return createTimeDatetimeConvertor(localTsPrecision);
+                return createTimestampConverter(localTsPrecision, logicalType);
             case TIMESTAMP_WITHOUT_TIME_ZONE:
                 int tsPrecision = ((TimestampType) type).getPrecision();
-                return createTimeDatetimeConvertor(tsPrecision);
+                return createTimestampConverter(tsPrecision, logicalType);
             case CHAR:
             case VARCHAR:
                 return avroObject -> StringData.fromString(avroObject.toString());
@@ -231,7 +269,7 @@ public class AvroToRowDataConverters {
             case DECIMAL:
                 return createDecimalConverter((DecimalType) type);
             case ARRAY:
-                return createArrayConverter((ArrayType) type);
+                return createArrayConverter((ArrayType) type, schema);
             case ROW:
                 return createRowConverter(
                         (RowType) type,
@@ -241,7 +279,7 @@ public class AvroToRowDataConverters {
                                         .toArray(String[][]::new));
             case MAP:
             case MULTISET:
-                return createMapConverter(type);
+                return createMapConverter(type, schema);
             case RAW:
             default:
                 throw new UnsupportedOperationException(
@@ -250,6 +288,31 @@ public class AvroToRowDataConverters {
                                         + "Input Logical Type %s is not supported.",
                                 type.asSummaryString()));
         }
+    }
+
+    private static AvroToRowDataConverter createTimestampConverter(
+            int precision, String logicalType) {
+        final AvroToRowDataConverter fallback = createTimeDatetimeConvertor(precision);
+        final boolean micros =
+                "timestamp-micros".equals(logicalType)
+                        || "local-timestamp-micros".equals(logicalType);
+        if (!micros && !"timestamp-millis".equals(logicalType)) {
+            return fallback;
+        }
+        final long millisQuantum = (long) Math.pow(10, Math.max(0, 3 - precision));
+        final int nanosQuantum = (int) Math.pow(10, Math.max(0, 9 - precision));
+        // Avro defines the source unit; Flink precision only controls discarded digits.
+        return avroObject -> {
+            if (!(avroObject instanceof Long)) {
+                return fallback.convert(avroObject);
+            }
+            long value = (Long) avroObject;
+            long millis = micros ? Math.floorDiv(value, 1000) : value;
+            int nanos = micros ? (int) Math.floorMod(value, 1000) * 1000 : 0;
+            return TimestampData.fromEpochMillis(
+                    Math.floorDiv(millis, millisQuantum) * millisQuantum,
+                    nanos / nanosQuantum * nanosQuantum);
+        };
     }
 
     private static AvroToRowDataConverter createTimeDatetimeConvertor(int precision) {
@@ -304,9 +367,12 @@ public class AvroToRowDataConverters {
                 avroObject, avroObject.getClass(), convertingType, expectedType);
     }
 
-    private static AvroToRowDataConverter createArrayConverter(ArrayType arrayType) {
+    private static AvroToRowDataConverter createArrayConverter(
+            ArrayType arrayType, org.apache.avro.Schema schema) {
         final AvroToRowDataConverter elementConverter =
-                createNullableConverter(arrayType.getElementType());
+                createNullableConverter(
+                        arrayType.getElementType(),
+                        schema == null ? null : schema.getElementType());
         final Class<?> elementClass =
                 LogicalTypeUtils.toInternalConversionClass(arrayType.getElementType());
 
@@ -325,11 +391,14 @@ public class AvroToRowDataConverters {
         };
     }
 
-    private static AvroToRowDataConverter createMapConverter(LogicalType type) {
+    private static AvroToRowDataConverter createMapConverter(
+            LogicalType type, org.apache.avro.Schema schema) {
         final AvroToRowDataConverter keyConverter =
                 createConverter(DataTypes.STRING().getLogicalType());
         final AvroToRowDataConverter valueConverter =
-                createNullableConverter(AvroSchemaConvertor.extractValueTypeToAvroMap(type));
+                createNullableConverter(
+                        AvroSchemaConvertor.extractValueTypeToAvroMap(type),
+                        schema == null ? null : schema.getValueType());
 
         return avroObject -> {
             // build the message only on failure: it prints the whole map
