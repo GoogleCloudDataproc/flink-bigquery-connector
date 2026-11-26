@@ -145,26 +145,32 @@ public class BigQueryClientWithErrorHandling {
                     connectOptions.getDataset(),
                     connectOptions.getTable());
         } catch (GoogleJsonResponseException e) {
-            throw new BigQueryException(e.getStatusCode(), e.getMessage(), e);
+            handleCreateTableError(
+                    connectOptions, new BigQueryException(e.getStatusCode(), e.getMessage(), e));
         } catch (IOException e) {
-            throw new BigQueryException(0, e.getMessage(), e);
+            handleCreateTableError(connectOptions, new BigQueryException(0, e.getMessage(), e));
         } catch (BigQueryException e) {
-            if (e.getCode() == ALREADY_EXISTS_ERROR_CODE) {
-                LOG.warn(
-                        "Attempted creation of BigQuery table {}.{}.{} failed, since it already exists",
+            handleCreateTableError(connectOptions, e);
+        }
+    }
+
+    private static void handleCreateTableError(
+            BigQueryConnectOptions connectOptions, BigQueryException e) {
+        if (e.getCode() == ALREADY_EXISTS_ERROR_CODE) {
+            LOG.warn(
+                    "Attempted creation of BigQuery table {}.{}.{} failed, since it already exists",
+                    connectOptions.getProjectId(),
+                    connectOptions.getDataset(),
+                    connectOptions.getTable());
+            return;
+        }
+        throw new BigQueryConnectorException(
+                String.format(
+                        "Unable to create BigQuery table %s.%s.%s",
                         connectOptions.getProjectId(),
                         connectOptions.getDataset(),
-                        connectOptions.getTable());
-                return;
-            }
-            throw new BigQueryConnectorException(
-                    String.format(
-                            "Unable to create BigQuery table %s.%s.%s",
-                            connectOptions.getProjectId(),
-                            connectOptions.getDataset(),
-                            connectOptions.getTable()),
-                    e);
-        }
+                        connectOptions.getTable()),
+                e);
     }
 
     static Table toCdcTable(
