@@ -24,10 +24,13 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.data.binary.BinaryRowData;
+import org.apache.flink.table.data.writer.BinaryRowWriter;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
@@ -1419,33 +1422,137 @@ public class RowDataToProtoSerializerTest {
     }
 
     @Test
-    public void testSmallIntConversionToByteStringCorrectly() {
+    public void testTimeAtLowPrecisionsUsesIntegerMillis() throws Exception {
+        for (int precision = 0; precision <= 3; precision++) {
+            LogicalType type = DataTypes.TIME(precision).getLogicalType();
+            Descriptors.FieldDescriptor field =
+                    temporalField(FieldDescriptorProto.Type.TYPE_STRING);
+            RowDataToProtoSerializer serializer = new RowDataToProtoSerializer(type);
+            assertEquals(
+                    "01:00:00",
+                    serializer.toProtoValue(type, 0, GenericRowData.of(3600000), field));
+            BinaryRowData binary = new BinaryRowData(1);
+            BinaryRowWriter writer = new BinaryRowWriter(binary);
+            writer.writeInt(0, 3600000);
+            writer.complete();
+            assertEquals("01:00:00", serializer.toProtoValue(type, 0, binary, field));
+        }
+    }
 
-        // Form the Schema.
-        DataType dataType =
-                DataTypes.ROW(
-                                DataTypes.FIELD("tinyint_type", DataTypes.TINYINT().notNull()),
-                                DataTypes.FIELD("int_type", DataTypes.INT().notNull()))
-                        .notNull();
-        LogicalType logicalType = dataType.getLogicalType();
+    @Test
+    public void testTimestampUsesDeclaredPrecision() throws Exception {
+        for (int precision : new int[] {0, 1, 2, 3, 6, 9}) {
+            for (DataType dataType :
+                    new DataType[] {
+                        DataTypes.TIMESTAMP(precision), DataTypes.TIMESTAMP_LTZ(precision)
+                    }) {
+                LogicalType type = dataType.getLogicalType();
+                Descriptors.FieldDescriptor field =
+                        temporalField(
+                                type.getTypeRoot() == LogicalTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE
+                                        ? FieldDescriptorProto.Type.TYPE_INT64
+                                        : FieldDescriptorProto.Type.TYPE_STRING);
+                RowDataToProtoSerializer serializer = new RowDataToProtoSerializer(type);
+                TimestampData value = TimestampData.fromEpochMillis(3600000);
+                Object expected =
+                        type.getTypeRoot() == LogicalTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE
+                                ? 3600000000L
+                                : "1970-01-01T01:00:00.000000";
+                assertEquals(
+                        expected,
+                        serializer.toProtoValue(type, 0, GenericRowData.of(value), field));
+                BinaryRowData binary = new BinaryRowData(1);
+                BinaryRowWriter writer = new BinaryRowWriter(binary);
+                writer.writeTimestamp(0, value, precision);
+                writer.complete();
+                assertEquals(expected, serializer.toProtoValue(type, 0, binary, field));
+            }
+        }
+    }
+
+    private static Descriptors.FieldDescriptor temporalField(FieldDescriptorProto.Type type)
+            throws DescriptorValidationException {
+        DescriptorProto descriptor =
+                DescriptorProto.newBuilder()
+                        .setName("Temporal")
+                        .addField(
+                                FieldDescriptorProto.newBuilder()
+                                        .setName("value")
+                                        .setNumber(1)
+                                        .setType(type)
+                                        .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL))
+                        .build();
+        return Descriptors.FileDescriptor.buildFrom(
+                        FileDescriptorProto.newBuilder()
+                                .setName("temporal.proto")
+                                .addMessageType(descriptor)
+                                .build(),
+                        new Descriptors.FileDescriptor[0])
+                .findMessageTypeByName("Temporal")
+                .findFieldByNumber(1);
+    }
+
+    @Test
+    public void testSmallIntConversionToByteStringCorrectly() {
+        LogicalType logicalType = tinyIntSmallIntIntRowType();
+        GenericRowData row = new GenericRowData(3);
+        row.setField(0, (byte) -123);
+        row.setField(1, (short) -12345);
+        row.setField(2, 123);
+
+        assertTinyIntSmallIntIntConversion(logicalType, row);
+    }
+
+    @Test
+    public void testSmallIntConversionFromBinaryRowData() {
+        LogicalType logicalType = tinyIntSmallIntIntRowType();
+        BinaryRowData row = new BinaryRowData(3);
+        BinaryRowWriter writer = new BinaryRowWriter(row);
+        writer.writeByte(0, (byte) -123);
+        writer.writeShort(1, (short) -12345);
+        writer.writeInt(2, 123);
+        writer.complete();
+
+        assertTinyIntSmallIntIntConversion(logicalType, row);
+    }
+
+    @Test
+    public void testExtractSequenceNumberFromSmallIntegerFields() {
+        RowDataToProtoSerializer serializer =
+                new RowDataToProtoSerializer(tinyIntSmallIntIntRowType());
+        GenericRowData row = GenericRowData.of((byte) 12, (short) 1234, 123456);
+
+        assertEquals(
+                String.format("%016X", 12L), serializer.extractSequenceNumber(row, "tinyint_type"));
+        assertEquals(
+                String.format("%016X", 1234L),
+                serializer.extractSequenceNumber(row, "smallint_type"));
+        assertEquals(
+                String.format("%016X", 123456L), serializer.extractSequenceNumber(row, "int_type"));
+    }
+
+    private static LogicalType tinyIntSmallIntIntRowType() {
+        return DataTypes.ROW(
+                        DataTypes.FIELD("tinyint_type", DataTypes.TINYINT().notNull()),
+                        DataTypes.FIELD("smallint_type", DataTypes.SMALLINT().notNull()),
+                        DataTypes.FIELD("int_type", DataTypes.INT().notNull()))
+                .notNull()
+                .getLogicalType();
+    }
+
+    private static void assertTinyIntSmallIntIntConversion(LogicalType logicalType, RowData row) {
         Schema avroSchema = BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(logicalType);
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-
-        // Initialize the record.
-        GenericRowData row = new GenericRowData(2);
-        row.setField(0, (short) 123);
-        row.setField(1, 123);
-
         RowDataToProtoSerializer rowDataToProtoSerializer =
                 new RowDataToProtoSerializer(logicalType);
         rowDataToProtoSerializer.init(bigQuerySchemaProvider);
 
-        // Check for the desired results.
         DynamicMessage message =
                 rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
-        assertEquals(123L, message.getField(descriptor.findFieldByNumber(1)));
-        assertEquals(123L, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(-123L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(-12345L, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(123L, message.getField(descriptor.findFieldByNumber(3)));
     }
 
     /**

@@ -164,9 +164,11 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
             case BIGINT:
                 return record.getLong(fieldIndex);
             case INTEGER:
-            case TINYINT:
-            case SMALLINT:
                 return (long) record.getInt(fieldIndex);
+            case TINYINT:
+                return (long) record.getByte(fieldIndex);
+            case SMALLINT:
+                return (long) record.getShort(fieldIndex);
             case TIMESTAMP_WITHOUT_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 int precision;
@@ -249,6 +251,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     // the destination column type, and the Flink type does not determine it.
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
+                    return (long) element.getByte(fieldNumber);
                 case SMALLINT:
                     return (long) element.getShort(fieldNumber);
                 case INTEGER:
@@ -269,7 +272,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 case TIME_WITHOUT_TIME_ZONE:
                     // case time
                     // Microseconds since MIDNIGHT
-                    if (((TimeType) fieldType).getPrecision() == 3) {
+                    if (((TimeType) fieldType).getPrecision() <= 3) {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTime(
                                 element.getInt(fieldNumber), false);
                     } else {
@@ -279,24 +282,37 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                 case TIMESTAMP_WITHOUT_TIME_ZONE:
                     // TIMESTAMP in BQ.
                     // microseconds since epoch
-                    if (((TimestampType) fieldType).getPrecision() == 3) {
+                    if (((TimestampType) fieldType).getPrecision() <= 3) {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTimestamp(
-                                element.getTimestamp(fieldNumber, 3).getMillisecond(),
+                                element.getTimestamp(
+                                                fieldNumber,
+                                                ((TimestampType) fieldType).getPrecision())
+                                        .getMillisecond(),
                                 false,
                                 "Timestamp(millis)");
                     } else {
-                        TimestampData timestampData = element.getTimestamp(fieldNumber, 6);
+                        TimestampData timestampData =
+                                element.getTimestamp(
+                                        fieldNumber, ((TimestampType) fieldType).getPrecision());
                         long micros = getMicrosFromTsData(timestampData);
                         return AvroToProtoSerializer.AvroSchemaHandler.convertTimestamp(
                                 micros, true, "Timestamp(micros)");
                     }
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     // microseconds since epoch
-                    if (((LocalZonedTimestampType) fieldType).getPrecision() == 3) {
+                    if (((LocalZonedTimestampType) fieldType).getPrecision() <= 3) {
                         return AvroToProtoSerializer.AvroSchemaHandler.convertDateTime(
-                                element.getTimestamp(fieldNumber, 3).getMillisecond(), false);
+                                element.getTimestamp(
+                                                fieldNumber,
+                                                ((LocalZonedTimestampType) fieldType)
+                                                        .getPrecision())
+                                        .getMillisecond(),
+                                false);
                     } else {
-                        TimestampData timestampData = element.getTimestamp(fieldNumber, 6);
+                        TimestampData timestampData =
+                                element.getTimestamp(
+                                        fieldNumber,
+                                        ((LocalZonedTimestampType) fieldType).getPrecision());
                         long micros = getMicrosFromTsData(timestampData);
                         return AvroToProtoSerializer.AvroSchemaHandler.convertDateTime(
                                 micros, true);
