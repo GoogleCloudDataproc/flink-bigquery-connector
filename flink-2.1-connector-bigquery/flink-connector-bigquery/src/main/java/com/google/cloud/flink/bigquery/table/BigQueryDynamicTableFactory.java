@@ -24,14 +24,28 @@ import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.function.SerializableSupplier;
 
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo.PartitionType;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryTableConfigurationProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.InterruptedIOException;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 
 /**
  * Factory class to create configured instances of {@link BigQueryDynamicTableSource} and {@link
@@ -42,6 +56,8 @@ public class BigQueryDynamicTableFactory
         implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 
     public static final String IDENTIFIER = "bigquery";
+
+    private static final Logger LOG = LoggerFactory.getLogger(BigQueryDynamicTableFactory.class);
 
     private static SerializableSupplier<BigQueryServices> testingServices = null;
 
@@ -175,10 +191,60 @@ public class BigQueryDynamicTableFactory
         Integer sourceParallelism = configProvider.getSourceParallelism().orElse(null);
 
         // Create a Source depending on the boundedness.
-        return new BigQueryDynamicTableSource(
-                configProvider.toBigQueryReadOptions(),
-                context.getPhysicalRowDataType(),
-                sourceParallelism);
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        configProvider.toBigQueryReadOptions(),
+                        context.getPhysicalRowDataType(),
+                        sourceParallelism);
+        // Flink removes partition predicates, so each listed value must cover exactly one DATE.
+        RowType physicalType = (RowType) context.getPhysicalRowDataType().getLogicalType();
+        List<String> partitionKeys = context.getCatalogTable().getPartitionKeys();
+        Optional<TablePartitionInfo> partitionInfo;
+        try {
+            partitionInfo = source.retrievePartitionInfo();
+        } catch (RuntimeException ex) {
+            if (Thread.currentThread().isInterrupted()
+                    || ExceptionUtils.findThrowable(ex, InterruptedException.class).isPresent()
+                    || ExceptionUtils.findThrowable(ex, InterruptedIOException.class).isPresent()
+                    || ExceptionUtils.findThrowable(ex, CancellationException.class).isPresent()) {
+                throw ex;
+            }
+            BigQueryConnectOptions connectOptions =
+                    source.getReadOptions().getBigQueryConnectOptions();
+            LOG.warn(
+                    "Cannot check partition push-down for table {}.{}.{}; using filter push-down instead.",
+                    connectOptions.getProjectId(),
+                    connectOptions.getDataset(),
+                    connectOptions.getTable(),
+                    ex);
+            return source;
+        }
+        boolean exactPartitions =
+                partitionInfo
+                        .map(info -> isExactDatePartition(info, physicalType, partitionKeys))
+                        .orElse(false);
+        if (exactPartitions) {
+            return new BigQueryPartitionedTableSource(
+                    configProvider.toBigQueryReadOptions(),
+                    context.getPhysicalRowDataType(),
+                    sourceParallelism);
+        }
+        return source;
+    }
+
+    private static boolean isExactDatePartition(
+            TablePartitionInfo info, RowType physicalType, List<String> partitionKeys) {
+        if (info.getColumnType() != StandardSQLTypeName.DATE
+                || info.getPartitionType() != PartitionType.DAY) {
+            return false;
+        }
+        int fieldIndex = physicalType.getFieldNames().indexOf(info.getColumnName());
+        if (fieldIndex < 0
+                || physicalType.getTypeAt(fieldIndex).getTypeRoot() != LogicalTypeRoot.DATE) {
+            return false;
+        }
+        return partitionKeys.isEmpty()
+                || partitionKeys.equals(Collections.singletonList(info.getColumnName()));
     }
 
     static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {

@@ -521,8 +521,17 @@ BigQuerySource<GenericRecord> source =
 
 ### Bounded Source In Table API
 
-The Table API source supports projection push-down, limit push-down, filter
-push-down, and partition push-down.
+The Table API source supports projection push-down, limit push-down, and filter
+push-down. It supports partition push-down only for tables partitioned by a `DATE`
+column with `DAY` granularity. Each of these partitions contains one date value,
+so Flink can safely replace the partition predicate with the selected dates.
+
+For `TIMESTAMP` and `DATETIME` partitions, `DATE` partitions with `MONTH` or `YEAR`
+granularity, and integer-range partitions, the source uses filter push-down instead.
+A partition can contain many column values, so testing only its start value can
+exclude matching rows. The connector sends supported filters as the BigQuery
+Storage Read API row restriction. BigQuery uses these filters to prune partitions
+while keeping the exact row predicate. Unsupported filters remain in Flink.
 
 ```java
 // Note: Users must create and register a catalog table before reading and writing to them.

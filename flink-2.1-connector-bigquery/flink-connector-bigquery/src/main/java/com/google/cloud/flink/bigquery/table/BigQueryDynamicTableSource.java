@@ -28,7 +28,6 @@ import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsLimitPushDown;
-import org.apache.flink.table.connector.source.abilities.SupportsPartitionPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.expressions.ResolvedExpression;
@@ -37,7 +36,6 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
-import com.google.cloud.flink.bigquery.common.utils.BigQueryPartitionUtils;
 import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.services.BigQueryServicesFactory;
 import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
@@ -45,12 +43,9 @@ import com.google.cloud.flink.bigquery.source.BigQuerySource;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.deserializer.AvroToRowDataDeserializationSchema;
 import com.google.cloud.flink.bigquery.table.restrictions.BigQueryRestriction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,11 +59,8 @@ public class BigQueryDynamicTableSource
         implements ScanTableSource,
                 SupportsProjectionPushDown,
                 SupportsLimitPushDown,
-                SupportsFilterPushDown,
-                SupportsPartitionPushDown {
-    private static final Logger LOG = LoggerFactory.getLogger(BigQueryDynamicTableSource.class);
-
-    private BigQueryReadOptions readOptions;
+                SupportsFilterPushDown {
+    protected BigQueryReadOptions readOptions;
     private DataType producedDataType;
     private final Integer parallelism;
 
@@ -96,6 +88,15 @@ public class BigQueryDynamicTableSource
         this.producedDataType = producedDataType;
         this.fullyQualifiedPaths = fullyQualifiedPaths;
         this.parallelism = parallelism;
+    }
+
+    protected BigQueryDynamicTableSource(BigQueryDynamicTableSource source) {
+        this(
+                source.readOptions,
+                source.physicalDataType,
+                source.producedDataType,
+                source.fullyQualifiedPaths,
+                source.parallelism);
     }
 
     private static BigQueryReadOptions ensureDefaultColumnNames(
@@ -285,99 +286,6 @@ public class BigQueryDynamicTableSource
                 connectOptions.getProjectId(),
                 connectOptions.getDataset(),
                 connectOptions.getTable());
-    }
-
-    @Override
-    public Optional<List<Map<String, String>>> listPartitions() {
-        BigQueryConnectOptions connectOptions = readOptions.getBigQueryConnectOptions();
-        BigQueryServices.QueryDataClient dataClient =
-                BigQueryServicesFactory.instance(connectOptions).queryClient();
-
-        Optional<List<Map<String, String>>> ret =
-                retrievePartitionInfo()
-                        .map(
-                                partitionInfo ->
-                                        transformPartitionIds(
-                                                connectOptions.getProjectId(),
-                                                connectOptions.getDataset(),
-                                                connectOptions.getTable(),
-                                                partitionInfo,
-                                                dataClient));
-
-        LOG.info("Partitions with data on the BigQuery table {},", ret.toString());
-        return ret;
-    }
-
-    @Override
-    public void applyPartitions(List<Map<String, String>> remainingPartitions) {
-        Optional<TablePartitionInfo> partitionInfo = retrievePartitionInfo();
-        this.readOptions =
-                this.readOptions
-                        .toBuilder()
-                        .setRowRestriction(
-                                rebuildRestrictionsApplyingPartitions(
-                                        this.readOptions.getRowRestriction(),
-                                        partitionInfo,
-                                        remainingPartitions))
-                        .build();
-        LOG.info("Partitions to be used {}.", remainingPartitions.toString());
-    }
-
-    private static List<Map<String, String>> transformPartitionIds(
-            String projectId,
-            String dataset,
-            String table,
-            TablePartitionInfo partitionInfo,
-            BigQueryServices.QueryDataClient dataClient) {
-
-        /**
-         * we retrieve the existing partition ids and transform them into valid values given the
-         * column data type
-         */
-        return BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
-                        dataClient.retrieveTablePartitions(projectId, dataset, table),
-                        partitionInfo.getColumnType())
-                .stream()
-                /**
-                 * for each of those valid partition values we create an map with the column name
-                 * and the value
-                 */
-                .map(
-                        pValue -> {
-                            Map<String, String> partitionColAndValue = new HashMap<>();
-                            partitionColAndValue.put(partitionInfo.getColumnName(), pValue);
-                            return partitionColAndValue;
-                        })
-                .collect(Collectors.toList());
-    }
-
-    private static String rebuildRestrictionsApplyingPartitions(
-            String currentRestriction,
-            Optional<TablePartitionInfo> partitionInfo,
-            List<Map<String, String>> remainingPartitions) {
-        /**
-         * given the specification, partition restriction comes before the filter application, so we
-         * just set the row restriction here.
-         */
-        String partitionRestrictions =
-                remainingPartitions.stream()
-                        .flatMap(map -> map.entrySet().stream())
-                        .map(
-                                entry ->
-                                        BigQueryPartitionUtils
-                                                .formatPartitionRestrictionBasedOnInfo(
-                                                        partitionInfo,
-                                                        entry.getKey(),
-                                                        entry.getValue()))
-                        .collect(Collectors.joining(" OR "));
-
-        if (partitionRestrictions.isEmpty()) {
-            return currentRestriction == null ? "" : currentRestriction;
-        }
-        if (currentRestriction == null || currentRestriction.isEmpty()) {
-            return "(" + partitionRestrictions + ")";
-        }
-        return currentRestriction + " AND (" + partitionRestrictions + ")";
     }
 
     @VisibleForTesting
