@@ -355,6 +355,9 @@ public class BigQueryDynamicTableSource
             String currentRestriction,
             Optional<TablePartitionInfo> partitionInfo,
             List<Map<String, String>> remainingPartitions) {
+        if (remainingPartitions.isEmpty()) {
+            return "FALSE";
+        }
         /**
          * given the specification, partition restriction comes before the filter application, so we
          * just set the row restriction here.

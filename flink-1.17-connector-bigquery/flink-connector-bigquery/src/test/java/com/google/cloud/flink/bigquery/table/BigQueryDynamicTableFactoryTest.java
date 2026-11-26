@@ -454,16 +454,16 @@ public class BigQueryDynamicTableFactoryTest {
 
         source.applyPartitions(Collections.emptyList());
 
-        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("");
+        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("FALSE");
     }
 
     @Test
-    public void testApplyPartitionsWithEmptyPartitionsPreservesExistingRestriction() {
+    public void testApplyPartitionsWithEmptyPartitionsOverridesExistingRestriction() {
         BigQueryDynamicTableSource source = createSourceWithFakeServices("id > 10");
 
         source.applyPartitions(Collections.emptyList());
 
-        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("id > 10");
+        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("FALSE");
     }
 
     @Test
