@@ -33,6 +33,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.avro.util.Utf8;
 import org.assertj.core.api.Assertions;
 import org.joda.time.DateTime;
 import org.joda.time.Instant;
@@ -58,6 +59,48 @@ public class AvroToProtoSerializerTest {
     // ---------- Test the Helper Functions --------------
 
     /** Test for a valid Json Value. */
+    @Test
+    public void testAllJsonValueTypes() {
+        for (String value :
+                new String[] {
+                    "{}",
+                    "[]",
+                    "[1,true,null]",
+                    "123",
+                    "-1.25e2",
+                    "true",
+                    "false",
+                    "null",
+                    "\"text\"",
+                    "  [1]  "
+                }) {
+            assertEquals(value, AvroSchemaHandler.convertJson(value));
+            assertEquals(value, AvroSchemaHandler.convertJson(new Utf8(value)));
+        }
+    }
+
+    @Test
+    public void testMalformedJsonValues() {
+        for (String value :
+                new String[] {
+                    "",
+                    " ",
+                    "{a:1}",
+                    "{'a':1}",
+                    "{} trailing",
+                    "{} []",
+                    "[1,]",
+                    "01",
+                    "NaN",
+                    "undefined"
+                }) {
+            assertThrows(
+                    value,
+                    IllegalArgumentException.class,
+                    () -> AvroSchemaHandler.convertJson(value));
+        }
+    }
+
     @Test
     public void testValidJsonConversion() {
         Object value = "{\"name\": \"test_value\", \"value\": \"value\"}";

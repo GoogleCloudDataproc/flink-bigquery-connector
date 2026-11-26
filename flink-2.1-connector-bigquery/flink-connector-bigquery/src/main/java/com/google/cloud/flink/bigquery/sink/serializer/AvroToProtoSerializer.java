@@ -18,6 +18,8 @@ package com.google.cloud.flink.bigquery.sink.serializer;
 
 import org.apache.flink.annotation.VisibleForTesting;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.Timestamp;
 import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
@@ -38,13 +40,12 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.joda.time.Days;
 import org.joda.time.Instant;
 import org.joda.time.ReadableInstant;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -778,6 +779,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             throw new IllegalArgumentException(getErrorMessage("STRING/UTF-8", "GEOGRAPHY"));
         }
 
+        private static final JsonFactory JSON_FACTORY = new JsonFactory();
+
         @VisibleForTesting
         static String convertJson(Object value) {
             String jsonString;
@@ -789,9 +792,15 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 LOG.error(getLogErrorMessage("UTF-8/STRING", "JSON", value.getClass().toString()));
                 throw new IllegalArgumentException(getErrorMessage("UTF-8/STRING", "JSON"));
             }
-            try {
-                new JSONObject(jsonString);
-            } catch (JSONException e) {
+            try (JsonParser parser = JSON_FACTORY.createParser(jsonString)) {
+                if (parser.nextToken() == null) {
+                    throw new IOException("Expected a JSON value");
+                }
+                parser.skipChildren();
+                if (parser.nextToken() != null) {
+                    throw new IOException("Expected only one JSON value");
+                }
+            } catch (IOException e) {
                 throw new IllegalArgumentException(
                         String.format(
                                 "The input string %s is not in valid JSON Format.", jsonString));
