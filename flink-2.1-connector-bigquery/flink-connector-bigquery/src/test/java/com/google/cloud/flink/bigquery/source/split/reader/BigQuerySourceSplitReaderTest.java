@@ -47,16 +47,20 @@ public class BigQuerySourceSplitReaderTest {
         BigQuerySourceSplitReader.GenericRecordReader reader =
                 BigQuerySourceSplitReader.GenericRecordReader.create(
                         new Schema.Parser().parse(schemaString));
-        for (int response = 0; response < 2; response++) {
+        List<GenericRecord> retained = new ArrayList<>();
+        List<String> retainedExpected = new ArrayList<>();
+        for (int count : new int[] {50, 1, 0, 75, 2}) {
             List<GenericRecord> expected =
                     StorageClientFaker.createRecordList(
-                            new StorageClientFaker.RecordGenerationParams(schemaString, 50));
+                            new StorageClientFaker.RecordGenerationParams(schemaString, count));
             byte[] rows =
-                    StorageClientFaker.createResponse(schemaString, expected, 0, 1)
-                            .get(0)
-                            .getAvroRows()
-                            .getSerializedBinaryRows()
-                            .toByteArray();
+                    expected.isEmpty()
+                            ? new byte[0]
+                            : StorageClientFaker.createResponse(schemaString, expected, 0, 1)
+                                    .get(0)
+                                    .getAvroRows()
+                                    .getSerializedBinaryRows()
+                                    .toByteArray();
             // the rows start inside a larger buffer, as a slice of a bigger response can
             byte[] padded = new byte[rows.length + 7];
             System.arraycopy(rows, 0, padded, 7, rows.length);
@@ -65,7 +69,9 @@ public class BigQuerySourceSplitReaderTest {
                             .setSerializedBinaryRows(ByteString.copyFrom(padded).substring(7))
                             .build();
             List<String> decoded = new ArrayList<>();
-            for (GenericRecord record : reader.processRows(avroRows)) {
+            List<GenericRecord> responseRecords = reader.processRows(avroRows);
+            retained.addAll(responseRecords);
+            for (GenericRecord record : responseRecords) {
                 decoded.add(record.toString());
             }
             List<String> expectedRows = new ArrayList<>();
@@ -73,7 +79,13 @@ public class BigQuerySourceSplitReaderTest {
                 expectedRows.add(record.toString());
             }
             assertThat(decoded).containsExactlyElementsIn(expectedRows).inOrder();
+            retainedExpected.addAll(expectedRows);
         }
+        List<String> retainedRows = new ArrayList<>();
+        for (GenericRecord record : retained) {
+            retainedRows.add(record.toString());
+        }
+        assertThat(retainedRows).containsExactlyElementsIn(retainedExpected).inOrder();
     }
 
     @Test

@@ -351,6 +351,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
     static class GenericRecordReader {
 
         private final DatumReader<GenericRecord> datumReader;
+        private BinaryDecoder decoder;
 
         private GenericRecordReader(Schema schema) {
             Preconditions.checkNotNull(schema, "The provided avro schema reference is null.");
@@ -368,9 +369,9 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
          */
         public List<GenericRecord> processRows(AvroRows avroRows) throws IOException {
             // read the response bytes in place: toByteArray() would copy the whole response
-            BinaryDecoder decoder =
+            decoder =
                     DecoderFactory.get()
-                            .binaryDecoder(avroRows.getSerializedBinaryRows().newInput(), null);
+                            .binaryDecoder(avroRows.getSerializedBinaryRows().newInput(), decoder);
             List<GenericRecord> records = new ArrayList<>();
             GenericRecord row;
             while (!decoder.isEnd()) {
