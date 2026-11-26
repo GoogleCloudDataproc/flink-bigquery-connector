@@ -237,9 +237,9 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 }
             }
             readSoFar += read;
+            readerContext.updateReadCount((long) read);
             // check if we finished to read the stream to finalize the split
             if (!truncated) {
-                readerContext.updateReadCount(readSoFar);
                 Long splitTimeMs = System.currentTimeMillis() - splitStartFetch;
                 LOG.info(
                         "[subtask #{}][hostname {}] Completed reading split, {} records in {}ms on stream {}.",
