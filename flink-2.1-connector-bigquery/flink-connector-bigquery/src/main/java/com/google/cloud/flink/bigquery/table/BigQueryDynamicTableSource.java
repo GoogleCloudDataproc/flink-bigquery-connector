@@ -225,7 +225,9 @@ public class BigQueryDynamicTableSource
             if (newRowRestriction.isEmpty()) {
                 newRowRestriction = rowRestrictionByFilters;
             } else {
-                newRowRestriction = newRowRestriction + " AND " + rowRestrictionByFilters;
+                // parenthesize both sides: an OR in either one must not absorb the other
+                newRowRestriction =
+                        "(" + newRowRestriction + ") AND (" + rowRestrictionByFilters + ")";
             }
         }
         this.readOptions =
@@ -377,7 +379,7 @@ public class BigQueryDynamicTableSource
         if (currentRestriction == null || currentRestriction.isEmpty()) {
             return "(" + partitionRestrictions + ")";
         }
-        return currentRestriction + " AND (" + partitionRestrictions + ")";
+        return "(" + currentRestriction + ") AND (" + partitionRestrictions + ")";
     }
 
     @VisibleForTesting

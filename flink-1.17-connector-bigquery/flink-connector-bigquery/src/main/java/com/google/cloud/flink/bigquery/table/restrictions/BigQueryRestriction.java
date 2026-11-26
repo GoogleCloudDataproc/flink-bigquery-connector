@@ -213,7 +213,11 @@ public class BigQueryRestriction {
                                 // exclude special char of LIKE
                                 // '_' is the wildcard of the SQL LIKE
                                 if (!pattern.contains("_") && matcher.matches()) {
-                                    return Optional.of(name + " LIKE '" + matcher.group(1) + "%'");
+                                    // the prefix is a LIKE pattern inside a string literal:
+                                    // escape the LIKE escape character, then the literal
+                                    String prefix = matcher.group(1).replace("\\", "\\\\");
+                                    return Optional.of(
+                                            name + " LIKE " + addSingleQuotes(prefix + "%"));
                                 }
 
                                 return Optional.empty();
@@ -240,8 +244,29 @@ public class BigQueryRestriction {
         return Optional.empty();
     }
 
+    /** Returns a BigQuery string literal, escaping the characters that would end or change it. */
     private static String addSingleQuotes(String input) {
-        return "'" + input + "'";
+        StringBuilder literal = new StringBuilder(input.length() + 2).append('\'');
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            switch (c) {
+                case '\\':
+                    literal.append("\\\\");
+                    break;
+                case '\'':
+                    literal.append("\\'");
+                    break;
+                case '\n':
+                    literal.append("\\n");
+                    break;
+                case '\r':
+                    literal.append("\\r");
+                    break;
+                default:
+                    literal.append(c);
+            }
+        }
+        return literal.append('\'').toString();
     }
 
     private static Optional<Object> convertLiteral(ValueLiteralExpression expression) {

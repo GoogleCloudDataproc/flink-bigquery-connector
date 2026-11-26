@@ -120,6 +120,13 @@ public class BigQueryRestrictionTest {
     }
 
     @Test
+    public void testLikePrefixIsEscaped() {
+        assertLikeConversion("name", "it's%", Optional.of("name LIKE 'it\\'s%'"));
+        // a backslash is escaped for LIKE first, then for the string literal
+        assertLikeConversion("name", "a\\b%", Optional.of("name LIKE 'a\\\\\\\\b%'"));
+    }
+
+    @Test
     public void testLikePrefixPatternWithSpacesIsPushedDown() {
         assertLikeConversion("name", "foo bar%", Optional.of("name LIKE 'foo bar%'"));
     }
