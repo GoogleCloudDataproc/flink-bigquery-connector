@@ -30,6 +30,7 @@ import com.google.cloud.flink.bigquery.fakes.StorageClientFaker.FakeBigQueryServ
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQueryProtoSerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.BigQuerySchemaProvider;
+import com.google.cloud.flink.bigquery.sink.serializer.CdcChangeTypeProvider;
 import com.google.cloud.flink.bigquery.sink.serializer.FakeBigQuerySerializer;
 import com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchemas;
 import com.google.cloud.flink.bigquery.sink.serializer.TestSchemaProvider;
@@ -48,6 +49,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQueryDefaultWriter}. */
@@ -74,6 +76,52 @@ public class BigQueryDefaultWriterTest {
         streamWriterStaticMock = null;
         connectOptions = null;
         mockInitContext = null;
+    }
+
+    @Test
+    public void testCdcMetadataErrorsFollowSerializationPolicy() throws Exception {
+        for (boolean fatal : new boolean[] {false, true}) {
+            for (boolean invalidSequence : new boolean[] {false, true}) {
+                BigQueryProtoSerializer<Object> serializer =
+                        Mockito.mock(BigQueryProtoSerializer.class);
+                CdcChangeTypeProvider<Object> provider =
+                        record -> {
+                            if (!invalidSequence) {
+                                throw new IllegalArgumentException("bad change type");
+                            }
+                            return "UPSERT";
+                        };
+                if (invalidSequence) {
+                    Mockito.when(serializer.extractSequenceNumber(Mockito.any(), Mockito.eq("seq")))
+                            .thenThrow(new ClassCastException("bad sequence"));
+                }
+                BigQueryDefaultWriter<Object> writer =
+                        new BigQueryDefaultWriter<>(
+                                "/projects/project/datasets/dataset/tables/table",
+                                Mockito.mock(BigQueryConnectOptions.class),
+                                TestBigQuerySchemas.getSimpleRecordSchema(),
+                                serializer,
+                                null,
+                                fatal,
+                                128,
+                                "traceId",
+                                true,
+                                "seq",
+                                provider,
+                                mockInitContext);
+                if (fatal) {
+                    BigQueryConnectorException error =
+                            assertThrows(
+                                    BigQueryConnectorException.class,
+                                    () -> writer.write(new Object(), null));
+                    assertTrue(error.getCause() instanceof BigQuerySerializationException);
+                    assertTrue(error.getCause().getCause() instanceof RuntimeException);
+                } else {
+                    writer.write(new Object(), null);
+                    assertEquals(0, writer.getProtoRows().getSerializedRowsCount());
+                }
+            }
+        }
     }
 
     @Test
