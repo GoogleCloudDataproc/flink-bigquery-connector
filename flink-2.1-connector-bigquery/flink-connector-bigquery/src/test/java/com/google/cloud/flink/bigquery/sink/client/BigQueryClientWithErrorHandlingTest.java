@@ -22,6 +22,7 @@ import com.google.api.client.http.HttpResponseException;
 import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.Table;
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
@@ -37,6 +38,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -176,10 +178,7 @@ public class BigQueryClientWithErrorHandlingTest {
 
     private static StandardTableDefinition cdcTableDefinition() {
         return StandardTableDefinition.newBuilder()
-                .setSchema(
-                        Schema.of(
-                                com.google.cloud.bigquery.Field.of(
-                                        "shop_id", StandardSQLTypeName.INT64)))
+                .setSchema(Schema.of(Field.of("shop_id", StandardSQLTypeName.INT64)))
                 .build();
     }
 
@@ -192,7 +191,7 @@ public class BigQueryClientWithErrorHandlingTest {
                 null,
                 null,
                 true,
-                java.util.Arrays.asList("shop_id"),
+                Arrays.asList("shop_id"),
                 "INTERVAL 10 MINUTE");
     }
 
@@ -206,10 +205,7 @@ public class BigQueryClientWithErrorHandlingTest {
                         .build();
         StandardTableDefinition tableDefinition =
                 StandardTableDefinition.newBuilder()
-                        .setSchema(
-                                Schema.of(
-                                        com.google.cloud.bigquery.Field.of(
-                                                "shop_id", StandardSQLTypeName.INT64)))
+                        .setSchema(Schema.of(Field.of("shop_id", StandardSQLTypeName.INT64)))
                         .build();
 
         Table table =
@@ -224,7 +220,7 @@ public class BigQueryClientWithErrorHandlingTest {
                                 null,
                                 null,
                                 true,
-                                java.util.Arrays.asList("shop_id"),
+                                Arrays.asList("shop_id"),
                                 "INTERVAL 10 MINUTE"));
 
         assertThat(table.getTableReference().getProjectId()).isEqualTo("project");
