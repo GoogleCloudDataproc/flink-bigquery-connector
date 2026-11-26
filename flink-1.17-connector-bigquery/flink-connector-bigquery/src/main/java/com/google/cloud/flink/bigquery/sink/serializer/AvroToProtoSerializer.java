@@ -60,6 +60,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.UnaryOperator;
@@ -372,11 +373,11 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                     GEOGRAPHY - STRING
                     JSON - STRING
                 */
-                Object convertedValue =
+                Optional<Object> convertedValue =
                         AvroSchemaHandler.handleLogicalTypeSchema(
                                 fieldDescriptor, avroSchema, value);
-                if (convertedValue != value) {
-                    return convertedValue;
+                if (convertedValue.isPresent()) {
+                    return convertedValue.get();
                 }
                 return value.toString();
             case LONG:
@@ -384,12 +385,9 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 convertedValue =
                         AvroSchemaHandler.handleLogicalTypeSchema(
                                 fieldDescriptor, avroSchema, value);
-                if (convertedValue != value) {
-                    return convertedValue;
+                if (convertedValue.isPresent()) {
+                    return convertedValue.get();
                 }
-                // a converter can return the same boxed object, for example convertDate for a
-                // DATE between -128 and 127 days, so match the field's type instead of assuming
-                // that no conversion happened
                 if (fieldDescriptor != null
                         && fieldDescriptor.getJavaType() == FieldDescriptor.JavaType.INT) {
                     return ((Number) value).intValue();
@@ -400,8 +398,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 convertedValue =
                         AvroSchemaHandler.handleLogicalTypeSchema(
                                 fieldDescriptor, avroSchema, value);
-                if (convertedValue != value) {
-                    return convertedValue;
+                if (convertedValue.isPresent()) {
+                    return convertedValue.get();
                 }
                 return ByteString.copyFrom(((ByteBuffer) value).array());
             case ENUM:
@@ -517,10 +515,9 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          * @param fieldDescriptor {@link FieldDescriptor} of the destination field.
          * @param fieldSchema Avro Schema describing the schema for the value.
          * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
-         * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
-         *     value otherwise.
+         * @return Converted value for a supported logical type, or empty otherwise.
          */
-        private static Object handleLogicalTypeSchema(
+        private static Optional<Object> handleLogicalTypeSchema(
                 FieldDescriptor fieldDescriptor, Schema fieldSchema, Object value) {
             String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
             if (logicalTypeString != null) {
@@ -530,11 +527,10 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                         getLogicalEncoder(fieldDescriptor, fieldSchema, logicalTypeString);
                 // 2. Check if this is supported, Return the value
                 if (encoder != null) {
-                    return encoder.apply(value);
+                    return Optional.of(encoder.apply(value));
                 }
             }
-            // Otherwise, return the value as it is.
-            return value;
+            return Optional.empty();
         }
 
         /**
