@@ -30,6 +30,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
@@ -1418,6 +1419,77 @@ public class RowDataToProtoSerializerTest {
 
         Assertions.assertThat(exceptionForNullInArray)
                 .hasMessageContaining("ARRAY of type NULL is not supported.");
+    }
+
+    @Test
+    public void testTimeAtLowPrecisionsUsesIntegerMillis() throws Exception {
+        for (int precision = 0; precision <= 3; precision++) {
+            LogicalType type = DataTypes.TIME(precision).getLogicalType();
+            Descriptors.FieldDescriptor field =
+                    temporalField(FieldDescriptorProto.Type.TYPE_STRING);
+            RowDataToProtoSerializer serializer = new RowDataToProtoSerializer(type);
+            assertEquals(
+                    "01:00:00",
+                    serializer.toProtoValue(type, 0, GenericRowData.of(3600000), field));
+            BinaryRowData binary = new BinaryRowData(1);
+            BinaryRowWriter writer = new BinaryRowWriter(binary);
+            writer.writeInt(0, 3600000);
+            writer.complete();
+            assertEquals("01:00:00", serializer.toProtoValue(type, 0, binary, field));
+        }
+    }
+
+    @Test
+    public void testTimestampUsesDeclaredPrecision() throws Exception {
+        for (int precision : new int[] {0, 1, 2, 3, 6, 9}) {
+            for (DataType dataType :
+                    new DataType[] {
+                        DataTypes.TIMESTAMP(precision), DataTypes.TIMESTAMP_LTZ(precision)
+                    }) {
+                LogicalType type = dataType.getLogicalType();
+                Descriptors.FieldDescriptor field =
+                        temporalField(
+                                type.getTypeRoot() == LogicalTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE
+                                        ? FieldDescriptorProto.Type.TYPE_INT64
+                                        : FieldDescriptorProto.Type.TYPE_STRING);
+                RowDataToProtoSerializer serializer = new RowDataToProtoSerializer(type);
+                TimestampData value = TimestampData.fromEpochMillis(3600000);
+                Object expected =
+                        type.getTypeRoot() == LogicalTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE
+                                ? 3600000000L
+                                : "1970-01-01T01:00:00.000000";
+                assertEquals(
+                        expected,
+                        serializer.toProtoValue(type, 0, GenericRowData.of(value), field));
+                BinaryRowData binary = new BinaryRowData(1);
+                BinaryRowWriter writer = new BinaryRowWriter(binary);
+                writer.writeTimestamp(0, value, precision);
+                writer.complete();
+                assertEquals(expected, serializer.toProtoValue(type, 0, binary, field));
+            }
+        }
+    }
+
+    private static Descriptors.FieldDescriptor temporalField(FieldDescriptorProto.Type type)
+            throws DescriptorValidationException {
+        DescriptorProto descriptor =
+                DescriptorProto.newBuilder()
+                        .setName("Temporal")
+                        .addField(
+                                FieldDescriptorProto.newBuilder()
+                                        .setName("value")
+                                        .setNumber(1)
+                                        .setType(type)
+                                        .setLabel(FieldDescriptorProto.Label.LABEL_OPTIONAL))
+                        .build();
+        return Descriptors.FileDescriptor.buildFrom(
+                        FileDescriptorProto.newBuilder()
+                                .setName("temporal.proto")
+                                .addMessageType(descriptor)
+                                .build(),
+                        new Descriptors.FileDescriptor[0])
+                .findMessageTypeByName("Temporal")
+                .findFieldByNumber(1);
     }
 
     @Test
