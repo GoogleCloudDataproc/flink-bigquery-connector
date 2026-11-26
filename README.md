@@ -330,6 +330,25 @@ Check out BigQuery SQL's [DDL](https://cloud.google.com/bigquery/docs/reference/
 
 ### Sink Details [MUST READ]
 
+* **CDC sequence ordering.** Enable change data capture (CDC) with `enableCdc(true)` in the DataStream
+  sink configuration or `write.cdc-enabled = true` in SQL. Select the sequence field with
+  `cdcSequenceField("field_name")` or `write.cdc-sequence-field`.
+  * The Avro serializer in both Flink versions accepts `Long`, `Integer`, `java.time.Instant`, and
+    `org.joda.time.ReadableInstant` (including `org.joda.time.Instant`). It also accepts numeric strings
+    and other values whose `toString()` result can be parsed as a signed 64-bit integer by `Long.parseLong`.
+  * The Flink 2.1 `RowData` serializer accepts `BIGINT`, `INT`, `TIMESTAMP`, and `TIMESTAMP_LTZ` sequence
+    fields. Cast `TINYINT` and `SMALLINT` sequence fields to `INT` or `BIGINT` first. The Flink 1.17
+    `RowData` serializer does not implement CDC sequence extraction.
+  * The connector converts the value to a Java `long` and writes `_change_sequence_number` as
+    16 uppercase hexadecimal digits, padded with zeros (`%016X`). Instant and timestamp values use
+    epoch milliseconds, even when the input has finer precision. Two changes to the same primary key
+    within one millisecond therefore receive equal sequence numbers when ordered by these timestamps.
+  * Values must be non-negative for sequence ordering to match numeric ordering. Negative values are
+    not rejected: for example, `-1` becomes `FFFFFFFFFFFFFFFF` and sorts above all non-negative values
+    in BigQuery's hexadecimal sequence ordering.
+  * If changes need finer ordering, provide a monotone non-negative numeric sequence field that
+    increases for each change to the same primary key. The connector does not generate that sequence.
+    An unset sequence field or a null field value leaves `_change_sequence_number` unset.
 * BigQuery sinks require that checkpoint is enabled.
 * The maximum parallelism of BigQuery sinks has been capped at **512** for multi-regions US or EU, and **128** for the rest.
   This is to respect BigQuery storage [write quotas](https://cloud.google.com/bigquery/quotas#write-api-limits) while keeping
@@ -596,6 +615,15 @@ BigQuery datatypes are transformed to Avro’s `GenericRecord` as follows:
 | `DATETIME`         | `STRING`                |
 | `TIME`             | `STRING`, `LONG`        |
 | `JSON`             | `STRING`                |
+
+**Writing Flink `TIME` values to BigQuery:** The `RowData` sink in both Flink versions reads `TIME(3)`
+as an `int` of milliseconds since midnight. For `TIME(4)` through `TIME(6)`, it expects a `Long` of
+microseconds since midnight. This matches this connector's own source conversion, but differs from
+Flink's standard internal `TIME` representation, which uses an `int` of milliseconds. Standard Flink
+`TIME(4..6)` values from other sources cannot be passed directly to this sink with the same precision;
+the input must use the connector's `Long` microsecond convention, or use `TIME(3)` and accept millisecond
+precision. The current sink also uses the `Long` microsecond path for `TIME(0)` through `TIME(2)`;
+use `TIME(3)` for standard Flink millisecond values.
 
 ### Relevant Files
 
