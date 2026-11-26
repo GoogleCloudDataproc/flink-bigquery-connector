@@ -135,6 +135,8 @@ public final class ProjectedAvroReader {
         }
 
         private Schema project() {
+            // check every path first, including sub-paths of a field that is also selected whole
+            validate(writerSchema, "", paths);
             collectNames(writerSchema, writerNames, newIdentitySet());
             // a whole selected field keeps the writer's records under their own names, so a
             // projected subset of one of them must take another name
@@ -188,42 +190,19 @@ public final class ProjectedAvroReader {
         }
 
         private Schema projectRecord(Schema schema, String prefix, Set<String> paths) {
-            Set<String> unmatched = new TreeSet<>(paths);
             List<Schema.Field> fields = new ArrayList<>();
             for (Schema.Field field : schema.getFields()) {
                 String name = lowerCase(field.name());
-                String childPrefix = name + ".";
                 if (paths.contains(name)) {
-                    unmatched.remove(name);
-                    unmatched.removeIf(path -> path.startsWith(childPrefix));
                     fields.add(new Schema.Field(field, field.schema()));
                     continue;
                 }
                 Set<String> children = children(name, paths);
-                if (children.isEmpty()) {
-                    continue;
+                if (!children.isEmpty()) {
+                    fields.add(
+                            new Schema.Field(
+                                    field, project(field.schema(), prefix + name + ".", children)));
                 }
-                unmatched.removeIf(path -> path.startsWith(childPrefix));
-                if (!containsRecord(field.schema())) {
-                    throw new IllegalArgumentException(
-                            String.format(
-                                    "The projected column path '%s%s%s' selects a field inside"
-                                            + " '%s%s', which is not a record.",
-                                    prefix, childPrefix, children.iterator().next(), prefix, name));
-                }
-                fields.add(
-                        new Schema.Field(
-                                field, project(field.schema(), prefix + childPrefix, children)));
-            }
-            if (!unmatched.isEmpty()) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "The projected column paths %s do not match any field of the"
-                                        + " Avro record '%s'.",
-                                unmatched.stream()
-                                        .map(path -> prefix + path)
-                                        .collect(Collectors.toList()),
-                                schema.getFullName()));
             }
             boolean unchanged = fields.equals(schema.getFields());
             if (unchanged && !projectedNames.contains(schema.getFullName())) {
@@ -270,6 +249,58 @@ public final class ProjectedAvroReader {
                 if (!writerNames.contains(fullName) && projectedNames.add(fullName)) {
                     return name;
                 }
+            }
+        }
+
+        private static void validate(Schema schema, String prefix, Set<String> paths) {
+            switch (schema.getType()) {
+                case UNION:
+                    for (Schema branch : schema.getTypes()) {
+                        if (containsRecord(branch)) {
+                            validate(branch, prefix, paths);
+                        }
+                    }
+                    return;
+                case ARRAY:
+                    validate(schema.getElementType(), prefix, paths);
+                    return;
+                case RECORD:
+                    Set<String> unmatched = new TreeSet<>(paths);
+                    for (Schema.Field field : schema.getFields()) {
+                        String name = lowerCase(field.name());
+                        unmatched.remove(name);
+                        Set<String> children = children(name, paths);
+                        if (children.isEmpty()) {
+                            continue;
+                        }
+                        unmatched.removeIf(path -> path.startsWith(name + "."));
+                        if (!containsRecord(field.schema())) {
+                            throw new IllegalArgumentException(
+                                    String.format(
+                                            "The projected column path '%s%s.%s' selects a field"
+                                                    + " inside '%s%s', which is not a record.",
+                                            prefix,
+                                            name,
+                                            children.iterator().next(),
+                                            prefix,
+                                            name));
+                        }
+                        validate(field.schema(), prefix + name + ".", children);
+                    }
+                    if (!unmatched.isEmpty()) {
+                        throw new IllegalArgumentException(
+                                String.format(
+                                        "The projected column paths %s do not match any field of"
+                                                + " the Avro record '%s'.",
+                                        unmatched.stream()
+                                                .map(path -> prefix + path)
+                                                .collect(Collectors.toList()),
+                                        schema.getFullName()));
+                    }
+                    return;
+                default:
+                    // callers reach other types only through containsRecord checks
+                    return;
             }
         }
 

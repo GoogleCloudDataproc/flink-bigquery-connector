@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 /** */
 public class BigQuerySourceSplitReaderTest {
@@ -274,13 +275,125 @@ public class BigQuerySourceSplitReaderTest {
         return new BigQuerySourceReaderContext(Mockito.mock(SourceReaderContext.class), limit);
     }
 
+    @Test
+    public void testProjectedFetchFailsOnAnInvalidColumnPath() throws Exception {
+        ListStream stream = new ListStream(Collections.singletonList(dataResponse(records(300))));
+        BigQuerySourceSplitReader reader =
+                projectedReader(context(-1), stream, Arrays.asList("name", "missing"));
+        try {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Collections.singletonList(new BigQuerySourceSplit("stream1", 0L))));
+            IllegalArgumentException error =
+                    assertThrows(IllegalArgumentException.class, reader::fetch);
+            assertThat(error).hasMessageThat().contains("[missing]");
+            assertThat(stream.cancels).isEqualTo(1);
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testProjectedFetchFinishesWhenCancellingTheStreamFails() throws Exception {
+        ListStream stream =
+                new ListStream(Collections.singletonList(dataResponse(records(300))), -1, true);
+        BigQuerySourceSplitReader reader = projectedReader(context(10), stream);
+        try {
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Collections.singletonList(new BigQuerySourceSplit("stream1", 0L))));
+            RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+            int read = 0;
+            while (batch.nextSplit() != null) {
+                while (batch.nextRecordFromSplit() != null) {
+                    read++;
+                }
+            }
+            assertThat(read).isEqualTo(10);
+            assertThat(batch.finishedSplits()).containsExactly("stream1");
+            assertThat(stream.cancels).isEqualTo(1);
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testProjectedFetchRetriesAMidResponseFailureOfARestoredSplit() throws Exception {
+        List<GenericRecord> records = records(300);
+        BigQuerySourceReaderContext context = context(200);
+        BigQuerySourceSplitReader reader =
+                projectedReader(context, new ListStream(Collections.emptyList()));
+        List<Long> offsets = new ArrayList<>();
+        List<ListStream> streams = new ArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            long offset = reader.offsetToFetch(invocation.getArgument(0));
+                            offsets.add(offset);
+                            List<ReadRowsResponse> responses = new ArrayList<>();
+                            for (int start = (int) offset; start < records.size(); start += 100) {
+                                responses.add(
+                                        dataResponse(
+                                                records.subList(
+                                                        start,
+                                                        Math.min(start + 100, records.size()))));
+                            }
+                            // the first stream fails when asked for its second response
+                            ListStream stream =
+                                    new ListStream(responses, streams.isEmpty() ? 1 : -1, false);
+                            streams.add(stream);
+                            return stream;
+                        })
+                .when(reader)
+                .retrieveReadStream(Mockito.any());
+        try {
+            // restored at offset 50, with a limit of 200 rows
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Collections.singletonList(new BigQuerySourceSplit("stream1", 50L))));
+            List<String> names = new ArrayList<>();
+            int finished = 0;
+            for (int fetch = 0; fetch < 20 && finished == 0; fetch++) {
+                RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+                while (batch.nextSplit() != null) {
+                    GenericRecord record;
+                    while ((record = batch.nextRecordFromSplit()) != null) {
+                        names.add(record.get("name").toString());
+                    }
+                }
+                finished += batch.finishedSplits().size();
+                batch.recycle();
+            }
+            assertThat(finished).isEqualTo(1);
+            // the failed fetch emits nothing, and the retry reopens at the restored offset
+            assertThat(offsets).containsExactly(50L, 50L).inOrder();
+            assertThat(names)
+                    .containsExactlyElementsIn(
+                            records.subList(50, 200).stream()
+                                    .map(record -> record.get("name").toString())
+                                    .collect(Collectors.toList()))
+                    .inOrder();
+            assertThat(context.currentReadCount()).isEqualTo(200L);
+            assertThat(streams).hasSize(2);
+            assertThat(streams.get(0).cancels).isEqualTo(1);
+            assertThat(streams.get(1).cancels).isEqualTo(1);
+        } finally {
+            reader.close();
+        }
+    }
+
     private static BigQuerySourceSplitReader projectedReader(
             BigQuerySourceReaderContext context, ListStream stream) throws IOException {
+        return projectedReader(context, stream, Arrays.asList("name"));
+    }
+
+    private static BigQuerySourceSplitReader projectedReader(
+            BigQuerySourceReaderContext context, ListStream stream, List<String> columns)
+            throws IOException {
         BigQueryReadOptions options =
                 StorageClientFaker.createReadOptions(
                                 300, 1, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING)
                         .toBuilder()
-                        .setColumnNames(Arrays.asList("name"))
+                        .setColumnNames(columns)
                         .setAvroProjectedBatchSize(137)
                         .build();
         BigQuerySourceSplitReader reader =
@@ -303,24 +416,55 @@ public class BigQuerySourceSplitReaderTest {
         return responses.get(0);
     }
 
-    /** Returns the given responses and counts the cancel calls. */
+    /**
+     * Returns the given responses and counts the cancel calls. It can fail when asked for a
+     * response after the first {@code failAfter} ones, and when cancelled.
+     */
     private static class ListStream
             implements BigQueryServices.BigQueryServerStream<ReadRowsResponse> {
         private final List<ReadRowsResponse> responses;
+        private final int failAfter;
+        private final boolean failOnCancel;
         private int cancels = 0;
 
         private ListStream(List<ReadRowsResponse> responses) {
+            this(responses, -1, false);
+        }
+
+        private ListStream(List<ReadRowsResponse> responses, int failAfter, boolean failOnCancel) {
             this.responses = responses;
+            this.failAfter = failAfter;
+            this.failOnCancel = failOnCancel;
         }
 
         @Override
         public Iterator<ReadRowsResponse> iterator() {
-            return responses.iterator();
+            Iterator<ReadRowsResponse> delegate = responses.iterator();
+            return new Iterator<ReadRowsResponse>() {
+                private int returned = 0;
+
+                @Override
+                public boolean hasNext() {
+                    return delegate.hasNext();
+                }
+
+                @Override
+                public ReadRowsResponse next() {
+                    if (returned == failAfter) {
+                        throw new RuntimeException("transient read failure");
+                    }
+                    returned++;
+                    return delegate.next();
+                }
+            };
         }
 
         @Override
         public void cancel() {
             cancels++;
+            if (failOnCancel) {
+                throw new RuntimeException("cancel failure");
+            }
         }
     }
 

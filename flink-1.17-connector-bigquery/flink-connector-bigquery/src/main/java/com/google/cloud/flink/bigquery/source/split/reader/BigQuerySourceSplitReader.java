@@ -316,11 +316,17 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                     Thread.currentThread().interrupt();
                     throw new IOException("Fetch interrupted", ex);
                 }
+                if (readOptions.getAvroProjectedBatchSize() > 0) {
+                    // cancel the stream before its client closes
+                    releaseProjectedStream();
+                }
                 closeClient();
                 // release the iterator just in case
                 readStreamIterator = null;
-                if (readOptions.getAvroProjectedBatchSize() > 0) {
-                    releaseProjectedStream();
+                if (readOptions.getAvroProjectedBatchSize() > 0
+                        && ex instanceof IllegalArgumentException) {
+                    // an invalid column path or a missing schema does not go away on a retry
+                    throw (IllegalArgumentException) ex;
                 }
                 /**
                  * return an empty one, since we may need to re since last set offset (locally or
@@ -445,8 +451,13 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     private void releaseProjectedStream() {
         if (projectedReadStream != null) {
-            projectedReadStream.cancel();
-            projectedReadStream = null;
+            try {
+                projectedReadStream.cancel();
+            } catch (Exception e) {
+                LOG.warn("Error cancelling the BigQuery read stream", e);
+            } finally {
+                projectedReadStream = null;
+            }
         }
         readStreamIterator = null;
         if (avroReader != null) {
