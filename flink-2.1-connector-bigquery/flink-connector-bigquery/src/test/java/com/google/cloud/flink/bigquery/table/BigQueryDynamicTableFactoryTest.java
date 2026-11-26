@@ -42,9 +42,12 @@ import org.apache.flink.table.functions.FunctionIdentifier;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo;
+import com.google.cloud.flink.bigquery.services.TablePartitionInfo.PartitionType;
 import com.google.cloud.flink.bigquery.sink.WriteMode;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
@@ -52,6 +55,7 @@ import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
 import org.apache.avro.Schema;
 import org.assertj.core.api.Assertions;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -68,6 +72,12 @@ import static org.junit.Assert.assertNull;
 
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
 public class BigQueryDynamicTableFactoryTest {
+
+    @Before
+    public void setUpTestingServices() {
+        BigQueryDynamicTableFactory.setTestingServices(
+                () -> StorageClientFaker.FakeBigQueryTableServices.getInstance(null, null));
+    }
 
     private static final ResolvedSchema SCHEMA =
             new ResolvedSchema(
@@ -432,6 +442,7 @@ public class BigQueryDynamicTableFactoryTest {
         options.put(BigQueryConnectorOptions.PROJECT.key(), "project");
         options.put(BigQueryConnectorOptions.DATASET.key(), "dataset");
         options.put(BigQueryConnectorOptions.TABLE.key(), "table");
+        options.put(BigQueryConnectorOptions.TEST_MODE.key(), "true");
         return options;
     }
 
@@ -483,7 +494,7 @@ public class BigQueryDynamicTableFactoryTest {
 
     @Test
     public void testApplyPartitionsWithEmptyPartitions() {
-        BigQueryDynamicTableSource source = createSourceWithFakeServices("");
+        BigQueryPartitionedTableSource source = createSourceWithFakeServices("");
 
         source.applyPartitions(Collections.emptyList());
 
@@ -492,7 +503,7 @@ public class BigQueryDynamicTableFactoryTest {
 
     @Test
     public void testApplyPartitionsWithEmptyPartitionsPreservesExistingRestriction() {
-        BigQueryDynamicTableSource source = createSourceWithFakeServices("id > 10");
+        BigQueryPartitionedTableSource source = createSourceWithFakeServices("id > 10");
 
         source.applyPartitions(Collections.emptyList());
 
@@ -501,59 +512,61 @@ public class BigQueryDynamicTableFactoryTest {
 
     @Test
     public void testApplyPartitionsWithNullPartitionValue() {
-        BigQueryDynamicTableSource source = createSourceWithFakeServices("");
+        BigQueryPartitionedTableSource source = createSourceWithFakeServices("");
 
-        source.applyPartitions(Arrays.asList(Collections.singletonMap("ts", null)));
+        source.applyPartitions(Arrays.asList(Collections.singletonMap("p", null)));
 
-        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("(ts IS NULL)");
+        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("(p IS NULL)");
     }
 
     @Test
     public void testApplyPartitionsWithSinglePartition() {
-        BigQueryDynamicTableSource source = createSourceWithFakeServices("");
+        BigQueryPartitionedTableSource source = createSourceWithFakeServices("");
 
-        source.applyPartitions(
-                Arrays.asList(Collections.singletonMap("ts", "2026-01-01 00:00:00")));
+        source.applyPartitions(Arrays.asList(Collections.singletonMap("p", "2026-01-01")));
 
         assertThat(source.getReadOptions().getRowRestriction())
-                .isEqualTo("(ts >= '2026-01-01 00:00:00' AND ts < '2026-01-01 01:00:00')");
+                .isEqualTo("(p >= '2026-01-01' AND p < '2026-01-02')");
     }
 
     @Test
     public void testApplyPartitionsWithExistingRestriction() {
-        BigQueryDynamicTableSource source = createSourceWithFakeServices("id > 10");
+        BigQueryPartitionedTableSource source = createSourceWithFakeServices("id > 10");
 
-        source.applyPartitions(
-                Arrays.asList(Collections.singletonMap("ts", "2026-01-01 00:00:00")));
+        source.applyPartitions(Arrays.asList(Collections.singletonMap("p", "2026-01-01")));
 
         assertThat(source.getReadOptions().getRowRestriction())
-                .isEqualTo(
-                        "id > 10 AND (ts >= '2026-01-01 00:00:00' AND ts < '2026-01-01 01:00:00')");
+                .isEqualTo("id > 10 AND (p >= '2026-01-01' AND p < '2026-01-02')");
     }
 
     @Test
     public void testApplyPartitionsWithMultiplePartitions() {
-        BigQueryDynamicTableSource source = createSourceWithFakeServices("");
+        BigQueryPartitionedTableSource source = createSourceWithFakeServices("");
 
         source.applyPartitions(
                 Arrays.asList(
-                        Collections.singletonMap("ts", "2026-01-01 00:00:00"),
-                        Collections.singletonMap("ts", "2026-01-01 01:00:00")));
+                        Collections.singletonMap("p", "2026-01-01"),
+                        Collections.singletonMap("p", "2026-01-02")));
 
         assertThat(source.getReadOptions().getRowRestriction())
                 .isEqualTo(
-                        "(ts >= '2026-01-01 00:00:00' AND ts < '2026-01-01 01:00:00' OR "
-                                + "ts >= '2026-01-01 01:00:00' AND ts < '2026-01-01 02:00:00')");
+                        "(p >= '2026-01-01' AND p < '2026-01-02' OR "
+                                + "p >= '2026-01-02' AND p < '2026-01-03')");
     }
 
-    /**
-     * Creates a BigQueryDynamicTableSource with fake services that return partition info for column
-     * "ts" with TIMESTAMP type and HOUR partitioning.
-     */
-    private BigQueryDynamicTableSource createSourceWithFakeServices(String initialRowRestriction) {
+    private BigQueryPartitionedTableSource createSourceWithFakeServices(
+            String initialRowRestriction) {
         StorageClientFaker.FakeBigQueryServices.FakeQueryDataClient queryClient =
                 new StorageClientFaker.FakeBigQueryServices.FakeQueryDataClient(
-                        true, null, null, null);
+                        true, null, null, null) {
+                    @Override
+                    public Optional<TablePartitionInfo> retrievePartitionColumnInfo(
+                            String project, String dataset, String table) {
+                        return Optional.of(
+                                new TablePartitionInfo(
+                                        "p", PartitionType.DAY, StandardSQLTypeName.DATE, null));
+                    }
+                };
         BigQueryConnectOptions connectOptions =
                 StorageClientFaker.createConnectOptions(null, null, queryClient);
 
@@ -563,8 +576,11 @@ public class BigQueryDynamicTableFactoryTest {
                         .setRowRestriction(initialRowRestriction)
                         .build();
 
-        DataType dataType = SCHEMA.toPhysicalRowDataType();
-        return new BigQueryDynamicTableSource(readOptions, dataType, null);
+        DataType dataType =
+                DataTypes.ROW(
+                        DataTypes.FIELD("p", DataTypes.DATE()),
+                        DataTypes.FIELD("id", DataTypes.BIGINT()));
+        return new BigQueryPartitionedTableSource(readOptions, dataType, null);
     }
 
     @Test

@@ -201,6 +201,15 @@ public class BigQueryDynamicTableSourceIntegrationTestCase {
     }
 
     @Test
+    public void testReadWithPartitionedByDdlWithoutPartitionPushDown() throws IOException {
+        tEnv.createTable(
+                "bigquery_source", createTestDDl(null).toBuilder().partitionedBy("ts").build());
+        Iterator<Row> collected =
+                tEnv.executeSql("SELECT id FROM bigquery_source LIMIT 1").collect();
+        Assertions.assertThat(CollectionUtil.iteratorToList(collected)).containsExactly(Row.of(0L));
+    }
+
+    @Test
     public void testLimit() throws IOException {
         tEnv.createTable("bigquery_source", createTestDDl(null));
 
