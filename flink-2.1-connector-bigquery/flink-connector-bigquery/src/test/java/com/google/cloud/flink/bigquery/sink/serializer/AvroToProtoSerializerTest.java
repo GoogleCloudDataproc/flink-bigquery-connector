@@ -44,6 +44,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import static com.google.cloud.flink.bigquery.sink.serializer.AvroToProtoSerializer.getDynamicMessageFromGenericRecord;
@@ -56,6 +57,57 @@ import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link AvroToProtoSerializer}. */
 public class AvroToProtoSerializerTest {
+
+    @Test
+    public void testFieldLookupUsesRootLocaleAndPreservesNames() throws Exception {
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            Schema schema =
+                    new Schema.Parser()
+                            .parse(
+                                    "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                                            + "{\"name\":\"Invoice_ID\",\"type\":\"string\"},"
+                                            + "{\"name\":\"plain_name\",\"type\":\"string\"},"
+                                            + "{\"name\":\"k\",\"type\":\"string\"},"
+                                            + "{\"name\":\"field_2\",\"type\":\"string\"}]}");
+            BigQuerySchemaProvider provider = new BigQuerySchemaProviderImpl(schema);
+            Descriptor descriptor = provider.getDescriptor();
+            GenericRecord record =
+                    new GenericRecordBuilder(schema)
+                            .set("Invoice_ID", "invoice")
+                            .set("plain_name", "plain")
+                            .set("k", "kelvin")
+                            .set("field_2", "digits")
+                            .build();
+            DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+            assertEquals("invoice", message.getField(descriptor.findFieldByName("invoice_id")));
+            assertEquals("plain", message.getField(descriptor.findFieldByName("plain_name")));
+            assertEquals("digits", message.getField(descriptor.findFieldByName("field_2")));
+            for (String name :
+                    Arrays.asList(
+                            "Invoice_ID",
+                            "plain_name",
+                            "field_2",
+                            "lower-hyphen",
+                            "Mixed-Hyphen",
+                            "K",
+                            "İ",
+                            "ǅ",
+                            "😀",
+                            "𐐀")) {
+                assertEquals(
+                        name,
+                        descriptor.findFieldByName(name.toLowerCase(Locale.ROOT)),
+                        AvroToProtoSerializer.findFieldByLowerCaseName(descriptor, name));
+            }
+            assertEquals(
+                    descriptor.findFieldByName("k"),
+                    AvroToProtoSerializer.findFieldByLowerCaseName(descriptor, "K"));
+        } finally {
+            Locale.setDefault(original);
+        }
+    }
 
     // ---------- Test the Helper Functions --------------
 

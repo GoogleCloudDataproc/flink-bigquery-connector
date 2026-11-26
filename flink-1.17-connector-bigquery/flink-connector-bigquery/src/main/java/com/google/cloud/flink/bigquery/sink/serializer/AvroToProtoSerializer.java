@@ -59,6 +59,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -251,15 +252,14 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         // (see BigQuerySchemaProviderImpl.fieldDescriptorFromSchemaField which stores
         // all field names as lowercase). BigQuery column names are case-insensitive.
         for (Schema.Field field : recordSchema.getFields()) {
-            String lowercaseFieldName = field.name().toLowerCase();
-            FieldDescriptor fieldDescriptor = descriptor.findFieldByName(lowercaseFieldName);
+            FieldDescriptor fieldDescriptor = findFieldByLowerCaseName(descriptor, field.name());
             if (fieldDescriptor == null) {
                 // Field not in descriptor, skip. This should not happen normally.
                 LOG.debug(
                         "Field '{}' (lowercase: '{}') not found in descriptor, skipping. "
                                 + "Available descriptor fields: {}",
                         field.name(),
-                        lowercaseFieldName,
+                        field.name().toLowerCase(Locale.ROOT),
                         descriptor.getFields().stream()
                                 .map(FieldDescriptor::getName)
                                 .collect(Collectors.toList()));
@@ -294,6 +294,17 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         return builder.build();
     }
 
+    static FieldDescriptor findFieldByLowerCaseName(Descriptor descriptor, String name) {
+        for (int i = 0; i < name.length(); ) {
+            int codePoint = name.codePointAt(i);
+            if (Character.toLowerCase(codePoint) != codePoint) {
+                return descriptor.findFieldByName(name.toLowerCase(Locale.ROOT));
+            }
+            i += Character.charCount(codePoint);
+        }
+        return descriptor.findFieldByName(name);
+    }
+
     /**
      * Function to convert a Generic Avro Record to Dynamic Message to write using the Storage Write
      * API.
@@ -302,20 +313,6 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
      * @param descriptor {@link Descriptor} describing the schema of the sink table.
      * @return {@link DynamicMessage} Object converted from the Generic Avro Record.
      */
-    /**
-     * Same as {@code descriptor.findFieldByName(name.toLowerCase())}, without building a new string
-     * for names that are already lower case. It runs for every field of every record.
-     */
-    private static FieldDescriptor findFieldByLowerCaseName(Descriptor descriptor, String name) {
-        for (int i = 0; i < name.length(); i++) {
-            char c = name.charAt(i);
-            if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '_') {
-                return descriptor.findFieldByName(name.toLowerCase());
-            }
-        }
-        return descriptor.findFieldByName(name);
-    }
-
     public static DynamicMessage getDynamicMessageFromGenericRecord(
             GenericRecord element, Descriptor descriptor) {
         Schema recordSchema = element.getSchema();

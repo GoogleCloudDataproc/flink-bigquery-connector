@@ -42,6 +42,7 @@ import java.math.BigInteger;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -227,7 +228,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
 
         FieldDescriptorProto.Builder fieldDescriptorBuilder =
                 FieldDescriptorProto.newBuilder()
-                        .setName(field.name().toLowerCase())
+                        .setName(field.name().toLowerCase(Locale.ROOT))
                         .setNumber(fieldNumber);
 
         boolean isNullable = false;
