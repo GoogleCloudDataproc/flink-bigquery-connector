@@ -20,21 +20,73 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 
+import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
+import com.google.protobuf.ByteString;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceSplitReaderTest {
+
+    @Test
+    public void testGenericRecordReaderDecodesResponsesInPlace() throws IOException {
+        String schemaString = StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING;
+        BigQuerySourceSplitReader.GenericRecordReader reader =
+                BigQuerySourceSplitReader.GenericRecordReader.create(
+                        new Schema.Parser().parse(schemaString));
+        List<GenericRecord> retained = new ArrayList<>();
+        List<String> retainedExpected = new ArrayList<>();
+        for (int count : new int[] {50, 1, 0, 75, 2}) {
+            List<GenericRecord> expected =
+                    StorageClientFaker.createRecordList(
+                            new StorageClientFaker.RecordGenerationParams(schemaString, count));
+            byte[] rows =
+                    expected.isEmpty()
+                            ? new byte[0]
+                            : StorageClientFaker.createResponse(schemaString, expected, 0, 1)
+                                    .get(0)
+                                    .getAvroRows()
+                                    .getSerializedBinaryRows()
+                                    .toByteArray();
+            // the rows start inside a larger buffer, as a slice of a bigger response can
+            byte[] padded = new byte[rows.length + 7];
+            System.arraycopy(rows, 0, padded, 7, rows.length);
+            AvroRows avroRows =
+                    AvroRows.newBuilder()
+                            .setSerializedBinaryRows(ByteString.copyFrom(padded).substring(7))
+                            .build();
+            List<String> decoded = new ArrayList<>();
+            List<GenericRecord> responseRecords = reader.processRows(avroRows);
+            retained.addAll(responseRecords);
+            for (GenericRecord record : responseRecords) {
+                decoded.add(record.toString());
+            }
+            List<String> expectedRows = new ArrayList<>();
+            for (GenericRecord record : expected) {
+                expectedRows.add(record.toString());
+            }
+            assertThat(decoded).containsExactlyElementsIn(expectedRows).inOrder();
+            retainedExpected.addAll(expectedRows);
+        }
+        List<String> retainedRows = new ArrayList<>();
+        for (GenericRecord record : retained) {
+            retainedRows.add(record.toString());
+        }
+        assertThat(retainedRows).containsExactlyElementsIn(retainedExpected).inOrder();
+    }
 
     @Test
     public void testSplitReaderSmall() throws IOException {

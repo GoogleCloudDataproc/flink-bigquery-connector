@@ -64,6 +64,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     private Boolean closed = false;
     private Schema avroSchema = null;
+    private GenericRecordReader recordReader = null;
     private Long readSoFar = 0L;
     private Long splitStartFetch;
     private Iterator<ReadRowsResponse> readStreamIterator = null;
@@ -191,6 +192,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             // this will happen only the first time we read from a particular stream
                             avroSchema =
                                     new Schema.Parser().parse(response.getAvroSchema().getSchema());
+                            recordReader = GenericRecordReader.create(avroSchema);
                         } else {
                             throw new IllegalArgumentException(
                                     "Avro schema not initialized and not available in the response.");
@@ -198,8 +200,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                     }
                     Long decodeStart = System.currentTimeMillis();
                     List<GenericRecord> recordList =
-                            GenericRecordReader.create(avroSchema)
-                                    .processRows(response.getAvroRows());
+                            recordReader.processRows(response.getAvroRows());
                     Long decodeTimeMS = System.currentTimeMillis() - decodeStart;
                     LOG.debug(
                             "[subtask #{}][hostname %s] Iteration decoded records in {}ms from stream {}.",
@@ -349,11 +350,12 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
 
     static class GenericRecordReader {
 
-        private final Schema schema;
+        private final DatumReader<GenericRecord> datumReader;
+        private BinaryDecoder decoder;
 
         private GenericRecordReader(Schema schema) {
             Preconditions.checkNotNull(schema, "The provided avro schema reference is null.");
-            this.schema = schema;
+            this.datumReader = new GenericDatumReader<>(schema);
         }
 
         public static GenericRecordReader create(Schema schema) {
@@ -366,10 +368,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
          * @param avroRows object returned from the ReadRowsResponse.
          */
         public List<GenericRecord> processRows(AvroRows avroRows) throws IOException {
-            BinaryDecoder decoder =
+            // read the response bytes in place: toByteArray() would copy the whole response
+            decoder =
                     DecoderFactory.get()
-                            .binaryDecoder(avroRows.getSerializedBinaryRows().toByteArray(), null);
-            DatumReader<GenericRecord> datumReader = new GenericDatumReader<>(schema);
+                            .binaryDecoder(avroRows.getSerializedBinaryRows().newInput(), decoder);
             List<GenericRecord> records = new ArrayList<>();
             GenericRecord row;
             while (!decoder.isEnd()) {
