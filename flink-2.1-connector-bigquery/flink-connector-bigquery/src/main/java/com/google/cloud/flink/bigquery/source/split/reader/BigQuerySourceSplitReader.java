@@ -25,6 +25,8 @@ import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
 import org.apache.flink.util.Preconditions;
 
+import com.google.api.gax.rpc.ApiException;
+import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.AvroRows;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
@@ -45,16 +47,33 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** A split reader for {@link BigQuerySourceSplit}. */
 @Internal
 public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, BigQuerySourceSplit> {
     private static final Logger LOG = LoggerFactory.getLogger(BigQuerySourceSplitReader.class);
+
+    // After this many failed fetches in a row the error goes to Flink, so the job fails over
+    // through its restart strategy instead of retrying the same stream forever.
+    static final int MAX_CONSECUTIVE_FETCH_FAILURES = 10;
+    static final long INITIAL_RETRY_DELAY_MILLIS = 1_000L;
+    static final long MAX_RETRY_DELAY_MILLIS = 30_000L;
+    private static final Set<StatusCode.Code> RETRYABLE_CODES =
+            EnumSet.of(
+                    StatusCode.Code.UNAVAILABLE,
+                    StatusCode.Code.DEADLINE_EXCEEDED,
+                    StatusCode.Code.INTERNAL,
+                    StatusCode.Code.ABORTED,
+                    StatusCode.Code.RESOURCE_EXHAUSTED,
+                    StatusCode.Code.CANCELLED,
+                    StatusCode.Code.UNKNOWN);
 
     private final BigQueryReadOptions readOptions;
     private final BigQuerySourceReaderContext readerContext;
@@ -67,6 +86,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
     private Long readSoFar = 0L;
     private Long splitStartFetch;
     private Iterator<ReadRowsResponse> readStreamIterator = null;
+    private int consecutiveFetchFailures = 0;
 
     public BigQuerySourceSplitReader(
             BigQueryReadOptions readOptions, BigQuerySourceReaderContext readerContext) {
@@ -237,6 +257,7 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 }
             }
             readSoFar += read;
+            consecutiveFetchFailures = 0;
             // check if we finished to read the stream to finalize the split
             if (!truncated) {
                 readerContext.updateReadCount(readSoFar);
@@ -281,12 +302,52 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
             closeClient();
             // release the iterator just in case
             readStreamIterator = null;
-            /**
-             * return an empty one, since we may need to re since last set offset (locally or from
-             * checkpoint)
-             */
+            consecutiveFetchFailures++;
+            if (!isRetryable(ex)) {
+                throw new IOException(
+                        String.format(
+                                "[subtask #%d] Reading stream %s failed with an error that a"
+                                        + " retry cannot fix.",
+                                readerContext.getIndexOfSubtask(), assignedSplit.getStreamName()),
+                        ex);
+            }
+            if (consecutiveFetchFailures >= MAX_CONSECUTIVE_FETCH_FAILURES) {
+                throw new IOException(
+                        String.format(
+                                "[subtask #%d] Reading stream %s failed %d times in a row.",
+                                readerContext.getIndexOfSubtask(),
+                                assignedSplit.getStreamName(),
+                                consecutiveFetchFailures),
+                        ex);
+            }
+            try {
+                backOff(retryDelayMillis(consecutiveFetchFailures));
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Fetch interrupted", interrupted);
+            }
             return new RecordsBySplits.Builder<GenericRecord>().build();
         }
+    }
+
+    static boolean isRetryable(Throwable error) {
+        Throwable current = error;
+        for (int depth = 0; current != null && depth < 20; depth++) {
+            if (current instanceof ApiException) {
+                return RETRYABLE_CODES.contains(((ApiException) current).getStatusCode().getCode());
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    static long retryDelayMillis(int failures) {
+        return Math.min(
+                MAX_RETRY_DELAY_MILLIS, INITIAL_RETRY_DELAY_MILLIS << Math.min(failures - 1, 20));
+    }
+
+    void backOff(long millis) throws InterruptedException {
+        Thread.sleep(millis);
     }
 
     @Override
