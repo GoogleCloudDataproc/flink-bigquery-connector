@@ -38,6 +38,43 @@ import static org.junit.Assert.assertTrue;
 public class BigQuerySchemaProviderTest {
 
     @Test
+    public void testNullableUnionWithNullDefault() {
+        Schema schema =
+                getAvroSchemaFromFieldString(
+                        "\"fields\":[{\"name\":\"value\",\"type\":[\"null\",\"long\"],\"default\":null}]");
+        FieldDescriptor field =
+                new BigQuerySchemaProviderImpl(schema).getDescriptor().findFieldByName("value");
+        assertTrue(field.isOptional());
+        assertFalse(field.hasDefaultValue());
+    }
+
+    @Test
+    public void testArrayDefaultsDoNotBecomeElementDefaults() {
+        for (String defaultValue : new String[] {"[]", "[1,2]"}) {
+            Schema schema =
+                    getAvroSchemaFromFieldString(
+                            "\"fields\":[{\"name\":\"value\",\"type\":{\"type\":\"array\",\"items\":\"long\"},\"default\":"
+                                    + defaultValue
+                                    + "}]");
+            FieldDescriptor field =
+                    new BigQuerySchemaProviderImpl(schema).getDescriptor().findFieldByName("value");
+            assertTrue(field.isRepeated());
+            assertFalse(field.hasDefaultValue());
+        }
+    }
+
+    @Test
+    public void testUnionWithNonNullDefault() {
+        Schema schema =
+                getAvroSchemaFromFieldString(
+                        "\"fields\":[{\"name\":\"value\",\"type\":[\"long\",\"null\"],\"default\":7}]");
+        FieldDescriptor field =
+                new BigQuerySchemaProviderImpl(schema).getDescriptor().findFieldByName("value");
+        assertTrue(field.isOptional());
+        assertEquals(7L, field.getDefaultValue());
+    }
+
+    @Test
     public void testKnownSchema() {
         BigQuerySchemaProvider schemaProvider =
                 new BigQuerySchemaProviderImpl(
