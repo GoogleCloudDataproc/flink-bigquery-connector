@@ -144,7 +144,11 @@ public class BigQueryPartitionUtils {
     }
 
     static List<String> partitionIdToDateFormat(
-            List<String> partitions, SimpleDateFormat parseFormat, SimpleDateFormat printFormat) {
+            List<String> partitions,
+            SimpleDateFormat sharedParseFormat,
+            SimpleDateFormat sharedPrintFormat) {
+        SimpleDateFormat parseFormat = (SimpleDateFormat) sharedParseFormat.clone();
+        SimpleDateFormat printFormat = (SimpleDateFormat) sharedPrintFormat.clone();
         return partitions.stream()
                 .map(
                         id -> {
