@@ -2119,4 +2119,82 @@ public class AvroToProtoSerializerTest {
                         .get(0);
         return new TestSchemaProvider(avroSchema, descriptor);
     }
+
+    @Test
+    public void testSmallLogicalNumbersKeepTheirConvertedType() {
+        for (String logicalType :
+                new String[] {
+                    "timestamp-micros",
+                    "timestamp-millis",
+                    "time-micros",
+                    "time-millis",
+                    "local-timestamp-micros",
+                    "local-timestamp-millis"
+                }) {
+            boolean millisTime = logicalType.equals("time-millis");
+            Schema schema =
+                    new Schema.Parser()
+                            .parse(
+                                    "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                                            + "{\"name\":\"value\",\"type\":{\"type\":\""
+                                            + (millisTime ? "int" : "long")
+                                            + "\",\"logicalType\":\""
+                                            + logicalType
+                                            + "\"}}]}");
+            Descriptor descriptor = new BigQuerySchemaProviderImpl(schema).getDescriptor();
+            for (int number = -128; number <= 127; number++) {
+                Object value;
+                if (millisTime) {
+                    value = Integer.valueOf(number);
+                } else {
+                    value = Long.valueOf(number);
+                }
+                GenericRecord record = new GenericData.Record(schema);
+                record.put("value", value);
+                if (logicalType.startsWith("time-") && number < 0) {
+                    assertThrows(
+                            IllegalArgumentException.class,
+                            () -> getDynamicMessageFromGenericRecord(record, descriptor));
+                    continue;
+                }
+                Object expected;
+                if (logicalType.startsWith("timestamp-")) {
+                    expected =
+                            AvroSchemaHandler.convertTimestamp(
+                                    value,
+                                    logicalType.endsWith("micros"),
+                                    "Timestamp(micros/millis)");
+                } else if (logicalType.startsWith("local-")) {
+                    expected =
+                            AvroSchemaHandler.convertDateTime(
+                                    value, logicalType.endsWith("micros"));
+                } else {
+                    expected = AvroSchemaHandler.convertTime(value, logicalType.endsWith("micros"));
+                }
+                DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+                assertEquals(
+                        logicalType + " " + number,
+                        expected,
+                        message.getField(descriptor.findFieldByName("value")));
+            }
+        }
+    }
+
+    @Test
+    public void testDatesNearTheEpochKeepTheirIntegerType() {
+        Schema schema =
+                new Schema.Parser()
+                        .parse(
+                                "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                                        + "{\"name\":\"day\",\"type\":{\"type\":\"int\","
+                                        + "\"logicalType\":\"date\"}}]}");
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(schema).getDescriptor();
+        // values between -128 and 127 are boxed to cached Integer objects
+        for (int day = -128; day <= 128; day++) {
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("day", day);
+            DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+            assertEquals(day, message.getField(descriptor.findFieldByName("day")));
+        }
+    }
 }

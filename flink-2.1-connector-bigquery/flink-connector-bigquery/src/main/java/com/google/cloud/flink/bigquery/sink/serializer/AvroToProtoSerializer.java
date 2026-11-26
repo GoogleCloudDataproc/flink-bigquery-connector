@@ -58,6 +58,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -322,11 +323,11 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                     GEOGRAPHY - STRING
                     JSON - STRING
                 */
-                Object convertedValue =
+                Optional<Object> convertedValue =
                         AvroSchemaHandler.handleLogicalTypeSchema(
                                 fieldDescriptor, avroSchema, value);
-                if (convertedValue != value) {
-                    return convertedValue;
+                if (convertedValue.isPresent()) {
+                    return convertedValue.get();
                 }
                 return value.toString();
             case LONG:
@@ -334,8 +335,12 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 convertedValue =
                         AvroSchemaHandler.handleLogicalTypeSchema(
                                 fieldDescriptor, avroSchema, value);
-                if (convertedValue != value) {
-                    return convertedValue;
+                if (convertedValue.isPresent()) {
+                    return convertedValue.get();
+                }
+                if (fieldDescriptor != null
+                        && fieldDescriptor.getJavaType() == FieldDescriptor.JavaType.INT) {
+                    return ((Number) value).intValue();
                 }
                 return ((Number) value).longValue();
             case BYTES:
@@ -343,8 +348,8 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 convertedValue =
                         AvroSchemaHandler.handleLogicalTypeSchema(
                                 fieldDescriptor, avroSchema, value);
-                if (convertedValue != value) {
-                    return convertedValue;
+                if (convertedValue.isPresent()) {
+                    return convertedValue.get();
                 }
                 return ByteString.copyFrom(((ByteBuffer) value).array());
             case ENUM:
@@ -460,40 +465,39 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
          * @param fieldDescriptor {@link FieldDescriptor} of the destination field.
          * @param fieldSchema Avro Schema describing the schema for the value.
          * @param value Avro Schema Field value to convert to {@link DynamicMessage} value.
-         * @return Converted {@link DynamicMessage} value if a supported logical types exists, param
-         *     value otherwise.
+         * @return Converted value for a supported logical type, or empty otherwise.
          */
-        private static Object handleLogicalTypeSchema(
+        private static Optional<Object> handleLogicalTypeSchema(
                 FieldDescriptor fieldDescriptor, Schema fieldSchema, Object value) {
             String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
             if (logicalTypeString == null) {
-                return value;
+                return Optional.empty();
             }
             switch (logicalTypeString) {
                 case "date":
-                    return convertDate(value);
+                    return Optional.of(convertDate(value));
                 case "decimal":
-                    return convertBigDecimal(value, fieldSchema, fieldDescriptor);
+                    return Optional.of(convertBigDecimal(value, fieldSchema, fieldDescriptor));
                 case "geography_wkt":
-                    return convertGeography(value);
+                    return Optional.of(convertGeography(value));
                 case "Json":
-                    return convertJson(value);
+                    return Optional.of(convertJson(value));
                 case "local-timestamp-micros":
-                    return convertDateTime(value, true);
+                    return Optional.of(convertDateTime(value, true));
                 case "local-timestamp-millis":
-                    return convertDateTime(value, false);
+                    return Optional.of(convertDateTime(value, false));
                 case "time-micros":
-                    return convertTime(value, true);
+                    return Optional.of(convertTime(value, true));
                 case "time-millis":
-                    return convertTime(value, false);
+                    return Optional.of(convertTime(value, false));
                 case "timestamp-micros":
-                    return convertTimestamp(value, true, "Timestamp(micros/millis)");
+                    return Optional.of(convertTimestamp(value, true, "Timestamp(micros/millis)"));
                 case "timestamp-millis":
-                    return convertTimestamp(value, false, "Timestamp(micros/millis)");
+                    return Optional.of(convertTimestamp(value, false, "Timestamp(micros/millis)"));
                 case "uuid":
-                    return convertUUID(value);
+                    return Optional.of(convertUUID(value));
                 default:
-                    return value;
+                    return Optional.empty();
             }
         }
 
