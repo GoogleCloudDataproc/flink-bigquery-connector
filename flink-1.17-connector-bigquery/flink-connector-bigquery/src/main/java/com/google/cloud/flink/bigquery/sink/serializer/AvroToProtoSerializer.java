@@ -21,6 +21,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.Timestamp;
 import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryDatetimeParser;
 import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
@@ -57,12 +58,10 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /** Serializer for converting Avro's {@link GenericRecord} to BigQuery proto. */
@@ -253,15 +252,14 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         // (see BigQuerySchemaProviderImpl.fieldDescriptorFromSchemaField which stores
         // all field names as lowercase). BigQuery column names are case-insensitive.
         for (Schema.Field field : recordSchema.getFields()) {
-            String lowercaseFieldName = field.name().toLowerCase();
-            FieldDescriptor fieldDescriptor = descriptor.findFieldByName(lowercaseFieldName);
+            FieldDescriptor fieldDescriptor = findFieldByLowerCaseName(descriptor, field.name());
             if (fieldDescriptor == null) {
                 // Field not in descriptor, skip. This should not happen normally.
                 LOG.debug(
                         "Field '{}' (lowercase: '{}') not found in descriptor, skipping. "
                                 + "Available descriptor fields: {}",
                         field.name(),
-                        lowercaseFieldName,
+                        field.name().toLowerCase(Locale.ROOT),
                         descriptor.getFields().stream()
                                 .map(FieldDescriptor::getName)
                                 .collect(Collectors.toList()));
@@ -296,6 +294,17 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         return builder.build();
     }
 
+    static FieldDescriptor findFieldByLowerCaseName(Descriptor descriptor, String name) {
+        for (int i = 0; i < name.length(); ) {
+            int codePoint = name.codePointAt(i);
+            if (Character.toLowerCase(codePoint) != codePoint) {
+                return descriptor.findFieldByName(name.toLowerCase(Locale.ROOT));
+            }
+            i += Character.charCount(codePoint);
+        }
+        return descriptor.findFieldByName(name);
+    }
+
     /**
      * Function to convert a Generic Avro Record to Dynamic Message to write using the Storage Write
      * API.
@@ -313,11 +322,10 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             // In case no field descriptor exists for the field, throw an error as we have
             // incompatible schemas.
             FieldDescriptor fieldDescriptor =
-                    Preconditions.checkNotNull(
-                            descriptor.findFieldByName(field.name().toLowerCase()));
+                    Preconditions.checkNotNull(findFieldByLowerCaseName(descriptor, field.name()));
             // Get the value for a field.
             // Check if the value is null.
-            @Nullable Object value = element.get(field.name());
+            @Nullable Object value = element.get(field.pos());
             if (value == null) {
                 // Do nothing in case value == null and fieldDescriptor != "REQUIRED"
                 if (fieldDescriptor.isRequired()) {
@@ -516,56 +524,35 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
         private static Object handleLogicalTypeSchema(
                 FieldDescriptor fieldDescriptor, Schema fieldSchema, Object value) {
             String logicalTypeString = fieldSchema.getProp(LogicalType.LOGICAL_TYPE_PROP);
-            if (logicalTypeString != null) {
-                // 1. In case, the Schema has a Logical Type.
-                @Nullable
-                UnaryOperator<Object> encoder =
-                        getLogicalEncoder(fieldDescriptor, fieldSchema, logicalTypeString);
-                // 2. Check if this is supported, Return the value
-                if (encoder != null) {
-                    return encoder.apply(value);
-                }
+            if (logicalTypeString == null) {
+                return value;
             }
-            // Otherwise, return the value as it is.
-            return value;
-        }
-
-        /**
-         * Function to obtain the Encoder Function responsible for encoding AvroSchemaField to
-         * Dynamic Message.
-         *
-         * @param fieldDescriptor {@link FieldDescriptor} of the destination field.
-         * @param fieldSchema Avro Schema describing the schema for the value.
-         * @param logicalTypeString String containing the name for Logical Schema Type.
-         * @return Encoder Function which converts AvroSchemaField to {@link DynamicMessage}
-         */
-        private static UnaryOperator<Object> getLogicalEncoder(
-                FieldDescriptor fieldDescriptor, Schema fieldSchema, String logicalTypeString) {
-            Map<String, UnaryOperator<Object>> mapping = new HashMap<>();
-            mapping.put(LogicalTypes.date().getName(), AvroSchemaHandler::convertDate);
-            mapping.put(
-                    LogicalTypes.decimal(1).getName(),
-                    value ->
-                            AvroSchemaHandler.convertBigDecimal(
-                                    value, fieldSchema, fieldDescriptor));
-            mapping.put(
-                    LogicalTypes.timestampMicros().getName(),
-                    value -> convertTimestamp(value, true, "Timestamp(micros/millis)"));
-            mapping.put(
-                    LogicalTypes.timestampMillis().getName(),
-                    value -> convertTimestamp(value, false, "Timestamp(micros/millis)"));
-            mapping.put(LogicalTypes.uuid().getName(), AvroSchemaHandler::convertUUID);
-            mapping.put(LogicalTypes.timeMillis().getName(), value -> convertTime(value, false));
-            mapping.put(LogicalTypes.timeMicros().getName(), value -> convertTime(value, true));
-            mapping.put(
-                    LogicalTypes.localTimestampMillis().getName(),
-                    value -> convertDateTime(value, false));
-            mapping.put(
-                    LogicalTypes.localTimestampMicros().getName(),
-                    value -> convertDateTime(value, true));
-            mapping.put("geography_wkt", AvroSchemaHandler::convertGeography);
-            mapping.put("Json", AvroSchemaHandler::convertJson);
-            return mapping.get(logicalTypeString);
+            switch (logicalTypeString) {
+                case "date":
+                    return convertDate(value);
+                case "decimal":
+                    return convertBigDecimal(value, fieldSchema, fieldDescriptor);
+                case "geography_wkt":
+                    return convertGeography(value);
+                case "Json":
+                    return convertJson(value);
+                case "local-timestamp-micros":
+                    return convertDateTime(value, true);
+                case "local-timestamp-millis":
+                    return convertDateTime(value, false);
+                case "time-micros":
+                    return convertTime(value, true);
+                case "time-millis":
+                    return convertTime(value, false);
+                case "timestamp-micros":
+                    return convertTimestamp(value, true, "Timestamp(micros/millis)");
+                case "timestamp-millis":
+                    return convertTimestamp(value, false, "Timestamp(micros/millis)");
+                case "uuid":
+                    return convertUUID(value);
+                default:
+                    return value;
+            }
         }
 
         // ---- Utilities to enable Conversions for Logical Types ------------
@@ -667,18 +654,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 Timestamp convertedTimestamp = Timestamp.ofTimeMicroseconds(convertedTs);
                 // Do not use LocalDateTime.toString() here: it omits the seconds when they are
                 // zero, and BigQuery rejects DATETIME strings without seconds.
-                return LocalDateTime.ofEpochSecond(
+                return BigQueryDatetimeParser.format(
+                        LocalDateTime.ofEpochSecond(
                                 convertedTimestamp.getSeconds(),
                                 convertedTimestamp.getNanos(),
-                                ZoneOffset.UTC)
-                        .format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER);
+                                ZoneOffset.UTC));
             }
-            String obtainedValue;
-            if (value instanceof String) {
-                obtainedValue = (String) value;
-            } else if (value instanceof Utf8) {
-                obtainedValue = ((Utf8) value).toString();
-            } else {
+            if (!(value instanceof String) && !(value instanceof Utf8)) {
                 LOG.error(
                         getLogErrorMessage(
                                 "String/Long/UTF-8",
@@ -693,14 +675,19 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             // according to
             // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#datetime_type.
             try {
-                return LocalDateTime.parse(
-                                obtainedValue, DateTimeFormatterPatterns.DATETIME_FORMATTER)
-                        .format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER);
+                LocalDateTime datetime;
+                if (value instanceof String) {
+                    datetime = BigQueryDatetimeParser.parse((String) value);
+                } else {
+                    Utf8 utf8 = (Utf8) value;
+                    datetime = BigQueryDatetimeParser.parse(utf8.getBytes(), utf8.getByteLength());
+                }
+                return BigQueryDatetimeParser.format(datetime);
             } catch (DateTimeParseException e) {
+                // value may be a Utf8, which a cast to String would turn into a ClassCastException
                 throw new IllegalArgumentException(
                         String.format(
-                                "The datetime string obtained %s, is of invalid format.",
-                                (String) value));
+                                "The datetime string obtained %s, is of invalid format.", value));
             }
         }
 
