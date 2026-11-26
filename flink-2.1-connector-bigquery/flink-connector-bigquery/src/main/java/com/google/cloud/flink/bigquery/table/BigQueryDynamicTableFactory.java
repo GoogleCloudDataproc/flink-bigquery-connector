@@ -221,26 +221,7 @@ public class BigQueryDynamicTableFactory
         }
         boolean exactPartitions =
                 partitionInfo
-                        .map(
-                                info ->
-                                        info.getColumnType() == StandardSQLTypeName.DATE
-                                                && info.getPartitionType() == PartitionType.DAY
-                                                && physicalType
-                                                        .getFieldNames()
-                                                        .contains(info.getColumnName())
-                                                && physicalType
-                                                                .getTypeAt(
-                                                                        physicalType
-                                                                                .getFieldNames()
-                                                                                .indexOf(
-                                                                                        info
-                                                                                                .getColumnName()))
-                                                                .getTypeRoot()
-                                                        == LogicalTypeRoot.DATE
-                                                && (partitionKeys.isEmpty()
-                                                        || partitionKeys.equals(
-                                                                Collections.singletonList(
-                                                                        info.getColumnName()))))
+                        .map(info -> isExactDatePartition(info, physicalType, partitionKeys))
                         .orElse(false);
         if (exactPartitions) {
             return new BigQueryPartitionedTableSource(
@@ -249,6 +230,21 @@ public class BigQueryDynamicTableFactory
                     sourceParallelism);
         }
         return source;
+    }
+
+    private static boolean isExactDatePartition(
+            TablePartitionInfo info, RowType physicalType, List<String> partitionKeys) {
+        if (info.getColumnType() != StandardSQLTypeName.DATE
+                || info.getPartitionType() != PartitionType.DAY) {
+            return false;
+        }
+        int fieldIndex = physicalType.getFieldNames().indexOf(info.getColumnName());
+        if (fieldIndex < 0
+                || physicalType.getTypeAt(fieldIndex).getTypeRoot() != LogicalTypeRoot.DATE) {
+            return false;
+        }
+        return partitionKeys.isEmpty()
+                || partitionKeys.equals(Collections.singletonList(info.getColumnName()));
     }
 
     static void setTestingServices(SerializableSupplier<BigQueryServices> testingServices) {
