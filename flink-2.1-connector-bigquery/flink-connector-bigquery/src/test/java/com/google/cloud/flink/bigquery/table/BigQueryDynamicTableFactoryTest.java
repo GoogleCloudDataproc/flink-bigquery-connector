@@ -353,7 +353,7 @@ public class BigQueryDynamicTableFactoryTest {
 
         assertThat(result.getAcceptedFilters()).containsExactly(translatableFilter);
         assertThat(result.getRemainingFilters()).containsExactly(untranslatableFilter);
-        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("(aaa > 10)");
+        assertThat(source.getReadOptions().getRowRestriction()).isEqualTo("(`aaa` > 10)");
     }
 
     @Test
@@ -374,7 +374,7 @@ public class BigQueryDynamicTableFactoryTest {
                                 createField("aaa", DataTypes.INT().notNull()),
                                 createLiteral(10, DataTypes.INT().notNull()))));
         assertThat(source.getReadOptions().getRowRestriction())
-                .isEqualTo("(aaa = 1 OR aaa = 2) AND ((aaa > 10))");
+                .isEqualTo("(aaa = 1 OR aaa = 2) AND ((`aaa` > 10))");
     }
 
     @Test
@@ -391,7 +391,7 @@ public class BigQueryDynamicTableFactoryTest {
                                 createLiteral(
                                         "x' OR '1'='1 \\ \n", DataTypes.STRING().notNull()))));
         assertThat(source.getReadOptions().getRowRestriction())
-                .isEqualTo("(bbb = 'x\\' OR \\'1\\'=\\'1 \\\\ \\n')");
+                .isEqualTo("(`bbb` = 'x\\' OR \\'1\\'=\\'1 \\\\ \\n')");
     }
 
     @Test

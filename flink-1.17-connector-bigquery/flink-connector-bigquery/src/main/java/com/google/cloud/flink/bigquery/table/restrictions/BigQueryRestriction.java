@@ -133,12 +133,12 @@ public class BigQueryRestriction {
         switch (op) {
             case IS_NULL:
                 return onlyChildAs(call, FieldReferenceExpression.class)
-                        .map(FieldReferenceExpression::getName)
+                        .map(field -> quoteColumn(field.getName()))
                         .map(field -> field + " IS NULL");
 
             case NOT_NULL:
                 return onlyChildAs(call, FieldReferenceExpression.class)
-                        .map(FieldReferenceExpression::getName)
+                        .map(field -> quoteColumn(field.getName()))
                         .map(field -> "NOT " + field + " IS NULL");
 
             case LT:
@@ -194,6 +194,10 @@ public class BigQueryRestriction {
         return Optional.of(expectedChildClass.cast(child));
     }
 
+    private static String quoteColumn(String name) {
+        return "`" + name.replace("\\", "\\\\").replace("`", "\\`") + "`";
+    }
+
     private static Optional<String> convertLike(CallExpression call) {
         List<ResolvedExpression> args = call.getResolvedChildren();
         if (args.size() != 2) {
@@ -204,7 +208,7 @@ public class BigQueryRestriction {
         Expression right = args.get(1);
 
         if (left instanceof FieldReferenceExpression && right instanceof ValueLiteralExpression) {
-            String name = ((FieldReferenceExpression) left).getName();
+            String name = quoteColumn(((FieldReferenceExpression) left).getName());
             return ((ValueLiteralExpression) right)
                     .getValueAs(String.class)
                     .flatMap(
@@ -305,12 +309,12 @@ public class BigQueryRestriction {
         Optional<Object> leftOption = Optional.empty();
         Optional<Object> rightOption = Optional.empty();
         if (left instanceof FieldReferenceExpression && right instanceof ValueLiteralExpression) {
-            leftOption = Optional.of(((FieldReferenceExpression) left).getName());
+            leftOption = Optional.of(quoteColumn(((FieldReferenceExpression) left).getName()));
             rightOption = convertLiteral((ValueLiteralExpression) right);
         } else if (left instanceof ValueLiteralExpression
                 && right instanceof FieldReferenceExpression) {
             leftOption = convertLiteral((ValueLiteralExpression) left);
-            rightOption = Optional.of(((FieldReferenceExpression) right).getName());
+            rightOption = Optional.of(quoteColumn(((FieldReferenceExpression) right).getName()));
         }
 
         if (leftOption.isPresent() && rightOption.isPresent()) {

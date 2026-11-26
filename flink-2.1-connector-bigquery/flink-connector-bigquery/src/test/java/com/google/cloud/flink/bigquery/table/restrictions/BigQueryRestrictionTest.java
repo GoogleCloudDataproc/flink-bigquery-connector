@@ -46,7 +46,7 @@ public class BigQueryRestrictionTest {
                 LocalDateTime.of(2025, 1, 1, 0, 0, 0, 0),
                 DataTypes.TIMESTAMP(6).notNull(),
                 "timestamp_field",
-                "(timestamp_field = '2025-01-01T00:00:00.000000')");
+                "(`timestamp_field` = '2025-01-01T00:00:00.000000')");
     }
 
     @Test
@@ -55,7 +55,7 @@ public class BigQueryRestrictionTest {
                 LocalDateTime.of(2025, 1, 1, 15, 30, 0, 0),
                 DataTypes.TIMESTAMP(6).notNull(),
                 "timestamp_field",
-                "(timestamp_field = '2025-01-01T15:30:00.000000')");
+                "(`timestamp_field` = '2025-01-01T15:30:00.000000')");
     }
 
     @Test
@@ -64,7 +64,7 @@ public class BigQueryRestrictionTest {
                 Instant.ofEpochMilli(0),
                 DataTypes.TIMESTAMP_LTZ(6).notNull(),
                 "instant_field",
-                "(instant_field = '1970-01-01T00:00:00.000000Z')");
+                "(`instant_field` = '1970-01-01T00:00:00.000000Z')");
     }
 
     @Test
@@ -73,7 +73,7 @@ public class BigQueryRestrictionTest {
                 Instant.parse("2025-01-01T12:30:45.100Z"),
                 DataTypes.TIMESTAMP_LTZ(6).notNull(),
                 "instant_field",
-                "(instant_field = '2025-01-01T12:30:45.100000Z')");
+                "(`instant_field` = '2025-01-01T12:30:45.100000Z')");
     }
 
     @Test
@@ -82,7 +82,7 @@ public class BigQueryRestrictionTest {
                 LocalTime.of(0, 0, 0, 0),
                 DataTypes.TIME(6).notNull(),
                 "time_field",
-                "(time_field = '00:00:00.000000')");
+                "(`time_field` = '00:00:00.000000')");
     }
 
     @Test
@@ -91,7 +91,7 @@ public class BigQueryRestrictionTest {
                 LocalTime.of(15, 30, 0, 0),
                 DataTypes.TIME(6).notNull(),
                 "time_field",
-                "(time_field = '15:30:00.000000')");
+                "(`time_field` = '15:30:00.000000')");
     }
 
     @Test
@@ -100,7 +100,7 @@ public class BigQueryRestrictionTest {
                 LocalTime.of(10, 20, 30, 500_000_000),
                 DataTypes.TIME(6).notNull(),
                 "time_field",
-                "(time_field = '10:20:30.500000')");
+                "(`time_field` = '10:20:30.500000')");
     }
 
     @Test
@@ -109,26 +109,57 @@ public class BigQueryRestrictionTest {
                 LocalDate.of(2025, 1, 1),
                 DataTypes.DATE().notNull(),
                 "date_field",
-                "(date_field = '2025-01-01')");
+                "(`date_field` = '2025-01-01')");
     }
 
     @Test
     public void testLikePrefixPatternIsPushedDown() {
         // A pure "starts with" pattern must be pushed down, keeping the trailing '%' so the
         // BigQuery restriction stays equivalent to the original prefix match.
-        assertLikeConversion("name", "foo%", Optional.of("name LIKE 'foo%'"));
+        assertLikeConversion("name", "foo%", Optional.of("`name` LIKE 'foo%'"));
     }
 
     @Test
     public void testLikePrefixIsEscaped() {
-        assertLikeConversion("name", "it's%", Optional.of("name LIKE 'it\\'s%'"));
+        assertLikeConversion("name", "it's%", Optional.of("`name` LIKE 'it\\'s%'"));
         // a backslash is escaped for LIKE first, then for the string literal
-        assertLikeConversion("name", "a\\b%", Optional.of("name LIKE 'a\\\\\\\\b%'"));
+        assertLikeConversion("name", "a\\b%", Optional.of("`name` LIKE 'a\\\\\\\\b%'"));
+    }
+
+    @Test
+    public void testLikeBackslashPrefixIsLiteral() {
+        assertLikeConversion("name", "a\\%", Optional.of("`name` LIKE 'a\\\\\\\\%'"));
+    }
+
+    @Test
+    public void testLikeWithExplicitEscapeIsNotPushedDown() {
+        assertThat(
+                        BigQueryRestriction.convert(
+                                createCallExpression(
+                                        "like",
+                                        BuiltInFunctionDefinitions.LIKE,
+                                        DataTypes.BOOLEAN(),
+                                        createField("name", DataTypes.STRING()),
+                                        createLiteral("a\\%", DataTypes.STRING().notNull()),
+                                        createLiteral("\\", DataTypes.STRING().notNull()))))
+                .isEmpty();
+    }
+
+    @Test
+    public void testQuotedColumnNames() {
+        for (String name : Arrays.asList("set", "hash", "struct", "a.b", "a b", "a`b", "a\\b")) {
+            String quoted = "`" + name.replace("\\", "\\\\").replace("`", "\\`") + "`";
+            assertTemporalConversion(
+                    LocalDate.of(2025, 1, 1),
+                    DataTypes.DATE().notNull(),
+                    name,
+                    "(" + quoted + " = '2025-01-01')");
+        }
     }
 
     @Test
     public void testLikePrefixPatternWithSpacesIsPushedDown() {
-        assertLikeConversion("name", "foo bar%", Optional.of("name LIKE 'foo bar%'"));
+        assertLikeConversion("name", "foo bar%", Optional.of("`name` LIKE 'foo bar%'"));
     }
 
     @Test
@@ -184,7 +215,7 @@ public class BigQueryRestrictionTest {
         Optional<String> result =
                 BigQueryRestriction.convert(createLikeCallExpression(field, literal));
 
-        assertThat(result).hasValue("address.city LIKE 'Tor%'");
+        assertThat(result).hasValue("`address`.`city` LIKE 'Tor%'");
     }
 
     @Test
@@ -198,7 +229,7 @@ public class BigQueryRestrictionTest {
         Optional<String> result =
                 BigQueryRestriction.convert(createEqualsCallExpression(field, literal));
 
-        assertThat(result).hasValue("(address.city = 'Toronto')");
+        assertThat(result).hasValue("(`address`.`city` = 'Toronto')");
     }
 
     @Test
@@ -211,7 +242,7 @@ public class BigQueryRestrictionTest {
         Optional<String> result =
                 BigQueryRestriction.convert(createEqualsCallExpression(literal, field));
 
-        assertThat(result).hasValue("('Toronto' = address.city)");
+        assertThat(result).hasValue("('Toronto' = `address`.`city`)");
     }
 
     @Test
@@ -228,7 +259,7 @@ public class BigQueryRestrictionTest {
                                 DataTypes.BOOLEAN(),
                                 field));
 
-        assertThat(result).hasValue("address.city IS NULL");
+        assertThat(result).hasValue("`address`.`city` IS NULL");
     }
 
     @Test
@@ -245,7 +276,7 @@ public class BigQueryRestrictionTest {
                                 DataTypes.BOOLEAN(),
                                 field));
 
-        assertThat(result).hasValue("NOT address.city IS NULL");
+        assertThat(result).hasValue("NOT `address`.`city` IS NULL");
     }
 
     @Test
@@ -258,7 +289,7 @@ public class BigQueryRestrictionTest {
         Optional<String> result =
                 BigQueryRestriction.convert(createGreaterThanCallExpression(field, literal));
 
-        assertThat(result).hasValue("(address.zip > 10000)");
+        assertThat(result).hasValue("(`address`.`zip` > 10000)");
     }
 
     @Test
@@ -279,7 +310,8 @@ public class BigQueryRestrictionTest {
                                 createGreaterThanCallExpression(
                                         zip, createLiteral(10000, DataTypes.INT().notNull()))));
 
-        assertThat(result).hasValue("((address.city = 'Toronto') AND (address.zip > 10000))");
+        assertThat(result)
+                .hasValue("((`address`.`city` = 'Toronto') AND (`address`.`zip` > 10000))");
     }
 
     @Test
@@ -301,7 +333,8 @@ public class BigQueryRestrictionTest {
                                         country,
                                         createLiteral("CA", DataTypes.STRING().notNull()))));
 
-        assertThat(result).hasValue("((address.city = 'Toronto') OR (address.country = 'CA'))");
+        assertThat(result)
+                .hasValue("((`address`.`city` = 'Toronto') OR (`address`.`country` = 'CA'))");
     }
 
     @Test
@@ -316,7 +349,7 @@ public class BigQueryRestrictionTest {
         Optional<String> result =
                 BigQueryRestriction.convert(createEqualsCallExpression(field, literal));
 
-        assertThat(result).hasValue("(customer.address.city = 'Toronto')");
+        assertThat(result).hasValue("(`customer`.`address`.`city` = 'Toronto')");
     }
 
     @Test
@@ -335,7 +368,7 @@ public class BigQueryRestrictionTest {
                                 DataTypes.BOOLEAN(),
                                 equalsCall));
 
-        assertThat(result).hasValue("NOT (address.city = 'Toronto')");
+        assertThat(result).hasValue("NOT (`address`.`city` = 'Toronto')");
     }
 
     @Test
@@ -346,7 +379,7 @@ public class BigQueryRestrictionTest {
         Optional<String> result =
                 BigQueryRestriction.convert(createEqualsCallExpression(field, literal));
 
-        assertThat(result).hasValue("(city = 'Toronto')");
+        assertThat(result).hasValue("(`city` = 'Toronto')");
     }
 
     @Test
@@ -361,7 +394,7 @@ public class BigQueryRestrictionTest {
                                 DataTypes.BOOLEAN(),
                                 field));
 
-        assertThat(result).hasValue("city IS NULL");
+        assertThat(result).hasValue("`city` IS NULL");
     }
 
     private void assertLikeConversion(String fieldName, String pattern, Optional<String> expected) {
