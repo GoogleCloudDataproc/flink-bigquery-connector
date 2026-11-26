@@ -87,12 +87,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
     }
 
     Long offsetToFetch(BigQuerySourceSplit split) {
-        // honor what is coming as checkpointed
-        if (split.getOffset() > 0) {
+        // a new or restored split starts at its checkpointed offset; when the stream is reopened
+        // after an error, keep the rows this reader already emitted instead of going back
+        if (readSoFar == 0) {
             readSoFar = split.getOffset();
-            splitStartFetch = System.currentTimeMillis();
-        } else if (readSoFar == 0) {
-            // will start reading the stream from the beginning
             splitStartFetch = System.currentTimeMillis();
         }
         LOG.debug(

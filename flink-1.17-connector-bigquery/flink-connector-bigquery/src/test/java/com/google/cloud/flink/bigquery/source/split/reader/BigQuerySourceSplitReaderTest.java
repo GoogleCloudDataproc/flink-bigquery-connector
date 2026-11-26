@@ -20,7 +20,9 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
@@ -29,12 +31,105 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 import static com.google.common.truth.Truth.assertThat;
 
 /** */
 public class BigQuerySourceSplitReaderTest {
+
+    @Test
+    public void testRetryAfterAnErrorKeepsTheRowsAlreadyEmitted() throws Exception {
+        String schema = StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING;
+        List<GenericRecord> records =
+                StorageClientFaker.createRecordList(
+                        new StorageClientFaker.RecordGenerationParams(schema, 300));
+        BigQueryReadOptions options =
+                StorageClientFaker.createReadOptions(300, 1, schema)
+                        .toBuilder()
+                        .setMaxRecordsPerSplitFetch(100)
+                        .build();
+        BigQuerySourceSplitReader reader =
+                Mockito.spy(
+                        new BigQuerySourceSplitReader(
+                                options,
+                                new BigQuerySourceReaderContext(
+                                        Mockito.mock(SourceReaderContext.class), -1)));
+        List<Long> offsets = new ArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            long offset = reader.offsetToFetch(invocation.getArgument(0));
+                            offsets.add(offset);
+                            List<ReadRowsResponse> responses = new ArrayList<>();
+                            for (int start = (int) offset; start < 300; start += 100) {
+                                responses.addAll(
+                                        StorageClientFaker.createResponse(
+                                                schema,
+                                                records.subList(start, Math.min(start + 100, 300)),
+                                                0,
+                                                1));
+                            }
+                            // the first stream fails when asked for its second response
+                            boolean fail = offsets.size() == 1;
+                            return new BigQueryServices.BigQueryServerStream<ReadRowsResponse>() {
+                                @Override
+                                public Iterator<ReadRowsResponse> iterator() {
+                                    Iterator<ReadRowsResponse> delegate = responses.iterator();
+                                    return new Iterator<ReadRowsResponse>() {
+                                        private int returned = 0;
+
+                                        @Override
+                                        public boolean hasNext() {
+                                            return delegate.hasNext();
+                                        }
+
+                                        @Override
+                                        public ReadRowsResponse next() {
+                                            if (fail && returned == 1) {
+                                                throw new RuntimeException("transient failure");
+                                            }
+                                            returned++;
+                                            return delegate.next();
+                                        }
+                                    };
+                                }
+
+                                @Override
+                                public void cancel() {}
+                            };
+                        })
+                .when(reader)
+                .retrieveReadStream(Mockito.any());
+        try {
+            // restored at offset 50
+            reader.handleSplitsChanges(
+                    new SplitsAddition<>(
+                            Collections.singletonList(new BigQuerySourceSplit("stream1", 50L))));
+            int read = 0;
+            int finished = 0;
+            for (int fetch = 0; fetch < 20 && finished == 0; fetch++) {
+                RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+                while (batch.nextSplit() != null) {
+                    while (batch.nextRecordFromSplit() != null) {
+                        read++;
+                    }
+                }
+                finished += batch.finishedSplits().size();
+                batch.recycle();
+            }
+            assertThat(finished).isEqualTo(1);
+            // the first fetch emits rows 50 to 149, then the stream fails; the retry must start
+            // at 150, not at the restored offset 50, or rows 50 to 149 are emitted twice
+            assertThat(offsets).containsExactly(50L, 150L).inOrder();
+            assertThat(read).isEqualTo(250);
+        } finally {
+            reader.close();
+        }
+    }
 
     @Test
     public void testSplitReaderSmall() throws IOException {
