@@ -554,7 +554,14 @@ public class BigQueryServicesImpl implements BigQueryServices {
 
             try {
                 Job job = materializedBigQuery.create(jobInfo.build());
-                job.waitFor();
+                Job completedJob = job.waitFor();
+                if (completedJob == null) {
+                    throw new IllegalStateException("Materialization job no longer exists");
+                }
+                if (completedJob.getStatus().getError() != null) {
+                    throw new IllegalStateException(
+                            "Materialization job failed: " + completedJob.getStatus().getError());
+                }
 
                 // Set expiration time for the temp table using the correct billing context
                 com.google.cloud.bigquery.Table createdTable =

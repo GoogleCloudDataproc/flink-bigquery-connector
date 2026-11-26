@@ -17,14 +17,17 @@
 package com.google.cloud.flink.bigquery.services;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobConfiguration;
 import com.google.cloud.bigquery.JobId;
 import com.google.cloud.bigquery.JobInfo;
+import com.google.cloud.bigquery.JobStatus;
 import com.google.cloud.bigquery.LoadJobConfiguration;
 import com.google.cloud.bigquery.QueryJobConfiguration;
+import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -32,14 +35,17 @@ import org.objenesis.ObjenesisStd;
 
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -141,6 +147,63 @@ public class BigQueryServicesImplTest {
         ArgumentCaptor<JobInfo> jobInfoCaptor = ArgumentCaptor.forClass(JobInfo.class);
         verify(bq).create(jobInfoCaptor.capture());
         assertNull(jobInfoCaptor.getValue().getJobId());
+    }
+
+    @Test
+    public void materializeViewReportsCompletedJobError() throws Exception {
+        BigQuery bq = mock(BigQuery.class);
+        Job submitted = mock(Job.class);
+        Job completed = mock(Job.class);
+        JobStatus status = mock(JobStatus.class);
+        when(bq.create(any(JobInfo.class))).thenReturn(submitted);
+        when(submitted.waitFor()).thenReturn(completed);
+        when(completed.getStatus()).thenReturn(status);
+        when(status.getError()).thenReturn(new BigQueryError("invalidQuery", null, "bad view SQL"));
+
+        RuntimeException failure = assertThrows(RuntimeException.class, () -> materialize(bq));
+
+        assertTrue(failure.getCause().getMessage().contains("bad view SQL"));
+        verify(bq, never()).getTable(any(TableId.class));
+    }
+
+    @Test
+    public void materializeViewReportsMissingJob() throws Exception {
+        BigQuery bq = mock(BigQuery.class);
+        Job submitted = mock(Job.class);
+        when(bq.create(any(JobInfo.class))).thenReturn(submitted);
+        when(submitted.waitFor()).thenReturn(null);
+
+        RuntimeException failure = assertThrows(RuntimeException.class, () -> materialize(bq));
+
+        assertTrue(failure.getCause().getMessage().contains("no longer exists"));
+        verify(bq, never()).getTable(any(TableId.class));
+    }
+
+    @Test
+    public void materializeViewUpdatesExpirationAfterSuccessfulJob() throws Exception {
+        BigQuery bq = mock(BigQuery.class);
+        Job submitted = mock(Job.class);
+        Job completed = mock(Job.class);
+        when(bq.create(any(JobInfo.class))).thenReturn(submitted);
+        when(submitted.waitFor()).thenReturn(completed);
+        when(completed.getStatus()).thenReturn(mock(JobStatus.class));
+        Table table = mock(Table.class);
+        when(bq.getTable(any(TableId.class))).thenReturn(table);
+        when(table.getCreationTime()).thenReturn(1000L);
+        Table.Builder builder = mock(Table.Builder.class);
+        when(table.toBuilder()).thenReturn(builder);
+        when(builder.setExpirationTime(1000L + TimeUnit.HOURS.toMillis(24))).thenReturn(builder);
+        when(builder.build()).thenReturn(table);
+
+        assertNotNull(materialize(bq));
+
+        verify(bq).update(table);
+    }
+
+    private String materialize(BigQuery bq) throws Exception {
+        return newClientWithMockBigQuery(bq)
+                .materializeView(
+                        "p", "d", "v", Collections.emptyList(), null, 24, null, null, null);
     }
 
     @Test
