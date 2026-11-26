@@ -102,6 +102,21 @@ public class BigQueryConnectorOptions {
                                     + "the columns to be included as part of the data retrieved.");
 
     /**
+     * [OPTIONAL, Read Configuration] Integer value enabling projected, incremental Avro decoding,
+     * with at most this many decoded rows per fetch. The decoder skips the fields outside the
+     * projected columns. Values above 10000 log a memory-use warning but are not rejected.<br>
+     * Default: 0 - The existing decoder and fetch behavior are used.
+     */
+    public static final ConfigOption<Integer> AVRO_PROJECTED_BATCH_SIZE =
+            ConfigOptions.key("read.avro.projected-batch-size")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Opt in to projected Avro decoding with at most this many decoded rows"
+                                    + " per fetch. Zero preserves legacy decoding. Values above"
+                                    + " 10000 trigger a memory-use warning but are not rejected.");
+
+    /**
      * [OPTIONAL, Read Configuration] Integer value indicating the maximum number of streams used to
      * read from the underlying source table.<br>
      * Default: 0 - BigQuery decides the optimal amount.

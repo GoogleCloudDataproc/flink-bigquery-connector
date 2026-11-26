@@ -33,6 +33,7 @@ import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushD
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
@@ -129,7 +130,12 @@ public class BigQueryDynamicTableSource
 
         BigQuerySource<RowData> bqSource =
                 BigQuerySource.<RowData>builder()
-                        .setReadOptions(readOptions)
+                        .setReadOptions(
+                                readOptions
+                                        .toBuilder()
+                                        .setAvroDecodePaths(
+                                                avroDecodePaths(fullyQualifiedPaths, rowType))
+                                        .build())
                         .setSourceBoundedness(Boundedness.BOUNDED)
                         .setDeserializationSchema(deserializationSchema)
                         .build();
@@ -184,6 +190,41 @@ public class BigQueryDynamicTableSource
             currentType = rowField.getType();
         }
         return namePath;
+    }
+
+    /**
+     * Paths to the declared leaves of each projected column, through ROW fields and array elements,
+     * so the projected Avro decoder skips the undeclared fields inside arrays that the read session
+     * has to return whole.
+     */
+    @VisibleForTesting
+    static List<String> avroDecodePaths(String[][] columnPaths, RowType producedType) {
+        List<String> paths = new ArrayList<>();
+        for (int i = 0; i < columnPaths.length; i++) {
+            addLeafPaths(String.join(".", columnPaths[i]), producedType.getTypeAt(i), paths);
+        }
+        return paths;
+    }
+
+    private static void addLeafPaths(String path, LogicalType type, List<String> paths) {
+        switch (type.getTypeRoot()) {
+            case ROW:
+                List<RowType.RowField> fields = ((RowType) type).getFields();
+                if (fields.isEmpty()) {
+                    // a ROW without fields declares no leaf, so keep the whole field
+                    paths.add(path);
+                    return;
+                }
+                for (RowType.RowField field : fields) {
+                    addLeafPaths(path + "." + field.getName(), field.getType(), paths);
+                }
+                return;
+            case ARRAY:
+                addLeafPaths(path, ((ArrayType) type).getElementType(), paths);
+                return;
+            default:
+                paths.add(path);
+        }
     }
 
     // Joins Avro field-name paths with "." to query BigQuery

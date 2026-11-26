@@ -18,6 +18,7 @@ package com.google.cloud.flink.bigquery.table;
 
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.TableDescriptor;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.catalog.Column;
 import org.apache.flink.table.catalog.ResolvedSchema;
@@ -36,6 +37,7 @@ import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.functions.FunctionIdentifier;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.util.ExceptionUtils;
 
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.config.CredentialsOptions;
@@ -44,6 +46,7 @@ import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
 import com.google.cloud.flink.bigquery.sink.serializer.RowDataToProtoSerializer;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.table.config.BigQueryConnectorOptions;
+import com.google.cloud.flink.bigquery.table.config.BigQueryReadTableConfig;
 import org.apache.avro.Schema;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
@@ -58,9 +61,71 @@ import java.util.Optional;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
 public class BigQueryDynamicTableFactoryTest {
+
+    @Test
+    public void testProjectedAvroBatchOption() {
+        Map<String, String> properties = getRequiredOptions();
+        BigQueryDynamicTableSource source =
+                (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        assertThat(source.getReadOptions().getAvroProjectedBatchSize()).isEqualTo(0);
+        properties.put(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE.key(), "137");
+        source = (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        assertThat(source.getReadOptions().getAvroProjectedBatchSize()).isEqualTo(137);
+        assertThat(source.copy()).isEqualTo(source);
+    }
+
+    @Test
+    public void testRejectsNegativeProjectedAvroBatchSize() {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE.key(), "-1");
+        Throwable error =
+                assertThrows(
+                        Throwable.class, () -> FactoryMocks.createTableSource(SCHEMA, properties));
+        assertThat(
+                        ExceptionUtils.findThrowableWithMessage(
+                                error, "projected Avro batch size must be zero or positive"))
+                .isPresent();
+    }
+
+    @Test
+    public void testReadTableConfigSetsProjectedAvroBatchSize() {
+        TableDescriptor descriptor = TableDescriptor.forConnector("bigquery").build();
+        BigQueryReadTableConfig.Builder config =
+                BigQueryReadTableConfig.newBuilder()
+                        .project("project")
+                        .dataset("dataset")
+                        .table("table");
+        assertThat(config.build().updateTableDescriptor(descriptor).getOptions())
+                .doesNotContainKey(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE.key());
+        assertThat(
+                        config.avroProjectedBatchSize(137)
+                                .build()
+                                .updateTableDescriptor(descriptor)
+                                .getOptions())
+                .containsEntry(BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE.key(), "137");
+    }
+
+    @Test
+    public void testColumnsProjectionIgnoresSpacesAndBlankEntries() {
+        Map<String, String> properties = getRequiredOptions();
+        properties.put(BigQueryConnectorOptions.COLUMNS_PROJECTION.key(), " aaa, ,bbb ,");
+        BigQueryDynamicTableSource source =
+                (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        assertThat(source.getReadOptions().getColumnNames()).containsExactly("aaa", "bbb");
+
+        // a blank option selects the same columns as no option
+        properties.put(BigQueryConnectorOptions.COLUMNS_PROJECTION.key(), " ");
+        source = (BigQueryDynamicTableSource) FactoryMocks.createTableSource(SCHEMA, properties);
+        BigQueryDynamicTableSource unprojected =
+                (BigQueryDynamicTableSource)
+                        FactoryMocks.createTableSource(SCHEMA, getRequiredOptions());
+        assertThat(source.getReadOptions().getColumnNames())
+                .isEqualTo(unprojected.getReadOptions().getColumnNames());
+    }
 
     private static final ResolvedSchema SCHEMA =
             new ResolvedSchema(
