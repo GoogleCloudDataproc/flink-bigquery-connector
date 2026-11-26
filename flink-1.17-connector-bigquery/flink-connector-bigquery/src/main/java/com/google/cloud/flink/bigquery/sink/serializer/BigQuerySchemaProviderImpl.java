@@ -30,6 +30,7 @@ import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.FileDescriptor;
+import org.apache.avro.JsonProperties;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -335,7 +336,13 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
         Add any nested types obtained to the descriptorProto Builder. */
         DescriptorProto.Builder unionFieldBuilder = DescriptorProto.newBuilder();
         fieldDescriptorFromSchemaField(
-                new Schema.Field(field.name(), elementType, field.doc(), field.defaultVal()),
+                new Schema.Field(
+                        field.name(),
+                        elementType,
+                        field.doc(),
+                        field.defaultVal() == JsonProperties.NULL_VALUE
+                                ? null
+                                : field.defaultVal()),
                 fieldNumber,
                 unionFieldBuilder);
         descriptorProtoBuilder.addAllNestedType(unionFieldBuilder.getNestedTypeList());
@@ -440,7 +447,7 @@ public class BigQuerySchemaProviderImpl implements BigQuerySchemaProvider {
         // Create the descriptor for datatype present in ARRAY type.
         DescriptorProto.Builder arrayFieldBuilder = DescriptorProto.newBuilder();
         fieldDescriptorFromSchemaField(
-                new Schema.Field(field.name(), elementType, field.doc(), field.defaultVal()),
+                new Schema.Field(field.name(), elementType, field.doc(), (Object) null),
                 fieldNumber,
                 arrayFieldBuilder);
 
