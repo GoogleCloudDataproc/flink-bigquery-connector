@@ -26,6 +26,7 @@ import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -44,21 +45,44 @@ public class BigQuerySourceSplitReaderTest {
 
     @Test
     public void testRetryAfterAnErrorKeepsTheRowsAlreadyEmitted() throws Exception {
+        assertRestoredRetry(-1, 250);
+    }
+
+    @Test
+    public void testRestoredSplitFinishesAfterRetryBelowReadLimit() throws Exception {
+        assertRestoredRetry(500, 250);
+    }
+
+    @Test
+    public void testRetryDiscardsUnreturnedRows() throws Exception {
+        assertRestoredRetry(-1, 250, 250);
+    }
+
+    private void assertRestoredRetry(int limit, int expectedCount) throws Exception {
+        assertRestoredRetry(limit, expectedCount, 100);
+    }
+
+    private void assertRestoredRetry(int limit, int expectedCount, int fetchSize) throws Exception {
         String schema = StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING;
         List<GenericRecord> records =
                 StorageClientFaker.createRecordList(
                         new StorageClientFaker.RecordGenerationParams(schema, 300));
+        for (int index = 0; index < records.size(); index++) {
+            GenericRecord record = new GenericData.Record(records.get(index).getSchema());
+            record.put("name", "row-" + index);
+            record.put("number", (long) index);
+            record.put("ts", (long) index);
+            records.set(index, record);
+        }
+        BigQuerySourceReaderContext context =
+                new BigQuerySourceReaderContext(Mockito.mock(SourceReaderContext.class), limit);
         BigQueryReadOptions options =
                 StorageClientFaker.createReadOptions(300, 1, schema)
                         .toBuilder()
-                        .setMaxRecordsPerSplitFetch(100)
+                        .setMaxRecordsPerSplitFetch(fetchSize)
                         .build();
         BigQuerySourceSplitReader reader =
-                Mockito.spy(
-                        new BigQuerySourceSplitReader(
-                                options,
-                                new BigQuerySourceReaderContext(
-                                        Mockito.mock(SourceReaderContext.class), -1)));
+                Mockito.spy(new BigQuerySourceSplitReader(options, context));
         List<Long> offsets = new ArrayList<>();
         Mockito.doAnswer(
                         invocation -> {
@@ -109,13 +133,14 @@ public class BigQuerySourceSplitReaderTest {
             reader.handleSplitsChanges(
                     new SplitsAddition<>(
                             Collections.singletonList(new BigQuerySourceSplit("stream1", 50L))));
-            int read = 0;
+            List<String> emitted = new ArrayList<>();
             int finished = 0;
             for (int fetch = 0; fetch < 20 && finished == 0; fetch++) {
                 RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
                 while (batch.nextSplit() != null) {
-                    while (batch.nextRecordFromSplit() != null) {
-                        read++;
+                    GenericRecord record;
+                    while ((record = batch.nextRecordFromSplit()) != null) {
+                        emitted.add(record.toString());
                     }
                 }
                 finished += batch.finishedSplits().size();
@@ -124,8 +149,17 @@ public class BigQuerySourceSplitReaderTest {
             assertThat(finished).isEqualTo(1);
             // the first fetch emits rows 50 to 149, then the stream fails; the retry must start
             // at 150, not at the restored offset 50, or rows 50 to 149 are emitted twice
-            assertThat(offsets).containsExactly(50L, 150L).inOrder();
-            assertThat(read).isEqualTo(250);
+            assertThat(offsets).containsExactly(50L, fetchSize == 100 ? 150L : 50L).inOrder();
+            List<String> expected = new ArrayList<>();
+            for (GenericRecord record : records.subList(50, 50 + expectedCount)) {
+                expected.add(record.toString());
+            }
+            assertThat(emitted).hasSize(expectedCount);
+            assertThat(emitted).containsExactlyElementsIn(expected).inOrder();
+            RecordsWithSplitIds<GenericRecord> afterFinish = reader.fetch();
+            assertThat(afterFinish.nextSplit()).isNull();
+            assertThat(afterFinish.finishedSplits()).isEmpty();
+            afterFinish.recycle();
         } finally {
             reader.close();
         }
