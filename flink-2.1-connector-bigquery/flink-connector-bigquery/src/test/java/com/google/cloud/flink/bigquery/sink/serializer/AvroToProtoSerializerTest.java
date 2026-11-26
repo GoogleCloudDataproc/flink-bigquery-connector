@@ -2119,4 +2119,22 @@ public class AvroToProtoSerializerTest {
                         .get(0);
         return new TestSchemaProvider(avroSchema, descriptor);
     }
+
+    @Test
+    public void testDatesNearTheEpochKeepTheirIntegerType() {
+        Schema schema =
+                new Schema.Parser()
+                        .parse(
+                                "{\"type\":\"record\",\"name\":\"root\",\"fields\":["
+                                        + "{\"name\":\"day\",\"type\":{\"type\":\"int\","
+                                        + "\"logicalType\":\"date\"}}]}");
+        Descriptor descriptor = new BigQuerySchemaProviderImpl(schema).getDescriptor();
+        // values between -128 and 127 are boxed to cached Integer objects
+        for (int day : new int[] {-128, -1, 0, 1, 127, 128, 19802}) {
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("day", day);
+            DynamicMessage message = getDynamicMessageFromGenericRecord(record, descriptor);
+            assertEquals(day, message.getField(descriptor.findFieldByName("day")));
+        }
+    }
 }

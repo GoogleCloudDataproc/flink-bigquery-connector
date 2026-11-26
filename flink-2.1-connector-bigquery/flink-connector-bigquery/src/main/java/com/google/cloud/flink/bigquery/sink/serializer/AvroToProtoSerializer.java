@@ -337,6 +337,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 if (convertedValue != value) {
                     return convertedValue;
                 }
+                // a converter can return the same boxed object, for example convertDate for a
+                // DATE between -128 and 127 days, so match the field's type instead of assuming
+                // that no conversion happened
+                if (fieldDescriptor != null
+                        && fieldDescriptor.getJavaType() == FieldDescriptor.JavaType.INT) {
+                    return ((Number) value).intValue();
+                }
                 return ((Number) value).longValue();
             case BYTES:
                 // Find if it is of decimal Type.
