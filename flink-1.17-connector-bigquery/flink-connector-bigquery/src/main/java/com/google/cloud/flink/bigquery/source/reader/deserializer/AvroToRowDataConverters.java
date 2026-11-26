@@ -36,7 +36,6 @@ import org.apache.flink.table.types.logical.TimeType;
 import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
-import com.google.api.client.util.Preconditions;
 import com.google.cloud.Timestamp;
 import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
@@ -445,13 +444,15 @@ public class AvroToRowDataConverters {
 
     private static int convertToMillisTime(Object object, int precision) {
         // if precision is 3. Otherwise, Error.
-        Preconditions.checkArgument(
-                precision == MILLIS_PRECISION,
-                String.format(
-                        "Avro to RowData Conversion Error:%n"
-                                + "The millisecond-precision TIME type within the Avro schema uses a precision of '%d',"
-                                + "Supported '%d'",
-                        precision, MILLIS_PRECISION));
+        // build the message only on failure: it is formatted for every TIME value otherwise
+        if (precision != MILLIS_PRECISION) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Avro to RowData Conversion Error:%n"
+                                    + "The millisecond-precision TIME type within the Avro schema uses a precision of '%d',"
+                                    + "Supported '%d'",
+                            precision, MILLIS_PRECISION));
+        }
         if (object instanceof Integer) {
             return (int) object;
         } else if (object instanceof LocalTime) {
@@ -465,13 +466,15 @@ public class AvroToRowDataConverters {
 
     private static long convertToMicrosTime(Object object, int precision) {
         // if precision is 6. Otherwise, Error.
-        Preconditions.checkArgument(
-                precision == MICROS_PRECISION,
-                String.format(
-                        "Avro to RowData Conversion Error:%n"
-                                + "The microsecond-precision TIME type within the Avro schema uses a precision of '%d',"
-                                + "Supported '%d'",
-                        precision, MICROS_PRECISION));
+        // build the message only on failure: it is formatted for every TIME value otherwise
+        if (precision != MICROS_PRECISION) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Avro to RowData Conversion Error:%n"
+                                    + "The microsecond-precision TIME type within the Avro schema uses a precision of '%d',"
+                                    + "Supported '%d'",
+                            precision, MICROS_PRECISION));
+        }
         if (object instanceof Long) {
             return ((Long) object);
         } else if (object instanceof LocalTime) {
