@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /** A split reader for {@link BigQuerySourceSplit}. */
@@ -155,8 +156,15 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         }
     }
 
+    private final Object backOffLock = new Object();
+    // guarded by backOffLock
+    private boolean wakeUpRequested = false;
+
     @Override
     public RecordsWithSplitIds<GenericRecord> fetch() throws IOException {
+        synchronized (backOffLock) {
+            wakeUpRequested = false;
+        }
         if (closed) {
             throw new IllegalStateException("Can't fetch records from a closed split reader.");
         }
@@ -299,6 +307,11 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                             readSoFar,
                             Optional.ofNullable(configuration).map(Object::toString).orElse("NA")),
                     ex);
+            if (ex instanceof InterruptedException
+                    || (ex.getCause() instanceof InterruptedException)) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Fetch interrupted", ex);
+            }
             closeClient();
             // release the iterator just in case
             readStreamIterator = null;
@@ -334,7 +347,8 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         Throwable current = error;
         for (int depth = 0; current != null && depth < 20; depth++) {
             if (current instanceof ApiException) {
-                return RETRYABLE_CODES.contains(((ApiException) current).getStatusCode().getCode());
+                StatusCode statusCode = ((ApiException) current).getStatusCode();
+                return statusCode != null && RETRYABLE_CODES.contains(statusCode.getCode());
             }
             current = current.getCause();
         }
@@ -346,8 +360,18 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
                 MAX_RETRY_DELAY_MILLIS, INITIAL_RETRY_DELAY_MILLIS << Math.min(failures - 1, 20));
     }
 
+    /** Waits before the next retry. Returns early when {@link #wakeUp()} is called. */
     void backOff(long millis) throws InterruptedException {
-        Thread.sleep(millis);
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
+        synchronized (backOffLock) {
+            while (!wakeUpRequested) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    return;
+                }
+                TimeUnit.NANOSECONDS.timedWait(backOffLock, remaining);
+            }
+        }
     }
 
     @Override
@@ -369,7 +393,10 @@ public class BigQuerySourceSplitReader implements SplitReader<GenericRecord, Big
         LOG.debug(
                 "[subtask #{}][hostname %{}] Wake up called.",
                 readerContext.getIndexOfSubtask(), readerContext.getLocalHostName());
-        // do nothing, for now
+        synchronized (backOffLock) {
+            wakeUpRequested = true;
+            backOffLock.notifyAll();
+        }
     }
 
     @Override
