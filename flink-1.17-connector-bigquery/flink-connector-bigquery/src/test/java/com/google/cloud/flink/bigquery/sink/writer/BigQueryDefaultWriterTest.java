@@ -48,6 +48,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link BigQueryDefaultWriter}. */
@@ -121,6 +122,48 @@ public class BigQueryDefaultWriterTest {
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriter.getCount());
         assertEquals(1, defaultWriter.numberOfRecordsSeenByWriterSinceCheckpoint.getCount());
         getTestQueryClient();
+    }
+
+    @Test
+    public void testTableCheckDoesNotWaitForFirstResponseValidation() {
+        BigQueryDefaultWriter<Object> writer =
+                createDefaultWriter(
+                        TestBigQuerySchemas.getSimpleRecordSchema(),
+                        new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                        AppendRowsResponse.newBuilder().build(),
+                        null,
+                        true);
+        writer.write(new Object(), null);
+        writer.append();
+        writer.write(new Object(), null);
+        writer.append();
+        assertEquals(0, writer.totalRecordsWritten);
+        assertEquals(2, writer.getAppendResponseFuturesQueue().size());
+        assertEquals(1, getTestQueryClient().getTableExistsInvocatioks());
+    }
+
+    @Test
+    public void testFailedTableCheckIsRetried() {
+        BigQueryDefaultWriter<Object> writer =
+                Mockito.spy(
+                        createDefaultWriter(
+                                TestBigQuerySchemas.getSimpleRecordSchema(),
+                                new FakeBigQuerySerializer(ByteString.copyFromUtf8("foobar")),
+                                AppendRowsResponse.newBuilder().build(),
+                                null,
+                                true));
+        Mockito.doThrow(new IllegalStateException("table check failed"))
+                .doCallRealMethod()
+                .when(writer)
+                .ensureTableExists();
+        writer.write(new Object(), null);
+        assertThrows(IllegalStateException.class, writer::append);
+        assertEquals(1, writer.getProtoRows().getSerializedRowsCount());
+        writer.append();
+        writer.write(new Object(), null);
+        writer.append();
+        Mockito.verify(writer, Mockito.times(2)).ensureTableExists();
+        assertEquals(1, getTestQueryClient().getTableExistsInvocatioks());
     }
 
     @Test
