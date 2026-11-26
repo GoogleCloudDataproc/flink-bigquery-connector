@@ -25,9 +25,64 @@ import org.junit.Test;
 import java.io.IOException;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /** Tests for {@link BigQueryServices}. */
 public class BigQueryServicesTest {
+    @Test
+    public void factoriesKeepTheirOwnCredentialsAndServices() throws IOException {
+        BigQueryServices firstServices = mock(BigQueryServices.class);
+        BigQueryServices secondServices = mock(BigQueryServices.class);
+        CredentialsOptions firstCredentials =
+                CredentialsOptions.builder().setAccessToken("first").build();
+        CredentialsOptions secondCredentials =
+                CredentialsOptions.builder().setAccessToken("second").build();
+        BigQueryServicesFactory first =
+                BigQueryServicesFactory.instance(
+                        BigQueryConnectOptions.builderForQuerySource()
+                                .setCredentialsOptions(firstCredentials)
+                                .setTestingBigQueryServices(() -> firstServices)
+                                .build());
+        BigQueryServicesFactory second =
+                BigQueryServicesFactory.instance(
+                        BigQueryConnectOptions.builderForQuerySource()
+                                .setCredentialsOptions(secondCredentials)
+                                .setTestingBigQueryServices(() -> secondServices)
+                                .build());
+
+        first.queryClient();
+        first.storageRead();
+        first.storageWrite();
+        second.queryClient();
+        second.storageRead();
+        second.storageWrite();
+
+        verify(firstServices).createQueryDataClient(firstCredentials);
+        verify(firstServices).createStorageReadClient(firstCredentials);
+        verify(firstServices).createStorageWriteClient(firstCredentials);
+        verify(secondServices).createQueryDataClient(secondCredentials);
+        verify(secondServices).createStorageReadClient(secondCredentials);
+        verify(secondServices).createStorageWriteClient(secondCredentials);
+    }
+
+    @Test
+    public void defaultFactoryDoesNotResetAnotherFactory() {
+        BigQueryServices services = mock(BigQueryServices.class);
+        BigQueryServicesFactory testing =
+                BigQueryServicesFactory.instance(
+                        BigQueryConnectOptions.builderForQuerySource()
+                                .setTestingBigQueryServices(() -> services)
+                                .build());
+        BigQueryServicesFactory normal =
+                BigQueryServicesFactory.instance(
+                        BigQueryConnectOptions.builderForQuerySource().build());
+
+        assertThat(testing.getIsTestingEnabled()).isTrue();
+        assertThat(testing.getTestingServices()).isSameInstanceAs(services);
+        assertThat(normal.getIsTestingEnabled()).isFalse();
+    }
+
     @Test
     public void testFactoryWithTestServices() throws IOException {
         SerializableSupplier<BigQueryServices> dummyServices =

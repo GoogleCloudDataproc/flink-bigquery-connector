@@ -32,27 +32,29 @@ import java.io.IOException;
 @Internal
 public class BigQueryServicesFactory {
 
-    private static final BigQueryServicesFactory INSTANCE = new BigQueryServicesFactory();
     private static final BigQueryServices SERVICES = new BigQueryServicesImpl();
 
     private Boolean isTestingEnabled = false;
     private BigQueryServices testingServices;
-    private BigQueryConnectOptions bqConnectOptions;
+    private final BigQueryConnectOptions bqConnectOptions;
 
-    private BigQueryServicesFactory() {}
+    private BigQueryServicesFactory(BigQueryConnectOptions options) {
+        this.bqConnectOptions = options;
+    }
 
     /**
-     * Returns the factory instance, given the current factory's internal state.
+     * Returns a new factory scoped to the supplied connect options.
      *
      * @param options The BigQuery connect options.
      * @return A factory instance.
      */
     public static BigQueryServicesFactory instance(BigQueryConnectOptions options) {
-        INSTANCE.bqConnectOptions = options;
+        BigQueryServicesFactory factory =
+                new BigQueryServicesFactory(Preconditions.checkNotNull(options));
         if (options.getTestingBigQueryServices() == null) {
-            return INSTANCE.defaultImplementation();
+            return factory;
         } else {
-            return INSTANCE.withTestingServices(options.getTestingBigQueryServices().get());
+            return factory.withTestingServices(options.getTestingBigQueryServices().get());
         }
     }
 
