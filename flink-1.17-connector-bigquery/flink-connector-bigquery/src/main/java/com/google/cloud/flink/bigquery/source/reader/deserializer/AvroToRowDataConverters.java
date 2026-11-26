@@ -38,7 +38,7 @@ import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.Timestamp;
-import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryDatetimeParser;
 import com.google.cloud.flink.bigquery.sink.serializer.AvroSchemaConvertor;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
@@ -366,16 +366,16 @@ public class AvroToRowDataConverters {
             // Formatting,
             // according to
             // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#datetime_type.
-            String tsValue;
-            if (object instanceof String) {
-                tsValue = (String) object;
-            } else {
-                tsValue = ((Utf8) object).toString();
-            }
             try {
                 // LocalDateTime will handle the precision.
-                return TimestampData.fromLocalDateTime(
-                        LocalDateTime.parse(tsValue, DateTimeFormatterPatterns.DATETIME_FORMATTER));
+                LocalDateTime datetime;
+                if (object instanceof String) {
+                    datetime = BigQueryDatetimeParser.parse((String) object);
+                } else {
+                    Utf8 utf8 = (Utf8) object;
+                    datetime = BigQueryDatetimeParser.parse(utf8.getBytes(), utf8.getByteLength());
+                }
+                return TimestampData.fromLocalDateTime(datetime);
             } catch (DateTimeParseException e) {
                 String invalidFormatError =
                         String.format(
