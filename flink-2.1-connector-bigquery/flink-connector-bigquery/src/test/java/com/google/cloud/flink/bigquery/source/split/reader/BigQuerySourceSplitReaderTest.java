@@ -22,7 +22,9 @@ import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.services.BigQueryServices;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
 import com.google.cloud.flink.bigquery.source.split.BigQuerySourceSplit;
@@ -34,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -258,6 +261,97 @@ public class BigQuerySourceSplitReaderTest {
         assertThat(BigQuerySourceSplitReader.isRetryable(error)).isFalse();
         assertThat(BigQuerySourceSplitReader.isRetryable(new IOException("wrapped", error)))
                 .isFalse();
+    }
+
+    @Test
+    public void testWakeUpDuringAReadDoesNotFailTheFetch() throws Exception {
+        BigQuerySourceSplitReader reader =
+                Mockito.spy(
+                        new BigQuerySourceSplitReader(
+                                StorageClientFaker.createReadOptions(
+                                        10, 1, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING),
+                                new BigQuerySourceReaderContext(
+                                        Mockito.mock(SourceReaderContext.class), -1)));
+        CountDownLatch reading = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Mockito.doAnswer(
+                        invocation -> {
+                            @SuppressWarnings("unchecked")
+                            BigQueryServices.BigQueryServerStream<ReadRowsResponse> stream =
+                                    (BigQueryServices.BigQueryServerStream<ReadRowsResponse>)
+                                            invocation.callRealMethod();
+                            return new BlockingServerStream(stream, reading, release);
+                        })
+                .when(reader)
+                .retrieveReadStream(Mockito.any());
+        reader.handleSplitsChanges(
+                new SplitsAddition<>(
+                        Collections.singletonList(new BigQuerySourceSplit("stream", 0L))));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<RecordsWithSplitIds<GenericRecord>> fetch = executor.submit(reader::fetch);
+            assertThat(reading.await(10, TimeUnit.SECONDS)).isTrue();
+            // Flink calls wakeUp() while a fetch runs, for example when it adds a split
+            reader.wakeUp();
+            release.countDown();
+            RecordsWithSplitIds<GenericRecord> batch = fetch.get(10, TimeUnit.SECONDS);
+            int read = 0;
+            while (batch.nextSplit() != null) {
+                while (batch.nextRecordFromSplit() != null) {
+                    read++;
+                }
+            }
+            assertThat(read).isEqualTo(10);
+            assertThat(batch.finishedSplits()).containsExactly("stream");
+        } finally {
+            executor.shutdownNow();
+            reader.close();
+        }
+    }
+
+    /** Blocks the first read until released; an interrupt fails the read, as in gRPC. */
+    private static class BlockingServerStream
+            implements BigQueryServices.BigQueryServerStream<ReadRowsResponse> {
+        private final BigQueryServices.BigQueryServerStream<ReadRowsResponse> delegate;
+        private final CountDownLatch reading;
+        private final CountDownLatch release;
+
+        BlockingServerStream(
+                BigQueryServices.BigQueryServerStream<ReadRowsResponse> delegate,
+                CountDownLatch reading,
+                CountDownLatch release) {
+            this.delegate = delegate;
+            this.reading = reading;
+            this.release = release;
+        }
+
+        @Override
+        public Iterator<ReadRowsResponse> iterator() {
+            Iterator<ReadRowsResponse> responses = delegate.iterator();
+            return new Iterator<ReadRowsResponse>() {
+                @Override
+                public boolean hasNext() {
+                    reading.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Thread interrupted", e);
+                    }
+                    return responses.hasNext();
+                }
+
+                @Override
+                public ReadRowsResponse next() {
+                    return responses.next();
+                }
+            };
+        }
+
+        @Override
+        public void cancel() {
+            delegate.cancel();
+        }
     }
 
     private static BigQuerySourceSplitReader readerWithFailingStream(Exception error)
