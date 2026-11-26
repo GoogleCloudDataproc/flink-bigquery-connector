@@ -99,6 +99,7 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     private BigQuerySchemaProvider schemaProvider;
     private ProtoSchema protoSchema;
     private boolean firstWritePostConstructor = true;
+    private boolean tableCheckedBeforeAppend;
 
     final CreateTableOptions createTableOptions;
     final boolean fatalizeSerializer;
@@ -253,12 +254,13 @@ abstract class BaseWriter<IN> implements SinkWriter<IN> {
     /** Send append request to BigQuery storage and prepare for next append request. */
     void append() {
         // Before sending data to BigQuery, check if new table needs to be created.
-        if (totalRecordsWritten == 0) {
+        if (!tableCheckedBeforeAppend) {
             // Throttle writer to ensure proper usage of BigQuery APIs.
             logger.info("Throttling BigQuery writer in subtask {}", subtaskId);
             throttler.throttle();
             // Verify if destination table exists. If not, then create one based on sink config.
             ensureTableExists();
+            tableCheckedBeforeAppend = true;
         }
         sendAppendRequest(protoRowsBuilder.build());
         protoRowsBuilder.clear();
