@@ -99,18 +99,30 @@ repository.
 
 Users can obtain the connector artifact from our [GitHub repository](https://github.com/GoogleCloudDataproc/flink-bigquery-connector).
 
+The source tree provides a dedicated artifact and build profile for each supported Flink API line:
+
+| Flink runtime | Maven profile | Connector artifact | Flink compile version |
+|---------------|---------------|--------------------|-----------------------|
+| 1.15.x-1.20.x | `flink_1.17` | `flink-1.17-connector-bigquery` | 1.17.1 |
+| 2.1.x | `flink_2.1` | `flink-2.1-connector-bigquery` | 2.1.2 |
+| 2.2.x | `flink_2.2` | `flink-2.2-connector-bigquery` | 2.2.1 |
+| 2.3.x | `flink_2.3` | `flink-2.3-connector-bigquery` | 2.3.0 |
+
+The 2.2 and 2.3 coordinates are available from source on the `main` branch and will not be available from Maven
+Central until they are included in a connector release.
+
 ##### Steps to Build Locally
 
 ```shell
 git clone https://github.com/GoogleCloudDataproc/flink-bigquery-connector
 cd flink-bigquery-connector
-git checkout tags/1.1.0
-mvn clean install -DskipTests -Pflink_1.17
+./mvnw clean install -DskipTests -Pflink_2.3
 ```
 
-Resulting jars can be found in the target directory of respective modules, i.e. 
-`flink-bigquery-connector/flink-1.17-connector-bigquery/flink-connector-bigquery/target` for the connector, 
-and `flink-bigquery-connector/flink-1.17-connector-bigquery/flink-connector-bigquery-examples/target` for a sample 
+Choose the profile that matches the target Flink runtime from the table above. Resulting jars can be found in the
+target directory of the respective version module, for example
+`flink-bigquery-connector/flink-2.3-connector-bigquery/flink-connector-bigquery/target` for the connector and
+`flink-bigquery-connector/flink-2.3-connector-bigquery/flink-connector-bigquery-examples/target` for a sample
 application.
 
 Maven artifacts are installed under `.m2/repository`.
@@ -118,6 +130,19 @@ Maven artifacts are installed under `.m2/repository`.
 If only the jars are needed, then execute maven `package` instead of `install`.
 
 #### Compilation Dependency
+
+For a connector built from this source tree, use the artifact ID for the target Flink runtime from the table above
+and the project version installed by Maven. For example, the current checkout installs the Flink 2.3 connector as:
+
+```xml
+<dependency>
+  <groupId>com.google.cloud.flink</groupId>
+  <artifactId>flink-2.3-connector-bigquery</artifactId>
+  <version>1.2-SNAPSHOT</version>
+</dependency>
+```
+
+The following examples refer specifically to the latest released Flink 1.17 artifact.
 
 ##### Maven
 
@@ -144,6 +169,8 @@ where google and apache dependencies are shaded. This jar is created using maven
 
 ### Connector to Flink Compatibility
 
+The table below records compatibility for the released `flink-1.17-connector-bigquery` artifact:
+
 | Connector tag \ Flink runtime | 1.15.x | 1.16.x | 1.17.x | 1.18.x | 1.19.x | 1.20.x |
 |-------------------------------|--------|--------|--------|--------|--------|--------|
 | 0.1.0-preview                 | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
@@ -155,9 +182,17 @@ where google and apache dependencies are shaded. This jar is created using maven
 | 1.0.0                         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
 | 1.1.0                         | ✓      | ✓      | ✓      | ✓      | ✓      | ✓      |
 
-Note that this connector is built on Flink 1.17 libraries. In order to run it in other Flink runtimes without 
+That artifact is built on Flink 1.17 libraries. In order to run it in other Flink runtimes without
 using the shaded jar, you have to exclude the entire flink module, i.e. `group = "org.apache.flink"`, when 
 importing the connector as a dependency.
+
+For Flink 2.x, use the artifact that matches the runtime minor line:
+
+| Flink runtime | Connector artifact |
+|---------------|--------------------|
+| 2.1.x | `flink-2.1-connector-bigquery` |
+| 2.2.x | `flink-2.2-connector-bigquery` |
+| 2.3.x | `flink-2.3-connector-bigquery` |
 
 ### Create a Google Cloud Dataproc cluster (Optional)
 
@@ -640,8 +675,9 @@ metrics.reporter.slf4j.interval: <TIME INTERVAL> //e.g. 10 SECONDS
 
 ## Example Application
 
-The `flink-1.17-connector-bigquery-examples`  and `flink-1.17-connector-bigquery-table-api-examples`
-modules offer a sample Flink application powered by the connector.
+Each version-specific module contains `flink-<version>-connector-bigquery-examples` and
+`flink-<version>-connector-bigquery-table-api-examples` modules with sample Flink applications powered by the
+connector.
 It can be found at `com.google.cloud.flink.bigquery.examples.BigQueryExample` for the Datastream API 
 and at `com.google.cloud.flink.bigquery.examples.BigQueryTableExample` for the Table API and SQL.
 It offers an intuitive hands-on application with elaborate guidance to test out the connector and 
@@ -654,7 +690,6 @@ The connector currently does not offer the following:
 
 * Unbounded source
 * Update or delete in sink
-* Explicit connector artifact for non 1.17 Flink versions
 * Dead letter queue
 
 ### Data Types
