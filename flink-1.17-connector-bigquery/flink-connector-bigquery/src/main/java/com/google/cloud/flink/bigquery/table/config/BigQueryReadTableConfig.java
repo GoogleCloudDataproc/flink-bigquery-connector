@@ -31,6 +31,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
     private final String rowRestriction;
     private final String columnProjection;
     private final Integer maxStreamCount;
+    private final Integer avroProjectedBatchSize;
     private final Long snapshotTimestamp;
     private final Boolean viewsEnabled;
     private final String materializationProject;
@@ -56,7 +57,8 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             String materializationProject,
             String materializationDataset,
             Integer materializationExpirationHours,
-            String billingProject) {
+            String billingProject,
+            Integer avroProjectedBatchSize) {
         super(
                 project,
                 quotaProjectId,
@@ -77,6 +79,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         this.materializationDataset = materializationDataset;
         this.materializationExpirationHours = materializationExpirationHours;
         this.billingProject = billingProject;
+        this.avroProjectedBatchSize = avroProjectedBatchSize;
     }
 
     public static BigQueryReadTableConfig.Builder newBuilder() {
@@ -127,6 +130,11 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
             tableDescriptorBuilder.option(
                     BigQueryConnectorOptions.BILLING_PROJECT, this.billingProject);
         }
+        if (this.avroProjectedBatchSize != null) {
+            tableDescriptorBuilder.option(
+                    BigQueryConnectorOptions.AVRO_PROJECTED_BATCH_SIZE,
+                    this.avroProjectedBatchSize);
+        }
         return tableDescriptorBuilder.build();
     }
 
@@ -138,6 +146,7 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
 
         private String columnProjection;
         private Integer maxStreamCount;
+        private Integer avroProjectedBatchSize;
         private Long snapshotTimestamp;
         private Boolean viewsEnabled;
         private String materializationProject;
@@ -234,6 +243,19 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
         }
 
         /**
+         * [OPTIONAL, Read Configuration] Integer value enabling projected, incremental Avro
+         * decoding, with at most this many decoded rows per fetch. The decoder skips the fields
+         * outside the projected columns. Values above 10000 log a memory-use warning but are not
+         * rejected. <br>
+         * Default: 0 - The existing decoder and fetch behavior are used.
+         */
+        public BigQueryReadTableConfig.Builder avroProjectedBatchSize(
+                Integer avroProjectedBatchSize) {
+            this.avroProjectedBatchSize = avroProjectedBatchSize;
+            return this;
+        }
+
+        /**
          * [OPTIONAL, Read Configuration] Long value indicating the millis since epoch for the
          * underlying table snapshot. Connector would read records from this snapshot instance
          * table. <br>
@@ -291,7 +313,8 @@ public class BigQueryReadTableConfig extends BigQueryTableConfig {
                     materializationProject,
                     materializationDataset,
                     materializationExpirationHours,
-                    billingProject);
+                    billingProject,
+                    avroProjectedBatchSize);
         }
     }
 }

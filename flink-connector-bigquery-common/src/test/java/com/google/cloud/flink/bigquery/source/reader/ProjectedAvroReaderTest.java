@@ -227,6 +227,24 @@ public class ProjectedAvroReaderTest {
     }
 
     @Test
+    public void checksSubPathsOfAFieldThatIsAlsoSelectedWhole() {
+        IllegalArgumentException notRecord =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ProjectedAvroReader.projectSchema(
+                                        SCHEMA, Arrays.asList("id", "id.sub")));
+        assertThat(notRecord).hasMessageThat().contains("'id.sub'");
+        IllegalArgumentException missing =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ProjectedAvroReader.projectSchema(
+                                        SCHEMA, Arrays.asList("items", "items.missing")));
+        assertThat(missing).hasMessageThat().contains("[items.missing]");
+    }
+
+    @Test
     public void keepsArrayProperties() {
         Schema schema =
                 new Schema.Parser()
