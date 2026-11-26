@@ -65,6 +65,7 @@ import java.util.Optional;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 
 /** Tests for the {@link BigQueryDynamicTableSource} factory class. */
 public class BigQueryDynamicTableFactoryTest {
@@ -626,6 +627,22 @@ public class BigQueryDynamicTableFactoryTest {
         BigQueryDynamicTableSink dynamicSink = (BigQueryDynamicTableSink) sink;
         assertEquals(WriteMode.STORAGE_WRITE_API, dynamicSink.getSinkConfig().getWriteMode());
         assertNull(dynamicSink.getSinkConfig().getTempGcsPath());
+    }
+
+    @Test
+    public void testApplyLimitAboveIntegerRangeDoesNotTruncateInput() throws IOException {
+        BigQueryDynamicTableSource source =
+                new BigQueryDynamicTableSource(
+                        getConnectorOptions(), SCHEMA.toPhysicalRowDataType(), null);
+        for (long limit : new long[] {(long) Integer.MAX_VALUE + 1, 1L << 32, Long.MAX_VALUE}) {
+            source.applyLimit(limit);
+            assertThat(source.getReadOptions().getLimit()).isEqualTo(Optional.empty());
+        }
+        source.applyLimit(Integer.MAX_VALUE);
+        assertThat(source.getReadOptions().getLimit()).isEqualTo(Optional.of(Integer.MAX_VALUE));
+        source.applyLimit(0);
+        assertThat(source.getReadOptions().getLimit()).isEqualTo(Optional.of(0));
+        assertThrows(IllegalArgumentException.class, () -> source.applyLimit(-1));
     }
 
     @Test

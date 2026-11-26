@@ -195,7 +195,14 @@ public class BigQueryDynamicTableSource
 
     @Override
     public void applyLimit(long limit) {
-        this.readOptions = this.readOptions.toBuilder().setLimit((int) limit).build();
+        if (limit < 0) {
+            throw new IllegalArgumentException("Limit must not be negative");
+        }
+        this.readOptions =
+                this.readOptions
+                        .toBuilder()
+                        .setLimit(limit > Integer.MAX_VALUE ? null : (int) limit)
+                        .build();
     }
 
     @Override
