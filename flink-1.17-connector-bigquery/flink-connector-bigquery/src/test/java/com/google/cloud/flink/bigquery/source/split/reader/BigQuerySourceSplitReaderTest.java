@@ -20,6 +20,8 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 
+import com.google.api.gax.rpc.ApiException;
+import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
 import com.google.cloud.flink.bigquery.source.config.BigQueryReadOptions;
 import com.google.cloud.flink.bigquery.source.reader.BigQuerySourceReaderContext;
@@ -29,12 +31,263 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 /** */
 public class BigQuerySourceSplitReaderTest {
+
+    @Test
+    public void testFetchFailsOnAnErrorThatARetryCannotFix() throws Exception {
+        BigQuerySourceSplitReader reader =
+                readerWithFailingStream(
+                        new IOException(
+                                "could not open the stream",
+                                StorageClientFaker.apiException(
+                                        StatusCode.Code.PERMISSION_DENIED, "denied")));
+        List<Long> delays = recordBackOffDelays(reader);
+        try {
+            IOException error = assertThrows(IOException.class, reader::fetch);
+            assertThat(error).hasMessageThat().contains("retry cannot fix");
+            assertThat(delays).isEmpty();
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testFetchFailsOnAnErrorWithoutAStatusCode() throws Exception {
+        BigQuerySourceSplitReader reader =
+                readerWithFailingStream(
+                        new IOException(
+                                "could not decode",
+                                new IllegalArgumentException("Avro schema not initialized")));
+        List<Long> delays = recordBackOffDelays(reader);
+        try {
+            IOException error = assertThrows(IOException.class, reader::fetch);
+            assertThat(error).hasMessageThat().contains("retry cannot fix");
+            assertThat(delays).isEmpty();
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testFetchRetriesATransientErrorWithGrowingDelaysThenFails() throws Exception {
+        BigQuerySourceSplitReader reader =
+                readerWithFailingStream(
+                        StorageClientFaker.apiException(
+                                StatusCode.Code.UNAVAILABLE, "connection reset"));
+        List<Long> delays = recordBackOffDelays(reader);
+        try {
+            for (int attempt = 1;
+                    attempt < BigQuerySourceSplitReader.MAX_CONSECUTIVE_FETCH_FAILURES;
+                    attempt++) {
+                RecordsWithSplitIds<GenericRecord> batch = reader.fetch();
+                assertThat(batch.nextSplit()).isNull();
+                assertThat(batch.finishedSplits()).isEmpty();
+            }
+            IOException error = assertThrows(IOException.class, reader::fetch);
+            assertThat(error).hasMessageThat().contains("10 times in a row");
+            assertThat(delays)
+                    .containsExactly(
+                            1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 30_000L, 30_000L, 30_000L,
+                            30_000L)
+                    .inOrder();
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testSuccessfulFetchResetsTheRetryDelay() throws Exception {
+        BigQuerySourceSplitReader reader =
+                Mockito.spy(
+                        new BigQuerySourceSplitReader(
+                                StorageClientFaker.createReadOptions(
+                                        10, 2, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING),
+                                new BigQuerySourceReaderContext(
+                                        Mockito.mock(SourceReaderContext.class), -1)));
+        ApiException transientError =
+                StorageClientFaker.apiException(StatusCode.Code.UNAVAILABLE, "connection reset");
+        Mockito.doThrow(transientError)
+                .doCallRealMethod()
+                .doThrow(transientError)
+                .doCallRealMethod()
+                .when(reader)
+                .retrieveReadStream(Mockito.any());
+        List<Long> delays = recordBackOffDelays(reader);
+        reader.handleSplitsChanges(
+                new SplitsAddition<>(
+                        Arrays.asList(
+                                new BigQuerySourceSplit("stream1", 0L),
+                                new BigQuerySourceSplit("stream2", 0L))));
+        try {
+            List<String> finished = new ArrayList<>();
+            for (int fetch = 0; fetch < 4; fetch++) {
+                finished.addAll(reader.fetch().finishedSplits());
+            }
+            assertThat(finished).containsExactly("stream1", "stream2").inOrder();
+            assertThat(delays).containsExactly(1_000L, 1_000L).inOrder();
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testWakeUpEndsTheRetryDelay() throws Exception {
+        BigQuerySourceSplitReader reader =
+                readerWithFailingStream(
+                        StorageClientFaker.apiException(
+                                StatusCode.Code.UNAVAILABLE, "connection reset"));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> delay =
+                    executor.submit(
+                            () -> {
+                                reader.backOff(TimeUnit.MINUTES.toMillis(5));
+                                return null;
+                            });
+            Thread.sleep(100);
+            reader.wakeUp();
+            delay.get(10, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testWakeUpDuringTheRetryDelayReturnsAnEmptyBatch() throws Exception {
+        BigQuerySourceSplitReader reader =
+                readerWithFailingStream(
+                        StorageClientFaker.apiException(
+                                StatusCode.Code.UNAVAILABLE, "connection reset"));
+        CountDownLatch inBackOff = new CountDownLatch(1);
+        Mockito.doAnswer(
+                        invocation -> {
+                            inBackOff.countDown();
+                            return invocation.callRealMethod();
+                        })
+                .when(reader)
+                .backOff(Mockito.anyLong());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<RecordsWithSplitIds<GenericRecord>> fetch = executor.submit(reader::fetch);
+            assertThat(inBackOff.await(10, TimeUnit.SECONDS)).isTrue();
+            reader.wakeUp();
+            RecordsWithSplitIds<GenericRecord> batch = fetch.get(10, TimeUnit.SECONDS);
+            assertThat(batch.nextSplit()).isNull();
+            assertThat(batch.finishedSplits()).isEmpty();
+        } finally {
+            executor.shutdownNow();
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testInterruptDuringTheRetryDelayFailsTheFetch() throws Exception {
+        BigQuerySourceSplitReader reader =
+                readerWithFailingStream(
+                        StorageClientFaker.apiException(
+                                StatusCode.Code.UNAVAILABLE, "connection reset"));
+        CountDownLatch inBackOff = new CountDownLatch(1);
+        Mockito.doAnswer(
+                        invocation -> {
+                            inBackOff.countDown();
+                            return invocation.callRealMethod();
+                        })
+                .when(reader)
+                .backOff(Mockito.anyLong());
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        AtomicBoolean interruptedAfterwards = new AtomicBoolean();
+        Thread fetcher =
+                new Thread(
+                        () -> {
+                            try {
+                                reader.fetch();
+                            } catch (Throwable t) {
+                                failure.set(t);
+                            }
+                            interruptedAfterwards.set(Thread.currentThread().isInterrupted());
+                        });
+        try {
+            fetcher.start();
+            assertThat(inBackOff.await(10, TimeUnit.SECONDS)).isTrue();
+            fetcher.interrupt();
+            fetcher.join(TimeUnit.SECONDS.toMillis(10));
+            assertThat(failure.get()).isInstanceOf(IOException.class);
+            assertThat(failure.get()).hasMessageThat().isEqualTo("Fetch interrupted");
+            assertThat(interruptedAfterwards.get()).isTrue();
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testInterruptedReadFailsTheFetchWithoutRetrying() throws Exception {
+        BigQuerySourceSplitReader reader =
+                readerWithFailingStream(
+                        new RuntimeException("Thread interrupted", new InterruptedException()));
+        List<Long> delays = recordBackOffDelays(reader);
+        try {
+            IOException error = assertThrows(IOException.class, reader::fetch);
+            assertThat(error).hasMessageThat().isEqualTo("Fetch interrupted");
+            assertThat(Thread.interrupted()).isTrue();
+            assertThat(delays).isEmpty();
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    public void testErrorWithoutAStatusCodeIsNotRetryable() {
+        ApiException error = Mockito.mock(ApiException.class);
+        assertThat(BigQuerySourceSplitReader.isRetryable(error)).isFalse();
+        assertThat(BigQuerySourceSplitReader.isRetryable(new IOException("wrapped", error)))
+                .isFalse();
+    }
+
+    private static BigQuerySourceSplitReader readerWithFailingStream(Exception error)
+            throws IOException {
+        BigQuerySourceSplitReader reader =
+                Mockito.spy(
+                        new BigQuerySourceSplitReader(
+                                StorageClientFaker.createReadOptions(
+                                        10, 1, StorageClientFaker.SIMPLE_AVRO_SCHEMA_STRING),
+                                new BigQuerySourceReaderContext(
+                                        Mockito.mock(SourceReaderContext.class), -1)));
+        Mockito.doThrow(error).when(reader).retrieveReadStream(Mockito.any());
+        reader.handleSplitsChanges(
+                new SplitsAddition<>(
+                        Collections.singletonList(new BigQuerySourceSplit("stream", 0L))));
+        return reader;
+    }
+
+    private static List<Long> recordBackOffDelays(BigQuerySourceSplitReader reader)
+            throws InterruptedException {
+        List<Long> delays = new ArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            delays.add(invocation.getArgument(0));
+                            return null;
+                        })
+                .when(reader)
+                .backOff(Mockito.anyLong());
+        return delays;
+    }
 
     @Test
     public void testSplitReaderSmall() throws IOException {

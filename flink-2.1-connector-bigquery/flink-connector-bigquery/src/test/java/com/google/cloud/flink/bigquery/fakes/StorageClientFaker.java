@@ -327,7 +327,8 @@ public class StorageClientFaker {
             @Override
             public T next() {
                 if (random.nextDouble() * 100 < errorPercentage) {
-                    throw new RuntimeException(
+                    throw apiException(
+                            StatusCode.Code.UNAVAILABLE,
                             "Faulty iterator has failed, it will happen with a chance of: "
                                     + errorPercentage);
                 }
@@ -544,9 +545,19 @@ public class StorageClientFaker {
 
         static class TestStatusCode implements StatusCode {
 
+            private final Code code;
+
+            TestStatusCode() {
+                this(null);
+            }
+
+            TestStatusCode(Code code) {
+                this.code = code;
+            }
+
             @Override
             public Code getCode() {
-                return null;
+                return code;
             }
 
             @Override
@@ -554,6 +565,11 @@ public class StorageClientFaker {
                 return null;
             }
         }
+    }
+
+    public static ApiException apiException(StatusCode.Code code, String message) {
+        return new ApiException(
+                message, null, new FakeBigQueryServices.TestStatusCode(code), false);
     }
 
     public static final String SIMPLE_AVRO_SCHEMA_FIELDS_STRING =
