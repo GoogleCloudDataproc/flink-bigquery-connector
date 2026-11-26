@@ -128,6 +128,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     // the destination column type, and the Flink type does not determine it.
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
+                    return (long) element.getByte(fieldNumber);
                 case SMALLINT:
                     return (long) element.getShort(fieldNumber);
                 case INTEGER:

@@ -164,9 +164,11 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
             case BIGINT:
                 return record.getLong(fieldIndex);
             case INTEGER:
-            case TINYINT:
-            case SMALLINT:
                 return (long) record.getInt(fieldIndex);
+            case TINYINT:
+                return (long) record.getByte(fieldIndex);
+            case SMALLINT:
+                return (long) record.getShort(fieldIndex);
             case TIMESTAMP_WITHOUT_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 int precision;
@@ -249,6 +251,7 @@ public class RowDataToProtoSerializer extends BigQueryProtoSerializer<RowData> {
                     // the destination column type, and the Flink type does not determine it.
                     return BigDecimalByteStringEncoder.encodeToNumericByteString(decimalValue);
                 case TINYINT:
+                    return (long) element.getByte(fieldNumber);
                 case SMALLINT:
                     return (long) element.getShort(fieldNumber);
                 case INTEGER:

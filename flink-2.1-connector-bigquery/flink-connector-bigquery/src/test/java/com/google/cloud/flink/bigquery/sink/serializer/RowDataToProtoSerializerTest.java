@@ -24,6 +24,8 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.data.binary.BinaryRowData;
+import org.apache.flink.table.data.writer.BinaryRowWriter;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.DecimalType;
@@ -1420,32 +1422,65 @@ public class RowDataToProtoSerializerTest {
 
     @Test
     public void testSmallIntConversionToByteStringCorrectly() {
+        LogicalType logicalType = tinyIntSmallIntIntRowType();
+        GenericRowData row = new GenericRowData(3);
+        row.setField(0, (byte) -123);
+        row.setField(1, (short) -12345);
+        row.setField(2, 123);
 
-        // Form the Schema.
-        DataType dataType =
-                DataTypes.ROW(
-                                DataTypes.FIELD("tinyint_type", DataTypes.TINYINT().notNull()),
-                                DataTypes.FIELD("int_type", DataTypes.INT().notNull()))
-                        .notNull();
-        LogicalType logicalType = dataType.getLogicalType();
+        assertTinyIntSmallIntIntConversion(logicalType, row);
+    }
+
+    @Test
+    public void testSmallIntConversionFromBinaryRowData() {
+        LogicalType logicalType = tinyIntSmallIntIntRowType();
+        BinaryRowData row = new BinaryRowData(3);
+        BinaryRowWriter writer = new BinaryRowWriter(row);
+        writer.writeByte(0, (byte) -123);
+        writer.writeShort(1, (short) -12345);
+        writer.writeInt(2, 123);
+        writer.complete();
+
+        assertTinyIntSmallIntIntConversion(logicalType, row);
+    }
+
+    @Test
+    public void testExtractSequenceNumberFromSmallIntegerFields() {
+        RowDataToProtoSerializer serializer =
+                new RowDataToProtoSerializer(tinyIntSmallIntIntRowType());
+        GenericRowData row = GenericRowData.of((byte) 12, (short) 1234, 123456);
+
+        assertEquals(
+                String.format("%016X", 12L), serializer.extractSequenceNumber(row, "tinyint_type"));
+        assertEquals(
+                String.format("%016X", 1234L),
+                serializer.extractSequenceNumber(row, "smallint_type"));
+        assertEquals(
+                String.format("%016X", 123456L), serializer.extractSequenceNumber(row, "int_type"));
+    }
+
+    private static LogicalType tinyIntSmallIntIntRowType() {
+        return DataTypes.ROW(
+                        DataTypes.FIELD("tinyint_type", DataTypes.TINYINT().notNull()),
+                        DataTypes.FIELD("smallint_type", DataTypes.SMALLINT().notNull()),
+                        DataTypes.FIELD("int_type", DataTypes.INT().notNull()))
+                .notNull()
+                .getLogicalType();
+    }
+
+    private static void assertTinyIntSmallIntIntConversion(LogicalType logicalType, RowData row) {
         Schema avroSchema = BigQueryTableSchemaProvider.getAvroSchemaFromLogicalSchema(logicalType);
         BigQuerySchemaProvider bigQuerySchemaProvider = new BigQuerySchemaProviderImpl(avroSchema);
         Descriptor descriptor = bigQuerySchemaProvider.getDescriptor();
-
-        // Initialize the record.
-        GenericRowData row = new GenericRowData(2);
-        row.setField(0, (short) 123);
-        row.setField(1, 123);
-
         RowDataToProtoSerializer rowDataToProtoSerializer =
                 new RowDataToProtoSerializer(logicalType);
         rowDataToProtoSerializer.init(bigQuerySchemaProvider);
 
-        // Check for the desired results.
         DynamicMessage message =
                 rowDataToProtoSerializer.getDynamicMessageFromRowData(row, descriptor, logicalType);
-        assertEquals(123L, message.getField(descriptor.findFieldByNumber(1)));
-        assertEquals(123L, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(-123L, message.getField(descriptor.findFieldByNumber(1)));
+        assertEquals(-12345L, message.getField(descriptor.findFieldByNumber(2)));
+        assertEquals(123L, message.getField(descriptor.findFieldByNumber(3)));
     }
 
     /**
