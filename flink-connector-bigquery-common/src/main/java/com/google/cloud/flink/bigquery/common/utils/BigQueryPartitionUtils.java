@@ -33,6 +33,8 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -70,7 +72,6 @@ public class BigQueryPartitionUtils {
     private static final String SQL_DAY_FORMAT_STRING = "yyyy-MM-dd";
     private static final String SQL_MONTH_FORMAT_STRING = "yyyy-MM-01";
     private static final String SQL_YEAR_FORMAT_STRING = "yyyy-01-01";
-    private static final String SQL_TIMESTAMP_FORMAT_STRING = "yyyy-MM-dd HH:mm:ss";
 
     // Static DateTimeFormatters to avoid repeated pattern compilation
     private static final DateTimeFormatter SQL_HOUR_FORMATTER =
@@ -81,8 +82,19 @@ public class BigQueryPartitionUtils {
             DateTimeFormatter.ofPattern(SQL_MONTH_FORMAT_STRING).withZone(UTC_ZONE);
     private static final DateTimeFormatter SQL_YEAR_FORMATTER =
             DateTimeFormatter.ofPattern(SQL_YEAR_FORMAT_STRING).withZone(UTC_ZONE);
+    // DAY, MONTH and YEAR partition values of TIMESTAMP and DATETIME columns have no time part
+    // (see partitionValuesFromIdAndDataType), HOUR partition values have one.
     private static final DateTimeFormatter SQL_TIMESTAMP_FORMATTER =
-            DateTimeFormatter.ofPattern(SQL_TIMESTAMP_FORMAT_STRING).withZone(UTC_ZONE);
+            new DateTimeFormatterBuilder()
+                    .appendPattern(SQL_DAY_FORMAT_STRING)
+                    .optionalStart()
+                    .appendPattern(" HH:mm:ss")
+                    .optionalEnd()
+                    .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+                    .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+                    .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+                    .toFormatter()
+                    .withZone(UTC_ZONE);
 
     private static final SimpleDateFormat BQPARTITION_HOUR_FORMAT =
             new SimpleDateFormat(BQPARTITION_HOUR_FORMAT_STRING);

@@ -443,6 +443,54 @@ public class BigQueryPartitionUtilsTest {
     }
 
     @Test
+    public void testListedTimestampPartitionValuesBecomeRestrictions() {
+        for (StandardSQLTypeName type :
+                Arrays.asList(StandardSQLTypeName.TIMESTAMP, StandardSQLTypeName.DATETIME)) {
+            assertListedPartitionRestriction(
+                    type,
+                    PartitionType.HOUR,
+                    "2023062822",
+                    "dragon >= '2023-06-28 22:00:00' AND dragon < '2023-06-28 23:00:00'");
+            assertListedPartitionRestriction(
+                    type,
+                    PartitionType.DAY,
+                    "20230628",
+                    "dragon >= '2023-06-28' AND dragon < '2023-06-29'");
+            assertListedPartitionRestriction(
+                    type,
+                    PartitionType.MONTH,
+                    "202306",
+                    "dragon >= '2023-06-01' AND dragon < '2023-07-01'");
+            assertListedPartitionRestriction(
+                    type,
+                    PartitionType.YEAR,
+                    "2023",
+                    "dragon >= '2023-01-01' AND dragon < '2024-01-01'");
+        }
+    }
+
+    private static void assertListedPartitionRestriction(
+            StandardSQLTypeName type,
+            PartitionType partitionType,
+            String partitionId,
+            String expected) {
+        // the table source returns these values from listPartitions(), and Flink passes them
+        // back unchanged to applyPartitions()
+        List<String> values =
+                BigQueryPartitionUtils.partitionValuesFromIdAndDataType(
+                        Collections.singletonList(partitionId), type);
+        String actual =
+                BigQueryPartitionUtils.formatPartitionRestrictionBasedOnInfo(
+                        Optional.of(
+                                new TablePartitionInfo(
+                                        "dragon", partitionType, type, Instant.now())),
+                        "dragon",
+                        values.get(0));
+
+        Assertions.assertThat(actual).as(type + " " + partitionType).isEqualTo(expected);
+    }
+
+    @Test
     public void testFormatPartitionRestrictionBasedOnInfoNullValue() {
         String expected = "dragon IS NULL";
         String actual =
