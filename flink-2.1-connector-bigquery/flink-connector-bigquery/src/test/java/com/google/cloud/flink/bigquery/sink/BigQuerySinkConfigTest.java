@@ -17,6 +17,8 @@
 package com.google.cloud.flink.bigquery.sink;
 
 import org.apache.flink.api.common.serialization.BulkWriter;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.core.fs.FSDataOutputStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -258,6 +260,48 @@ public class BigQuerySinkConfigTest {
     public void testValidation_withNoRestart() throws Exception {
         try (StreamExecutionEnvironment env =
                 new StreamExecutionEnvironment(noRestartStrategyConfig())) {
+            validateStreamExecutionEnvironment(env);
+        }
+    }
+
+    @Test
+    public void testValidation_withOtherNamesThatFlinkAcceptsForRestartStrategies()
+            throws Exception {
+        for (String name : Arrays.asList("disable", "off", "none", "Disable")) {
+            validateWithRestartStrategyName(noRestartStrategyConfig(), name);
+        }
+        for (String name : Arrays.asList("fixeddelay", "FIXED-DELAY")) {
+            validateWithRestartStrategyName(
+                    fixedDelayRestartStrategyConfig(5, Duration.ofSeconds(5)), name);
+        }
+        validateWithRestartStrategyName(
+                exponentialDelayRestartStrategyConfig(
+                        Duration.ofSeconds(5),
+                        Duration.ofMinutes(10),
+                        3.0,
+                        Duration.ofHours(2),
+                        0.0),
+                "exponentialdelay");
+        validateWithRestartStrategyName(
+                failureRateRestartStrategyConfig(1, Duration.ofMinutes(2), Duration.ofSeconds(5)),
+                "failurerate");
+    }
+
+    @Test
+    public void testValidation_withOtherNameForFixedDelayRestart_withInvalidDelay()
+            throws Exception {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        validateWithRestartStrategyName(
+                                fixedDelayRestartStrategyConfig(5, Duration.ofMillis(500)),
+                                "fixeddelay"));
+    }
+
+    private static void validateWithRestartStrategyName(Configuration config, String name)
+            throws Exception {
+        config.set(RestartStrategyOptions.RESTART_STRATEGY, name);
+        try (StreamExecutionEnvironment env = new StreamExecutionEnvironment(config)) {
             validateStreamExecutionEnvironment(env);
         }
     }

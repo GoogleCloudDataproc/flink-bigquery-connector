@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -630,7 +631,7 @@ public class BigQuerySinkConfig<IN> {
             // Keep in mind, maximum 10,000 CreateWriteStream calls are allowed by BigQuery per hour
             // per
             // project per region.
-            String restartStrategy = maybeRestartStrategy.get();
+            String restartStrategy = normalizeRestartStrategy(maybeRestartStrategy.get());
             if (restartStrategy.equals(RESTART_STRATEGY_FIXED_DELAY)) {
                 Duration delayBetweenAttemptsInterval =
                         config.get(RestartStrategyOptions.RESTART_STRATEGY_FIXED_DELAY_DELAY);
@@ -742,6 +743,25 @@ public class BigQuerySinkConfig<IN> {
                             + " or"
                             + " "
                             + RESTART_STRATEGY_NONE);
+        }
+    }
+
+    // Flink lower-cases restart-strategy.type and accepts these other names for the same
+    // strategies (RestartStrategyOptions.RestartStrategyType, which is internal to Flink).
+    private static String normalizeRestartStrategy(String restartStrategy) {
+        String name = restartStrategy.toLowerCase(Locale.ROOT);
+        switch (name) {
+            case "fixeddelay":
+                return RESTART_STRATEGY_FIXED_DELAY;
+            case "exponentialdelay":
+                return RESTART_STRATEGY_EXPONENTIAL_DELAY;
+            case "failurerate":
+                return RESTART_STRATEGY_FAILURE_RATE;
+            case "disable":
+            case "off":
+                return RESTART_STRATEGY_NONE;
+            default:
+                return name;
         }
     }
 }
