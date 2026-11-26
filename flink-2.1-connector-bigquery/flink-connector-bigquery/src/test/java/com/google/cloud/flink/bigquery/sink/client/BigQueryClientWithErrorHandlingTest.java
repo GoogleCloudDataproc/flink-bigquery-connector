@@ -16,19 +16,29 @@
 
 package com.google.cloud.flink.bigquery.sink.client;
 
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.HttpHeaders;
+import com.google.api.client.http.HttpResponseException;
+import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.Table;
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.flink.bigquery.common.config.BigQueryConnectOptions;
 import com.google.cloud.flink.bigquery.common.exceptions.BigQueryConnectorException;
 import com.google.cloud.flink.bigquery.fakes.StorageClientFaker;
+import com.google.cloud.flink.bigquery.services.BigQueryUtils;
 import com.google.cloud.flink.bigquery.sink.writer.CreateTableOptions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+
+import java.io.IOException;
+import java.util.Arrays;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -113,6 +123,79 @@ public class BigQueryClientWithErrorHandlingTest {
     }
 
     @Test
+    public void testCreateCdcTable_ignoreAlreadyExistsError() throws Exception {
+        try (MockedStatic<BigQueryUtils> utils = mockCdcTableInsertFailingWith(409)) {
+            BigQueryClientWithErrorHandling.createTable(
+                    cdcConnectOptions(), cdcTableDefinition(), cdcCreateTableOptions());
+        }
+    }
+
+    @Test
+    public void testCreateCdcTable_withGoogleJsonResponseException() throws Exception {
+        try (MockedStatic<BigQueryUtils> utils = mockCdcTableInsertFailingWith(403)) {
+            BigQueryConnectorException exception =
+                    assertThrows(
+                            BigQueryConnectorException.class,
+                            () ->
+                                    BigQueryClientWithErrorHandling.createTable(
+                                            cdcConnectOptions(),
+                                            cdcTableDefinition(),
+                                            cdcCreateTableOptions()));
+            assertThat(exception).hasMessageThat().contains("Unable to create BigQuery table");
+            assertThat(exception).hasCauseThat().isInstanceOf(BigQueryException.class);
+        }
+    }
+
+    private static MockedStatic<BigQueryUtils> mockCdcTableInsertFailingWith(int statusCode)
+            throws IOException {
+        Bigquery.Builder builder = Mockito.mock(Bigquery.Builder.class);
+        Bigquery bigquery = Mockito.mock(Bigquery.class);
+        Bigquery.Tables tables = Mockito.mock(Bigquery.Tables.class);
+        Bigquery.Tables.Insert insert = Mockito.mock(Bigquery.Tables.Insert.class);
+        when(builder.build()).thenReturn(bigquery);
+        when(bigquery.tables()).thenReturn(tables);
+        when(tables.insert(Mockito.anyString(), Mockito.anyString(), Mockito.any(Table.class)))
+                .thenReturn(insert);
+        when(insert.setPrettyPrint(Mockito.anyBoolean())).thenReturn(insert);
+        when(insert.execute())
+                .thenThrow(
+                        new GoogleJsonResponseException(
+                                new HttpResponseException.Builder(
+                                        statusCode, "error", new HttpHeaders()),
+                                null));
+        MockedStatic<BigQueryUtils> utils = Mockito.mockStatic(BigQueryUtils.class);
+        utils.when(() -> BigQueryUtils.newBigqueryBuilder(Mockito.any())).thenReturn(builder);
+        return utils;
+    }
+
+    private static BigQueryConnectOptions cdcConnectOptions() {
+        return BigQueryConnectOptions.builder()
+                .setProjectId("project")
+                .setDataset("dataset")
+                .setTable("table")
+                .build();
+    }
+
+    private static StandardTableDefinition cdcTableDefinition() {
+        return StandardTableDefinition.newBuilder()
+                .setSchema(Schema.of(Field.of("shop_id", StandardSQLTypeName.INT64)))
+                .build();
+    }
+
+    private static CreateTableOptions cdcCreateTableOptions() {
+        return new CreateTableOptions(
+                true,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                Arrays.asList("shop_id"),
+                "INTERVAL 10 MINUTE");
+    }
+
+    @Test
     public void testToCdcTable() {
         BigQueryConnectOptions options =
                 BigQueryConnectOptions.builder()
@@ -122,10 +205,7 @@ public class BigQueryClientWithErrorHandlingTest {
                         .build();
         StandardTableDefinition tableDefinition =
                 StandardTableDefinition.newBuilder()
-                        .setSchema(
-                                Schema.of(
-                                        com.google.cloud.bigquery.Field.of(
-                                                "shop_id", StandardSQLTypeName.INT64)))
+                        .setSchema(Schema.of(Field.of("shop_id", StandardSQLTypeName.INT64)))
                         .build();
 
         Table table =
@@ -140,7 +220,7 @@ public class BigQueryClientWithErrorHandlingTest {
                                 null,
                                 null,
                                 true,
-                                java.util.Arrays.asList("shop_id"),
+                                Arrays.asList("shop_id"),
                                 "INTERVAL 10 MINUTE"));
 
         assertThat(table.getTableReference().getProjectId()).isEqualTo("project");
