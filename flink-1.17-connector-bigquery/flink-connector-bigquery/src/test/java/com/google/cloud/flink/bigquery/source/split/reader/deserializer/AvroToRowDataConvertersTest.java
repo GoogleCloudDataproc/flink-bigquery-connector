@@ -391,6 +391,9 @@ public class AvroToRowDataConvertersTest {
         Object convertedObject = converter.convert(record);
         assertEquals(GenericRowData.of(13500123456L), convertedObject);
 
+        record = new GenericRecordBuilder(avroSchema).set("time_field", 13500123456L).build();
+        assertEquals(GenericRowData.of(13500123456L), converter.convert(record));
+
         // Invalid Type.
         IndexedRecord invalidRecord =
                 new GenericRecordBuilder(avroSchema).set("time_field", "invalid_type").build();

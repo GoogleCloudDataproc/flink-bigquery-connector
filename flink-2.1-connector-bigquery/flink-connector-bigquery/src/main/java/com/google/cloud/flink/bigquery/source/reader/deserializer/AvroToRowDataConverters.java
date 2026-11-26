@@ -204,9 +204,9 @@ public class AvroToRowDataConverters {
             case TIME_WITHOUT_TIME_ZONE:
                 int timePrecision = ((TimeType) type).getPrecision();
                 if (timePrecision <= MILLIS_PRECISION) {
-                    return avroObject -> convertToMillisTime(avroObject, MILLIS_PRECISION);
+                    return AvroToRowDataConverters::convertToMillisTime;
                 } else if (timePrecision <= MICROS_PRECISION) {
-                    return avroObject -> convertToMicrosTime(avroObject, MICROS_PRECISION);
+                    return AvroToRowDataConverters::convertToMicrosTime;
                 } else {
                     throw new UnsupportedOperationException(
                             String.format(
@@ -442,17 +442,7 @@ public class AvroToRowDataConverters {
         }
     }
 
-    private static int convertToMillisTime(Object object, int precision) {
-        // if precision is 3. Otherwise, Error.
-        // build the message only on failure: it is formatted for every TIME value otherwise
-        if (precision != MILLIS_PRECISION) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Avro to RowData Conversion Error:%n"
-                                    + "The millisecond-precision TIME type within the Avro schema uses a precision of '%d',"
-                                    + "Supported '%d'",
-                            precision, MILLIS_PRECISION));
-        }
+    private static int convertToMillisTime(Object object) {
         if (object instanceof Integer) {
             return (int) object;
         } else if (object instanceof LocalTime) {
@@ -464,17 +454,7 @@ public class AvroToRowDataConverters {
         }
     }
 
-    private static long convertToMicrosTime(Object object, int precision) {
-        // if precision is 6. Otherwise, Error.
-        // build the message only on failure: it is formatted for every TIME value otherwise
-        if (precision != MICROS_PRECISION) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Avro to RowData Conversion Error:%n"
-                                    + "The microsecond-precision TIME type within the Avro schema uses a precision of '%d',"
-                                    + "Supported '%d'",
-                            precision, MICROS_PRECISION));
-        }
+    private static long convertToMicrosTime(Object object) {
         if (object instanceof Long) {
             return ((Long) object);
         } else if (object instanceof LocalTime) {
