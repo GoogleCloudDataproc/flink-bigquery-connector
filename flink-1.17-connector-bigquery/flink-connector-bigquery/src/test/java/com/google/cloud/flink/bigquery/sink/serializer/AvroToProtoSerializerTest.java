@@ -33,6 +33,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.avro.util.Utf8;
 import org.assertj.core.api.Assertions;
 import org.joda.time.DateTime;
 import org.joda.time.Instant;
@@ -51,6 +52,7 @@ import static com.google.cloud.flink.bigquery.sink.serializer.TestBigQuerySchema
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 /** Tests for {@link AvroToProtoSerializer}. */
 public class AvroToProtoSerializerTest {
@@ -511,6 +513,22 @@ public class AvroToProtoSerializerTest {
      *   <li>Float Value is passed - Error is expected.
      * </ol>
      */
+    @Test
+    public void testDateTimeConversionFromUtf8() {
+        // a Utf8 whose buffer is longer than its value, as when Avro reuses a buffer
+        Utf8 reused = new Utf8("2026-08-31T12:30:00.5 and more text");
+        reused.setByteLength(21);
+        assertEquals("2026-08-31T12:30:00.500000", AvroSchemaHandler.convertDateTime(reused, true));
+        // an invalid Utf8 value used to fail with a ClassCastException in the error message
+        IllegalArgumentException error =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                AvroSchemaHandler.convertDateTime(
+                                        new Utf8("2026-08-31T12:30:00Z"), true));
+        assertTrue(error.getMessage().contains("2026-08-31T12:30:00Z"));
+    }
+
     @Test
     public void testInvalidDateTimeConversion() {
         Object value = 1424413213878251952L;

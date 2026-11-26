@@ -30,6 +30,9 @@ import java.time.format.DateTimeParseException;
  * values as {@code YYYY-MM-DDTHH:MM:SS} with up to six fractional digits, so this class parses that
  * shape directly. Any other text, and any value that the shape cannot represent exactly, goes to
  * the formatter, so the accepted values and the errors do not change.
+ *
+ * <p>{@link #format(LocalDateTime)} writes values the way {@code
+ * DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER} does, also without the formatter.
  */
 public final class BigQueryDatetimeParser {
 
@@ -66,6 +69,41 @@ public final class BigQueryDatetimeParser {
         return LocalDateTime.parse(
                 new String(utf8, 0, length, StandardCharsets.UTF_8),
                 DateTimeFormatterPatterns.DATETIME_FORMATTER);
+    }
+
+    /**
+     * Formats a value as {@code uuuu-MM-dd'T'HH:mm:ss.SSSSSS}, with the same result as {@code
+     * value.format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER)}.
+     */
+    public static String format(LocalDateTime value) {
+        int year = value.getYear();
+        if (year < 0 || year > 9999) {
+            // the formatter adds a sign to these years
+            return value.format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER);
+        }
+        char[] text = new char[26];
+        put(text, 0, year, 4);
+        text[4] = '-';
+        put(text, 5, value.getMonthValue(), 2);
+        text[7] = '-';
+        put(text, 8, value.getDayOfMonth(), 2);
+        text[10] = 'T';
+        put(text, 11, value.getHour(), 2);
+        text[13] = ':';
+        put(text, 14, value.getMinute(), 2);
+        text[16] = ':';
+        put(text, 17, value.getSecond(), 2);
+        text[19] = '.';
+        put(text, 20, value.getNano() / 1_000, 6);
+        return new String(text);
+    }
+
+    /** Writes {@code value} as {@code count} decimal digits, with leading zeros. */
+    private static void put(char[] text, int start, int value, int count) {
+        for (int i = start + count - 1; i >= start; i--) {
+            text[i] = (char) ('0' + value % 10);
+            value /= 10;
+        }
     }
 
     /** Returns the value of the canonical shape, or null for any other text. */

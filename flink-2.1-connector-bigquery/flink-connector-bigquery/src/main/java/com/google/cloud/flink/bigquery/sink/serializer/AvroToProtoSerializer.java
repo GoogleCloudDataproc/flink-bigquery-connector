@@ -21,6 +21,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import com.google.api.client.util.Preconditions;
 import com.google.cloud.Timestamp;
 import com.google.cloud.bigquery.storage.v1.BigDecimalByteStringEncoder;
+import com.google.cloud.flink.bigquery.common.utils.BigQueryDatetimeParser;
 import com.google.cloud.flink.bigquery.common.utils.DateTimeFormatterPatterns;
 import com.google.cloud.flink.bigquery.sink.exceptions.BigQuerySerializationException;
 import com.google.protobuf.ByteString;
@@ -254,6 +255,20 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
      * @param descriptor {@link Descriptor} describing the schema of the sink table.
      * @return {@link DynamicMessage} Object converted from the Generic Avro Record.
      */
+    /**
+     * Same as {@code descriptor.findFieldByName(name.toLowerCase())}, without building a new string
+     * for names that are already lower case. It runs for every field of every record.
+     */
+    private static FieldDescriptor findFieldByLowerCaseName(Descriptor descriptor, String name) {
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '_') {
+                return descriptor.findFieldByName(name.toLowerCase());
+            }
+        }
+        return descriptor.findFieldByName(name);
+    }
+
     public static DynamicMessage getDynamicMessageFromGenericRecord(
             GenericRecord element, Descriptor descriptor) {
         Schema recordSchema = element.getSchema();
@@ -263,11 +278,10 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             // In case no field descriptor exists for the field, throw an error as we have
             // incompatible schemas.
             FieldDescriptor fieldDescriptor =
-                    Preconditions.checkNotNull(
-                            descriptor.findFieldByName(field.name().toLowerCase()));
+                    Preconditions.checkNotNull(findFieldByLowerCaseName(descriptor, field.name()));
             // Get the value for a field.
             // Check if the value is null.
-            @Nullable Object value = element.get(field.name());
+            @Nullable Object value = element.get(field.pos());
             if (value == null) {
                 // Do nothing in case value == null and fieldDescriptor != "REQUIRED"
                 if (fieldDescriptor.isRequired()) {
@@ -596,18 +610,13 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
                 Timestamp convertedTimestamp = Timestamp.ofTimeMicroseconds(convertedTs);
                 // Do not use LocalDateTime.toString() here: it omits the seconds when they are
                 // zero, and BigQuery rejects DATETIME strings without seconds.
-                return LocalDateTime.ofEpochSecond(
+                return BigQueryDatetimeParser.format(
+                        LocalDateTime.ofEpochSecond(
                                 convertedTimestamp.getSeconds(),
                                 convertedTimestamp.getNanos(),
-                                ZoneOffset.UTC)
-                        .format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER);
+                                ZoneOffset.UTC));
             }
-            String obtainedValue;
-            if (value instanceof String) {
-                obtainedValue = (String) value;
-            } else if (value instanceof Utf8) {
-                obtainedValue = ((Utf8) value).toString();
-            } else {
+            if (!(value instanceof String) && !(value instanceof Utf8)) {
                 LOG.error(
                         getLogErrorMessage(
                                 "String/Long/UTF-8",
@@ -622,14 +631,19 @@ public class AvroToProtoSerializer extends BigQueryProtoSerializer<GenericRecord
             // according to
             // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#datetime_type.
             try {
-                return LocalDateTime.parse(
-                                obtainedValue, DateTimeFormatterPatterns.DATETIME_FORMATTER)
-                        .format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER);
+                LocalDateTime datetime;
+                if (value instanceof String) {
+                    datetime = BigQueryDatetimeParser.parse((String) value);
+                } else {
+                    Utf8 utf8 = (Utf8) value;
+                    datetime = BigQueryDatetimeParser.parse(utf8.getBytes(), utf8.getByteLength());
+                }
+                return BigQueryDatetimeParser.format(datetime);
             } catch (DateTimeParseException e) {
+                // value may be a Utf8, which a cast to String would turn into a ClassCastException
                 throw new IllegalArgumentException(
                         String.format(
-                                "The datetime string obtained %s, is of invalid format.",
-                                (String) value));
+                                "The datetime string obtained %s, is of invalid format.", value));
             }
         }
 

@@ -138,6 +138,36 @@ public class BigQueryDatetimeParserTest {
                 .isEqualTo(LocalDateTime.of(2024, 1, 5, 9, 5, 3));
     }
 
+    @Test
+    public void formatsLikeTheOutputFormatter() {
+        List<LocalDateTime> values =
+                new ArrayList<>(
+                        Arrays.asList(
+                                LocalDateTime.of(2024, 3, 13, 0, 42),
+                                LocalDateTime.of(1, 1, 1, 0, 0, 0, 1),
+                                LocalDateTime.of(0, 1, 1, 0, 0),
+                                LocalDateTime.of(9999, 12, 31, 23, 59, 59, 999_999_999),
+                                LocalDateTime.of(10_000, 1, 1, 0, 0),
+                                LocalDateTime.of(-1, 6, 15, 12, 0, 0, 500_000_000)));
+        Random random = new Random(20261126L);
+        for (int i = 0; i < 20_000; i++) {
+            values.add(
+                    LocalDateTime.of(
+                            random.nextInt(10_000),
+                            1 + random.nextInt(12),
+                            1 + random.nextInt(28),
+                            random.nextInt(24),
+                            random.nextInt(60),
+                            random.nextInt(60),
+                            random.nextInt(1_000_000_000)));
+        }
+        for (LocalDateTime value : values) {
+            assertWithMessage(value.toString())
+                    .that(BigQueryDatetimeParser.format(value))
+                    .isEqualTo(value.format(DateTimeFormatterPatterns.DATETIME_OUTPUT_FORMATTER));
+        }
+    }
+
     private static LocalDateTime parseCanonical(String text) {
         byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
         return BigQueryDatetimeParser.parseCanonical(bytes, bytes.length);
