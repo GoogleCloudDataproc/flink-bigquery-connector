@@ -726,3 +726,9 @@ level view of the architecture is:
 Users are recommended to choose their application's restart strategy wisely and explicitly, to avoid incessant retries 
 which can potentially eat up your BigQuery resource quota, and disrupt the BigQuery Storage API backend. Regardless of 
 which strategy is adopted, the restarts must be finite and graciously spaced.
+
+For Flink 2.1, the connector accepts the same strategy names as Flink:
+`disable`, `none`, and `off`; `fixed-delay` and `fixeddelay`;
+`failure-rate` and `failurerate`; and `exponential-delay` and `exponentialdelay`.
+Strategy names are case-insensitive. Do not add spaces before or after a name.
+The existing checks for restart delays and failure rates still apply.
