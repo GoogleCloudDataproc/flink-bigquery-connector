@@ -217,6 +217,122 @@ public class BigQueryDynamicTableSourceDecodePathsTest {
                 .inOrder();
     }
 
+    @Test
+    public void decodePathsCoverTheRemainingTypeShapes() {
+        DataType declared =
+                DataTypes.ROW(
+                        DataTypes.FIELD("tags", DataTypes.ARRAY(DataTypes.STRING())),
+                        DataTypes.FIELD(
+                                "matrix",
+                                DataTypes.ARRAY(
+                                        DataTypes.ARRAY(
+                                                DataTypes.ROW(
+                                                        DataTypes.FIELD("a", DataTypes.BIGINT()),
+                                                        DataTypes.FIELD(
+                                                                "b", DataTypes.STRING()))))),
+                        DataTypes.FIELD(
+                                "recs",
+                                DataTypes.ARRAY(
+                                        DataTypes.ROW(
+                                                DataTypes.FIELD("id", DataTypes.BIGINT()),
+                                                DataTypes.FIELD(
+                                                        "detail",
+                                                        DataTypes.ROW(
+                                                                DataTypes.FIELD(
+                                                                        "x", DataTypes.DOUBLE()),
+                                                                DataTypes.FIELD(
+                                                                        "y",
+                                                                        DataTypes.DOUBLE())))))),
+                        DataTypes.FIELD(
+                                "address",
+                                DataTypes.ROW(DataTypes.FIELD("city", DataTypes.STRING()))),
+                        DataTypes.FIELD(
+                                "attrs",
+                                DataTypes.MAP(
+                                        DataTypes.STRING(),
+                                        DataTypes.ROW(DataTypes.FIELD("v", DataTypes.STRING())))));
+        String[][] columns = {{"tags"}, {"matrix"}, {"recs"}, {"address"}, {"attrs"}};
+        assertThat(BigQueryDynamicTableSource.avroDecodePaths(columns, rowType(declared)))
+                .containsExactly(
+                        "tags",
+                        "matrix.a",
+                        "matrix.b",
+                        "recs.id",
+                        "recs.detail.x",
+                        "recs.detail.y",
+                        "address.city",
+                        "attrs")
+                .inOrder();
+    }
+
+    @Test
+    public void projectionPushDownSetsTheDecodePaths() throws Exception {
+        DataType physical =
+                DataTypes.ROW(
+                        DataTypes.FIELD("user_id", DataTypes.BIGINT()),
+                        DataTypes.FIELD(
+                                "address",
+                                DataTypes.ROW(
+                                        DataTypes.FIELD("street", DataTypes.STRING()),
+                                        DataTypes.FIELD("city", DataTypes.STRING()))),
+                        DataTypes.FIELD(
+                                "recs",
+                                DataTypes.ARRAY(
+                                        DataTypes.ROW(
+                                                DataTypes.FIELD("score", DataTypes.DOUBLE()),
+                                                DataTypes.FIELD(
+                                                        "product_id", DataTypes.BIGINT())))));
+
+        // top-level columns, one of them an array of rows
+        BigQueryReadOptions options =
+                projectedOptions(
+                        physical,
+                        new int[][] {{0}, {2}},
+                        DataTypes.ROW(
+                                DataTypes.FIELD("user_id", DataTypes.BIGINT()),
+                                DataTypes.FIELD(
+                                        "recs",
+                                        DataTypes.ARRAY(
+                                                DataTypes.ROW(
+                                                        DataTypes.FIELD(
+                                                                "score", DataTypes.DOUBLE()),
+                                                        DataTypes.FIELD(
+                                                                "product_id",
+                                                                DataTypes.BIGINT()))))));
+        assertThat(options.getColumnNames()).containsExactly("user_id", "recs").inOrder();
+        assertThat(options.getProjectedAvroPaths())
+                .containsExactly("user_id", "recs.score", "recs.product_id")
+                .inOrder();
+
+        // a nested ROW field
+        options =
+                projectedOptions(
+                        physical,
+                        new int[][] {{1, 1}},
+                        DataTypes.ROW(DataTypes.FIELD("address_city", DataTypes.STRING())));
+        assertThat(options.getColumnNames()).containsExactly("address.city");
+        assertThat(options.getProjectedAvroPaths()).containsExactly("address.city");
+
+        // no columns, as for SELECT COUNT(*)
+        options = projectedOptions(physical, new int[0][], DataTypes.ROW());
+        assertThat(options.getColumnNames()).isEmpty();
+        assertThat(options.getAvroDecodePaths()).isEmpty();
+        assertThat(options.getProjectedAvroPaths()).isEmpty();
+    }
+
+    private static BigQueryReadOptions projectedOptions(
+            DataType physical, int[][] projectedFields, DataType produced) {
+        BigQueryDynamicTableSource source = new BigQueryDynamicTableSource(readOptions(), physical);
+        source.applyProjection(projectedFields, produced);
+        BigQuerySource<?> bqSource =
+                (BigQuerySource<?>)
+                        ((SourceProvider)
+                                        source.getScanRuntimeProvider(
+                                                ScanRuntimeProviderContext.INSTANCE))
+                                .createSource();
+        return bqSource.getReadOptions();
+    }
+
     private static List<String> paths(DataType declared) {
         return BigQueryDynamicTableSource.avroDecodePaths(COLUMNS, rowType(declared));
     }

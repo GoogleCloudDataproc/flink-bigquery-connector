@@ -47,6 +47,21 @@ public class BigQueryReadOptionsTest {
     }
 
     @Test
+    public void avroDecodePathsDefaultToEmptyAndTakePartInEquality() {
+        BigQueryReadOptions defaults = optionsBuilder().build();
+        assertThat(defaults.getAvroDecodePaths()).isEmpty();
+        BigQueryReadOptions withPaths =
+                defaults.toBuilder().setAvroDecodePaths(Arrays.asList("id")).build();
+        BigQueryReadOptions samePaths =
+                defaults.toBuilder()
+                        .setAvroDecodePaths(new ArrayList<>(Arrays.asList("id")))
+                        .build();
+        assertThat(withPaths).isNotEqualTo(defaults);
+        assertThat(withPaths).isEqualTo(samePaths);
+        assertThat(withPaths.hashCode()).isEqualTo(samePaths.hashCode());
+    }
+
+    @Test
     public void projectedAvroPathsFallBackToTheColumnNames() {
         BigQueryReadOptions options =
                 optionsBuilder().setColumnNames(Arrays.asList("id", "items")).build();

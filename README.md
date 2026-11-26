@@ -568,6 +568,7 @@ The connector supports a number of options to configure the source.
 | `limit`                   | Integer            | Maximum number of rows to read from source table **per task slot**. If unspecified, all rows are fetched.                                                                                                                                                                                       |
 | `maxRecordsPerSplitFetch` | Integer            | Maximum number of records to read from a split once Flink requests fetch. If unspecified, the default value used is 10000. <br/>**Note**: Configuring this number too high may cause memory pressure in the task manager, depending on the BigQuery record's size and total rows on the stream. |
 | `avroProjectedBatchSize`  | Integer            | Opt in to projected, incremental Avro decoding with at most this many decoded rows per fetch. The decoder skips the fields outside `columnNames`, and this replaces `maxRecordsPerSplitFetch` for the enabled path. If unspecified, the default value 0 keeps the existing decoder. See [Opt-in bounded Avro decoding](#opt-in-bounded-avro-decoding). |
+| `avroDecodePaths`         | List&lt;String&gt; | Dotted Avro field paths that the projected decoder keeps, down to the declared fields inside array elements. Used only when `avroProjectedBatchSize` is above 0, and does not change the read session's selected fields. If unspecified, the decoder keeps `columnNames`. The Table API sets these paths from the declared column types. |
 | `maxStreamCount`          | Integer            | Maximum read streams to open during a read session. BigQuery can return a lower number of streams than specified based on internal optimizations. If unspecified, this config is not set and BigQuery has complete control over the number of read streams created.                             |
 | `rowRestriction`          | String             | BigQuery SQL query for row filter pushdown. If unspecified, all rows are fetched.                                                                                                                                                                                                               |
 | `snapshotTimeInMillis`    | Long               | Time (in milliseconds since epoch) for the BigQuery table snapshot to read. If unspecified, the latest snapshot is read.                                                                                                                                                                        |
@@ -583,13 +584,26 @@ configuration warning, not a hard limit or a memory guarantee; choose a batch si
 that fits the row sizes in your table. The DataStream equivalent is
 `BigQueryReadOptions.builder().setAvroProjectedBatchSize(128)`.
 
-The enabled path uses the source's selected column paths as an Avro reader schema.
+The enabled path builds an Avro reader schema from a list of dotted field paths.
 Unselected fields are skipped during binary decoding, including nested fields in
-nullable and repeated records. An empty column list still means all columns.
-Column paths are trimmed and blank entries are ignored. A path that does not match
-a field, or that selects a field inside a field that is not a record, fails the read.
-BigQuery Storage API column projection already happens on the server; this is an
-additional decoder-side projection, not a replacement for that pushdown.
+nullable and repeated records. Paths are trimmed and blank entries are ignored. A
+path that does not match a field, or that selects a field inside a field that is
+not a record, fails the read. BigQuery Storage API column projection already
+happens on the server; this is an additional decoder-side projection, not a
+replacement for that pushdown.
+
+The decoder paths come from these sources:
+
+* **Table API and SQL:** the connector derives the paths from the declared column
+  types. It follows `ROW` fields and the elements of `ARRAY` columns down to the
+  declared leaves. For example, a column declared as
+  `items ARRAY<ROW<sku STRING, qty INT>>` decodes only `items.sku` and `items.qty`,
+  even though the read session must return each `items` element whole. A `MAP`,
+  a scalar array, or a `ROW` without fields keeps its whole column.
+* **DataStream API:** `BigQueryReadOptions.builder().setAvroDecodePaths(...)` sets
+  the paths. They do not change the read session's selected fields, which still
+  come from `columnNames`.
+* **Neither:** the decoder uses the column names. An empty list means all columns.
 
 Each fetch returns at most the configured number of decoded records. The decoder
 retains its position within a response until the next fetch, rather than building
